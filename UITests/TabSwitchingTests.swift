@@ -11,8 +11,8 @@ final class TabSwitchingTests: BaseTestCase {
     func testClickSwitchesTab() {
         app.buttons["tab-button-Tab1"].firstMatch.click()
         screenshot("09-switched-to-tab1")
-        XCTAssertTrue(app.buttons["tab-button-Tab1"].firstMatch.isSelected)
-        XCTAssertFalse(app.buttons["tab-button-Tab2"].firstMatch.isSelected)
+        XCTAssertEqual(app.buttons["tab-button-Tab1"].firstMatch.value as? String, "active")
+        XCTAssertEqual(app.buttons["tab-button-Tab2"].firstMatch.value as? String, "inactive")
     }
 
     func testKeyboardShortcutSwitchesTab() {
