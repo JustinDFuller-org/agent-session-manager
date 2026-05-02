@@ -10,29 +10,32 @@ struct TabButtonView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Button {
-                appState.activeTabID = tab.id
-            } label: {
-                HStack(spacing: 6) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(tab.name)
-                            .font(.system(size: 12, weight: isActive ? .semibold : .regular))
-                            .lineLimit(1)
-                        Text(tab.directoryDisplayName)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(tab.name)
+                        .font(.system(size: 12, weight: isActive ? .semibold : .regular))
+                        .lineLimit(1)
+                    Text(tab.directoryDisplayName)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                .padding(.leading, 10)
-                .padding(.trailing, 4)
-                .padding(.vertical, 5)
+
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
+            .padding(.leading, 10)
+            .padding(.trailing, 4)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+            .highPriorityGesture(TapGesture().onEnded {
+                appState.activeTabID = tab.id
+            })
             .accessibilityIdentifier("tab-button-\(tab.name)")
             .accessibilityValue(isActive ? "active" : "inactive")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default) {
+                appState.activeTabID = tab.id
+            }
 
             Button {
                 appState.closeTab(tab)
