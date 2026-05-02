@@ -22,11 +22,12 @@ final class Tab: Identifiable {
     func addPane(name: String) {
         let pane = Pane(name: name, tab: self)
         let controller = TerminalController()
+        let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
+        controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)'"
+        controller.pendingDirectory = directory.path
         pane.terminalController = controller
         panes.append(pane)
-        let dir = directory.path.replacingOccurrences(of: "'", with: "'\\''")
-        let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
-        controller.startShellCommand("cd '\(dir)' && exec /Users/justinfuller/.local/bin/claude --worktree '\(escapedName)'")
+        // startProcess is called by TerminalRepresentable.Coordinator after the view is laid out
     }
 
     func closePane(_ pane: Pane) {

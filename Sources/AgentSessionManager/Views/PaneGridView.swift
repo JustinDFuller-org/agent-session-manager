@@ -25,18 +25,26 @@ struct PaneGridView: View {
     }
 
     private var panesGrid: some View {
-        let cols = Array(repeating: GridItem(.flexible(), spacing: 4), count: layout.columns)
-        return LazyVGrid(columns: cols, spacing: 4) {
-            ForEach(tab.panes) { pane in
-                PaneView(pane: pane, tab: tab)
-                    .id(pane.id)
+        GeometryReader { geo in
+            let spacing = 4.0
+            let padding = 4.0
+            let rows = Double(layout.rows)
+            let totalVertical = spacing * (rows - 1) + padding * 2
+            let cellHeight = max(1, (geo.size.height - totalVertical) / rows)
+            let cols = Array(repeating: GridItem(.flexible(), spacing: spacing), count: layout.columns)
+
+            LazyVGrid(columns: cols, spacing: spacing) {
+                ForEach(tab.panes) { pane in
+                    PaneView(pane: pane, tab: tab)
+                        .frame(height: cellHeight)
+                        .id(pane.id)
+                }
+                ForEach(0..<layout.emptyCells, id: \.self) { _ in
+                    Color.clear.frame(height: cellHeight)
+                }
             }
-            ForEach(0..<layout.emptyCells, id: \.self) { _ in
-                Color.clear
-            }
+            .padding(padding)
         }
-        .padding(4)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var tabEmptyState: some View {
