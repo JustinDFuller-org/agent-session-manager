@@ -2,7 +2,7 @@ import Foundation
 
 struct PersistedSession: Codable {
     var tabs: [PersistedTab]
-    var activeTabID: UUID?
+    var activeTabIndex: Int?
 }
 
 struct PersistedTab: Codable {
@@ -35,7 +35,8 @@ struct SessionPersistence {
                 panes: tab.panes.map { PersistedPane(id: $0.id, name: $0.name) }
             )
         }
-        let session = PersistedSession(tabs: tabs, activeTabID: appState.activeTabID)
+        let activeTabIndex = appState.tabs.firstIndex { $0.id == appState.activeTabID }
+        let session = PersistedSession(tabs: tabs, activeTabIndex: activeTabIndex)
         guard let data = try? JSONEncoder().encode(session) else { return }
         try? data.write(to: sessionURL)
     }
@@ -56,6 +57,10 @@ struct SessionPersistence {
             }
             appState.tabs.append(tab)
         }
-        appState.activeTabID = session.activeTabID ?? appState.tabs.first?.id
+        if let index = session.activeTabIndex, index < appState.tabs.count {
+            appState.activeTabID = appState.tabs[index].id
+        } else {
+            appState.activeTabID = appState.tabs.first?.id
+        }
     }
 }

@@ -5,8 +5,10 @@ import SwiftTerm
 final class TerminalController: NSObject {
     let terminalView: LocalProcessTerminalView
     private(set) var processState: ProcessState = .idle
+    var pendingCommand: String? = nil
+    var pendingDirectory: String? = nil
 
-    enum ProcessState {
+    enum ProcessState: Equatable {
         case idle
         case running(pid: Int32)
         case exited(code: Int32?)
@@ -18,17 +20,28 @@ final class TerminalController: NSObject {
         terminalView.processDelegate = self
     }
 
-    func start(executable: String, args: [String]) {
-        terminalView.startProcess(executable: executable, args: args)
-    }
-
-    func startShellCommand(_ command: String) {
-        start(executable: "/bin/bash", args: ["-c", command])
+    /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
+    func startProcess() {
+        if let cmd = pendingCommand {
+            terminalView.startProcess(
+                executable: "/bin/bash",
+                args: ["-c", cmd],
+                currentDirectory: pendingDirectory
+            )
+        } else {
+            terminalView.startProcess(
+                executable: "/bin/bash",
+                currentDirectory: pendingDirectory
+            )
+        }
+        let pid = terminalView.process.shellPid
+        if pid > 0 {
+            processState = .running(pid: pid)
+        }
     }
 
     func terminate() {
-        guard case .running(let pid) = processState, pid > 0 else { return }
-        kill(pid, SIGTERM)
+        terminalView.terminate()
     }
 }
 
@@ -40,10 +53,6 @@ extension TerminalController: LocalProcessTerminalViewDelegate {
     }
 
     nonisolated func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
-
     nonisolated func setTerminalTitle(source: LocalProcessTerminalView, title: String) {}
-
     nonisolated func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
-
-    nonisolated func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {}
 }
