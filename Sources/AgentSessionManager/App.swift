@@ -27,3 +27,9 @@ struct AgentSessionManagerApp: App {
 extension Notification.Name {
     static let newTab = Notification.Name("newTab")
 }
+
+extension AgentSessionManagerApp {
+    static var isUITesting: Bool {
+        CommandLine.arguments.contains("--uitesting")
+    }
+}

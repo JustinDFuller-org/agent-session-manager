@@ -1,0 +1,51 @@
+name: AgentSessionManager
+options:
+  bundleIdPrefix: com.justinfuller
+  deploymentTarget:
+    macOS: "14.0"
+  generateEmptyDirectories: true
+
+packages:
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm.git
+    from: 1.13.0
+
+targets:
+  AgentSessionManager:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/AgentSessionManager
+    info:
+      path: Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager
+        SWIFT_VERSION: 5.9
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - package: SwiftTerm
+        product: SwiftTerm
+    entitlements:
+      path: AgentSessionManager.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+        com.apple.security.automation.apple-events: true
+
+  AgentSessionManagerUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.uitests
+        SWIFT_VERSION: 5.9
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: ""
+        BUNDLE_LOADER: ""
+    dependencies:
+      - target: AgentSessionManager
+        embed: false

@@ -56,6 +56,7 @@ struct EmptyStateView: View {
                 .foregroundStyle(.quaternary)
             Text("Press ⌘T to create a tab")
                 .foregroundStyle(.secondary)
+                .accessibilityIdentifier("empty-state-hint")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

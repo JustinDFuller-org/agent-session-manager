@@ -50,10 +50,13 @@ struct PaneView: View {
                     .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("pane-close-\(pane.name)")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("pane-header-\(pane.name)")
     }
 
     @ViewBuilder

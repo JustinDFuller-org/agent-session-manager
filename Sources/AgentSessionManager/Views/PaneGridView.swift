@@ -73,5 +73,6 @@ struct PaneGridView: View {
         .buttonStyle(.plain)
         .padding(16)
         .keyboardShortcut("n", modifiers: [.command, .shift])
+        .accessibilityIdentifier("add-pane-button")
     }
 }

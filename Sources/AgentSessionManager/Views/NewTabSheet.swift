@@ -18,6 +18,7 @@ struct NewTabSheet: View {
                     .foregroundStyle(.secondary)
                 TextField("Feature Work, Ops, etc.", text: $name)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("new-tab-name-field")
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -30,9 +31,11 @@ struct NewTabSheet: View {
                         .foregroundStyle(directory == nil ? .secondary : .primary)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .accessibilityIdentifier("new-tab-directory-label")
                     Spacer()
                     Button("Choose…") { pickDirectory() }
                         .buttonStyle(.bordered)
+                        .accessibilityIdentifier("new-tab-choose-dir-button")
                 }
             }
 
@@ -40,6 +43,7 @@ struct NewTabSheet: View {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("new-tab-cancel-button")
                 Button("Create") {
                     if let dir = directory, !name.isEmpty {
                         appState.addTab(name: name, directory: dir)
@@ -48,6 +52,7 @@ struct NewTabSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(name.isEmpty || directory == nil)
+                .accessibilityIdentifier("new-tab-create-button")
             }
         }
         .padding(24)
@@ -55,6 +60,13 @@ struct NewTabSheet: View {
     }
 
     private func pickDirectory() {
+        if AgentSessionManagerApp.isUITesting {
+            let testDir = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
+            directory = testDir
+            if name.isEmpty { name = "UITestWorkspace" }
+            return
+        }
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
