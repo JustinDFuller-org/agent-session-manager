@@ -18,6 +18,7 @@ struct NewPaneSheet: View {
                 TextField("auth-refactor, fix-login-bug, etc.", text: $worktreeName)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { create() }
+                    .accessibilityIdentifier("new-pane-name-field")
                 Text("Will open at \(tab.directory.lastPathComponent)/.tree/\(worktreeName.isEmpty ? "<name>" : worktreeName)")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -28,9 +29,11 @@ struct NewPaneSheet: View {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("new-pane-cancel-button")
                 Button("Open") { create() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(worktreeName.isEmpty)
+                    .accessibilityIdentifier("new-pane-open-button")
             }
         }
         .padding(24)

@@ -9,7 +9,7 @@ struct AgentSessionManagerApp: App {
             ContentView()
                 .environment(appState)
                 .frame(minWidth: 900, minHeight: 600)
-                .task { SessionPersistence.restore(into: appState) }
+                .task { if !CommandLine.arguments.contains("--uitesting-skip-restore") { SessionPersistence.restore(into: appState) } }
                 .onChange(of: appState.tabs.count) { SessionPersistence.save(appState: appState) }
                 .onChange(of: appState.activeTabID) { SessionPersistence.save(appState: appState) }
         }
@@ -26,4 +26,10 @@ struct AgentSessionManagerApp: App {
 
 extension Notification.Name {
     static let newTab = Notification.Name("newTab")
+}
+
+extension AgentSessionManagerApp {
+    static var isUITesting: Bool {
+        CommandLine.arguments.contains("--uitesting")
+    }
 }

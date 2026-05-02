@@ -29,6 +29,7 @@ struct TabBarView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 4)
+            .accessibilityIdentifier("new-tab-button")
         }
         .background(.background.opacity(0.95))
     }

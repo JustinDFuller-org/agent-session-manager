@@ -55,6 +55,7 @@ struct PaneGridView: View {
             Text("Press + to open a pane")
                 .foregroundStyle(.secondary)
                 .font(.subheadline)
+                .accessibilityIdentifier("tab-empty-state-\(tab.name)")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -73,5 +74,6 @@ struct PaneGridView: View {
         .buttonStyle(.plain)
         .padding(16)
         .keyboardShortcut("n", modifiers: [.command, .shift])
+        .accessibilityIdentifier("add-pane-button")
     }
 }

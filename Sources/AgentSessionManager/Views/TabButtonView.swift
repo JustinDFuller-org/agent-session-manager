@@ -9,9 +9,7 @@ struct TabButtonView: View {
     }
 
     var body: some View {
-        Button {
-            appState.activeTabID = tab.id
-        } label: {
+        HStack(spacing: 0) {
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tab.name)
@@ -23,26 +21,41 @@ struct TabButtonView: View {
                         .lineLimit(1)
                 }
 
-                Button {
-                    appState.closeTab(tab)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
+            .padding(.leading, 10)
+            .padding(.trailing, 4)
             .padding(.vertical, 5)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(isActive ? Color.accentColor.opacity(0.4) : Color.clear, lineWidth: 1)
-            )
+            .contentShape(Rectangle())
+            .highPriorityGesture(TapGesture().onEnded {
+                appState.activeTabID = tab.id
+            })
+            .accessibilityIdentifier("tab-button-\(tab.name)")
+            .accessibilityValue(isActive ? "active" : "inactive")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default) {
+                appState.activeTabID = tab.id
+            }
+
+            Button {
+                appState.closeTab(tab)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 6)
+            .accessibilityIdentifier("tab-close-\(tab.name)")
         }
-        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(isActive ? Color.accentColor.opacity(0.4) : Color.clear, lineWidth: 1)
+        )
     }
 }
