@@ -11,7 +11,7 @@ class BaseTestCase: XCTestCase {
         createTestWorkspaceDirectory()
 
         app = XCUIApplication()
-        app.launchArguments = ["--uitesting"]
+        app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
         app.launch()
     }
 
@@ -48,6 +48,13 @@ class BaseTestCase: XCTestCase {
         let exp = XCTNSPredicateExpectation(predicate: pred, object: element)
         let result = XCTWaiter.wait(for: [exp], timeout: timeout)
         XCTAssertEqual(result, .completed, "Expected \(element.identifier) to disappear within \(timeout)s")
+    }
+
+    func waitForValue(_ element: XCUIElement, value: String, timeout: TimeInterval = 5) {
+        let pred = NSPredicate { _, _ in element.value as? String == value }
+        let exp = XCTNSPredicateExpectation(predicate: pred, object: nil)
+        let result = XCTWaiter.wait(for: [exp], timeout: timeout)
+        XCTAssertEqual(result, .completed, "Expected \(element.identifier) to have value '\(value)' within \(timeout)s")
     }
 
     var emptyStateHint: XCUIElement { app.staticTexts["empty-state-hint"] }
