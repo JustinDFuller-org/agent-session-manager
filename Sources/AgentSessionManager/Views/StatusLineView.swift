@@ -34,11 +34,9 @@ struct StatusLineView: View {
             }
         case .spaceBetween:
             HStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                ForEach(items) { item in
                     chipView(item: item, data: data)
-                    if index < items.count - 1 {
-                        Spacer()
-                    }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
