@@ -280,20 +280,44 @@ private struct StatusLineContent: View {
         @Bindable var appSettings = appSettings
         Form {
             Section {
-                Text("Configure which status items appear at the bottom of each pane. Items are populated from the Claude session data.")
+                Text("Configure the info panel shown at the bottom of each pane. Items are populated from Claude session data.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            Section("Items") {
+            Section("Display") {
+                Picker("Chip style", selection: $appSettings.statusLineConfig.chipLabelStyle) {
+                    ForEach(ChipLabelStyle.allCases, id: \.self) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .onChange(of: appSettings.statusLineConfig.chipLabelStyle) {
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                }
+                Picker("Item alignment", selection: $appSettings.statusLineConfig.rowAlignment) {
+                    ForEach(RowAlignment.allCases, id: \.self) { alignment in
+                        Text(alignment.displayName).tag(alignment)
+                    }
+                }
+                .onChange(of: appSettings.statusLineConfig.rowAlignment) {
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                }
+            }
+            Section {
                 ForEach($appSettings.statusLineConfig.items) { $item in
                     HStack {
+                        Image(systemName: item.sfSymbol)
+                            .frame(width: 16)
+                            .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.label)
                                 .font(.system(.body, design: .monospaced))
                                 .fontWeight(.medium)
-                            Text(itemDescription(for: item.id))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            let desc = itemDescription(for: item.id)
+                            if !desc.isEmpty {
+                                Text(desc)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Spacer()
                         Toggle("Visible", isOn: $item.isVisible)
@@ -304,6 +328,16 @@ private struct StatusLineContent: View {
                     }
                     .padding(.vertical, 2)
                 }
+                .onMove { from, to in
+                    appSettings.statusLineConfig.items.move(fromOffsets: from, toOffset: to)
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                }
+            } header: {
+                Text("Items")
+            } footer: {
+                Text("Drag items to reorder how they appear in the panel.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -311,12 +345,30 @@ private struct StatusLineContent: View {
 
     private func itemDescription(for id: String) -> String {
         switch id {
-        case "model": return "Claude model name, e.g. \"Opus\""
+        case "model": return "Claude model name"
         case "worktree": return "Git worktree name"
         case "cost": return "Total session cost in USD"
-        case "context": return "Context window usage percentage"
-        case "rate5h": return "5-hour rate limit usage"
-        case "rate7d": return "7-day rate limit usage"
+        case "context": return "Context window usage (with progress bar)"
+        case "effort": return "Effort level"
+        case "thinking": return "Whether extended thinking is on or off"
+        case "vimMode": return "Vim editor mode"
+        case "agentName": return "Agent name"
+        case "sessionName": return "Session name"
+        case "worktreeBranch": return "Git branch for the worktree"
+        case "gitWorktree": return "Git worktree path"
+        case "linesAdded": return "Total lines added this session"
+        case "linesRemoved": return "Total lines removed this session"
+        case "duration": return "Total session duration"
+        case "contextRemaining": return "Context window remaining percentage"
+        case "inputTokens": return "Total input tokens used"
+        case "outputTokens": return "Total output tokens used"
+        case "rate5h": return "5-hour rate limit usage (with progress bar)"
+        case "rate7d": return "7-day rate limit usage (with progress bar)"
+        case "rate5hReset": return "Time until 5-hour rate limit resets"
+        case "rate7dReset": return "Time until 7-day rate limit resets"
+        case "version": return "Claude CLI version"
+        case "outputStyle": return "Output style name"
+        case "exceeds200k": return "Warning when context exceeds 200k tokens"
         default: return ""
         }
     }

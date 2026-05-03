@@ -1,41 +1,117 @@
 import Foundation
 
+enum ChipLabelStyle: String, Codable, CaseIterable {
+    case symbolOnly
+    case symbolAndLabel
+    case labelOnly
+
+    var displayName: String {
+        switch self {
+        case .symbolOnly: return "Symbol only"
+        case .symbolAndLabel: return "Symbol + label"
+        case .labelOnly: return "Label only"
+        }
+    }
+}
+
+enum RowAlignment: String, Codable, CaseIterable {
+    case leading
+    case spaceBetween
+
+    var displayName: String {
+        switch self {
+        case .leading: return "Left-aligned"
+        case .spaceBetween: return "Spread evenly"
+        }
+    }
+}
+
 struct StatusLineItem: Codable, Identifiable {
     var id: String
     var label: String
+    var sfSymbol: String
     var isVisible: Bool
+
+    init(id: String, label: String, sfSymbol: String, isVisible: Bool) {
+        self.id = id
+        self.label = label
+        self.sfSymbol = sfSymbol
+        self.isVisible = isVisible
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        label = try container.decode(String.self, forKey: .label)
+        isVisible = try container.decode(Bool.self, forKey: .isVisible)
+        sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol)
+            ?? StatusLineConfig.itemMetadata[id]?.symbol ?? "circle"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, sfSymbol, isVisible
+    }
 }
 
 struct StatusLineConfig: Codable {
     var items: [StatusLineItem]
+    var chipLabelStyle: ChipLabelStyle
+    var rowAlignment: RowAlignment
+
+    static let itemMetadata: [String: (label: String, symbol: String)] = [
+        "model":            ("Model",             "cpu"),
+        "worktree":         ("Worktree",          "folder.badge.gearshape"),
+        "cost":             ("Cost",              "dollarsign.circle"),
+        "context":          ("Context %",         "gauge.with.needle"),
+        "effort":           ("Effort",            "dial.high"),
+        "thinking":         ("Thinking",          "brain"),
+        "vimMode":          ("Vim Mode",          "keyboard"),
+        "agentName":        ("Agent",             "person.crop.circle"),
+        "sessionName":      ("Session Name",      "tag"),
+        "worktreeBranch":   ("Worktree Branch",   "arrow.branch"),
+        "gitWorktree":      ("Git Worktree",      "internaldrive"),
+        "linesAdded":       ("Lines Added",       "plus.square"),
+        "linesRemoved":     ("Lines Removed",     "minus.square"),
+        "duration":         ("Duration",          "clock"),
+        "contextRemaining": ("Context Remaining", "gauge.with.needle.fill"),
+        "inputTokens":      ("Input Tokens",      "arrow.down.circle"),
+        "outputTokens":     ("Output Tokens",     "arrow.up.circle"),
+        "rate5h":           ("5h Rate",           "timer"),
+        "rate7d":           ("7d Rate",           "calendar.badge.clock"),
+        "rate5hReset":      ("5h Resets At",      "arrow.clockwise.circle"),
+        "rate7dReset":      ("7d Resets At",      "arrow.clockwise.circle.fill"),
+        "version":          ("Version",           "info.circle"),
+        "outputStyle":      ("Output Style",      "text.alignleft"),
+        "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
+    ]
+
+    private static let itemOrder: [String] = [
+        "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
+        "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
+        "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
+        "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
+    ]
+
+    private static let defaultVisible: Set<String> = ["model", "worktree", "cost", "context"]
 
     init() {
-        items = [
-            StatusLineItem(id: "model",           label: "Model",              isVisible: true),
-            StatusLineItem(id: "worktree",         label: "Worktree",           isVisible: true),
-            StatusLineItem(id: "cost",             label: "Cost",               isVisible: true),
-            StatusLineItem(id: "context",          label: "Context %",          isVisible: true),
-            StatusLineItem(id: "effort",           label: "Effort",             isVisible: false),
-            StatusLineItem(id: "thinking",         label: "Thinking",           isVisible: false),
-            StatusLineItem(id: "vimMode",          label: "Vim Mode",           isVisible: false),
-            StatusLineItem(id: "agentName",        label: "Agent",              isVisible: false),
-            StatusLineItem(id: "sessionName",      label: "Session Name",       isVisible: false),
-            StatusLineItem(id: "worktreeBranch",   label: "Worktree Branch",    isVisible: false),
-            StatusLineItem(id: "gitWorktree",      label: "Git Worktree",       isVisible: false),
-            StatusLineItem(id: "linesAdded",       label: "Lines Added",        isVisible: false),
-            StatusLineItem(id: "linesRemoved",     label: "Lines Removed",      isVisible: false),
-            StatusLineItem(id: "duration",         label: "Duration",           isVisible: false),
-            StatusLineItem(id: "contextRemaining", label: "Context Remaining",  isVisible: false),
-            StatusLineItem(id: "inputTokens",      label: "Input Tokens",       isVisible: false),
-            StatusLineItem(id: "outputTokens",     label: "Output Tokens",      isVisible: false),
-            StatusLineItem(id: "rate5h",           label: "5h Rate",            isVisible: false),
-            StatusLineItem(id: "rate7d",           label: "7d Rate",            isVisible: false),
-            StatusLineItem(id: "rate5hReset",      label: "5h Resets At",       isVisible: false),
-            StatusLineItem(id: "rate7dReset",      label: "7d Resets At",       isVisible: false),
-            StatusLineItem(id: "version",          label: "Version",            isVisible: false),
-            StatusLineItem(id: "outputStyle",      label: "Output Style",       isVisible: false),
-            StatusLineItem(id: "exceeds200k",      label: "Exceeds 200k",       isVisible: false),
-        ]
+        items = Self.itemOrder.compactMap { id in
+            guard let meta = Self.itemMetadata[id] else { return nil }
+            return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol, isVisible: Self.defaultVisible.contains(id))
+        }
+        chipLabelStyle = .symbolOnly
+        rowAlignment = .leading
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        items = try container.decode([StatusLineItem].self, forKey: .items)
+        chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .symbolOnly
+        rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .leading
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case items, chipLabelStyle, rowAlignment
     }
 }
 
