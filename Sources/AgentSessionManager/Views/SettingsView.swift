@@ -10,6 +10,9 @@ struct SettingsView: View {
                 .tabItem { Label("CLI Options", systemImage: "terminal") }
             KeyboardShortcutsContent()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+            StatusLineContent()
+                .environment(appSettings)
+                .tabItem { Label("Status Line", systemImage: "chart.bar") }
         }
         .frame(width: 560, height: 580)
     }
@@ -267,6 +270,171 @@ private struct CustomCLIOptionRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+private struct StatusLineContent: View {
+    @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        @Bindable var appSettings = appSettings
+        Form {
+            Section {
+                Text("Configure the info panel shown at the bottom of each pane. Items are populated from Claude session data.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Display") {
+                Picker("Chip style", selection: $appSettings.statusLineConfig.chipLabelStyle) {
+                    ForEach(ChipLabelStyle.allCases, id: \.self) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .onChange(of: appSettings.statusLineConfig.chipLabelStyle) {
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                }
+                Picker("Item alignment", selection: $appSettings.statusLineConfig.rowAlignment) {
+                    ForEach(RowAlignment.allCases, id: \.self) { alignment in
+                        Text(alignment.displayName).tag(alignment)
+                    }
+                }
+                .onChange(of: appSettings.statusLineConfig.rowAlignment) {
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                }
+            }
+            ForEach(appSettings.statusLineConfig.rows.indices, id: \.self) { rowIndex in
+                rowSection(rowIndex: rowIndex, appSettings: appSettings)
+            }
+            Section {
+                Button {
+                    appSettings.statusLineConfig.rows.append(StatusLineRow())
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Label("Add Row", systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func rowSection(rowIndex: Int, appSettings: AppSettings) -> some View {
+        @Bindable var appSettings = appSettings
+        let rowCount = appSettings.statusLineConfig.rows.count
+        let available = StatusLineConfig.allItems.filter {
+            !appSettings.statusLineConfig.usedItemIDs.contains($0.id)
+        }
+        Section {
+            ForEach(appSettings.statusLineConfig.rows[rowIndex].items) { item in
+                HStack {
+                    Image(systemName: item.sfSymbol)
+                        .frame(width: 16)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.label)
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        let desc = itemDescription(for: item.id)
+                        if !desc.isEmpty {
+                            Text(desc)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Button(role: .destructive) {
+                        appSettings.statusLineConfig.rows[rowIndex].items.removeAll { $0.id == item.id }
+                        SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .padding(.vertical, 2)
+            }
+            .onMove { from, to in
+                appSettings.statusLineConfig.rows[rowIndex].items.move(fromOffsets: from, toOffset: to)
+                SettingsPersistence.saveStatusLine(appSettings: appSettings)
+            }
+            Menu {
+                if available.isEmpty {
+                    Text("All items are already used")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(available) { item in
+                        Button(item.label) {
+                            appSettings.statusLineConfig.rows[rowIndex].items.append(item)
+                            SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                        }
+                    }
+                }
+            } label: {
+                Label("Add Item", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+        } header: {
+            HStack {
+                Text("Row \(rowIndex + 1)")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    appSettings.statusLineConfig.rows.swapAt(rowIndex, rowIndex - 1)
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .buttonStyle(.borderless)
+                .disabled(rowIndex == 0)
+                Button {
+                    appSettings.statusLineConfig.rows.swapAt(rowIndex, rowIndex + 1)
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .buttonStyle(.borderless)
+                .disabled(rowIndex == rowCount - 1)
+                Button(role: .destructive) {
+                    appSettings.statusLineConfig.rows.remove(at: rowIndex)
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    private func itemDescription(for id: String) -> String {
+        switch id {
+        case "model": return "Claude model name"
+        case "worktree": return "Git worktree name"
+        case "cost": return "Total session cost in USD"
+        case "context": return "Context window usage (with progress bar)"
+        case "effort": return "Effort level"
+        case "thinking": return "Whether extended thinking is on or off"
+        case "vimMode": return "Vim editor mode"
+        case "agentName": return "Agent name"
+        case "sessionName": return "Session name"
+        case "worktreeBranch": return "Git branch for the worktree"
+        case "gitWorktree": return "Git worktree path"
+        case "linesAdded": return "Total lines added this session"
+        case "linesRemoved": return "Total lines removed this session"
+        case "duration": return "Total session duration"
+        case "contextRemaining": return "Context window remaining percentage"
+        case "inputTokens": return "Total input tokens used"
+        case "outputTokens": return "Total output tokens used"
+        case "rate5h": return "5-hour rate limit usage (with progress bar)"
+        case "rate7d": return "7-day rate limit usage (with progress bar)"
+        case "rate5hReset": return "Time until 5-hour rate limit resets"
+        case "rate7dReset": return "Time until 7-day rate limit resets"
+        case "version": return "Claude CLI version"
+        case "outputStyle": return "Output style name"
+        case "exceeds200k": return "Warning when context exceeds 200k tokens"
+        default: return ""
+        }
     }
 }
 

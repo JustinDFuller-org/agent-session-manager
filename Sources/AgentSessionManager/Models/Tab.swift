@@ -25,8 +25,13 @@ final class Tab: Identifiable {
             let controller = TerminalController()
             let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)'\(extra)"
             controller.pendingDirectory = directory.path
+            let monitor = StatusLineMonitor(paneID: pane.id)
+            monitor.start()
+            let escapedSettings = monitor.settingsFilePath.replacingOccurrences(of: "'", with: "'\\''")
+            controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extra)"
+            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            pane.statusLineMonitor = monitor
             pane.terminalController = controller
         }
         panes.append(pane)
@@ -34,6 +39,7 @@ final class Tab: Identifiable {
 
     func closePane(_ pane: Pane) {
         pane.terminalController?.terminate()
+        pane.statusLineMonitor?.stop()
         panes.removeAll { $0.id == pane.id }
     }
 }

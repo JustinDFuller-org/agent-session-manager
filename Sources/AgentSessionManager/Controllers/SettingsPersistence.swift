@@ -2,12 +2,15 @@ import Foundation
 
 @MainActor
 struct SettingsPersistence {
-    private static var settingsURL: URL {
+    private static var appSupportDir: URL {
         let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = config.appending(path: "agent-session-manager")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appending(path: "settings.json")
+        return dir
     }
+
+    private static var settingsURL: URL { appSupportDir.appending(path: "settings.json") }
+    private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -31,5 +34,18 @@ struct SettingsPersistence {
             }
         }
         appSettings.cliOptions = updated + userAdded
+    }
+
+    static func saveStatusLine(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.statusLineConfig) else { return }
+        try? data.write(to: statusLineSettingsURL)
+    }
+
+    static func restoreStatusLine(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: statusLineSettingsURL),
+            let saved = try? JSONDecoder().decode(StatusLineConfig.self, from: data)
+        else { return }
+        appSettings.statusLineConfig = saved
     }
 }

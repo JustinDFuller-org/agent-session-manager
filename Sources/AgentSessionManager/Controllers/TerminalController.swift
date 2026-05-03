@@ -7,6 +7,7 @@ final class TerminalController: NSObject {
     private(set) var processState: ProcessState = .idle
     var pendingCommand: String? = nil
     var pendingDirectory: String? = nil
+    var pendingEnvironment: [String]? = nil
 
     enum ProcessState: Equatable {
         case idle
@@ -26,11 +27,13 @@ final class TerminalController: NSObject {
             terminalView.startProcess(
                 executable: "/bin/bash",
                 args: ["-c", cmd],
+                environment: pendingEnvironment,
                 currentDirectory: pendingDirectory
             )
         } else {
             terminalView.startProcess(
                 executable: "/bin/bash",
+                environment: pendingEnvironment,
                 currentDirectory: pendingDirectory
             )
         }
