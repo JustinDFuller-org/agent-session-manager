@@ -143,43 +143,43 @@ private struct KeyBindingRow: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
                 Text(label)
                     .font(.system(.body, design: .monospaced))
                     .fontWeight(.medium)
-                Text(description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(modifier)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                TextField("", text: $draft)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(width: 36)
-                    .multilineTextAlignment(.center)
-                    .focused($isFocused)
-                    .onChange(of: draft) {
-                        let trimmed = String(draft.prefix(1)).lowercased()
-                        if draft != trimmed {
-                            draft = trimmed
-                        }
-                    }
-                    .onChange(of: isFocused) {
-                        if !isFocused {
-                            if draft.isEmpty {
-                                draft = key
-                            } else {
-                                key = draft
+                Spacer()
+                HStack(spacing: 4) {
+                    Text(modifier)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    TextField("", text: $draft)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 36)
+                        .multilineTextAlignment(.center)
+                        .focused($isFocused)
+                        .onChange(of: draft) {
+                            let trimmed = String(draft.prefix(1)).lowercased()
+                            if draft != trimmed {
+                                draft = trimmed
                             }
                         }
-                    }
-                    .onAppear { draft = key }
+                        .onChange(of: isFocused) {
+                            if !isFocused {
+                                if draft.isEmpty {
+                                    draft = key
+                                } else {
+                                    key = draft
+                                }
+                            }
+                        }
+                        .onAppear { draft = key }
+                }
             }
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
     }
