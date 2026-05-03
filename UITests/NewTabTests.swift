@@ -40,4 +40,24 @@ final class NewTabTests: BaseTestCase {
         app.buttons["new-tab-cancel-button"].click()
         waitForDisappear(nameField)
     }
+
+    func testRequiredHintShownWhenFieldsEmpty() {
+        app.typeKey("t", modifierFlags: .command)
+        waitFor(app.textFields["new-tab-name-field"])
+        let hint = app.staticTexts["new-tab-required-hint"]
+        XCTAssertTrue(hint.exists)
+        screenshot("05-new-tab-required-hint")
+    }
+
+    func testRequiredHintHiddenAfterBothFieldsFilled() {
+        app.typeKey("t", modifierFlags: .command)
+        let nameField = app.textFields["new-tab-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("MyTab")
+        app.buttons["new-tab-choose-dir-button"].click()
+        let createButton = app.buttons["new-tab-create-button"]
+        waitFor(createButton)
+        XCTAssertFalse(app.staticTexts["new-tab-required-hint"].exists)
+    }
 }

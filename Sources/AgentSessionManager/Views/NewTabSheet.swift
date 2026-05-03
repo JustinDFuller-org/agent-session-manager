@@ -39,6 +39,13 @@ struct NewTabSheet: View {
                 }
             }
 
+            if name.isEmpty || directory == nil {
+                Text("Both a name and directory are required.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("new-tab-required-hint")
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
