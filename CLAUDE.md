@@ -20,6 +20,12 @@ Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for runni
 - ⌘W — close active pane
 - ⌘1–⌘9 — switch to tab by index
 
+## Core Design Principle
+
+The tab/pane workflow is fixed — that structure is the product. What happens *inside* a pane is not. People use Claude in very different ways (different flags, models, personas, workflows), and that diversity is a feature, not a problem to solve. Every design decision should preserve room for that customization within the core workflow rather than hardcoding assumptions about how Claude should be invoked.
+
+Concretely: the core workflow (create tab → create pane → terminal session) should remain simple and opinionated. The configuration surface (CLI flags, custom options, per-pane settings) should remain open and extensible.
+
 ## Build & Run Commands
 
 ```bash
