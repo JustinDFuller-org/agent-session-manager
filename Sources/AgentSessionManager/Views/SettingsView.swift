@@ -143,7 +143,7 @@ private struct KeyBindingRow: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(alignment: .center) {
+        HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(.body, design: .monospaced))
@@ -153,7 +153,7 @@ private struct KeyBindingRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            HStack(alignment: .center, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(modifier)
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(.secondary)

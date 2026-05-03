@@ -16,7 +16,7 @@ extension BaseTestCase {
     }
 
     func createPane(named name: String) {
-        app.buttons["add-pane-button"].click()
+        app.typeKey("p", modifierFlags: .command)
         let field = app.textFields["new-pane-name-field"]
         waitFor(field)
         field.click()

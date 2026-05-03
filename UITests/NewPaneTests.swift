@@ -8,7 +8,7 @@ final class NewPaneTests: BaseTestCase {
     }
 
     func testCreatePane() {
-        app.buttons["add-pane-button"].click()
+        app.typeKey("p", modifierFlags: .command)
 
         let nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
@@ -28,13 +28,13 @@ final class NewPaneTests: BaseTestCase {
     }
 
     func testOpenButtonDisabledWithEmptyName() {
-        app.buttons["add-pane-button"].click()
+        app.typeKey("p", modifierFlags: .command)
         waitFor(app.textFields["new-pane-name-field"])
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
     }
 
     func testCancelDismissesSheet() {
-        app.buttons["add-pane-button"].click()
+        app.typeKey("p", modifierFlags: .command)
         waitFor(app.textFields["new-pane-name-field"])
         app.buttons["new-pane-cancel-button"].click()
         XCTAssertFalse(app.textFields["new-pane-name-field"].exists)
