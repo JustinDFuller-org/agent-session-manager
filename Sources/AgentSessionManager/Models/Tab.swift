@@ -19,17 +19,17 @@ final class Tab: Identifiable {
         directory.lastPathComponent
     }
 
-    func addPane(name: String) {
+    func addPane(name: String, extraArgs: [String] = []) {
         let pane = Pane(name: name, tab: self)
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
-            controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)'"
+            let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
+            controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)'\(extra)"
             controller.pendingDirectory = directory.path
             pane.terminalController = controller
         }
         panes.append(pane)
-        // startProcess is called by TerminalRepresentable.Coordinator after the view is laid out
     }
 
     func closePane(_ pane: Pane) {

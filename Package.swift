@@ -14,6 +14,11 @@ let package = Package(
                 .product(name: "SwiftTerm", package: "SwiftTerm")
             ],
             path: "Sources/AgentSessionManager"
+        ),
+        .testTarget(
+            name: "AgentSessionManagerTests",
+            dependencies: ["AgentSessionManager"],
+            path: "Tests"
         )
     ]
 )
