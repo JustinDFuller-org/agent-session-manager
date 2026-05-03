@@ -11,30 +11,49 @@ struct CLIOptionConfig: Identifiable, Codable {
     var description: String
     var isAvailable: Bool
     var isDefaultEnabled: Bool
+    var isUserAdded: Bool
+    var customIsStringType: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, isAvailable, isDefaultEnabled
+        case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType
     }
 
-    init(id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool) {
+    init(id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool, isUserAdded: Bool = false, customIsStringType: Bool = false) {
         self.id = id
         self.label = label
         self.description = description
         self.isAvailable = isAvailable
         self.isDefaultEnabled = isDefaultEnabled
+        self.isUserAdded = isUserAdded
+        self.customIsStringType = customIsStringType
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let id = try container.decode(String.self, forKey: .id)
-        guard let template = CLIOptionConfig.all.first(where: { $0.id == id }) else {
-            throw DecodingError.dataCorruptedError(forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
+        let isUserAdded = (try? container.decodeIfPresent(Bool.self, forKey: .isUserAdded)) ?? false
+
+        if isUserAdded {
+            let id = try container.decode(String.self, forKey: .id)
+            self.id = id
+            self.label = id
+            self.description = "User-defined option"
+            self.isAvailable = try container.decode(Bool.self, forKey: .isAvailable)
+            self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
+            self.isUserAdded = true
+            self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
+        } else {
+            let id = try container.decode(String.self, forKey: .id)
+            guard let template = CLIOptionConfig.all.first(where: { $0.id == id }) else {
+                throw DecodingError.dataCorruptedError(forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
+            }
+            self.id = template.id
+            self.label = template.label
+            self.description = template.description
+            self.isAvailable = try container.decode(Bool.self, forKey: .isAvailable)
+            self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
+            self.isUserAdded = false
+            self.customIsStringType = false
         }
-        self.id = template.id
-        self.label = template.label
-        self.description = template.description
-        self.isAvailable = try container.decode(Bool.self, forKey: .isAvailable)
-        self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -42,9 +61,16 @@ struct CLIOptionConfig: Identifiable, Codable {
         try container.encode(id, forKey: .id)
         try container.encode(isAvailable, forKey: .isAvailable)
         try container.encode(isDefaultEnabled, forKey: .isDefaultEnabled)
+        if isUserAdded {
+            try container.encode(true, forKey: .isUserAdded)
+            try container.encode(customIsStringType, forKey: .customIsStringType)
+        }
     }
 
     var optionType: CLIOptionType {
+        if isUserAdded {
+            return customIsStringType ? .string(placeholder: "Value") : .boolean
+        }
         switch id {
         // Boolean flags
         case "--allow-dangerously-skip-permissions",
@@ -153,6 +179,10 @@ struct CLIOptionConfig: Identifiable, Codable {
         default:
             return .boolean
         }
+    }
+
+    static func makeUserAdded(id: String, isString: Bool) -> CLIOptionConfig {
+        CLIOptionConfig(id: id, label: id, description: "User-defined option", isAvailable: false, isDefaultEnabled: false, isUserAdded: true, customIsStringType: isString)
     }
 
     static let all: [CLIOptionConfig] = [

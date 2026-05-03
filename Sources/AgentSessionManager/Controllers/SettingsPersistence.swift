@@ -21,12 +21,15 @@ struct SettingsPersistence {
         else { return }
 
         var updated = CLIOptionConfig.all
+        var userAdded: [CLIOptionConfig] = []
         for savedOption in saved {
-            if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
+            if savedOption.isUserAdded {
+                userAdded.append(savedOption)
+            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
                 updated[index].isAvailable = savedOption.isAvailable
                 updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
             }
         }
-        appSettings.cliOptions = updated
+        appSettings.cliOptions = updated + userAdded
     }
 }
