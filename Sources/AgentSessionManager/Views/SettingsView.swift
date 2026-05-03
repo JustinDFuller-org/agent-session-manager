@@ -3,6 +3,14 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
 
+    private var enabledOptions: [CLIOptionConfig] {
+        appSettings.cliOptions.filter { $0.isAvailable }.sorted { $0.id < $1.id }
+    }
+
+    private var disabledOptions: [CLIOptionConfig] {
+        appSettings.cliOptions.filter { !$0.isAvailable }.sorted { $0.id < $1.id }
+    }
+
     var body: some View {
         @Bindable var appSettings = appSettings
         Form {
@@ -11,9 +19,20 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            Section("Claude CLI Options") {
-                ForEach($appSettings.cliOptions) { $option in
-                    CLIOptionRow(option: $option, onChange: {
+            if !enabledOptions.isEmpty {
+                Section("Enabled") {
+                    ForEach(enabledOptions, id: \.id) { option in
+                        let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id })!
+                        CLIOptionRow(option: $appSettings.cliOptions[index], onChange: {
+                            SettingsPersistence.save(appSettings: appSettings)
+                        })
+                    }
+                }
+            }
+            Section("Not Enabled") {
+                ForEach(disabledOptions, id: \.id) { option in
+                    let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id })!
+                    CLIOptionRow(option: $appSettings.cliOptions[index], onChange: {
                         SettingsPersistence.save(appSettings: appSettings)
                     })
                 }
