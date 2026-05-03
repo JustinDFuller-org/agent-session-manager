@@ -5,4 +5,5 @@ import Observation
 @MainActor
 final class AppSettings {
     var cliOptions: [CLIOptionConfig] = CLIOptionConfig.all
+    var statusLineConfig: StatusLineConfig = StatusLineConfig()
 }

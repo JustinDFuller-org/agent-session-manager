@@ -14,6 +14,7 @@ struct AgentSessionManagerApp: App {
                 .task {
                     if !CommandLine.arguments.contains("--uitesting-skip-restore") {
                         SettingsPersistence.restore(into: appSettings)
+                        SettingsPersistence.restoreStatusLine(into: appSettings)
                         SessionPersistence.restore(into: appState)
                     }
                 }

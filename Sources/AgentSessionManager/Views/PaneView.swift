@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PaneView: View {
     @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
     let pane: Pane
     let tab: Tab
     @State private var pulse = false
@@ -13,6 +14,7 @@ struct PaneView: View {
             paneHeader
             Divider()
             terminalBody
+            statusLine
         }
         .background(Color(nsColor: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -73,6 +75,14 @@ struct PaneView: View {
             Circle().fill(Color.gray.opacity(0.4)).frame(width: 7, height: 7)
         default:
             Circle().fill(Color.gray).frame(width: 7, height: 7)
+        }
+    }
+
+    @ViewBuilder
+    private var statusLine: some View {
+        if let monitor = pane.statusLineMonitor, monitor.currentData != nil {
+            Divider()
+            StatusLineView(monitor: monitor, config: appSettings.statusLineConfig)
         }
     }
 

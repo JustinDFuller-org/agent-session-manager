@@ -8,6 +8,7 @@ final class Pane: Identifiable {
     var name: String
     weak var tab: Tab?
     var terminalController: TerminalController?
+    var statusLineMonitor: StatusLineMonitor?
 
     init(name: String, tab: Tab) {
         self.id = UUID()

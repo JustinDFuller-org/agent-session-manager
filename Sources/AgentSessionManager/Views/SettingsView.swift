@@ -10,6 +10,9 @@ struct SettingsView: View {
                 .tabItem { Label("CLI Options", systemImage: "terminal") }
             KeyboardShortcutsContent()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+            StatusLineContent()
+                .environment(appSettings)
+                .tabItem { Label("Status Line", systemImage: "chart.bar") }
         }
         .frame(width: 560, height: 580)
     }
@@ -267,6 +270,55 @@ private struct CustomCLIOptionRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+private struct StatusLineContent: View {
+    @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        @Bindable var appSettings = appSettings
+        Form {
+            Section {
+                Text("Configure which status items appear at the bottom of each pane. Items are populated from the Claude session data.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Items") {
+                ForEach($appSettings.statusLineConfig.items) { $item in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.label)
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text(itemDescription(for: item.id))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("Visible", isOn: $item.isVisible)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: item.isVisible) {
+                                SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                            }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func itemDescription(for id: String) -> String {
+        switch id {
+        case "model": return "Claude model name, e.g. \"Opus\""
+        case "worktree": return "Git worktree name"
+        case "cost": return "Total session cost in USD"
+        case "context": return "Context window usage percentage"
+        case "rate5h": return "5-hour rate limit usage"
+        case "rate7d": return "7-day rate limit usage"
+        default: return ""
+        }
     }
 }
 
