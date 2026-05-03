@@ -2,7 +2,7 @@ import XCTest
 
 extension BaseTestCase {
     func createTab(named name: String) {
-        app.buttons["new-tab-button"].click()
+        app.typeKey("t", modifierFlags: .command)
         let field = app.textFields["new-tab-name-field"]
         waitFor(field)
         field.click()

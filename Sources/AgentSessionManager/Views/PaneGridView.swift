@@ -22,6 +22,9 @@ struct PaneGridView: View {
         .sheet(isPresented: $showingNewPane) {
             NewPaneSheet(tab: tab)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .newPane)) { _ in
+            showingNewPane = true
+        }
     }
 
     private var panesGrid: some View {
@@ -52,7 +55,7 @@ struct PaneGridView: View {
             Image(systemName: "terminal")
                 .font(.system(size: 36))
                 .foregroundStyle(.quaternary)
-            Text("Press + to open a pane")
+            Text("Press ⌘P to open a pane")
                 .foregroundStyle(.secondary)
                 .font(.subheadline)
                 .accessibilityIdentifier("tab-empty-state-\(tab.name)")
@@ -73,7 +76,7 @@ struct PaneGridView: View {
         }
         .buttonStyle(.plain)
         .padding(16)
-        .keyboardShortcut("n", modifiers: [.command, .shift])
+        .keyboardShortcut("p", modifiers: .command)
         .accessibilityIdentifier("add-pane-button")
     }
 }

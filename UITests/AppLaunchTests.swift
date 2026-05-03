@@ -7,9 +7,22 @@ final class AppLaunchTests: BaseTestCase {
         screenshot("01-empty-state")
     }
 
-    func testNewTabButtonExistsOnLaunch() {
-        let newTabButton = app.buttons["new-tab-button"]
-        waitFor(newTabButton)
-        XCTAssertTrue(newTabButton.isEnabled)
+    func testEmptyStateHintMentionsOnlyTabShortcut() {
+        waitFor(emptyStateHint)
+        XCTAssertEqual(emptyStateHint.label, "Press ⌘T to create a tab")
+    }
+
+    func testNewTabShortcutOpensSheet() {
+        app.typeKey("t", modifierFlags: .command)
+        waitFor(app.textFields["new-tab-name-field"])
+        XCTAssertTrue(app.textFields["new-tab-name-field"].isEnabled)
+    }
+
+    func testNewPaneMenuItemDisabledWithNoTabs() {
+        app.menuBars.menuBarItems["File"].click()
+        let menuItem = app.menuBars.menuBarItems["File"].menuItems["New Pane in Current Tab"]
+        waitFor(menuItem)
+        XCTAssertFalse(menuItem.isEnabled)
+        app.typeKey(.escape, modifierFlags: [])
     }
 }

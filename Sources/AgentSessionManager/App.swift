@@ -20,14 +20,7 @@ struct AgentSessionManagerApp: App {
                 .onChange(of: appState.tabs.count) { SessionPersistence.save(appState: appState) }
                 .onChange(of: appState.activeTabID) { SessionPersistence.save(appState: appState) }
         }
-        .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("New Tab") {
-                    NotificationCenter.default.post(name: .newTab, object: nil)
-                }
-                .keyboardShortcut("t", modifiers: .command)
-            }
-        }
+        .commands { AppCommands() }
 
         Settings {
             SettingsView()
@@ -36,8 +29,30 @@ struct AgentSessionManagerApp: App {
     }
 }
 
+private struct AppCommands: Commands {
+    @AppStorage("keyBinding.newTabKey") var newTabKey = "t"
+    @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
+    @FocusedValue(\.hasActiveTab) var hasActiveTab
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Tab") {
+                NotificationCenter.default.post(name: .newTab, object: nil)
+            }
+            .keyboardShortcut(KeyEquivalent(Character(newTabKey)), modifiers: .command)
+
+            Button("New Pane in Current Tab") {
+                NotificationCenter.default.post(name: .newPane, object: nil)
+            }
+            .keyboardShortcut(KeyEquivalent(Character(newPaneKey)), modifiers: .command)
+            .disabled(!(hasActiveTab ?? false))
+        }
+    }
+}
+
 extension Notification.Name {
     static let newTab = Notification.Name("newTab")
+    static let newPane = Notification.Name("newPane")
 }
 
 extension AgentSessionManagerApp {
