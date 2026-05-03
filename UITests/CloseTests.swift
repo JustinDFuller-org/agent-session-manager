@@ -11,8 +11,8 @@ final class CloseTests: BaseTestCase {
         screenshot("11-after-close-tab")
 
         waitForDisappear(tabButton)
-        // Verify the new-tab button is still available (app is in a usable state)
-        XCTAssertTrue(app.buttons["new-tab-button"].exists)
+        // Verify the app is in a usable state (empty state hint is shown)
+        waitFor(app.staticTexts["empty-state-hint"])
     }
 
     func testClosePane() {

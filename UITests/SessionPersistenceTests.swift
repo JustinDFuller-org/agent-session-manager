@@ -35,7 +35,7 @@ final class SessionPersistenceTests: XCTestCase {
 
     func testTabsRestoredAfterRelaunch() {
         // Create a tab
-        app.buttons["new-tab-button"].click()
+        app.typeKey("t", modifierFlags: .command)
         let field = app.textFields["new-tab-name-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.click()

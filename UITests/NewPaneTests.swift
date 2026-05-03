@@ -8,7 +8,7 @@ final class NewPaneTests: BaseTestCase {
     }
 
     func testCreatePane() {
-        app.buttons["add-pane-button"].click()
+        app.typeKey("p", modifierFlags: .command)
 
         let nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
@@ -28,24 +28,39 @@ final class NewPaneTests: BaseTestCase {
     }
 
     func testOpenButtonDisabledWithEmptyName() {
-        app.buttons["add-pane-button"].click()
+        app.typeKey("p", modifierFlags: .command)
         waitFor(app.textFields["new-pane-name-field"])
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
     }
 
     func testCancelDismissesSheet() {
-        app.buttons["add-pane-button"].click()
+        app.typeKey("p", modifierFlags: .command)
         waitFor(app.textFields["new-pane-name-field"])
         app.buttons["new-pane-cancel-button"].click()
         XCTAssertFalse(app.textFields["new-pane-name-field"].exists)
     }
 
     func testCreatePaneViaKeyboardShortcut() {
-        app.typeKey("n", modifierFlags: [.command, .shift])
+        app.typeKey("p", modifierFlags: .command)
         let nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
         screenshot("08-new-pane-via-shortcut")
         XCTAssertTrue(nameField.exists)
+    }
+
+    func testTabEmptyStateHintMentionsPaneShortcut() {
+        waitFor(app.staticTexts["tab-empty-state-PaneTestTab"])
+        XCTAssertEqual(app.staticTexts["tab-empty-state-PaneTestTab"].label, "Press ⌘P to open a pane")
+    }
+
+    func testNewPaneMenuItemOpensSheet() {
+        app.menuBars.menuBarItems["File"].click()
+        let menuItem = app.menuBars.menuBarItems["File"].menuItems["New Pane in Current Tab"]
+        waitFor(menuItem)
+        XCTAssertTrue(menuItem.isEnabled)
+        menuItem.click()
+        waitFor(app.textFields["new-pane-name-field"])
+        screenshot("08b-new-pane-via-menu")
     }
 
     func testCreateMultiplePanesInOneTab() {

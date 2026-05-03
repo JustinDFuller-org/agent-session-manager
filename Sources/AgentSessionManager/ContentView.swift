@@ -7,7 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabBarView(showingNewTab: $showingNewTab)
+            TabBarView()
                 .frame(height: 44)
 
             Divider()
@@ -21,6 +21,7 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
+        .focusedSceneValue(\.hasActiveTab, !appState.tabs.isEmpty)
         .onReceive(NotificationCenter.default.publisher(for: .newTab)) { _ in
             showingNewTab = true
         }
@@ -50,15 +51,27 @@ struct ContentView: View {
 
 struct EmptyStateView: View {
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Image(systemName: "rectangle.split.2x2")
-                .font(.system(size: 48))
+                .font(.system(size: 36))
                 .foregroundStyle(.quaternary)
             Text("Press ⌘T to create a tab")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("empty-state-hint")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct HasActiveTabKey: FocusedValueKey {
+    typealias Value = Bool
+}
+
+extension FocusedValues {
+    var hasActiveTab: Bool? {
+        get { self[HasActiveTabKey.self] }
+        set { self[HasActiveTabKey.self] = newValue }
     }
 }
 
@@ -79,7 +92,8 @@ private struct KeyboardShortcutView: NSViewRepresentable {
 
         c.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard event.modifierFlags.contains(.command) else { return event }
-            if event.keyCode == 13 { // w
+            let closePaneKey = UserDefaults.standard.string(forKey: "keyBinding.closePaneKey") ?? "w"
+            if let chars = event.characters, chars == closePaneKey {
                 c.onClosePane()
                 return nil
             }

@@ -10,17 +10,18 @@ struct PaneGridView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        Group {
             if tab.panes.isEmpty {
                 tabEmptyState
             } else {
                 panesGrid
             }
-
-            addPaneButton
         }
         .sheet(isPresented: $showingNewPane) {
             NewPaneSheet(tab: tab)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .newPane)) { _ in
+            showingNewPane = true
         }
     }
 
@@ -52,28 +53,11 @@ struct PaneGridView: View {
             Image(systemName: "terminal")
                 .font(.system(size: 36))
                 .foregroundStyle(.quaternary)
-            Text("Press + to open a pane")
+            Text("Press ⌘P to open a pane")
                 .foregroundStyle(.secondary)
                 .font(.subheadline)
                 .accessibilityIdentifier("tab-empty-state-\(tab.name)")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var addPaneButton: some View {
-        Button {
-            showingNewPane = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(Color.accentColor))
-                .shadow(radius: 4, y: 2)
-        }
-        .buttonStyle(.plain)
-        .padding(16)
-        .keyboardShortcut("n", modifiers: [.command, .shift])
-        .accessibilityIdentifier("add-pane-button")
     }
 }

@@ -2,6 +2,21 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        TabView {
+            CLIOptionsContent()
+                .environment(appSettings)
+                .tabItem { Label("CLI Options", systemImage: "terminal") }
+            KeyboardShortcutsContent()
+                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+        }
+        .frame(width: 560, height: 580)
+    }
+}
+
+private struct CLIOptionsContent: View {
+    @Environment(AppSettings.self) private var appSettings
     @State private var showAddCustomFlagSheet = false
 
     private var enabledOptions: [CLIOptionConfig] {
@@ -69,13 +84,104 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560, height: 580)
         .sheet(isPresented: $showAddCustomFlagSheet) {
             AddCustomFlagSheet { id, isString in
                 appSettings.cliOptions.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
                 SettingsPersistence.save(appSettings: appSettings)
             }
         }
+    }
+}
+
+private struct KeyboardShortcutsContent: View {
+    @AppStorage("keyBinding.newTabKey") var newTabKey = "t"
+    @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
+    @AppStorage("keyBinding.closePaneKey") var closePaneKey = "w"
+
+    var body: some View {
+        Form {
+            Section {
+                Text("Customize keyboard shortcuts. Each shortcut uses ⌘ plus the key you specify. Changes take effect immediately.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Shortcuts") {
+                KeyBindingRow(label: "New Tab", description: "Open the New Tab sheet", modifier: "⌘", key: $newTabKey)
+                KeyBindingRow(label: "New Pane in Current Tab", description: "Open the New Pane sheet", modifier: "⌘", key: $newPaneKey)
+                KeyBindingRow(label: "Close Active Pane", description: "Close the focused pane", modifier: "⌘", key: $closePaneKey)
+            }
+            Section {
+                HStack {
+                    Text("⌘1 – ⌘9")
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                    Spacer()
+                    Text("Switch to tab by index")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 2)
+            } header: {
+                Text("Fixed Shortcuts")
+            } footer: {
+                Text("Tab switching shortcuts are not configurable.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct KeyBindingRow: View {
+    let label: String
+    let description: String
+    let modifier: String
+    @Binding var key: String
+
+    @State private var draft = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(label)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.medium)
+                Spacer()
+                HStack(spacing: 4) {
+                    Text(modifier)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    TextField("", text: $draft)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 36)
+                        .multilineTextAlignment(.center)
+                        .focused($isFocused)
+                        .onChange(of: draft) {
+                            let trimmed = String(draft.prefix(1)).lowercased()
+                            if draft != trimmed {
+                                draft = trimmed
+                            }
+                        }
+                        .onChange(of: isFocused) {
+                            if !isFocused {
+                                if draft.isEmpty {
+                                    draft = key
+                                } else {
+                                    key = draft
+                                }
+                            }
+                        }
+                        .onAppear { draft = key }
+                }
+            }
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
     }
 }
 
