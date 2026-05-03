@@ -4,29 +4,15 @@ struct StatusLineView: View {
     let monitor: StatusLineMonitor
     let config: StatusLineConfig
 
-    private var visibleItems: [StatusLineItem] {
-        config.items.filter(\.isVisible)
-    }
-
-    private var row1Items: [StatusLineItem] {
-        let n = visibleItems.count
-        guard n > 0 else { return [] }
-        let count = n <= 4 ? n : (n + 1) / 2
-        return Array(visibleItems.prefix(count))
-    }
-
-    private var row2Items: [StatusLineItem] {
-        guard visibleItems.count >= 5 else { return [] }
-        let row1Count = (visibleItems.count + 1) / 2
-        return Array(visibleItems.dropFirst(row1Count))
+    private var nonEmptyRows: [StatusLineRow] {
+        config.rows.filter { !$0.items.isEmpty }
     }
 
     var body: some View {
-        if let data = monitor.currentData, !visibleItems.isEmpty {
+        if let data = monitor.currentData, !nonEmptyRows.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
-                chipRow(items: row1Items, data: data)
-                if !row2Items.isEmpty {
-                    chipRow(items: row2Items, data: data)
+                ForEach(nonEmptyRows) { row in
+                    chipRow(items: row.items, data: data)
                 }
             }
             .padding(.horizontal, 8)

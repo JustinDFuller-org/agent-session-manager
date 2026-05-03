@@ -2,38 +2,68 @@ import XCTest
 @testable import AgentSessionManager
 
 final class StatusLineConfigTests: XCTestCase {
-    func testDefaultItemCount() {
+    func testDefaultRowCount() {
         let config = StatusLineConfig()
-        XCTAssertEqual(config.items.count, 24)
+        XCTAssertEqual(config.rows.count, 1)
     }
 
-    func testDefaultVisibleItems() {
+    func testDefaultRowItems() {
         let config = StatusLineConfig()
-        let visible = config.items.filter(\.isVisible).map(\.id)
-        XCTAssertEqual(Set(visible), ["model", "worktree", "cost", "context"])
+        XCTAssertEqual(Set(config.rows[0].items.map(\.id)), ["model", "worktree", "cost", "context"])
     }
 
-    func testDefaultHiddenItems() {
+    func testDefaultUsedItemIDs() {
         let config = StatusLineConfig()
-        let hidden = Set(config.items.filter { !$0.isVisible }.map(\.id))
-        let expectedHidden: Set<String> = [
-            "effort", "thinking", "vimMode", "agentName", "sessionName",
-            "worktreeBranch", "gitWorktree", "linesAdded", "linesRemoved",
-            "duration", "contextRemaining", "inputTokens", "outputTokens",
-            "rate5h", "rate7d", "rate5hReset", "rate7dReset",
-            "version", "outputStyle", "exceeds200k",
-        ]
-        XCTAssertEqual(hidden, expectedHidden)
+        XCTAssertEqual(config.usedItemIDs, ["model", "worktree", "cost", "context"])
     }
 
-    func testCodingRoundTrip() throws {
+    func testAllItemsCount() {
+        XCTAssertEqual(StatusLineConfig.allItems.count, 24)
+    }
+
+    func testUsedItemIDsSpansAllRows() {
         var config = StatusLineConfig()
-        config.items[0].isVisible = false
+        let durationItem = StatusLineConfig.allItems.first { $0.id == "duration" }!
+        config.rows.append(StatusLineRow(items: [durationItem]))
+        XCTAssertTrue(config.usedItemIDs.contains("duration"))
+        XCTAssertTrue(config.usedItemIDs.contains("model"))
+    }
+
+    func testNewFormatRoundTrip() throws {
+        var config = StatusLineConfig()
+        let costItem = StatusLineConfig.allItems.first { $0.id == "cost" }!
+        config.rows.append(StatusLineRow(items: [costItem]))
         let encoded = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(StatusLineConfig.self, from: encoded)
-        XCTAssertEqual(decoded.items.count, config.items.count)
-        XCTAssertEqual(decoded.items[0].isVisible, false)
-        XCTAssertEqual(decoded.items[0].id, config.items[0].id)
+        XCTAssertEqual(decoded.rows.count, 2)
+        XCTAssertTrue(decoded.usedItemIDs.contains("cost"))
+        XCTAssertTrue(decoded.usedItemIDs.contains("model"))
+    }
+
+    func testEncodedJSONUsesRowsKey() throws {
+        let config = StatusLineConfig()
+        let data = try JSONEncoder().encode(config)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertNotNil(json["rows"])
+        XCTAssertNil(json["items"], "Legacy 'items' key must not appear in encoded output")
+    }
+
+    func testMigrationFromLegacyFormat() throws {
+        let legacyJSON = """
+        {
+            "items": [
+                {"id": "model", "label": "Model", "sfSymbol": "cpu", "isVisible": true},
+                {"id": "cost", "label": "Cost", "sfSymbol": "dollarsign.circle", "isVisible": false},
+                {"id": "worktree", "label": "Worktree", "sfSymbol": "folder.badge.gearshape", "isVisible": true}
+            ],
+            "chipLabelStyle": "symbolOnly",
+            "rowAlignment": "leading"
+        }
+        """.data(using: .utf8)!
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: legacyJSON)
+        XCTAssertEqual(config.rows.count, 1)
+        XCTAssertEqual(config.rows[0].items.map(\.id), ["model", "worktree"])
+        XCTAssertEqual(config.usedItemIDs, ["model", "worktree"])
     }
 
     func testStatusLineDataFullParse() throws {

@@ -302,45 +302,109 @@ private struct StatusLineContent: View {
                     SettingsPersistence.saveStatusLine(appSettings: appSettings)
                 }
             }
+            ForEach(appSettings.statusLineConfig.rows.indices, id: \.self) { rowIndex in
+                rowSection(rowIndex: rowIndex, appSettings: appSettings)
+            }
             Section {
-                ForEach($appSettings.statusLineConfig.items) { $item in
-                    HStack {
-                        Image(systemName: item.sfSymbol)
-                            .frame(width: 16)
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.label)
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            let desc = itemDescription(for: item.id)
-                            if !desc.isEmpty {
-                                Text(desc)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        Toggle("Visible", isOn: $item.isVisible)
-                            .toggleStyle(.checkbox)
-                            .onChange(of: item.isVisible) {
-                                SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                            }
-                    }
-                    .padding(.vertical, 2)
-                }
-                .onMove { from, to in
-                    appSettings.statusLineConfig.items.move(fromOffsets: from, toOffset: to)
+                Button {
+                    appSettings.statusLineConfig.rows.append(StatusLineRow())
                     SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Label("Add Row", systemImage: "plus")
                 }
-            } header: {
-                Text("Items")
-            } footer: {
-                Text("Drag items to reorder how they appear in the panel.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .buttonStyle(.borderless)
             }
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func rowSection(rowIndex: Int, appSettings: AppSettings) -> some View {
+        @Bindable var appSettings = appSettings
+        let rowCount = appSettings.statusLineConfig.rows.count
+        let available = StatusLineConfig.allItems.filter {
+            !appSettings.statusLineConfig.usedItemIDs.contains($0.id)
+        }
+        Section {
+            ForEach(appSettings.statusLineConfig.rows[rowIndex].items) { item in
+                HStack {
+                    Image(systemName: item.sfSymbol)
+                        .frame(width: 16)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.label)
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        let desc = itemDescription(for: item.id)
+                        if !desc.isEmpty {
+                            Text(desc)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Button(role: .destructive) {
+                        appSettings.statusLineConfig.rows[rowIndex].items.removeAll { $0.id == item.id }
+                        SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .padding(.vertical, 2)
+            }
+            .onMove { from, to in
+                appSettings.statusLineConfig.rows[rowIndex].items.move(fromOffsets: from, toOffset: to)
+                SettingsPersistence.saveStatusLine(appSettings: appSettings)
+            }
+            Menu {
+                if available.isEmpty {
+                    Text("All items are already used")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(available) { item in
+                        Button(item.label) {
+                            appSettings.statusLineConfig.rows[rowIndex].items.append(item)
+                            SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                        }
+                    }
+                }
+            } label: {
+                Label("Add Item", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+        } header: {
+            HStack {
+                Text("Row \(rowIndex + 1)")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    appSettings.statusLineConfig.rows.swapAt(rowIndex, rowIndex - 1)
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .buttonStyle(.borderless)
+                .disabled(rowIndex == 0)
+                Button {
+                    appSettings.statusLineConfig.rows.swapAt(rowIndex, rowIndex + 1)
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .buttonStyle(.borderless)
+                .disabled(rowIndex == rowCount - 1)
+                Button(role: .destructive) {
+                    appSettings.statusLineConfig.rows.remove(at: rowIndex)
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
     }
 
     private func itemDescription(for id: String) -> String {

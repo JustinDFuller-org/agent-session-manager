@@ -26,27 +26,45 @@ enum RowAlignment: String, Codable, CaseIterable {
     }
 }
 
-struct StatusLineItem: Codable, Identifiable {
+struct StatusLineItem: Codable, Identifiable, Hashable {
     var id: String
     var label: String
     var sfSymbol: String
-    var isVisible: Bool
 
-    init(id: String, label: String, sfSymbol: String, isVisible: Bool) {
+    init(id: String, label: String, sfSymbol: String) {
         self.id = id
         self.label = label
         self.sfSymbol = sfSymbol
-        self.isVisible = isVisible
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         label = try container.decode(String.self, forKey: .label)
-        isVisible = try container.decode(Bool.self, forKey: .isVisible)
         sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol)
             ?? StatusLineConfig.itemMetadata[id]?.symbol ?? "circle"
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, sfSymbol
+    }
+}
+
+struct StatusLineRow: Codable, Identifiable {
+    var id: UUID
+    var items: [StatusLineItem]
+
+    init(items: [StatusLineItem] = []) {
+        self.id = UUID()
+        self.items = items
+    }
+}
+
+private struct LegacyStatusLineItem: Decodable {
+    var id: String
+    var label: String
+    var sfSymbol: String?
+    var isVisible: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, label, sfSymbol, isVisible
@@ -54,7 +72,7 @@ struct StatusLineItem: Codable, Identifiable {
 }
 
 struct StatusLineConfig: Codable {
-    var items: [StatusLineItem]
+    var rows: [StatusLineRow]
     var chipLabelStyle: ChipLabelStyle
     var rowAlignment: RowAlignment
 
@@ -85,7 +103,7 @@ struct StatusLineConfig: Codable {
         "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
     ]
 
-    private static let itemOrder: [String] = [
+    static let itemOrder: [String] = [
         "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
         "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
@@ -94,24 +112,64 @@ struct StatusLineConfig: Codable {
 
     private static let defaultVisible: Set<String> = ["model", "worktree", "cost", "context"]
 
-    init() {
-        items = Self.itemOrder.compactMap { id in
-            guard let meta = Self.itemMetadata[id] else { return nil }
-            return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol, isVisible: Self.defaultVisible.contains(id))
+    static var allItems: [StatusLineItem] {
+        itemOrder.compactMap { id in
+            guard let meta = itemMetadata[id] else { return nil }
+            return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
         }
+    }
+
+    var usedItemIDs: Set<String> {
+        Set(rows.flatMap { $0.items.map(\.id) })
+    }
+
+    init() {
+        let defaultItems = Self.itemOrder
+            .filter { Self.defaultVisible.contains($0) }
+            .compactMap { id -> StatusLineItem? in
+                guard let meta = Self.itemMetadata[id] else { return nil }
+                return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
+            }
+        rows = [StatusLineRow(items: defaultItems)]
         chipLabelStyle = .symbolOnly
         rowAlignment = .leading
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        items = try container.decode([StatusLineItem].self, forKey: .items)
         chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .symbolOnly
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .leading
+
+        if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
+            rows = savedRows
+        } else if let legacyItems = try container.decodeIfPresent([LegacyStatusLineItem].self, forKey: .items) {
+            let visibleItems = legacyItems
+                .filter(\.isVisible)
+                .compactMap { legacy -> StatusLineItem? in
+                    guard let meta = StatusLineConfig.itemMetadata[legacy.id] else { return nil }
+                    return StatusLineItem(
+                        id: legacy.id,
+                        label: meta.label,
+                        sfSymbol: legacy.sfSymbol ?? meta.symbol
+                    )
+                }
+            rows = [StatusLineRow(items: visibleItems)]
+        } else {
+            let defaults = StatusLineConfig()
+            rows = defaults.rows
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(rows, forKey: .rows)
+        try container.encode(chipLabelStyle, forKey: .chipLabelStyle)
+        try container.encode(rowAlignment, forKey: .rowAlignment)
     }
 
     enum CodingKeys: String, CodingKey {
-        case items, chipLabelStyle, rowAlignment
+        case rows, chipLabelStyle, rowAlignment
+        case items
     }
 }
 
