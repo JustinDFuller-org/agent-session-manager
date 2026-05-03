@@ -10,6 +10,8 @@ Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for runni
 
 **Panes** are terminal sessions inside a tab. When you create a pane you give it a worktree name; the app immediately launches `claude --worktree <name>` in the tab's directory. Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
 
+**Status line** — each pane shows a configurable status bar at the bottom. It is populated by Claude Code's `statusLine` hook via a per-pane temp settings file (`--settings /tmp/asm-settings-<UUID>.json`) so every concurrent pane has its own isolated data file. All 24 available Claude data fields are exposed in Settings → Status Line (model, cost, context %, worktree, effort, vim mode, rate limits, etc.). Four are on by default: model, worktree name, cost, and context %.
+
 **CLI options** are configurable per-pane. A built-in library of 62 Claude CLI flags can be enabled/disabled in Settings; enabled flags appear as toggles and text fields in the New Pane sheet. Users can also add custom flags. Settings are persisted across launches.
 
 **Session persistence** saves tabs and pane names to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch the app restores tabs and restarts `claude` in any pane whose worktree still exists on disk.
@@ -61,20 +63,23 @@ make open-results # open .xcresult bundle to inspect failures
 - `AppState` — `@Observable` root state; owns the list of tabs and tracks active tab/pane IDs
 - `Tab` — A directory context containing one or more `Pane`s; responsible for spawning `claude --worktree <name>` processes
 - `Pane` — One terminal session; holds a `TerminalController`
-- `AppSettings` — In-memory state for which CLI flags are enabled
+- `AppSettings` — In-memory state for which CLI flags are enabled and status line configuration
 - `CLIOptionConfig` — Defines 62 predefined Claude CLI flags plus user-added custom flags; handles flag type mapping (boolean vs. string) and JSON persistence
+- `StatusLineConfig` — Defines 24 status line items (visibility, labels); `StatusLineData` decodes the JSON Claude passes to the statusLine hook command
 - `GridLayout` — Computes pane grid dimensions (1×1 → 2×1 → 2×2 → 3×2 → 3×3) based on pane count
 
 **Controllers** (`Controllers/`):
 - `TerminalController` — Wraps SwiftTerm's `LocalProcessTerminalView`; tracks process state (idle/running/exited) via `LocalProcessTerminalViewDelegate`
 - `SessionPersistence` — Saves/restores tabs, panes, and active tab to `~/Library/Application Support/agent-session-manager/sessions.json`
-- `SettingsPersistence` — Saves/restores enabled CLI flags and user-added flags to a parallel settings.json
+- `SettingsPersistence` — Saves/restores enabled CLI flags to `settings.json` and status line config to `statusline-settings.json`
+- `StatusLineMonitor` — Per-pane `@Observable` class; writes a temp settings file that configures Claude's `statusLine` hook to pipe JSON into a temp status file, then watches that file with `DispatchSourceFileSystemObject` and exposes parsed `StatusLineData`
 
 **Views** (`Views/`):
 - `ContentView` — Root; composes `TabBarView` + `PaneGridView`; owns NSEvent keyboard monitor for ⌘W and ⌘1–9
 - `TerminalRepresentable` — `NSViewRepresentable` wrapping SwiftTerm; defers process start until the view frame is non-zero (layout must be complete before the terminal resizes correctly)
 - `NewPaneSheet` — Dynamically renders CLI option toggles/fields from `CLIOptionConfig`
-- `SettingsView` — Manages the enabled/disabled state of official flags and user-added custom flags
+- `SettingsView` — Three-tab settings window: CLI Options (flag visibility), Shortcuts (key bindings), Status Line (item visibility)
+- `StatusLineView` — Renders visible status items as a monospaced caption bar; formats durations, reset times, cost, token counts, and all other Claude data fields
 
 ## Visual Design System
 
