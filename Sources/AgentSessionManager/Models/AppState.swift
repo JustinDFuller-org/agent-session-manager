@@ -22,6 +22,10 @@ final class AppState {
         activeTabID = tab.id
     }
 
+    func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
+        tabs.contains { $0.directory == directory && $0.hasPaneNamed(name) }
+    }
+
     func closeTab(_ tab: Tab) {
         tab.panes.forEach { $0.terminalController?.terminate() }
         tabs.removeAll { $0.id == tab.id }

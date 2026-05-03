@@ -297,3 +297,40 @@ final class CLIOptionConfigTests: XCTestCase {
         XCTAssertNil(json["customIsStringType"], "Official flags should not encode customIsStringType")
     }
 }
+
+final class WorktreeNameValidationTests: XCTestCase {
+    func testValidNames() {
+        let validNames = [
+            "auth-refactor",
+            "fix-login-bug",
+            "feature.123",
+            "my_branch",
+            "UPPERCASE",
+            "mixed-Case_123.branch",
+            "a",
+        ]
+        for name in validNames {
+            XCTAssertTrue(Tab.isValidWorktreeName(name), "Expected '\(name)' to be valid")
+        }
+    }
+
+    func testInvalidNames() {
+        let invalidNames = [
+            "",
+            "has space",
+            "has/slash",
+            "has!exclamation",
+            "has@at",
+            "has#hash",
+            "has$dollar",
+            "has%percent",
+            "has^caret",
+            "has&ampersand",
+            "has*star",
+            "has(paren",
+        ]
+        for name in invalidNames {
+            XCTAssertFalse(Tab.isValidWorktreeName(name), "Expected '\(name)' to be invalid")
+        }
+    }
+}

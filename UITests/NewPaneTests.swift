@@ -106,4 +106,34 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertTrue(app.groups["pane-header-pane-3"].firstMatch.exists)
         XCTAssertTrue(app.groups["pane-header-pane-4"].firstMatch.exists)
     }
+
+    func testInvalidNameShowsErrorAndDisablesOpenButton() {
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("invalid name")
+
+        let errorText = app.staticTexts["new-pane-name-error"]
+        waitFor(errorText)
+        screenshot("12-pane-invalid-name")
+        XCTAssertTrue(errorText.exists)
+        XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
+    }
+
+    func testDuplicateNameShowsErrorAndDisablesOpenButton() {
+        createPane(named: "my-feature")
+
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("my-feature")
+
+        let errorText = app.staticTexts["new-pane-name-error"]
+        waitFor(errorText)
+        screenshot("13-pane-duplicate-name")
+        XCTAssertTrue(errorText.exists)
+        XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
+    }
 }

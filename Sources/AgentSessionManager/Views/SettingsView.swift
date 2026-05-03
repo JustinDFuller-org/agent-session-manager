@@ -448,7 +448,9 @@ private struct AddCustomFlagSheet: View {
     @State private var isString = false
 
     private var isValid: Bool {
-        !flagName.isEmpty && !appSettings.cliOptions.contains(where: { $0.id == flagName })
+        !flagName.isEmpty &&
+        flagName.hasPrefix("--") &&
+        !appSettings.cliOptions.contains(where: { $0.id == flagName })
     }
 
     var body: some View {
@@ -464,7 +466,11 @@ private struct AddCustomFlagSheet: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .onSubmit { if isValid { submit() } }
-                if !flagName.isEmpty && appSettings.cliOptions.contains(where: { $0.id == flagName }) {
+                if !flagName.isEmpty && !flagName.hasPrefix("--") {
+                    Text("Flag name must start with \"--\".")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                } else if !flagName.isEmpty && appSettings.cliOptions.contains(where: { $0.id == flagName }) {
                     Text("A flag with this name already exists.")
                         .font(.caption)
                         .foregroundStyle(.red)

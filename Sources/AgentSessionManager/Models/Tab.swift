@@ -19,6 +19,16 @@ final class Tab: Identifiable {
         directory.lastPathComponent
     }
 
+    nonisolated static func isValidWorktreeName(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+        let valid = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        return name.unicodeScalars.allSatisfy { valid.contains($0) }
+    }
+
+    func hasPaneNamed(_ name: String) -> Bool {
+        panes.contains { $0.name == name }
+    }
+
     func addPane(name: String, extraArgs: [String] = []) {
         let pane = Pane(name: name, tab: self)
         if !AgentSessionManagerApp.isUITesting {

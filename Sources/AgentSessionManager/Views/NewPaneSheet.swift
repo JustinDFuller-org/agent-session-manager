@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NewPaneSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     let tab: Tab
 
@@ -25,6 +26,12 @@ struct NewPaneSheet: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .font(.system(.caption, design: .monospaced))
+                if let error = nameError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("new-pane-name-error")
+                }
             }
 
             let available = appSettings.cliOptions.filter(\.isAvailable)
@@ -48,13 +55,24 @@ struct NewPaneSheet: View {
                     .accessibilityIdentifier("new-pane-cancel-button")
                 Button("Open") { create() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(worktreeName.isEmpty)
+                    .disabled(worktreeName.isEmpty || nameError != nil)
                     .accessibilityIdentifier("new-pane-open-button")
             }
         }
         .padding(24)
         .frame(width: 420)
         .onAppear { initializeOptionStates() }
+    }
+
+    private var nameError: String? {
+        guard !worktreeName.isEmpty else { return nil }
+        if !Tab.isValidWorktreeName(worktreeName) {
+            return "Name may only contain letters, digits, dots, underscores, and dashes."
+        }
+        if appState.isWorktreeDuplicate(directory: tab.directory, name: worktreeName) {
+            return "A pane with this worktree is already open."
+        }
+        return nil
     }
 
     private func stateBinding(for option: CLIOptionConfig) -> Binding<OptionState> {
@@ -71,7 +89,7 @@ struct NewPaneSheet: View {
     }
 
     private func create() {
-        guard !worktreeName.isEmpty else { return }
+        guard !worktreeName.isEmpty, nameError == nil else { return }
         let extraArgs = buildExtraArgs()
         tab.addPane(name: worktreeName, extraArgs: extraArgs)
         dismiss()
