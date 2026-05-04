@@ -51,8 +51,40 @@ final class Tab: Identifiable {
         do {
             try await runGit(["worktree", "add", ".tree/\(name)", branchName])
         } catch {
+            // Branch already checked out in another worktree — no new worktree needed.
+            if await branchAlreadyCheckedOut(branchName) { return }
             try await runGit(["fetch", "origin", branchName])
             try await runGit(["worktree", "add", ".tree/\(name)", branchName])
+        }
+    }
+
+    private func branchAlreadyCheckedOut(_ branchName: String) async -> Bool {
+        let ref = "branch refs/heads/\(branchName)"
+        return (try? await runGitOutput(["worktree", "list", "--porcelain"]))?.contains(ref) ?? false
+    }
+
+    private func runGitOutput(_ args: [String]) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(filePath: "/usr/bin/git")
+            process.arguments = args
+            process.currentDirectoryURL = directory
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+            process.terminationHandler = { p in
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if p.terminationStatus == 0 {
+                    continuation.resume(returning: String(data: data, encoding: .utf8) ?? "")
+                } else {
+                    continuation.resume(throwing: NSError(domain: "git", code: Int(p.terminationStatus)))
+                }
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
         }
     }
 
