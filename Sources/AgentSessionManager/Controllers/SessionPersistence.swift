@@ -66,8 +66,11 @@ struct SessionPersistence {
             let tab = Tab(name: persistedTab.name, directory: dir)
             for persistedPane in persistedTab.panes {
                 if persistedPane.cliType == .claude {
-                    let worktreePath = dir.appending(path: ".tree/\(persistedPane.name)")
-                    guard FileManager.default.fileExists(atPath: worktreePath.path) else { continue }
+                    let managed = Tab.worktreeDirectoryURL(repoRoot: dir, name: persistedPane.name)
+                    let legacy = dir.appending(path: ".tree/\(persistedPane.name)", directoryHint: .notDirectory)
+                    let hasWorktree = FileManager.default.fileExists(atPath: managed.path)
+                        || FileManager.default.fileExists(atPath: legacy.path)
+                    guard hasWorktree else { continue }
                 }
                 tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
             }

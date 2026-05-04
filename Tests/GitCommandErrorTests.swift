@@ -4,7 +4,7 @@ import XCTest
 final class GitCommandErrorTests: XCTestCase {
     func testErrorDescriptionUsesTrimmedStderr() {
         let err = GitCommandError(
-            arguments: ["worktree", "add", ".tree/foo", "bad-ref"],
+            arguments: ["worktree", "add", ".agent-session-manager/worktrees/foo", "bad-ref"],
             exitCode: 128,
             stderr: "fatal: invalid reference: bad-ref\n"
         )

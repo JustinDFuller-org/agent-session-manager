@@ -136,4 +136,37 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertTrue(errorText.exists)
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
     }
+
+    func testExistingWorktreeToggleShowsRefFieldAndHidesSessionName() {
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+        XCTAssertTrue(nameField.exists)
+
+        let refField = app.textFields["new-pane-existing-ref-field"]
+        XCTAssertFalse(refField.exists)
+
+        let toggleId = "new-pane-existing-worktree-toggle"
+        let checkBox = app.checkBoxes[toggleId]
+        let switchEl = app.switches[toggleId]
+        let toggle: XCUIElement
+        if checkBox.waitForExistence(timeout: 2) {
+            toggle = checkBox
+        } else {
+            waitFor(switchEl)
+            toggle = switchEl
+        }
+        toggle.click()
+
+        waitFor(refField)
+        XCTAssertTrue(refField.exists)
+        XCTAssertFalse(app.textFields["new-pane-name-field"].exists)
+        screenshot("13b-existing-worktree-on")
+
+        toggle.click()
+        waitForDisappear(refField)
+        XCTAssertFalse(refField.exists)
+        waitFor(app.textFields["new-pane-name-field"])
+        screenshot("13c-existing-worktree-off")
+    }
 }

@@ -39,6 +39,7 @@ final class Pane: Identifiable {
 
     var worktreePath: URL? {
         guard cliType == .claude else { return nil }
-        return tab?.directory.appending(path: ".tree/\(name)")
+        guard let tab else { return nil }
+        return Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: name)
     }
 }

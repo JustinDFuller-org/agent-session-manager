@@ -8,13 +8,13 @@ Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for runni
 
 **Tabs** represent a working directory. Each tab has a name and a root directory. You can have many tabs open at once and switch between them with ⌘1–⌘9.
 
-**Panes** are terminal sessions inside a tab. When you create a pane you give it a worktree name; the app immediately launches `claude --worktree <name>` in the tab's directory. Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
+**Panes** are terminal sessions inside a tab. When you create a pane you give it a worktree name; the app immediately launches `claude --worktree <name>` in the tab's directory. Git worktrees the app creates or resolves live under `<repo>/.agent-session-manager/worktrees/<name>` (similar to Claude’s `.claude/worktrees/`). Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
 
 **Status line** — each pane shows a configurable status bar at the bottom. It is populated by Claude Code's `statusLine` hook via a per-pane temp settings file (`--settings /tmp/asm-settings-<UUID>.json`) so every concurrent pane has its own isolated data file. All 24 available Claude data fields are exposed in Settings → Status Line (model, cost, context %, worktree, effort, vim mode, rate limits, etc.). Four are on by default: model, worktree name, cost, and context %.
 
 **CLI options** are configurable per-pane. A built-in library of 62 Claude CLI flags can be enabled/disabled in Settings; enabled flags appear as toggles and text fields in the New Pane sheet. Users can also add custom flags. Settings are persisted across launches.
 
-**Session persistence** saves tabs and pane names to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch the app restores tabs and restarts `claude` in any pane whose worktree still exists on disk.
+**Session persistence** saves tabs and pane names to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch the app restores tabs and restarts `claude` in any pane whose worktree directory still exists—under `.agent-session-manager/worktrees/<name>`, or for older sessions under legacy `.tree/<name>`.
 
 **Keyboard shortcuts:**
 - ⌘T — new tab
@@ -32,7 +32,7 @@ Concretely: the core workflow (create tab → create pane → terminal session) 
 
 The terminal pane is Claude's UI, not a setup script runner. Users should never see app-level plumbing (git commands, setup output, error text from the app) in the terminal. Any setup the app needs to do before launching Claude — creating worktrees, fetching branches, writing config files — must happen in Swift using `Foundation.Process` or file APIs, not by prepending shell commands to the Claude invocation.
 
-Concretely: `buildClaudeCommand()` and similar functions must only emit the final tool invocation (`claude ...`, `codex ...`). All prerequisite work runs in the app layer (e.g., `Tab.setupWorktree()`) and surfaces errors through SwiftUI UI (sheets, inline error text), not through the terminal.
+Concretely: `buildClaudeCommand()` and similar functions must only emit the final tool invocation (`claude ...`, `codex ...`). All prerequisite work runs in the app layer (e.g. `Tab.resolveOrAttachWorktree()` when attaching to an existing branch/worktree) and surfaces errors through SwiftUI UI (sheets, inline error text), not through the terminal.
 
 ## Build & Run Commands
 
@@ -61,7 +61,7 @@ make test-ui      # xcodebuild test with UITests scheme
 make open-results # open .xcresult bundle to inspect failures
 ```
 
-**IMPORTANT**: Update the test suite with every change. Unit tests live in `Tests/CLIOptionConfigTests.swift`. UI tests live in `UITests/`. The app passes `--uitesting-skip-restore` during UI test runs to bypass session restoration.
+**IMPORTANT**: Update the test suite with every change. Unit tests live in `Tests/` (e.g. `CLIOptionConfigTests.swift`, `WorktreeListParserTests.swift`). UI tests live in `UITests/`. The app passes `--uitesting-skip-restore` during UI test runs to bypass session restoration.
 
 ## Architecture
 
@@ -69,7 +69,7 @@ make open-results # open .xcresult bundle to inspect failures
 
 **Models** (`Models/`):
 - `AppState` — `@Observable` root state; owns the list of tabs and tracks active tab/pane IDs
-- `Tab` — A directory context containing one or more `Pane`s; responsible for spawning `claude --worktree <name>` processes
+- `Tab` — A directory context containing one or more `Pane`s; responsible for spawning `claude --worktree <name>` processes and (when needed) resolving git worktrees under `.agent-session-manager/worktrees/`
 - `Pane` — One terminal session; holds a `TerminalController`
 - `AppSettings` — In-memory state for which CLI flags are enabled and status line configuration
 - `CLIOptionConfig` — Defines 62 predefined Claude CLI flags plus user-added custom flags; handles flag type mapping (boolean vs. string) and JSON persistence
@@ -85,7 +85,7 @@ make open-results # open .xcresult bundle to inspect failures
 **Views** (`Views/`):
 - `ContentView` — Root; composes `TabBarView` + `PaneGridView`; owns NSEvent keyboard monitor for ⌘W and ⌘1–9
 - `TerminalRepresentable` — `NSViewRepresentable` wrapping SwiftTerm; defers process start until the view frame is non-zero (layout must be complete before the terminal resizes correctly)
-- `NewPaneSheet` — Dynamically renders CLI option toggles/fields from `CLIOptionConfig`
+- `NewPaneSheet` — CLI picker, optional “Existing branch or worktree” flow for Claude, and dynamic CLI option toggles from `CLIOptionConfig`
 - `SettingsView` — Three-tab settings window: CLI Options (flag visibility), Shortcuts (key bindings), Status Line (item visibility)
 - `StatusLineView` — Renders visible status items as a monospaced caption bar; formats durations, reset times, cost, token counts, and all other Claude data fields
 
@@ -129,6 +129,10 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 - GitHub repo: https://github.com/JustinDFuller/agent-session-manager
 - Tasks and bugs are tracked as GitHub Issues: https://github.com/JustinDFuller/agent-session-manager/issues
 - Reference the relevant issue number in commit messages and PR descriptions.
+
+## Documentation
+
+- **Feature guides** — `documentation/features/` (e.g. `worktree-creation.md` for git worktree paths and New Pane modes).
 
 ## Key Behaviors to Know
 
