@@ -34,5 +34,24 @@ test-ui: xcodeproj
 open-results:
 	open $(RESULTS_PATH)
 
+restart:
+	pkill -x $(APP_NAME) 2>/dev/null || true
+	sleep 0.5
+	open $(APP_BUNDLE)
+
+watch:
+	@echo "Watching Sources/ and Tests/ for changes... (Ctrl+C to stop)"
+	@touch /tmp/asm-watch-sentinel
+	@while true; do \
+		if find Sources/ Tests/ -name '*.swift' -newer /tmp/asm-watch-sentinel | grep -q .; then \
+			echo "Changes detected, rebuilding..."; \
+			touch /tmp/asm-watch-sentinel; \
+			pkill -x $(APP_NAME) 2>/dev/null || true; \
+			sleep 0.5; \
+			$(MAKE) run || true; \
+		fi; \
+		sleep 1; \
+	done
+
 clean:
 	rm -rf $(APP_BUNDLE) .build $(APP_NAME).xcodeproj
