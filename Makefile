@@ -40,8 +40,10 @@ restart:
 	open $(APP_BUNDLE)
 
 watch:
-	@echo "Watching Sources/ and Tests/ for changes... (Ctrl+C to stop)"
+	@echo "Building and running..."
+	@$(MAKE) run
 	@touch /tmp/asm-watch-sentinel
+	@echo "Watching Sources/ and Tests/ for changes... (Ctrl+C to stop)"
 	@while true; do \
 		if find Sources/ Tests/ -name '*.swift' -newer /tmp/asm-watch-sentinel | grep -q .; then \
 			echo "Changes detected, rebuilding..."; \
