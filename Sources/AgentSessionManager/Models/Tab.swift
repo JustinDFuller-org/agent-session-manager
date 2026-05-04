@@ -25,6 +25,16 @@ final class Tab: Identifiable {
         return "claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extraArgs)"
     }
 
+    nonisolated static func sanitizeBranchName(_ branch: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        return branch
+            .replacingOccurrences(of: "/", with: "-")
+            .unicodeScalars
+            .filter { allowed.contains($0) }
+            .map { String($0) }
+            .joined()
+    }
+
     nonisolated static func isValidWorktreeName(_ name: String) -> Bool {
         guard !name.isEmpty else { return false }
         let valid = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
@@ -33,6 +43,40 @@ final class Tab: Identifiable {
 
     func hasPaneNamed(_ name: String) -> Bool {
         panes.contains { $0.name == name }
+    }
+
+    func setupWorktree(name: String, branchName: String) async throws {
+        let worktreePath = directory.appending(path: ".tree/\(name)")
+        if FileManager.default.fileExists(atPath: worktreePath.path) { return }
+        do {
+            try await runGit(["worktree", "add", ".tree/\(name)", branchName])
+        } catch {
+            try await runGit(["fetch", "origin", branchName])
+            try await runGit(["worktree", "add", ".tree/\(name)", branchName])
+        }
+    }
+
+    private func runGit(_ args: [String]) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(filePath: "/usr/bin/git")
+            process.arguments = args
+            process.currentDirectoryURL = directory
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            process.terminationHandler = { p in
+                if p.terminationStatus == 0 {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: NSError(domain: "git", code: Int(p.terminationStatus)))
+                }
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
     }
 
     func addPane(name: String, extraArgs: [String] = [], cliType: CLIType = .claude) {

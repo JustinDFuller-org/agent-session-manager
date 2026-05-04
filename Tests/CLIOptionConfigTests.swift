@@ -478,19 +478,50 @@ final class AppSettingsActiveToolsTests: XCTestCase {
 }
 
 final class TabCommandTests: XCTestCase {
-    func testClaudeCommandUsesRelativeExecutable() {
-        let cmd = Tab.buildClaudeCommand(name: "my-feature", settingsPath: "/tmp/s.json", extraArgs: "")
-        XCTAssertTrue(cmd.hasPrefix("claude "))
-        XCTAssertFalse(cmd.contains("/Users/"))
+    func testBuildClaudeCommandNoBranch() {
+        let cmd = Tab.buildClaudeCommand(name: "auth-fix", settingsPath: "/tmp/s.json", extraArgs: "")
+        XCTAssertEqual(cmd, "claude --worktree 'auth-fix' --settings '/tmp/s.json'")
+        XCTAssertFalse(cmd.contains("git"))
     }
 
-    func testClaudeCommandEscapesSingleQuotes() {
-        let cmd = Tab.buildClaudeCommand(name: "it's-a-test", settingsPath: "/tmp/s.json", extraArgs: "")
-        XCTAssertTrue(cmd.contains("'\\''"))
+    func testBuildClaudeCommandWithExtraArgs() {
+        let cmd = Tab.buildClaudeCommand(name: "fix", settingsPath: "/tmp/s.json", extraArgs: " --model claude-opus-4-7")
+        XCTAssertTrue(cmd.hasSuffix("--model claude-opus-4-7"))
+        XCTAssertFalse(cmd.contains("git"))
     }
 
-    func testClaudeCommandAppendsExtraArgs() {
-        let cmd = Tab.buildClaudeCommand(name: "feat", settingsPath: "/tmp/s.json", extraArgs: " --model opus")
-        XCTAssertTrue(cmd.hasSuffix("--model opus"))
+    func testBuildClaudeCommandEscapesNameQuotes() {
+        let cmd = Tab.buildClaudeCommand(name: "it's", settingsPath: "/tmp/s.json", extraArgs: "")
+        XCTAssertTrue(cmd.contains("'it'\\''s'"))
+        XCTAssertFalse(cmd.contains("git"))
+    }
+
+    func testBuildClaudeCommandEscapesSettingsQuotes() {
+        let cmd = Tab.buildClaudeCommand(name: "fix", settingsPath: "/tmp/my's.json", extraArgs: "")
+        XCTAssertTrue(cmd.contains("'/tmp/my'\\''s.json'"))
+    }
+}
+
+final class BranchSanitizationTests: XCTestCase {
+    func testSlashesBecomeDashes() {
+        let result = Tab.sanitizeBranchName("dependabot/go_modules/eligibility/go-deps-9dbd69c79b")
+        XCTAssertEqual(result, "dependabot-go_modules-eligibility-go-deps-9dbd69c79b")
+    }
+
+    func testSimpleBranchPassesThrough() {
+        XCTAssertEqual(Tab.sanitizeBranchName("fix-login-bug"), "fix-login-bug")
+    }
+
+    func testInvalidCharsAreStripped() {
+        XCTAssertEqual(Tab.sanitizeBranchName("feature@123!"), "feature123")
+    }
+
+    func testEmptyBranchReturnsEmpty() {
+        XCTAssertEqual(Tab.sanitizeBranchName(""), "")
+    }
+
+    func testSanitizedNamePassesWorktreeValidation() {
+        let sanitized = Tab.sanitizeBranchName("dependabot/go_modules/eligibility/go-deps-9dbd69c79b")
+        XCTAssertTrue(Tab.isValidWorktreeName(sanitized))
     }
 }

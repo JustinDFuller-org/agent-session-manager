@@ -7,8 +7,12 @@ struct NewPaneSheet: View {
     let tab: Tab
 
     @State private var worktreeName = ""
+    @State private var branchName = ""
+    @State private var worktreeNameEdited = false
     @State private var selectedCLIType: CLIType = .claude
     @State private var optionStates: [String: OptionState] = [:]
+    @State private var isCreating = false
+    @State private var worktreeSetupError: String?
 
     private var activeToolList: [CLIType] {
         CLIType.allCases.filter { appSettings.isActive($0) }
@@ -52,6 +56,30 @@ struct NewPaneSheet: View {
                 }
             }
 
+            if selectedCLIType == .claude {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Branch (optional)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    TextField("dependabot/go_modules/...", text: $branchName)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { create() }
+                        .onChange(of: branchName) { _, newValue in
+                            if !worktreeNameEdited {
+                                worktreeName = newValue.isEmpty ? "" : Tab.sanitizeBranchName(newValue)
+                            }
+                        }
+                    Text("Leave empty to create a new worktree from HEAD")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    if let error = worktreeSetupError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Session Name")
                     .font(.subheadline)
@@ -59,6 +87,9 @@ struct NewPaneSheet: View {
                 TextField("auth-refactor, fix-login-bug, etc.", text: $worktreeName)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { create() }
+                    .onChange(of: worktreeName) { _, _ in
+                        worktreeNameEdited = !branchName.isEmpty
+                    }
                     .accessibilityIdentifier("new-pane-name-field")
                 if selectedCLIType == .claude {
                     Text("Will open at \(tab.directory.lastPathComponent)/.tree/\(worktreeName.isEmpty ? "<name>" : worktreeName)")
@@ -100,7 +131,7 @@ struct NewPaneSheet: View {
                     .accessibilityIdentifier("new-pane-cancel-button")
                 Button("Open") { create() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(worktreeName.isEmpty || nameError != nil || activeToolList.isEmpty)
+                    .disabled(worktreeName.isEmpty || nameError != nil || activeToolList.isEmpty || isCreating)
                     .accessibilityIdentifier("new-pane-open-button")
             }
         }
@@ -143,9 +174,40 @@ struct NewPaneSheet: View {
         guard !worktreeName.isEmpty, nameError == nil else { return }
         let extraArgs = buildExtraArgs()
         let name = worktreeName
+        let branch = branchName.isEmpty ? nil : branchName
+
+        guard let branch else {
+            resetForm()
+            tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+            dismiss()
+            return
+        }
+
+        isCreating = true
+        worktreeSetupError = nil
+        Task {
+            do {
+                try await tab.setupWorktree(name: name, branchName: branch)
+                await MainActor.run {
+                    resetForm()
+                    tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isCreating = false
+                    worktreeSetupError = "Failed to set up worktree for branch '\(branch)'. Check that the branch exists locally or on origin."
+                }
+            }
+        }
+    }
+
+    private func resetForm() {
         worktreeName = ""
-        tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
-        dismiss()
+        branchName = ""
+        worktreeNameEdited = false
+        worktreeSetupError = nil
+        isCreating = false
     }
 
     private func buildExtraArgs() -> [String] {
