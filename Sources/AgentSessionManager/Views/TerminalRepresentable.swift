@@ -3,6 +3,7 @@ import SwiftTerm
 
 struct TerminalRepresentable: NSViewRepresentable {
     let controller: TerminalController
+    let isActive: Bool
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         controller.terminalView
@@ -10,6 +11,7 @@ struct TerminalRepresentable: NSViewRepresentable {
 
     func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
         context.coordinator.startIfNeeded(view: nsView, controller: controller)
+        context.coordinator.focusIfNeeded(view: nsView, isActive: isActive)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -19,6 +21,7 @@ struct TerminalRepresentable: NSViewRepresentable {
     @MainActor
     final class Coordinator {
         private var started = false
+        private var wasActive = false
 
         func startIfNeeded(view: LocalProcessTerminalView, controller: TerminalController) {
             guard !started else { return }
@@ -30,6 +33,12 @@ struct TerminalRepresentable: NSViewRepresentable {
             }
             started = true
             controller.startProcess()
+        }
+
+        func focusIfNeeded(view: LocalProcessTerminalView, isActive: Bool) {
+            defer { wasActive = isActive }
+            guard isActive && !wasActive else { return }
+            view.window?.makeFirstResponder(view)
         }
     }
 }

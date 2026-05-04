@@ -145,6 +145,7 @@ struct NewPaneSheet: View {
         let name = worktreeName
         worktreeName = ""
         tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+        appState.setActivePane(id: tab.panes.last?.id)
         dismiss()
     }
 

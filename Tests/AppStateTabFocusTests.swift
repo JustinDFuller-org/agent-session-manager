@@ -1,0 +1,99 @@
+import XCTest
+@testable import AgentSessionManager
+
+@MainActor
+final class AppStateTabFocusTests: XCTestCase {
+    private func makeState(tabs: [(name: String, paneNames: [String])]) -> (AppState, [[Pane]]) {
+        let state = AppState()
+        let url = URL(filePath: "/tmp")
+        var allPanes: [[Pane]] = []
+        for tabSpec in tabs {
+            let tab = Tab(name: tabSpec.name, directory: url)
+            let panes = tabSpec.paneNames.map { Pane(name: $0, tab: tab) }
+            tab.panes = panes
+            state.tabs.append(tab)
+            allPanes.append(panes)
+        }
+        return (state, allPanes)
+    }
+
+    func testSwitchTabFallsBackToFirstPane() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a", "b"]),
+            (name: "tab2", paneNames: ["c", "d"])
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][1].id
+
+        // Tab2 has never been visited — should land on its first pane
+        state.switchToTab(id: state.tabs[1].id)
+
+        XCTAssertEqual(state.activePaneID, panes[1][0].id)
+    }
+
+    func testSwitchTabRestoresLastActivePaneID() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a", "b"]),
+            (name: "tab2", paneNames: ["c", "d"])
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][1].id
+
+        // Switch to tab2, focus its second pane
+        state.switchToTab(id: state.tabs[1].id)
+        state.setActivePane(id: panes[1][1].id)
+
+        // Switch back to tab1 — second pane should be restored
+        state.switchToTab(id: state.tabs[0].id)
+        XCTAssertEqual(state.activePaneID, panes[0][1].id)
+
+        // Switch back to tab2 — second pane should be restored
+        state.switchToTab(id: state.tabs[1].id)
+        XCTAssertEqual(state.activePaneID, panes[1][1].id)
+    }
+
+    func testSetActivePaneUpdatesLastActivePaneID() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a", "b"])
+        ])
+        state.activeTabID = state.tabs[0].id
+
+        state.setActivePane(id: panes[0][1].id)
+
+        XCTAssertEqual(state.activePaneID, panes[0][1].id)
+        XCTAssertEqual(state.tabs[0].lastActivePaneID, panes[0][1].id)
+    }
+
+    func testNewPaneBecomesActivePane() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"])
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][0].id
+
+        let newPane = Pane(name: "b", tab: state.tabs[0])
+        state.tabs[0].panes.append(newPane)
+        state.setActivePane(id: state.tabs[0].panes.last?.id)
+
+        XCTAssertEqual(state.activePaneID, newPane.id)
+        XCTAssertEqual(state.tabs[0].lastActivePaneID, newPane.id)
+    }
+
+    func testSwitchTabIgnoresInvalidLastActivePaneID() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a", "b"]),
+            (name: "tab2", paneNames: ["c"])
+        ])
+        // Start on tab2 so tab1's lastActivePaneID is not overwritten on departure
+        state.activeTabID = state.tabs[1].id
+        state.activePaneID = panes[1][0].id
+
+        // Simulate tab1 having a stale last pane ID (e.g. that pane was closed)
+        state.tabs[0].lastActivePaneID = UUID()
+
+        // Switch to tab1 — stale ID is not in its panes list, should fall back to first pane
+        state.switchToTab(id: state.tabs[0].id)
+
+        XCTAssertEqual(state.activePaneID, panes[0][0].id)
+    }
+}
