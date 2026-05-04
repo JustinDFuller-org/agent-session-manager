@@ -476,3 +476,21 @@ final class AppSettingsActiveToolsTests: XCTestCase {
         XCTAssertFalse(settings.activeTools.contains("cursor"))
     }
 }
+
+final class TabCommandTests: XCTestCase {
+    func testClaudeCommandUsesRelativeExecutable() {
+        let cmd = Tab.buildClaudeCommand(name: "my-feature", settingsPath: "/tmp/s.json", extraArgs: "")
+        XCTAssertTrue(cmd.hasPrefix("claude "))
+        XCTAssertFalse(cmd.contains("/Users/"))
+    }
+
+    func testClaudeCommandEscapesSingleQuotes() {
+        let cmd = Tab.buildClaudeCommand(name: "it's-a-test", settingsPath: "/tmp/s.json", extraArgs: "")
+        XCTAssertTrue(cmd.contains("'\\''"))
+    }
+
+    func testClaudeCommandAppendsExtraArgs() {
+        let cmd = Tab.buildClaudeCommand(name: "feat", settingsPath: "/tmp/s.json", extraArgs: " --model opus")
+        XCTAssertTrue(cmd.hasSuffix("--model opus"))
+    }
+}
