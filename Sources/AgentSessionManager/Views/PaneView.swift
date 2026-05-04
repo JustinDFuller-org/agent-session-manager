@@ -26,7 +26,7 @@ struct PaneView: View {
                 )
         )
         .onTapGesture {
-            appState.activePaneID = pane.id
+            appState.setActivePane(id: pane.id)
         }
     }
 
@@ -89,7 +89,7 @@ struct PaneView: View {
     @ViewBuilder
     private var terminalBody: some View {
         if let controller = pane.terminalController {
-            TerminalRepresentable(controller: controller)
+            TerminalRepresentable(controller: controller, isActive: isActive)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             Color(nsColor: .textBackgroundColor)

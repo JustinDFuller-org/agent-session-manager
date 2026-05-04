@@ -28,13 +28,13 @@ struct TabButtonView: View {
             .padding(.vertical, 5)
             .contentShape(Rectangle())
             .highPriorityGesture(TapGesture().onEnded {
-                appState.activeTabID = tab.id
+                appState.switchToTab(id: tab.id)
             })
             .accessibilityIdentifier("tab-button-\(tab.name)")
             .accessibilityValue(isActive ? "active" : "inactive")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(.default) {
-                appState.activeTabID = tab.id
+                appState.switchToTab(id: tab.id)
             }
 
             Button {

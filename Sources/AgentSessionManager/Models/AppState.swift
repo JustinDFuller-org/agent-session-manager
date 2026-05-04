@@ -22,6 +22,18 @@ final class AppState {
         activeTabID = tab.id
     }
 
+    func switchToTab(id: UUID) {
+        activeTab?.lastActivePaneID = activePaneID
+        activeTabID = id
+        let saved = activeTab?.lastActivePaneID
+        activePaneID = activeTab?.panes.first(where: { $0.id == saved })?.id ?? activeTab?.panes.first?.id
+    }
+
+    func setActivePane(id: UUID?) {
+        activeTab?.lastActivePaneID = id
+        activePaneID = id
+    }
+
     func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
         tabs.contains { $0.directory == directory && $0.hasPaneNamed(name) }
     }

@@ -8,6 +8,7 @@ final class Tab: Identifiable {
     var name: String
     var directory: URL
     var panes: [Pane] = []
+    var lastActivePaneID: UUID?
 
     init(name: String, directory: URL) {
         self.id = UUID()

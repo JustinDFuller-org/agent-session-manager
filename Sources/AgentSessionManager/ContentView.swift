@@ -45,7 +45,7 @@ struct ContentView: View {
 
     private func switchTab(index: Int) {
         guard index < appState.tabs.count else { return }
-        appState.activeTabID = appState.tabs[index].id
+        appState.switchToTab(id: appState.tabs[index].id)
     }
 }
 
@@ -140,7 +140,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
                 guard let termView = pane.terminalController?.terminalView else { continue }
                 let converted = termView.convert(location, from: nil)
                 if termView.bounds.contains(converted) {
-                    appState.activePaneID = pane.id
+                    appState.setActivePane(id: pane.id)
                     return
                 }
             }

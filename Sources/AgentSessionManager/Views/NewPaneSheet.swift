@@ -179,6 +179,7 @@ struct NewPaneSheet: View {
         guard let branch else {
             resetForm()
             tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+            appState.setActivePane(id: tab.panes.last?.id)
             dismiss()
             return
         }
@@ -191,6 +192,7 @@ struct NewPaneSheet: View {
                 await MainActor.run {
                     resetForm()
                     tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+                    appState.setActivePane(id: tab.panes.last?.id)
                     dismiss()
                 }
             } catch {
