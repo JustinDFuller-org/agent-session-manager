@@ -19,6 +19,12 @@ final class Tab: Identifiable {
         directory.lastPathComponent
     }
 
+    nonisolated static func buildClaudeCommand(name: String, settingsPath: String, extraArgs: String) -> String {
+        let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
+        let escapedSettings = settingsPath.replacingOccurrences(of: "'", with: "'\\''")
+        return "claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extraArgs)"
+    }
+
     nonisolated static func isValidWorktreeName(_ name: String) -> Bool {
         guard !name.isEmpty else { return false }
         let valid = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
@@ -38,11 +44,9 @@ final class Tab: Identifiable {
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             switch cliType {
             case .claude:
-                let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
                 let monitor = StatusLineMonitor(paneID: pane.id)
                 monitor.start()
-                let escapedSettings = monitor.settingsFilePath.replacingOccurrences(of: "'", with: "'\\''")
-                controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extra)"
+                controller.pendingCommand = Tab.buildClaudeCommand(name: name, settingsPath: monitor.settingsFilePath, extraArgs: extra)
                 pane.statusLineMonitor = monitor
             case .codex:
                 controller.pendingCommand = "codex\(extra)"
