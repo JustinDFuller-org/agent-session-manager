@@ -50,7 +50,7 @@ enum WorktreeResolutionError: Error, LocalizedError, Equatable {
 @Observable
 @MainActor
 final class Tab: Identifiable {
-    /// Relative to the tab’s git repo root. Git worktrees ASM creates live here (parallel to Claude’s `.claude/worktrees/`).
+    /// Relative to the tab’s git repo root. Git worktrees this app creates live here (parallel to Claude’s `.claude/worktrees/`).
     nonisolated static let worktreesRootRelativePath = ".agent-session-manager/worktrees"
 
     let id: UUID
@@ -234,8 +234,8 @@ final class Tab: Identifiable {
             }
         }
 
-        let asmRoot = directory.appending(path: ".agent-session-manager", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: asmRoot, withIntermediateDirectories: true)
+        let appConfigRoot = directory.appending(path: ".agent-session-manager", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: appConfigRoot, withIntermediateDirectories: true)
         let rel = Tab.gitWorktreeAddPath(name: targetName)
         do {
             try await runGit(["worktree", "add", rel, ref])
@@ -259,8 +259,8 @@ final class Tab: Identifiable {
 
     private func managedWorktreeName(forAbsoluteWorktreePath path: String) -> String? {
         let workURL = URL(fileURLWithPath: path).standardizedFileURL
-        let asmBase = Tab.worktreeDirectoryURL(repoRoot: directory, name: "dummy").deletingLastPathComponent().standardizedFileURL
-        let basePath = asmBase.path
+        let managedWorktreesBase = Tab.worktreeDirectoryURL(repoRoot: directory, name: "dummy").deletingLastPathComponent().standardizedFileURL
+        let basePath = managedWorktreesBase.path
         let p = workURL.path
         guard p.hasPrefix(basePath + "/") else { return nil }
         let relative = String(p.dropFirst(basePath.count + 1))

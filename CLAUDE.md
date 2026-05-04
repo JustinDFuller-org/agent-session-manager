@@ -10,7 +10,7 @@ Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for runni
 
 **Panes** are terminal sessions inside a tab. When you create a pane you give it a worktree name; the app immediately launches `claude --worktree <name>` in the tab's directory. Git worktrees the app creates or resolves live under `<repo>/.agent-session-manager/worktrees/<name>` (similar to Claude’s `.claude/worktrees/`). Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
 
-**Status line** — each pane shows a configurable status bar at the bottom. It is populated by Claude Code's `statusLine` hook via a per-pane temp settings file (`--settings /tmp/asm-settings-<UUID>.json`) so every concurrent pane has its own isolated data file. All 24 available Claude data fields are exposed in Settings → Status Line (model, cost, context %, worktree, effort, vim mode, rate limits, etc.). Four are on by default: model, worktree name, cost, and context %.
+**Status line** — each pane shows a configurable status bar at the bottom. It is populated by Claude Code's `statusLine` hook via a per-pane temp settings file (`--settings /tmp/agent-session-manager-settings-<UUID>.json`) so every concurrent pane has its own isolated data file. All 24 available Claude data fields are exposed in Settings → Status Line (model, cost, context %, worktree, effort, vim mode, rate limits, etc.). Four are on by default: model, worktree name, cost, and context %.
 
 **CLI options** are configurable per-pane. A built-in library of 62 Claude CLI flags can be enabled/disabled in Settings; enabled flags appear as toggles and text fields in the New Pane sheet. Users can also add custom flags. Settings are persisted across launches.
 
@@ -27,6 +27,10 @@ Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for runni
 The tab/pane workflow is fixed — that structure is the product. What happens *inside* a pane is not. People use Claude in very different ways (different flags, models, personas, workflows), and that diversity is a feature, not a problem to solve. Every design decision should preserve room for that customization within the core workflow rather than hardcoding assumptions about how Claude should be invoked.
 
 Concretely: the core workflow (create tab → create pane → terminal session) should remain simple and opinionated. The configuration surface (CLI flags, custom options, per-pane settings) should remain open and extensible.
+
+## Naming
+
+Do not use the acronym **ASM** for this app in documentation, comments, UI copy, or commit messages—write **Agent Session Manager** in full. Avoid new temp-file basenames or code identifiers that use `asm-` as shorthand for the product; prefer explicit prefixes such as `agent-session-manager-…`.
 
 ## Terminal Purity
 
