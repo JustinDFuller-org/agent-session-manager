@@ -10,6 +10,10 @@ struct NewPaneSheet: View {
     @State private var selectedCLIType: CLIType = .claude
     @State private var optionStates: [String: OptionState] = [:]
 
+    private var activeToolList: [CLIType] {
+        CLIType.allCases.filter { appSettings.isActive($0) }
+    }
+
     private var activeOptions: [CLIOptionConfig] {
         switch selectedCLIType {
         case .claude: return appSettings.cliOptions
@@ -26,14 +30,26 @@ struct NewPaneSheet: View {
                 Text("CLI")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Picker("CLI", selection: $selectedCLIType) {
-                    ForEach(CLIType.allCases, id: \.self) { type in
-                        Text(type.displayName).tag(type)
+                if activeToolList.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(.secondary)
+                        (Text("No tools are active. Enable a tool in ")
+                            .foregroundStyle(.secondary)
+                        + Text("Settings \u{2192} Tools")
+                            .foregroundColor(.accentColor))
                     }
+                    .font(.subheadline)
+                } else {
+                    Picker("CLI", selection: $selectedCLIType) {
+                        ForEach(activeToolList, id: \.self) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .onChange(of: selectedCLIType) { initializeOptionStates() }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .onChange(of: selectedCLIType) { initializeOptionStates() }
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -84,13 +100,18 @@ struct NewPaneSheet: View {
                     .accessibilityIdentifier("new-pane-cancel-button")
                 Button("Open") { create() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(worktreeName.isEmpty || nameError != nil)
+                    .disabled(worktreeName.isEmpty || nameError != nil || activeToolList.isEmpty)
                     .accessibilityIdentifier("new-pane-open-button")
             }
         }
         .padding(24)
         .frame(width: 420)
-        .onAppear { initializeOptionStates() }
+        .onAppear {
+            if !activeToolList.contains(selectedCLIType) {
+                selectedCLIType = activeToolList.first ?? .claude
+            }
+            initializeOptionStates()
+        }
     }
 
     private var nameError: String? {

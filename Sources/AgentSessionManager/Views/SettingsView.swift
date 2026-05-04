@@ -5,24 +5,12 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            CLIOptionsContent(
-                options: Binding(
-                    get: { appSettings.cliOptions },
-                    set: { appSettings.cliOptions = $0 }
-                ),
-                onSave: { SettingsPersistence.save(appSettings: appSettings) },
-                customFlagFooter: "Custom flags are user-defined and may not be recognized by all Claude CLI versions."
-            )
-            .tabItem { Label("Claude Code", systemImage: "terminal") }
-            CLIOptionsContent(
-                options: Binding(
-                    get: { appSettings.codexCliOptions },
-                    set: { appSettings.codexCliOptions = $0 }
-                ),
-                onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
-                customFlagFooter: "Custom flags are user-defined and may not be recognized by all Codex CLI versions."
-            )
-            .tabItem { Label("Codex", systemImage: "cpu") }
+            ToolsContent()
+                .environment(appSettings)
+                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+            UnifiedCLIOptionsContent()
+                .environment(appSettings)
+                .tabItem { Label("CLI Options", systemImage: "terminal") }
             KeyboardShortcutsContent()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
             StatusLineContent()
@@ -30,6 +18,86 @@ struct SettingsView: View {
                 .tabItem { Label("Status Line", systemImage: "chart.bar") }
         }
         .frame(width: 560, height: 580)
+    }
+}
+
+private struct ToolsContent: View {
+    @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        Form {
+            Section {
+                Text("Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Available Tools") {
+                ForEach(CLIType.allCases, id: \.self) { tool in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tool.displayName)
+                            Text(tool.cliCommandDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fontDesign(.monospaced)
+                        }
+                        Spacer()
+                        Toggle(tool.displayName, isOn: Binding(
+                            get: { appSettings.isActive(tool) },
+                            set: { active in
+                                appSettings.setActive(tool, active)
+                                SettingsPersistence.saveActiveTools(appSettings: appSettings)
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct UnifiedCLIOptionsContent: View {
+    @Environment(AppSettings.self) private var appSettings
+    @State private var selectedTool: CLIType = .claude
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Tool", selection: $selectedTool) {
+                ForEach(CLIType.allCases, id: \.self) { tool in
+                    Text(tool.displayName).tag(tool)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+
+            switch selectedTool {
+            case .claude:
+                CLIOptionsContent(
+                    options: Binding(
+                        get: { appSettings.cliOptions },
+                        set: { appSettings.cliOptions = $0 }
+                    ),
+                    onSave: { SettingsPersistence.save(appSettings: appSettings) },
+                    customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions."
+                )
+            case .codex:
+                CLIOptionsContent(
+                    options: Binding(
+                        get: { appSettings.codexCliOptions },
+                        set: { appSettings.codexCliOptions = $0 }
+                    ),
+                    onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
+                    customFlagFooter: "Custom flags may not be recognized by all Codex CLI versions."
+                )
+            }
+        }
     }
 }
 

@@ -435,3 +435,44 @@ final class WorktreeNameValidationTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class AppSettingsActiveToolsTests: XCTestCase {
+    func testClaudeActiveByDefault() {
+        let settings = AppSettings()
+        XCTAssertTrue(settings.isActive(.claude))
+        XCTAssertFalse(settings.isActive(.codex))
+    }
+
+    func testSetActiveAddsRawValue() {
+        let settings = AppSettings()
+        settings.setActive(.codex, true)
+        XCTAssertTrue(settings.isActive(.codex))
+        XCTAssertTrue(settings.activeTools.contains("codex"))
+    }
+
+    func testSetInactiveRemovesRawValue() {
+        let settings = AppSettings()
+        settings.setActive(.claude, false)
+        XCTAssertFalse(settings.isActive(.claude))
+        XCTAssertFalse(settings.activeTools.contains("claude"))
+    }
+
+    func testActiveToolsRoundTripJSON() throws {
+        let settings = AppSettings()
+        settings.setActive(.codex, true)
+        let sorted = settings.activeTools.sorted()
+        let encoded = try JSONEncoder().encode(sorted)
+        let decoded = try JSONDecoder().decode([String].self, from: encoded)
+        XCTAssertEqual(Set(decoded), settings.activeTools)
+    }
+
+    func testRestoreDropsUnknownRawValues() {
+        let settings = AppSettings()
+        let knownRaws = Set(CLIType.allCases.map(\.rawValue))
+        let saved: Set<String> = ["claude", "cursor"]
+        settings.activeTools = saved.intersection(knownRaws)
+        XCTAssertTrue(settings.activeTools.contains("claude"))
+        XCTAssertFalse(settings.activeTools.contains("cursor"))
+    }
+}

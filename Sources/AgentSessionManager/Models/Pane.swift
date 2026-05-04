@@ -11,6 +11,13 @@ enum CLIType: String, Codable, CaseIterable {
         case .codex: return "Codex"
         }
     }
+
+    var cliCommandDescription: String {
+        switch self {
+        case .claude: return "claude"
+        case .codex: return "codex"
+        }
+    }
 }
 
 @Observable
