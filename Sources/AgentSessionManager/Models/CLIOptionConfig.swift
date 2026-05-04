@@ -43,7 +43,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
         } else {
             let id = try container.decode(String.self, forKey: .id)
-            guard let template = CLIOptionConfig.all.first(where: { $0.id == id }) else {
+            let allTemplates = CLIOptionConfig.all + CLIOptionConfig.codexAll
+            guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
             }
             self.id = template.id
@@ -97,6 +98,27 @@ struct CLIOptionConfig: Identifiable, Codable {
              "--verbose",
              "--version":
             return .boolean
+        // Codex-specific boolean flags (not in Claude's all list)
+        case "--dangerously-bypass-approvals-and-sandbox",
+             "--no-alt-screen",
+             "--oss",
+             "--search":
+            return .boolean
+        // Codex-specific string flags (not in Claude's all list)
+        case "--ask-for-approval":
+            return .string(placeholder: "untrusted / on-request / never")
+        case "--config":
+            return .string(placeholder: "key=value")
+        case "--disable":
+            return .string(placeholder: "feature name")
+        case "--enable":
+            return .string(placeholder: "feature name")
+        case "--image":
+            return .string(placeholder: "path/to/image")
+        case "--profile":
+            return .string(placeholder: "profile name")
+        case "--sandbox":
+            return .string(placeholder: "read-only / workspace-write / danger-full-access")
         // String flags
         case "--add-dir":
             return .string(placeholder: "Path to additional working directory")
@@ -248,5 +270,20 @@ struct CLIOptionConfig: Identifiable, Codable {
         CLIOptionConfig(id: "--verbose", label: "Verbose", description: "Enable verbose logging with full turn-by-turn output", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--version", label: "Version", description: "Output the version number", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--worktree", label: "Worktree", description: "Start Claude in an isolated git worktree", isAvailable: false, isDefaultEnabled: false),
+    ]
+
+    static let codexAll: [CLIOptionConfig] = [
+        CLIOptionConfig(id: "--ask-for-approval", label: "Ask for Approval", description: "Control approval timing: untrusted, on-request, or never", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--config", label: "Config", description: "Override configuration values (JSON-parsed if possible)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--dangerously-bypass-approvals-and-sandbox", label: "Bypass Approvals and Sandbox", description: "Skip all approval prompts and sandbox restrictions (dangerous)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--disable", label: "Disable Feature", description: "Force-disable a named feature flag", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--enable", label: "Enable Feature", description: "Force-enable a named feature flag", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--image", label: "Image", description: "Attach image files to the initial prompt", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--model", label: "Model", description: "Override the configured model for this session", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--no-alt-screen", label: "No Alt Screen", description: "Disable alternate screen mode for the TUI", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--oss", label: "OSS Provider", description: "Use a local open source provider (Ollama)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--profile", label: "Profile", description: "Load a named configuration profile", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--sandbox", label: "Sandbox", description: "Sandbox policy: read-only, workspace-write, or danger-full-access", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--search", label: "Web Search", description: "Enable live web search during the session", isAvailable: false, isDefaultEnabled: false),
     ]
 }

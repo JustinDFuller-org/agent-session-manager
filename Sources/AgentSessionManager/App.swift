@@ -15,6 +15,7 @@ struct AgentSessionManagerApp: App {
                     if !CommandLine.arguments.contains("--uitesting-skip-restore") {
                         SettingsPersistence.restore(into: appSettings)
                         SettingsPersistence.restoreStatusLine(into: appSettings)
+                        SettingsPersistence.restoreCodexOptions(into: appSettings)
                         SessionPersistence.restore(into: appState)
                     }
                 }

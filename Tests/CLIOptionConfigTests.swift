@@ -298,6 +298,107 @@ final class CLIOptionConfigTests: XCTestCase {
     }
 }
 
+final class CodexCLIOptionConfigTests: XCTestCase {
+    private var codexOptions: [CLIOptionConfig] {
+        CLIOptionConfig.codexAll.filter { !$0.isUserAdded }
+    }
+
+    func testCodexFlagCount() {
+        XCTAssertEqual(codexOptions.count, 12, "Expected exactly 12 Codex CLI flags")
+    }
+
+    func testNoDuplicateCodexIDs() {
+        let ids = codexOptions.map(\.id)
+        let unique = Set(ids)
+        XCTAssertEqual(ids.count, unique.count, "Duplicate Codex flag IDs detected")
+    }
+
+    func testAllCodexFlagsHaveNonEmptyLabelsAndDescriptions() {
+        for option in codexOptions {
+            XCTAssertFalse(option.label.isEmpty, "\(option.id) has empty label")
+            XCTAssertFalse(option.description.isEmpty, "\(option.id) has empty description")
+        }
+    }
+
+    func testCodexOptionTypeDefinedForAllFlags() {
+        for option in codexOptions {
+            switch option.optionType {
+            case .boolean:
+                break
+            case .string(let placeholder):
+                XCTAssertFalse(placeholder.isEmpty, "\(option.id) string type has empty placeholder")
+            }
+        }
+    }
+
+    func testCodexFlagRoundTrip() throws {
+        let original = CLIOptionConfig.codexAll.first { $0.id == "--ask-for-approval" }!
+        var mutable = original
+        mutable.isAvailable = true
+        mutable.isDefaultEnabled = false
+
+        let encoded = try JSONEncoder().encode(mutable)
+        let decoded = try JSONDecoder().decode(CLIOptionConfig.self, from: encoded)
+
+        XCTAssertEqual(decoded.id, "--ask-for-approval")
+        XCTAssertFalse(decoded.isUserAdded)
+        XCTAssertTrue(decoded.isAvailable)
+        XCTAssertFalse(decoded.isDefaultEnabled)
+    }
+}
+
+final class CLITypeTests: XCTestCase {
+    func testCLITypeRoundTrip() throws {
+        let encoded = try JSONEncoder().encode(CLIType.codex)
+        let decoded = try JSONDecoder().decode(CLIType.self, from: encoded)
+        XCTAssertEqual(decoded, .codex)
+    }
+
+    func testCLITypeRawValues() {
+        XCTAssertEqual(CLIType.claude.rawValue, "claude")
+        XCTAssertEqual(CLIType.codex.rawValue, "codex")
+    }
+
+    func testCLITypeDisplayNames() {
+        XCTAssertEqual(CLIType.claude.displayName, "Claude Code")
+        XCTAssertEqual(CLIType.codex.displayName, "Codex")
+    }
+
+    func testAllCLITypeCases() {
+        XCTAssertEqual(CLIType.allCases.count, 2)
+        XCTAssertTrue(CLIType.allCases.contains(.claude))
+        XCTAssertTrue(CLIType.allCases.contains(.codex))
+    }
+}
+
+final class PersistedPaneBackwardCompatTests: XCTestCase {
+    func testDecodesWithoutCLITypeDefaultsToClaude() throws {
+        let json = """
+        {"id":"A78E5B1C-0000-0000-0000-000000000001","name":"my-pane"}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
+        XCTAssertEqual(decoded.name, "my-pane")
+        XCTAssertEqual(decoded.cliType, .claude)
+    }
+
+    func testDecodesCodexCLIType() throws {
+        let json = """
+        {"id":"A78E5B1C-0000-0000-0000-000000000002","name":"codex-pane","cliType":"codex"}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
+        XCTAssertEqual(decoded.name, "codex-pane")
+        XCTAssertEqual(decoded.cliType, .codex)
+    }
+
+    func testRoundTrip() throws {
+        let pane = PersistedPane(id: UUID(), name: "test", cliType: .codex)
+        let encoded = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
+        XCTAssertEqual(decoded.name, "test")
+        XCTAssertEqual(decoded.cliType, .codex)
+    }
+}
+
 final class WorktreeNameValidationTests: XCTestCase {
     func testValidNames() {
         let validNames = [

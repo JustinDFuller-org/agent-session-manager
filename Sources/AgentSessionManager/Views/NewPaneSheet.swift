@@ -7,7 +7,15 @@ struct NewPaneSheet: View {
     let tab: Tab
 
     @State private var worktreeName = ""
+    @State private var selectedCLIType: CLIType = .claude
     @State private var optionStates: [String: OptionState] = [:]
+
+    private var activeOptions: [CLIOptionConfig] {
+        switch selectedCLIType {
+        case .claude: return appSettings.cliOptions
+        case .codex: return appSettings.codexCliOptions
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -15,17 +23,38 @@ struct NewPaneSheet: View {
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Worktree / Branch Name")
+                Text("CLI")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Picker("CLI", selection: $selectedCLIType) {
+                    ForEach(CLIType.allCases, id: \.self) { type in
+                        Text(type.displayName).tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .onChange(of: selectedCLIType) { initializeOptionStates() }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Session Name")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 TextField("auth-refactor, fix-login-bug, etc.", text: $worktreeName)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { create() }
                     .accessibilityIdentifier("new-pane-name-field")
-                Text("Will open at \(tab.directory.lastPathComponent)/.tree/\(worktreeName.isEmpty ? "<name>" : worktreeName)")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .font(.system(.caption, design: .monospaced))
+                if selectedCLIType == .claude {
+                    Text("Will open at \(tab.directory.lastPathComponent)/.tree/\(worktreeName.isEmpty ? "<name>" : worktreeName)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .font(.system(.caption, design: .monospaced))
+                } else {
+                    Text("Will open in \(tab.directory.lastPathComponent)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .font(.system(.caption, design: .monospaced))
+                }
                 if let error = nameError {
                     Text(error)
                         .font(.caption)
@@ -34,7 +63,7 @@ struct NewPaneSheet: View {
                 }
             }
 
-            let available = appSettings.cliOptions.filter(\.isAvailable)
+            let available = activeOptions.filter(\.isAvailable)
             if !available.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("CLI Options")
@@ -83,7 +112,8 @@ struct NewPaneSheet: View {
     }
 
     private func initializeOptionStates() {
-        for option in appSettings.cliOptions where option.isAvailable {
+        optionStates = [:]
+        for option in activeOptions where option.isAvailable {
             optionStates[option.id] = OptionState(enabled: option.isDefaultEnabled, value: "")
         }
     }
@@ -91,13 +121,13 @@ struct NewPaneSheet: View {
     private func create() {
         guard !worktreeName.isEmpty, nameError == nil else { return }
         let extraArgs = buildExtraArgs()
-        tab.addPane(name: worktreeName, extraArgs: extraArgs)
+        tab.addPane(name: worktreeName, extraArgs: extraArgs, cliType: selectedCLIType)
         dismiss()
     }
 
     private func buildExtraArgs() -> [String] {
         var args: [String] = []
-        for option in appSettings.cliOptions where option.isAvailable {
+        for option in activeOptions where option.isAvailable {
             guard let state = optionStates[option.id], state.enabled else { continue }
             switch option.optionType {
             case .boolean:

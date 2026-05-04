@@ -29,19 +29,24 @@ final class Tab: Identifiable {
         panes.contains { $0.name == name }
     }
 
-    func addPane(name: String, extraArgs: [String] = []) {
-        let pane = Pane(name: name, tab: self)
+    func addPane(name: String, extraArgs: [String] = [], cliType: CLIType = .claude) {
+        let pane = Pane(name: name, tab: self, cliType: cliType)
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
-            let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
             controller.pendingDirectory = directory.path
-            let monitor = StatusLineMonitor(paneID: pane.id)
-            monitor.start()
-            let escapedSettings = monitor.settingsFilePath.replacingOccurrences(of: "'", with: "'\\''")
-            controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extra)"
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
-            pane.statusLineMonitor = monitor
+            switch cliType {
+            case .claude:
+                let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
+                let monitor = StatusLineMonitor(paneID: pane.id)
+                monitor.start()
+                let escapedSettings = monitor.settingsFilePath.replacingOccurrences(of: "'", with: "'\\''")
+                controller.pendingCommand = "/Users/justinfuller/.local/bin/claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extra)"
+                pane.statusLineMonitor = monitor
+            case .codex:
+                controller.pendingCommand = "codex\(extra)"
+            }
             pane.terminalController = controller
         }
         panes.append(pane)
