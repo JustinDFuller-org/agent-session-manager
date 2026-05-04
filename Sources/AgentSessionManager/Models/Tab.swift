@@ -46,16 +46,25 @@ final class Tab: Identifiable {
         panes.contains { $0.name == name }
     }
 
-    func setupWorktree(name: String, branchName: String) async throws {
+    func setupWorktree(name: String, branchName: String, defaultBranch: String) async throws {
         let worktreePath = directory.appending(path: ".tree/\(name)")
         if FileManager.default.fileExists(atPath: worktreePath.path) { return }
+        // Fetch the default branch so new worktrees start from up-to-date code.
+        // Ignore failure — offline or no remote configured.
+        try? await runGit(["fetch", "origin", defaultBranch])
         do {
             try await runGit(["worktree", "add", ".tree/\(name)", branchName])
         } catch {
             // Branch already checked out in another worktree — no new worktree needed.
             if await branchAlreadyCheckedOut(branchName) { return }
-            try await runGit(["fetch", "origin", branchName])
-            try await runGit(["worktree", "add", ".tree/\(name)", branchName])
+            do {
+                // Branch may exist on origin but not locally.
+                try await runGit(["fetch", "origin", branchName])
+                try await runGit(["worktree", "add", ".tree/\(name)", branchName])
+            } catch {
+                // Branch doesn't exist locally or on origin — create from latest default branch.
+                try await runGit(["worktree", "add", "-b", branchName, ".tree/\(name)", "origin/\(defaultBranch)"])
+            }
         }
     }
 

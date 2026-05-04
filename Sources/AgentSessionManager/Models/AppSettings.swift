@@ -8,6 +8,7 @@ final class AppSettings {
     var codexCliOptions: [CLIOptionConfig] = CLIOptionConfig.codexAll
     var statusLineConfig: StatusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [CLIType.claude.rawValue]
+    var defaultBranch: String = "main"
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

@@ -188,7 +188,7 @@ struct NewPaneSheet: View {
         worktreeSetupError = nil
         Task {
             do {
-                try await tab.setupWorktree(name: name, branchName: branch)
+                try await tab.setupWorktree(name: name, branchName: branch, defaultBranch: appSettings.defaultBranch)
                 await MainActor.run {
                     resetForm()
                     tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)

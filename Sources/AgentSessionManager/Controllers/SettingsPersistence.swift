@@ -13,6 +13,7 @@ struct SettingsPersistence {
     private static var codexSettingsURL: URL { appSupportDir.appending(path: "codex-settings.json") }
     private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
+    private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -88,5 +89,19 @@ struct SettingsPersistence {
             let saved = try? JSONDecoder().decode(StatusLineConfig.self, from: data)
         else { return }
         appSettings.statusLineConfig = saved
+    }
+
+    static func saveDefaultBranch(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.defaultBranch) else { return }
+        try? data.write(to: defaultBranchURL)
+    }
+
+    static func restoreDefaultBranch(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: defaultBranchURL),
+            let saved = try? JSONDecoder().decode(String.self, from: data),
+            !saved.isEmpty
+        else { return }
+        appSettings.defaultBranch = saved
     }
 }

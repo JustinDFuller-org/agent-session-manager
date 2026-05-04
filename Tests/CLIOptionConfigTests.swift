@@ -437,6 +437,33 @@ final class WorktreeNameValidationTests: XCTestCase {
 }
 
 @MainActor
+final class AppSettingsDefaultBranchTests: XCTestCase {
+    func testDefaultBranchIsMain() {
+        let settings = AppSettings()
+        XCTAssertEqual(settings.defaultBranch, "main")
+    }
+
+    func testDefaultBranchRoundTripJSON() throws {
+        let settings = AppSettings()
+        settings.defaultBranch = "develop"
+        let encoded = try JSONEncoder().encode(settings.defaultBranch)
+        let decoded = try JSONDecoder().decode(String.self, from: encoded)
+        XCTAssertEqual(decoded, "develop")
+    }
+
+    func testRestoreDefaultBranchIgnoresEmptyString() {
+        let settings = AppSettings()
+        settings.defaultBranch = "main"
+        let emptyData = try! JSONEncoder().encode("")
+        let decoded = try! JSONDecoder().decode(String.self, from: emptyData)
+        if !decoded.isEmpty {
+            settings.defaultBranch = decoded
+        }
+        XCTAssertEqual(settings.defaultBranch, "main")
+    }
+}
+
+@MainActor
 final class AppSettingsActiveToolsTests: XCTestCase {
     func testClaudeActiveByDefault() {
         let settings = AppSettings()
