@@ -28,6 +28,12 @@ The tab/pane workflow is fixed — that structure is the product. What happens *
 
 Concretely: the core workflow (create tab → create pane → terminal session) should remain simple and opinionated. The configuration surface (CLI flags, custom options, per-pane settings) should remain open and extensible.
 
+## Terminal Purity
+
+The terminal pane is Claude's UI, not a setup script runner. Users should never see app-level plumbing (git commands, setup output, error text from the app) in the terminal. Any setup the app needs to do before launching Claude — creating worktrees, fetching branches, writing config files — must happen in Swift using `Foundation.Process` or file APIs, not by prepending shell commands to the Claude invocation.
+
+Concretely: `buildClaudeCommand()` and similar functions must only emit the final tool invocation (`claude ...`, `codex ...`). All prerequisite work runs in the app layer (e.g., `Tab.setupWorktree()`) and surfaces errors through SwiftUI UI (sheets, inline error text), not through the terminal.
+
 ## Build & Run Commands
 
 ```bash
