@@ -142,7 +142,9 @@ struct NewPaneSheet: View {
     private func create() {
         guard !worktreeName.isEmpty, nameError == nil else { return }
         let extraArgs = buildExtraArgs()
-        tab.addPane(name: worktreeName, extraArgs: extraArgs, cliType: selectedCLIType)
+        let name = worktreeName
+        worktreeName = ""
+        tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
         dismiss()
     }
 
