@@ -62,4 +62,46 @@ final class WorktreeListParserTests: XCTestCase {
     func testGitWorktreeAddPath() {
         XCTAssertEqual(Tab.gitWorktreeAddPath(name: "auth-fix"), ".agent-session-manager/worktrees/auth-fix")
     }
+
+    /// When a branch name equals one folder and another folder’s name equals the typed ref, pick by folder.
+    func testPreferWorktreeEntryDirectoryNameBeforeBranch() {
+        let entries = Tab.parseWorktreeListPorcelain(
+            """
+            worktree /Users/me/meter-go
+            HEAD 1111111111111111111111111111111111111111
+            branch refs/heads/main
+
+            worktree /Users/me/meter-go/.claude/worktrees/meter-chore-claude-review
+            HEAD 2222222222222222222222222222222222222222
+            branch refs/heads/worktree-meter-chore-claude-review
+
+            worktree /Users/me/meter-go/.claude/worktrees/worktree-meter-chore-claude-review
+            HEAD 3333333333333333333333333333333333333333
+            branch refs/heads/worktree-worktree-meter-chore-claude-review
+
+            """
+        )
+        let picked = Tab.preferWorktreeEntry(matchingUserRef: "worktree-meter-chore-claude-review", entries: entries)
+        XCTAssertEqual(
+            picked?.path,
+            "/Users/me/meter-go/.claude/worktrees/worktree-meter-chore-claude-review"
+        )
+    }
+
+    func testPreferWorktreeEntryFallsBackToBranch() {
+        let entries = Tab.parseWorktreeListPorcelain(
+            """
+            worktree /Users/me/project
+            HEAD 1111111111111111111111111111111111111111
+            branch refs/heads/main
+
+            worktree /Users/me/project/.claude/worktrees/feature-a
+            HEAD 2222222222222222222222222222222222222222
+            branch refs/heads/feature-a
+
+            """
+        )
+        let picked = Tab.preferWorktreeEntry(matchingUserRef: "feature-a", entries: entries)
+        XCTAssertEqual(picked?.path, "/Users/me/project/.claude/worktrees/feature-a")
+    }
 }

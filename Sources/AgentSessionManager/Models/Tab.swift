@@ -25,7 +25,6 @@ enum WorktreeResolutionError: Error, LocalizedError, Equatable {
     case emptyRef
     case invalidWorktreeDirectory(String)
     case pathExistsButNotWorktree(String)
-    case unsupportedWorktreeLocation(String)
     case refNotFound(String)
     case invalidDerivedName(String)
 
@@ -37,14 +36,22 @@ enum WorktreeResolutionError: Error, LocalizedError, Equatable {
             return "The directory exists but is not a git worktree: \(path)"
         case let .pathExistsButNotWorktree(path):
             return "There is already a non-worktree path at: \(path)"
-        case let .unsupportedWorktreeLocation(path):
-            return "That branch is already checked out at \(path), which is outside Agent Session Manager’s worktree folder (.agent-session-manager/worktrees). Remove the other worktree or clone in a separate tab."
         case let .refNotFound(ref):
             return "Could not find a git ref named “\(ref)”. Fetch the branch or check the spelling."
         case let .invalidDerivedName(name):
             return "Could not derive a valid worktree folder name from that ref (got “\(name)”). Use only letters, digits, dots, underscores, and dashes in branch names."
         }
     }
+}
+
+/// Result of resolving a branch or ref when “Existing branch or worktree” is enabled.
+struct ResolvedWorktree: Equatable {
+    /// Pane header label (short name under `.agent-session-manager/worktrees/`, or worktree folder name / repo name).
+    var paneTitle: String
+    /// When non-`nil`, the terminal runs Claude in this directory without passing `--worktree`.
+    var claudeProcessDirectory: URL?
+    /// Directory used for duplicate detection and session restore.
+    var checkoutURL: URL
 }
 
 @Observable
@@ -81,10 +88,19 @@ final class Tab: Identifiable {
         "\(worktreesRootRelativePath)/\(name)"
     }
 
-    nonisolated static func buildClaudeCommand(name: String, settingsPath: String, extraArgs: String) -> String {
-        let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
+    /// When `worktreeName` is `nil`, runs `claude` in the process working directory without `--worktree` (existing checkout).
+    nonisolated static func buildClaudeCommand(worktreeName: String?, settingsPath: String, extraArgs: String) -> String {
         let escapedSettings = settingsPath.replacingOccurrences(of: "'", with: "'\\''")
-        return "claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extraArgs)"
+        let settingsFlag = " --settings '\(escapedSettings)'"
+        if let name = worktreeName {
+            let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
+            return "claude --worktree '\(escapedName)'\(settingsFlag)\(extraArgs)"
+        }
+        return "claude\(settingsFlag)\(extraArgs)"
+    }
+
+    nonisolated static func buildClaudeCommand(name: String, settingsPath: String, extraArgs: String) -> String {
+        buildClaudeCommand(worktreeName: name, settingsPath: settingsPath, extraArgs: extraArgs)
     }
 
     nonisolated static func sanitizeBranchName(_ branch: String) -> String {
@@ -179,12 +195,28 @@ final class Tab: Identifiable {
         return out.isEmpty ? "worktree" : out
     }
 
+    /// Picks a `git worktree list --porcelain` entry for user input: **directory name** under the repo wins first,
+    /// then branch/ref match. Avoids opening the wrong tree when several listings share similar branch names
+    /// (e.g. `.claude/worktrees/foo` on branch `worktree-foo` vs `.claude/worktrees/worktree-foo`).
+    nonisolated static func preferWorktreeEntry(matchingUserRef ref: String, entries: [GitWorktreeListEntry]) -> GitWorktreeListEntry? {
+        let trimmed = ref.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let byDirectoryName = entries.first(where: {
+            URL(fileURLWithPath: $0.path).lastPathComponent == trimmed
+        }) {
+            return byDirectoryName
+        }
+        return entries.first(where: { entry in
+            guard let b = entry.branch else { return false }
+            return Tab.refMatches(userRef: trimmed, branchRef: b)
+        })
+    }
+
     func hasPaneNamed(_ name: String) -> Bool {
         panes.contains { $0.name == name }
     }
 
-    /// Resolves user input (branch, remote ref, or managed worktree name) to a short worktree name for `claude --worktree`.
-    func resolveOrAttachWorktree(userRef raw: String) async throws -> String {
+    /// Resolves user input (branch, remote ref, or managed worktree name) for the “Existing branch or worktree” flow.
+    func resolveOrAttachWorktree(userRef raw: String) async throws -> ResolvedWorktree {
         let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
 
@@ -194,21 +226,18 @@ final class Tab: Identifiable {
                 guard Self.isLinkedGitWorktree(at: url) else {
                     throw WorktreeResolutionError.invalidWorktreeDirectory(url.path)
                 }
-                return ref
+                return resolvedManaged(shortName: ref)
             }
         }
 
         let listOutput = try await runGitOutput(["worktree", "list", "--porcelain"])
         let entries = Tab.parseWorktreeListPorcelain(listOutput)
 
-        if let found = entries.first(where: { entry in
-            guard let b = entry.branch else { return false }
-            return Tab.refMatches(userRef: ref, branchRef: b)
-        }) {
+        if let found = Tab.preferWorktreeEntry(matchingUserRef: ref, entries: entries) {
             if let name = managedWorktreeName(forAbsoluteWorktreePath: found.path) {
-                return name
+                return resolvedManaged(shortName: name)
             }
-            throw WorktreeResolutionError.unsupportedWorktreeLocation(found.path)
+            return resolvedExternalGitListPath(found.path)
         }
 
         let targetName = Tab.derivedWorktreeName(fromRef: ref)
@@ -220,7 +249,7 @@ final class Tab: Identifiable {
             guard Self.isLinkedGitWorktree(at: targetURL) else {
                 throw WorktreeResolutionError.pathExistsButNotWorktree(targetURL.path)
             }
-            return targetName
+            return resolvedManaged(shortName: targetName)
         }
 
         if !(await refExists(ref)) {
@@ -242,19 +271,29 @@ final class Tab: Identifiable {
         } catch {
             let listAgain = try await runGitOutput(["worktree", "list", "--porcelain"])
             let again = Tab.parseWorktreeListPorcelain(listAgain)
-            if let found = again.first(where: { entry in
-                guard let b = entry.branch else { return false }
-                return Tab.refMatches(userRef: ref, branchRef: b)
-            }) {
+            if let found = Tab.preferWorktreeEntry(matchingUserRef: ref, entries: again) {
                 if let name = managedWorktreeName(forAbsoluteWorktreePath: found.path) {
-                    return name
+                    return resolvedManaged(shortName: name)
                 }
-                throw WorktreeResolutionError.unsupportedWorktreeLocation(found.path)
+                return resolvedExternalGitListPath(found.path)
             }
             throw error
         }
 
-        return targetName
+        return resolvedManaged(shortName: targetName)
+    }
+
+    private func resolvedManaged(shortName: String) -> ResolvedWorktree {
+        let checkout = Tab.worktreeDirectoryURL(repoRoot: directory, name: shortName).standardizedFileURL
+        return ResolvedWorktree(paneTitle: shortName, claudeProcessDirectory: nil, checkoutURL: checkout)
+    }
+
+    /// Paths from `git worktree list` are authoritative (includes main checkout with a `.git` directory).
+    private func resolvedExternalGitListPath(_ absolutePath: String) -> ResolvedWorktree {
+        let url = URL(fileURLWithPath: absolutePath).standardizedFileURL
+        var title = url.lastPathComponent
+        if title.isEmpty { title = url.path }
+        return ResolvedWorktree(paneTitle: title, claudeProcessDirectory: url, checkoutURL: url)
     }
 
     private func managedWorktreeName(forAbsoluteWorktreePath path: String) -> String? {
@@ -343,20 +382,39 @@ final class Tab: Identifiable {
         }
     }
 
-    func addPane(name: String, extraArgs: [String] = [], cliType: CLIType = .claude) {
-        let pane = Pane(name: name, tab: self, cliType: cliType)
+    func addPane(
+        name: String,
+        extraArgs: [String] = [],
+        cliType: CLIType = .claude,
+        claudeDirectoryOverride: URL? = nil
+    ) {
+        let pane = Pane(name: name, tab: self, cliType: cliType, claudeDirectoryOverride: claudeDirectoryOverride)
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            controller.pendingDirectory = directory.path
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             switch cliType {
             case .claude:
                 let monitor = StatusLineMonitor(paneID: pane.id)
                 monitor.start()
-                controller.pendingCommand = Tab.buildClaudeCommand(name: name, settingsPath: monitor.settingsFilePath, extraArgs: extra)
+                if let override = claudeDirectoryOverride {
+                    controller.pendingDirectory = override.path
+                    controller.pendingCommand = Tab.buildClaudeCommand(
+                        worktreeName: nil,
+                        settingsPath: monitor.settingsFilePath,
+                        extraArgs: extra
+                    )
+                } else {
+                    controller.pendingDirectory = directory.path
+                    controller.pendingCommand = Tab.buildClaudeCommand(
+                        worktreeName: name,
+                        settingsPath: monitor.settingsFilePath,
+                        extraArgs: extra
+                    )
+                }
                 pane.statusLineMonitor = monitor
             case .codex:
+                controller.pendingDirectory = directory.path
                 controller.pendingCommand = "codex\(extra)"
             }
             pane.terminalController = controller

@@ -379,6 +379,7 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertEqual(decoded.name, "my-pane")
         XCTAssertEqual(decoded.cliType, .claude)
+        XCTAssertNil(decoded.claudeProcessDirectory)
     }
 
     func testDecodesCodexCLIType() throws {
@@ -388,6 +389,7 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertEqual(decoded.name, "codex-pane")
         XCTAssertEqual(decoded.cliType, .codex)
+        XCTAssertNil(decoded.claudeProcessDirectory)
     }
 
     func testRoundTrip() throws {
@@ -396,6 +398,19 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
         XCTAssertEqual(decoded.name, "test")
         XCTAssertEqual(decoded.cliType, .codex)
+        XCTAssertNil(decoded.claudeProcessDirectory)
+    }
+
+    func testRoundTripWithClaudeProcessDirectory() throws {
+        let pane = PersistedPane(
+            id: UUID(),
+            name: "ext",
+            cliType: .claude,
+            claudeProcessDirectory: "/tmp/sibling-wt"
+        )
+        let encoded = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
+        XCTAssertEqual(decoded.claudeProcessDirectory, "/tmp/sibling-wt")
     }
 }
 
@@ -499,6 +514,18 @@ final class TabCommandTests: XCTestCase {
     func testBuildClaudeCommandEscapesSettingsQuotes() {
         let cmd = Tab.buildClaudeCommand(name: "fix", settingsPath: "/tmp/my's.json", extraArgs: "")
         XCTAssertTrue(cmd.contains("'/tmp/my'\\''s.json'"))
+    }
+
+    func testBuildClaudeCommandReuseExistingCheckoutOmitsWorktreeFlag() {
+        let cmd = Tab.buildClaudeCommand(worktreeName: nil, settingsPath: "/tmp/s.json", extraArgs: "")
+        XCTAssertEqual(cmd, "claude --settings '/tmp/s.json'")
+        XCTAssertFalse(cmd.contains("--worktree"))
+    }
+
+    func testBuildClaudeCommandReuseCheckoutWithExtraArgs() {
+        let cmd = Tab.buildClaudeCommand(worktreeName: nil, settingsPath: "/tmp/s.json", extraArgs: " --verbose")
+        XCTAssertTrue(cmd.hasPrefix("claude --settings '/tmp/s.json'"))
+        XCTAssertTrue(cmd.hasSuffix(" --verbose"))
     }
 }
 

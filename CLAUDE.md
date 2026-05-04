@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for running multiple AI agent sessions in parallel. It provides a tabbed, multi-pane terminal window where each pane runs `claude --worktree <name>` in an isolated git worktree, letting you work on several tasks simultaneously without context switching between windows.
+Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for running multiple AI agent sessions in parallel. It provides a tabbed, multi-pane terminal window where each pane runs Claude Code in a git worktree context—typically `claude --worktree <name>` from the repo root for checkouts under `.agent-session-manager/worktrees/`, or `claude` with the process working directory set to an existing worktree elsewhere—letting you work on several tasks simultaneously without context switching between windows.
 
 **Tabs** represent a working directory. Each tab has a name and a root directory. You can have many tabs open at once and switch between them with ⌘1–⌘9.
 
-**Panes** are terminal sessions inside a tab. When you create a pane you give it a worktree name; the app immediately launches `claude --worktree <name>` in the tab's directory. Git worktrees the app creates or resolves live under `<repo>/.agent-session-manager/worktrees/<name>` (similar to Claude’s `.claude/worktrees/`). Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
+**Panes** are terminal sessions inside a tab. When you create a pane you give it a session/worktree name; the app launches Claude Code accordingly. Worktrees **created by the app** live only under `<repo>/.agent-session-manager/worktrees/<name>` (similar to Claude’s `.claude/worktrees/`). If a branch is already checked out in any path `git worktree list` knows about, the app can open that checkout (working directory = that path, no `--worktree` flag). Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
 
 **Status line** — each pane shows a configurable status bar at the bottom. It is populated by Claude Code's `statusLine` hook via a per-pane temp settings file (`--settings /tmp/agent-session-manager-settings-<UUID>.json`) so every concurrent pane has its own isolated data file. All 24 available Claude data fields are exposed in Settings → Status Line (model, cost, context %, worktree, effort, vim mode, rate limits, etc.). Four are on by default: model, worktree name, cost, and context %.
 
 **CLI options** are configurable per-pane. A built-in library of 62 Claude CLI flags can be enabled/disabled in Settings; enabled flags appear as toggles and text fields in the New Pane sheet. Users can also add custom flags. Settings are persisted across launches.
 
-**Session persistence** saves tabs and pane names to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch the app restores tabs and restarts `claude` in any pane whose worktree directory still exists—under `.agent-session-manager/worktrees/<name>`, or for older sessions under legacy `.tree/<name>`.
+**Session persistence** saves tabs and pane names to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch the app restores tabs and restarts `claude` in any pane whose checkout still exists on disk—under `.agent-session-manager/worktrees/<name>`, legacy `.tree/<name>`, or an absolute path stored when the pane reused an external worktree.
 
 **Keyboard shortcuts:**
 - ⌘T — new tab
@@ -73,7 +73,7 @@ make open-results # open .xcresult bundle to inspect failures
 
 **Models** (`Models/`):
 - `AppState` — `@Observable` root state; owns the list of tabs and tracks active tab/pane IDs
-- `Tab` — A directory context containing one or more `Pane`s; responsible for spawning `claude --worktree <name>` processes and (when needed) resolving git worktrees under `.agent-session-manager/worktrees/`
+- `Tab` — A directory context containing one or more `Pane`s; responsible for spawning Claude processes and (when needed) resolving or creating git worktrees—new trees only under `.agent-session-manager/worktrees/`, existing checkouts anywhere listed by `git worktree list`
 - `Pane` — One terminal session; holds a `TerminalController`
 - `AppSettings` — In-memory state for which CLI flags are enabled and status line configuration
 - `CLIOptionConfig` — Defines 62 predefined Claude CLI flags plus user-added custom flags; handles flag type mapping (boolean vs. string) and JSON persistence

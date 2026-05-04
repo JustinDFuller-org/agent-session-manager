@@ -130,7 +130,7 @@ struct NewPaneSheet: View {
                             }
                         }
                     Text(
-                        "When on, enter a branch, remote ref, or worktree folder name under .agent-session-manager/worktrees. The app reuses an existing linked worktree or runs git worktree add when needed."
+                        "When on, enter a branch, remote ref, or a worktree name under .agent-session-manager/worktrees. The app opens an existing checkout listed by git anywhere on disk, or creates a new worktree only under .agent-session-manager/worktrees."
                     )
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -233,13 +233,18 @@ struct NewPaneSheet: View {
                 do {
                     let resolved = try await tab.resolveOrAttachWorktree(userRef: ref)
                     await MainActor.run {
-                        if appState.isWorktreeDuplicate(directory: tab.directory, name: resolved) {
+                        if appState.isClaudeCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL) {
                             isCreating = false
                             worktreeSetupError = "A pane with this worktree is already open."
                             return
                         }
                         resetForm()
-                        tab.addPane(name: resolved, extraArgs: extraArgs, cliType: selectedCLIType)
+                        tab.addPane(
+                            name: resolved.paneTitle,
+                            extraArgs: extraArgs,
+                            cliType: selectedCLIType,
+                            claudeDirectoryOverride: resolved.claudeProcessDirectory
+                        )
                         appState.setActivePane(id: tab.panes.last?.id)
                         dismiss()
                     }

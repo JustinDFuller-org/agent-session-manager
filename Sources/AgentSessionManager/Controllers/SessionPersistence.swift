@@ -16,11 +16,14 @@ struct PersistedPane: Codable {
     var id: UUID
     var name: String
     var cliType: CLIType
+    /// Absolute path when Claude runs in a reused checkout (not under `.agent-session-manager/worktrees/`).
+    var claudeProcessDirectory: String?
 
-    init(id: UUID, name: String, cliType: CLIType) {
+    init(id: UUID, name: String, cliType: CLIType, claudeProcessDirectory: String? = nil) {
         self.id = id
         self.name = name
         self.cliType = cliType
+        self.claudeProcessDirectory = claudeProcessDirectory
     }
 
     init(from decoder: Decoder) throws {
@@ -28,6 +31,7 @@ struct PersistedPane: Codable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
+        claudeProcessDirectory = try container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
     }
 }
 
@@ -46,7 +50,14 @@ struct SessionPersistence {
                 id: tab.id,
                 name: tab.name,
                 directory: tab.directory.path,
-                panes: tab.panes.map { PersistedPane(id: $0.id, name: $0.name, cliType: $0.cliType) }
+                panes: tab.panes.map {
+                    PersistedPane(
+                        id: $0.id,
+                        name: $0.name,
+                        cliType: $0.cliType,
+                        claudeProcessDirectory: $0.claudeDirectoryOverride?.path
+                    )
+                }
             )
         }
         let activeTabIndex = appState.tabs.firstIndex { $0.id == appState.activeTabID }
@@ -66,6 +77,16 @@ struct SessionPersistence {
             let tab = Tab(name: persistedTab.name, directory: dir)
             for persistedPane in persistedTab.panes {
                 if persistedPane.cliType == .claude {
+                    if let pathStr = persistedPane.claudeProcessDirectory {
+                        let override = URL(fileURLWithPath: pathStr).standardizedFileURL
+                        guard FileManager.default.fileExists(atPath: override.path) else { continue }
+                        tab.addPane(
+                            name: persistedPane.name,
+                            cliType: persistedPane.cliType,
+                            claudeDirectoryOverride: override
+                        )
+                        continue
+                    }
                     let managed = Tab.worktreeDirectoryURL(repoRoot: dir, name: persistedPane.name)
                     let legacy = dir.appending(path: ".tree/\(persistedPane.name)", directoryHint: .notDirectory)
                     let hasWorktree = FileManager.default.fileExists(atPath: managed.path)
