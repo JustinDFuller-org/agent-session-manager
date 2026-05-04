@@ -1,6 +1,21 @@
 import Foundation
 import Observation
 
+struct GitCommandError: Error, LocalizedError, Equatable {
+    let arguments: [String]
+    let exitCode: Int32
+    let stderr: String
+
+    var errorDescription: String? {
+        let trimmed = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+        let cmd = (["git"] + arguments).joined(separator: " ")
+        return "git exited with status \(exitCode): \(cmd)"
+    }
+}
+
 @Observable
 @MainActor
 final class Tab: Identifiable {
@@ -67,18 +82,21 @@ final class Tab: Identifiable {
     private func runGitOutput(_ args: [String]) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             let process = Process()
-            let pipe = Pipe()
+            let outPipe = Pipe()
+            let errPipe = Pipe()
             process.executableURL = URL(filePath: "/usr/bin/git")
             process.arguments = args
             process.currentDirectoryURL = directory
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
+            process.standardOutput = outPipe
+            process.standardError = errPipe
             process.terminationHandler = { p in
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
                 if p.terminationStatus == 0 {
-                    continuation.resume(returning: String(data: data, encoding: .utf8) ?? "")
+                    continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
                 } else {
-                    continuation.resume(throwing: NSError(domain: "git", code: Int(p.terminationStatus)))
+                    let stderr = String(data: errData, encoding: .utf8) ?? ""
+                    continuation.resume(throwing: GitCommandError(arguments: args, exitCode: p.terminationStatus, stderr: stderr))
                 }
             }
             do {
@@ -92,16 +110,19 @@ final class Tab: Identifiable {
     private func runGit(_ args: [String]) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let process = Process()
+            let errPipe = Pipe()
             process.executableURL = URL(filePath: "/usr/bin/git")
             process.arguments = args
             process.currentDirectoryURL = directory
             process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
+            process.standardError = errPipe
             process.terminationHandler = { p in
+                let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                let stderr = String(data: errData, encoding: .utf8) ?? ""
                 if p.terminationStatus == 0 {
                     continuation.resume()
                 } else {
-                    continuation.resume(throwing: NSError(domain: "git", code: Int(p.terminationStatus)))
+                    continuation.resume(throwing: GitCommandError(arguments: args, exitCode: p.terminationStatus, stderr: stderr))
                 }
             }
             do {

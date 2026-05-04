@@ -65,17 +65,31 @@ struct NewPaneSheet: View {
                         .textFieldStyle(.roundedBorder)
                         .onSubmit { create() }
                         .onChange(of: branchName) { _, newValue in
+                            if newValue.isEmpty {
+                                if !worktreeNameEdited {
+                                    worktreeName = ""
+                                }
+                                worktreeNameEdited = false
+                                return
+                            }
                             if !worktreeNameEdited {
-                                worktreeName = newValue.isEmpty ? "" : Tab.sanitizeBranchName(newValue)
+                                worktreeName = Tab.sanitizeBranchName(newValue)
                             }
                         }
                     Text("Leave empty to create a new worktree from HEAD")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                     if let error = worktreeSetupError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                        ScrollView {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.leading)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 140)
+                        .accessibilityIdentifier("new-pane-worktree-error")
                     }
                 }
             }
@@ -87,8 +101,13 @@ struct NewPaneSheet: View {
                 TextField("auth-refactor, fix-login-bug, etc.", text: $worktreeName)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { create() }
-                    .onChange(of: worktreeName) { _, _ in
-                        worktreeNameEdited = !branchName.isEmpty
+                    .onChange(of: worktreeName) { _, newValue in
+                        if branchName.isEmpty {
+                            worktreeNameEdited = false
+                        } else {
+                            let auto = Tab.sanitizeBranchName(branchName)
+                            worktreeNameEdited = newValue != auto
+                        }
                     }
                     .accessibilityIdentifier("new-pane-name-field")
                 if selectedCLIType == .claude {
@@ -198,7 +217,8 @@ struct NewPaneSheet: View {
             } catch {
                 await MainActor.run {
                     isCreating = false
-                    worktreeSetupError = "Failed to set up worktree for branch '\(branch)'. Check that the branch exists locally or on origin."
+                    let detail = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    worktreeSetupError = "Could not create worktree from branch '\(branch)'.\n\n\(detail)"
                 }
             }
         }
