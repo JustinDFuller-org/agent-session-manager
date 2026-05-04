@@ -5,7 +5,10 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            CLIOptionsContent()
+            ToolsContent()
+                .environment(appSettings)
+                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+            UnifiedCLIOptionsContent()
                 .environment(appSettings)
                 .tabItem { Label("CLI Options", systemImage: "terminal") }
             KeyboardShortcutsContent()
@@ -18,24 +21,105 @@ struct SettingsView: View {
     }
 }
 
-private struct CLIOptionsContent: View {
+private struct ToolsContent: View {
     @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        Form {
+            Section {
+                Text("Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Available Tools") {
+                ForEach(CLIType.allCases, id: \.self) { tool in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tool.displayName)
+                            Text(tool.cliCommandDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fontDesign(.monospaced)
+                        }
+                        Spacer()
+                        Toggle(tool.displayName, isOn: Binding(
+                            get: { appSettings.isActive(tool) },
+                            set: { active in
+                                appSettings.setActive(tool, active)
+                                SettingsPersistence.saveActiveTools(appSettings: appSettings)
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct UnifiedCLIOptionsContent: View {
+    @Environment(AppSettings.self) private var appSettings
+    @State private var selectedTool: CLIType = .claude
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Tool", selection: $selectedTool) {
+                ForEach(CLIType.allCases, id: \.self) { tool in
+                    Text(tool.displayName).tag(tool)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+
+            switch selectedTool {
+            case .claude:
+                CLIOptionsContent(
+                    options: Binding(
+                        get: { appSettings.cliOptions },
+                        set: { appSettings.cliOptions = $0 }
+                    ),
+                    onSave: { SettingsPersistence.save(appSettings: appSettings) },
+                    customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions."
+                )
+            case .codex:
+                CLIOptionsContent(
+                    options: Binding(
+                        get: { appSettings.codexCliOptions },
+                        set: { appSettings.codexCliOptions = $0 }
+                    ),
+                    onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
+                    customFlagFooter: "Custom flags may not be recognized by all Codex CLI versions."
+                )
+            }
+        }
+    }
+}
+
+private struct CLIOptionsContent: View {
+    @Binding var options: [CLIOptionConfig]
+    let onSave: () -> Void
+    let customFlagFooter: String
     @State private var showAddCustomFlagSheet = false
 
     private var enabledOptions: [CLIOptionConfig] {
-        appSettings.cliOptions.filter { $0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
+        options.filter { $0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
     }
 
     private var disabledOptions: [CLIOptionConfig] {
-        appSettings.cliOptions.filter { !$0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
+        options.filter { !$0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
     }
 
     private var customOptions: [CLIOptionConfig] {
-        appSettings.cliOptions.filter(\.isUserAdded).sorted { $0.id < $1.id }
+        options.filter(\.isUserAdded).sorted { $0.id < $1.id }
     }
 
     var body: some View {
-        @Bindable var appSettings = appSettings
         Form {
             Section {
                 Text("Configure which CLI options appear when creating a new pane. Options marked as default will be pre-checked in the New Pane dialog.")
@@ -45,30 +129,26 @@ private struct CLIOptionsContent: View {
             if !enabledOptions.isEmpty {
                 Section("Enabled") {
                     ForEach(enabledOptions, id: \.id) { option in
-                        let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id })!
-                        CLIOptionRow(option: $appSettings.cliOptions[index], onChange: {
-                            SettingsPersistence.save(appSettings: appSettings)
-                        })
+                        let index = options.firstIndex(where: { $0.id == option.id })!
+                        CLIOptionRow(option: $options[index], onChange: onSave)
                     }
                 }
             }
             Section("Not Enabled") {
                 ForEach(disabledOptions, id: \.id) { option in
-                    let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id })!
-                    CLIOptionRow(option: $appSettings.cliOptions[index], onChange: {
-                        SettingsPersistence.save(appSettings: appSettings)
-                    })
+                    let index = options.firstIndex(where: { $0.id == option.id })!
+                    CLIOptionRow(option: $options[index], onChange: onSave)
                 }
             }
             Section {
                 ForEach(customOptions, id: \.id) { option in
-                    let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id })!
+                    let index = options.firstIndex(where: { $0.id == option.id })!
                     CustomCLIOptionRow(
-                        option: $appSettings.cliOptions[index],
-                        onChange: { SettingsPersistence.save(appSettings: appSettings) },
+                        option: $options[index],
+                        onChange: onSave,
                         onDelete: {
-                            appSettings.cliOptions.removeAll { $0.id == option.id }
-                            SettingsPersistence.save(appSettings: appSettings)
+                            options.removeAll { $0.id == option.id }
+                            onSave()
                         }
                     )
                 }
@@ -81,16 +161,16 @@ private struct CLIOptionsContent: View {
             } header: {
                 Text("Custom Options")
             } footer: {
-                Text("Custom flags are user-defined and may not be recognized by all Claude CLI versions.")
+                Text(customFlagFooter)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .sheet(isPresented: $showAddCustomFlagSheet) {
-            AddCustomFlagSheet { id, isString in
-                appSettings.cliOptions.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
-                SettingsPersistence.save(appSettings: appSettings)
+            AddCustomFlagSheet(existingIDs: options.map(\.id)) { id, isString in
+                options.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
+                onSave()
             }
         }
     }
@@ -440,8 +520,8 @@ private struct StatusLineContent: View {
 
 private struct AddCustomFlagSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppSettings.self) private var appSettings
 
+    let existingIDs: [String]
     let onAdd: (String, Bool) -> Void
 
     @State private var flagName = ""
@@ -450,7 +530,7 @@ private struct AddCustomFlagSheet: View {
     private var isValid: Bool {
         !flagName.isEmpty &&
         flagName.hasPrefix("--") &&
-        !appSettings.cliOptions.contains(where: { $0.id == flagName })
+        !existingIDs.contains(flagName)
     }
 
     var body: some View {
@@ -470,7 +550,7 @@ private struct AddCustomFlagSheet: View {
                     Text("Flag name must start with \"--\".")
                         .font(.caption)
                         .foregroundStyle(.red)
-                } else if !flagName.isEmpty && appSettings.cliOptions.contains(where: { $0.id == flagName }) {
+                } else if !flagName.isEmpty && existingIDs.contains(flagName) {
                     Text("A flag with this name already exists.")
                         .font(.caption)
                         .foregroundStyle(.red)

@@ -23,16 +23,17 @@ final class TerminalController: NSObject {
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
     func startProcess() {
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         if let cmd = pendingCommand {
             terminalView.startProcess(
-                executable: "/bin/bash",
-                args: ["-c", cmd],
+                executable: shell,
+                args: ["-l", "-i", "-c", cmd],
                 environment: pendingEnvironment,
                 currentDirectory: pendingDirectory
             )
         } else {
             terminalView.startProcess(
-                executable: "/bin/bash",
+                executable: shell,
                 environment: pendingEnvironment,
                 currentDirectory: pendingDirectory
             )

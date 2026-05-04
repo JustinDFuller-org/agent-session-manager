@@ -15,6 +15,20 @@ struct PersistedTab: Codable {
 struct PersistedPane: Codable {
     var id: UUID
     var name: String
+    var cliType: CLIType
+
+    init(id: UUID, name: String, cliType: CLIType) {
+        self.id = id
+        self.name = name
+        self.cliType = cliType
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
+    }
 }
 
 @MainActor
@@ -32,7 +46,7 @@ struct SessionPersistence {
                 id: tab.id,
                 name: tab.name,
                 directory: tab.directory.path,
-                panes: tab.panes.map { PersistedPane(id: $0.id, name: $0.name) }
+                panes: tab.panes.map { PersistedPane(id: $0.id, name: $0.name, cliType: $0.cliType) }
             )
         }
         let activeTabIndex = appState.tabs.firstIndex { $0.id == appState.activeTabID }
@@ -51,9 +65,11 @@ struct SessionPersistence {
             guard let dir = URL(string: "file://\(persistedTab.directory)") else { continue }
             let tab = Tab(name: persistedTab.name, directory: dir)
             for persistedPane in persistedTab.panes {
-                let worktreePath = dir.appending(path: ".tree/\(persistedPane.name)")
-                guard FileManager.default.fileExists(atPath: worktreePath.path) else { continue }
-                tab.addPane(name: persistedPane.name)
+                if persistedPane.cliType == .claude {
+                    let worktreePath = dir.appending(path: ".tree/\(persistedPane.name)")
+                    guard FileManager.default.fileExists(atPath: worktreePath.path) else { continue }
+                }
+                tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
             }
             appState.tabs.append(tab)
         }
