@@ -91,6 +91,17 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         guard c.keyMonitor == nil else { return }
 
         c.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Intercept Shift+Return so Claude CLI receives the Kitty keyboard protocol
+            // Shift+Enter sequence (ESC [ 13 ; 2 u) instead of plain carriage return.
+            // SwiftTerm's doCommand(by:) discards the shift modifier for insertNewline,
+            // so we must send the correct sequence before the event reaches the terminal.
+            let flags = event.modifierFlags.intersection([.shift, .command, .control, .option])
+            if event.keyCode == 36 && flags == .shift,
+               let termView = c.appState?.activePane?.terminalController?.terminalView,
+               !termView.terminal.keyboardEnhancementFlags.isEmpty {
+                termView.send([0x1b, 0x5b, 0x31, 0x33, 0x3b, 0x32, 0x75])
+                return nil
+            }
             guard event.modifierFlags.contains(.command) else { return event }
             let closePaneKey = UserDefaults.standard.string(forKey: "keyBinding.closePaneKey") ?? "w"
             if let chars = event.characters, chars == closePaneKey {
