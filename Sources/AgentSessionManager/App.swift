@@ -1,7 +1,9 @@
 import SwiftUI
+import AppKit
 
 @main
 struct AgentSessionManagerApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState = AppState()
     @State private var appSettings = AppSettings()
 
@@ -17,6 +19,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreStatusLine(into: appSettings)
                         SettingsPersistence.restoreCodexOptions(into: appSettings)
                         SettingsPersistence.restoreActiveTools(into: appSettings)
+                        SettingsPersistence.restoreDefaultBranch(into: appSettings)
                         SessionPersistence.restore(into: appState)
                     }
                 }

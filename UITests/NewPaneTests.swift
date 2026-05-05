@@ -50,7 +50,8 @@ final class NewPaneTests: BaseTestCase {
 
     func testTabEmptyStateHintMentionsPaneShortcut() {
         waitFor(app.staticTexts["tab-empty-state-PaneTestTab"])
-        XCTAssertEqual(app.staticTexts["tab-empty-state-PaneTestTab"].label, "Press ⌘P to open a pane")
+        // macOS 26+ SwiftUI stores StaticText content in .value, not .label
+        XCTAssertEqual(app.staticTexts["tab-empty-state-PaneTestTab"].value as? String, "Press ⌘P to open a pane")
     }
 
     func testNewPaneMenuItemOpensSheet() {
