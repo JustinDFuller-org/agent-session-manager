@@ -9,13 +9,27 @@ struct TabButtonView: View {
         appState.activeTabID == tab.id
     }
 
+    private var tabNotification: PaneNotification? {
+        let tabPaneIDs = Set(tab.panes.map(\.id))
+        return appState.notifications.first { tabPaneIDs.contains($0.paneID) && $0.isPriority }
+            ?? appState.notifications.first { tabPaneIDs.contains($0.paneID) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(tab.name)
-                        .font(.system(size: 12, weight: isActive ? .semibold : .regular))
-                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(tab.name)
+                            .font(.system(size: 12, weight: isActive ? .semibold : .regular))
+                            .lineLimit(1)
+                        if let notification = tabNotification {
+                            Circle()
+                                .fill(notification.isPriority ? Color.orange : Color.accentColor)
+                                .frame(width: 6, height: 6)
+                                .accessibilityIdentifier("tab-notification-dot-\(tab.name)")
+                        }
+                    }
                     Text(tab.directoryDisplayName)
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)

@@ -16,11 +16,13 @@ struct PersistedPane: Codable {
     var id: UUID
     var name: String
     var cliType: CLIType
+    var isPriority: Bool
 
-    init(id: UUID, name: String, cliType: CLIType) {
+    init(id: UUID, name: String, cliType: CLIType, isPriority: Bool) {
         self.id = id
         self.name = name
         self.cliType = cliType
+        self.isPriority = isPriority
     }
 
     init(from decoder: Decoder) throws {
@@ -28,6 +30,7 @@ struct PersistedPane: Codable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
+        isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
     }
 }
 
@@ -46,7 +49,7 @@ struct SessionPersistence {
                 id: tab.id,
                 name: tab.name,
                 directory: tab.directory.path,
-                panes: tab.panes.map { PersistedPane(id: $0.id, name: $0.name, cliType: $0.cliType) }
+                panes: tab.panes.map { PersistedPane(id: $0.id, name: $0.name, cliType: $0.cliType, isPriority: $0.isPriority) }
             )
         }
         let activeTabIndex = appState.tabs.firstIndex { $0.id == appState.activeTabID }
@@ -69,7 +72,20 @@ struct SessionPersistence {
                     let worktreePath = dir.appending(path: ".tree/\(persistedPane.name)")
                     guard FileManager.default.fileExists(atPath: worktreePath.path) else { continue }
                 }
-                tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
+                let pane = tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
+                pane.isPriority = persistedPane.isPriority
+                pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
+                    Task { @MainActor in
+                        guard let appState, let tab, let pane else { return }
+                        appState.addNotification(
+                            paneID: pane.id,
+                            paneName: pane.name,
+                            tabID: tab.id,
+                            tabName: tab.name,
+                            isPriority: pane.isPriority
+                        )
+                    }
+                }
             }
             appState.tabs.append(tab)
         }

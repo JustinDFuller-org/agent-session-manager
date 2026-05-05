@@ -13,6 +13,7 @@ struct NewPaneSheet: View {
     @State private var optionStates: [String: OptionState] = [:]
     @State private var isCreating = false
     @State private var worktreeSetupError: String?
+    @State private var isPriority = false
 
     private var activeToolList: [CLIType] {
         CLIType.allCases.filter { appSettings.isActive($0) }
@@ -110,6 +111,19 @@ struct NewPaneSheet: View {
                 }
             }
 
+            if selectedCLIType == .claude && appSettings.isPriorityNotificationsEnabled {
+                Toggle(isOn: $isPriority) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Priority Pane")
+                            .font(.subheadline)
+                        Text("Priority notifications jump to the top of the sidebar.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("new-pane-priority-toggle")
+            }
+
             let available = activeOptions.filter(\.isAvailable)
             if !available.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -176,9 +190,12 @@ struct NewPaneSheet: View {
         let name = worktreeName
         let branch = branchName.isEmpty ? nil : branchName
 
+        let priority = isPriority
+
         guard let branch else {
             resetForm()
-            tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+            let pane = tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+            wireBell(pane: pane, priority: priority)
             appState.setActivePane(id: tab.panes.last?.id)
             dismiss()
             return
@@ -191,7 +208,8 @@ struct NewPaneSheet: View {
                 try await tab.setupWorktree(name: name, branchName: branch, defaultBranch: appSettings.defaultBranch, useDefaultBranch: appSettings.isDefaultBranchEnabled)
                 await MainActor.run {
                     resetForm()
-                    tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+                    let pane = tab.addPane(name: name, extraArgs: extraArgs, cliType: selectedCLIType)
+                    wireBell(pane: pane, priority: priority)
                     appState.setActivePane(id: tab.panes.last?.id)
                     dismiss()
                 }
@@ -200,6 +218,22 @@ struct NewPaneSheet: View {
                     isCreating = false
                     worktreeSetupError = "Failed to set up worktree for branch '\(branch)'. Check that the branch exists locally or on origin."
                 }
+            }
+        }
+    }
+
+    private func wireBell(pane: Pane, priority: Bool) {
+        pane.isPriority = priority
+        pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
+            Task { @MainActor in
+                guard let appState, let tab, let pane else { return }
+                appState.addNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    isPriority: pane.isPriority
+                )
             }
         }
     }

@@ -3,150 +3,77 @@ import Observation
 
 @Observable
 @MainActor
-final class Tab: Identifiable {
-    let id: UUID
-    var name: String
-    var directory: URL
-    var panes: [Pane] = []
-    var lastActivePaneID: UUID?
+final class AppState {
+    var tabs: [Tab] = []
+    var activeTabID: UUID?
+    var activePaneID: UUID?
+    var notifications: [PaneNotification] = []
 
-    init(name: String, directory: URL) {
-        self.id = UUID()
-        self.name = name
-        self.directory = directory
+    var activeTab: Tab? {
+        tabs.first { $0.id == activeTabID }
     }
 
-    var directoryDisplayName: String {
-        directory.lastPathComponent
+    var activePane: Pane? {
+        activeTab?.panes.first { $0.id == activePaneID }
     }
 
-    nonisolated static func buildClaudeCommand(name: String, settingsPath: String, extraArgs: String) -> String {
-        let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
-        let escapedSettings = settingsPath.replacingOccurrences(of: "'", with: "'\\''")
-        return "claude --worktree '\(escapedName)' --settings '\(escapedSettings)'\(extraArgs)"
+    func addTab(name: String, directory: URL) {
+        let tab = Tab(name: name, directory: directory)
+        tabs.append(tab)
+        activeTabID = tab.id
     }
 
-    nonisolated static func sanitizeBranchName(_ branch: String) -> String {
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        return branch
-            .replacingOccurrences(of: "/", with: "-")
-            .unicodeScalars
-            .filter { allowed.contains($0) }
-            .map { String($0) }
-            .joined()
+    func switchToTab(id: UUID) {
+        activeTab?.lastActivePaneID = activePaneID
+        activeTabID = id
+        let saved = activeTab?.lastActivePaneID
+        activePaneID = activeTab?.panes.first(where: { $0.id == saved })?.id ?? activeTab?.panes.first?.id
     }
 
-    nonisolated static func isValidWorktreeName(_ name: String) -> Bool {
-        guard !name.isEmpty else { return false }
-        let valid = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        return name.unicodeScalars.allSatisfy { valid.contains($0) }
+    func setActivePane(id: UUID?) {
+        activeTab?.lastActivePaneID = id
+        activePaneID = id
+        if let id { clearNotification(paneID: id) }
     }
 
-    func hasPaneNamed(_ name: String) -> Bool {
-        panes.contains { $0.name == name }
+    func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
+        guard activePaneID != paneID else { return }
+        guard !notifications.contains(where: { $0.paneID == paneID }) else { return }
+        notifications.append(PaneNotification(
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
+            isPriority: isPriority
+        ))
     }
 
-    func setupWorktree(name: String, branchName: String, defaultBranch: String, useDefaultBranch: Bool) async throws {
-        let worktreePath = directory.appending(path: ".tree/\(name)")
-        if FileManager.default.fileExists(atPath: worktreePath.path) { return }
-        if useDefaultBranch {
-            try? await runGit(["fetch", "origin", defaultBranch])
+    func clearNotification(paneID: UUID) {
+        notifications.removeAll { $0.paneID == paneID }
+    }
+
+    func navigateTo(notification: PaneNotification) {
+        switchToTab(id: notification.tabID)
+        setActivePane(id: notification.paneID)
+    }
+
+    func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
+        tabs.contains { $0.directory == directory && $0.hasPaneNamed(name) }
+    }
+
+    func closeTab(_ tab: Tab) {
+        tab.panes.forEach {
+            $0.terminalController?.terminate()
+            clearNotification(paneID: $0.id)
         }
-        do {
-            try await runGit(["worktree", "add", ".tree/\(name)", branchName])
-        } catch {
-            if await branchAlreadyCheckedOut(branchName) { return }
-            do {
-                try await runGit(["fetch", "origin", branchName])
-                try await runGit(["worktree", "add", ".tree/\(name)", branchName])
-            } catch {
-                let base = useDefaultBranch ? "origin/\(defaultBranch)" : "HEAD"
-                try await runGit(["worktree", "add", "-b", branchName, ".tree/\(name)", base])
-            }
-        }
-    }
-
-    private func branchAlreadyCheckedOut(_ branchName: String) async -> Bool {
-        let ref = "branch refs/heads/\(branchName)"
-        return (try? await runGitOutput(["worktree", "list", "--porcelain"]))?.contains(ref) ?? false
-    }
-
-    private func runGitOutput(_ args: [String]) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            let pipe = Pipe()
-            process.executableURL = URL(filePath: "/usr/bin/git")
-            process.arguments = args
-            process.currentDirectoryURL = directory
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-            process.terminationHandler = { p in
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if p.terminationStatus == 0 {
-                    continuation.resume(returning: String(data: data, encoding: .utf8) ?? "")
-                } else {
-                    continuation.resume(throwing: NSError(domain: "git", code: Int(p.terminationStatus)))
-                }
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
+        tabs.removeAll { $0.id == tab.id }
+        if activeTabID == tab.id {
+            activeTabID = tabs.last?.id
         }
     }
 
-    private func runGit(_ args: [String]) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = URL(filePath: "/usr/bin/git")
-            process.arguments = args
-            process.currentDirectoryURL = directory
-            process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
-            process.terminationHandler = { p in
-                if p.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: NSError(domain: "git", code: Int(p.terminationStatus)))
-                }
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-            }
-        }
-    }
-
-    func addPane(name: String, extraArgs: [String] = [], cliType: CLIType = .claude) {
-        let pane = Pane(name: name, tab: self, cliType: cliType)
-        if !AgentSessionManagerApp.isUITesting {
-            let controller = TerminalController()
-            let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            controller.pendingDirectory = directory.path
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
-            switch cliType {
-            case .claude:
-                let monitor = StatusLineMonitor(paneID: pane.id)
-                monitor.start()
-                controller.pendingCommand = Tab.buildClaudeCommand(name: name, settingsPath: monitor.settingsFilePath, extraArgs: extra)
-                pane.statusLineMonitor = monitor
-            case .codex:
-                controller.pendingCommand = "codex\(extra)"
-            }
-            pane.terminalController = controller
-        }
-        panes.append(pane)
-    }
-
-    func closePane(_ pane: Pane) {
-        pane.terminalController?.terminate()
-        pane.statusLineMonitor?.stop()
-        panes.removeAll { $0.id == pane.id }
-    }
-
-    func movePane(from source: IndexSet, to destination: Int) {
-        panes.move(fromOffsets: source, toOffset: destination)
+    func moveTab(from source: IndexSet, to destination: Int) {
+        tabs.move(fromOffsets: source, toOffset: destination)
+        SessionPersistence.save(appState: self)
     }
 }

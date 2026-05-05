@@ -1,13 +1,25 @@
 import AppKit
 import SwiftTerm
 
+final class BellCapturingTerminalView: LocalProcessTerminalView {
+    var onBell: (() -> Void)?
+
+    override func bell(source: Terminal) {
+        super.bell(source: source)
+        DispatchQueue.main.async { [weak self] in
+            self?.onBell?()
+        }
+    }
+}
+
 @MainActor
 final class TerminalController: NSObject {
-    let terminalView: LocalProcessTerminalView
+    let terminalView: BellCapturingTerminalView
     private(set) var processState: ProcessState = .idle
     var pendingCommand: String? = nil
     var pendingDirectory: String? = nil
     var pendingEnvironment: [String]? = nil
+    var onBell: (() -> Void)? = nil
 
     enum ProcessState: Equatable {
         case idle
@@ -16,9 +28,10 @@ final class TerminalController: NSObject {
     }
 
     override init() {
-        terminalView = LocalProcessTerminalView(frame: .zero)
+        terminalView = BellCapturingTerminalView(frame: .zero)
         super.init()
         terminalView.processDelegate = self
+        terminalView.onBell = { [weak self] in self?.onBell?() }
     }
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.

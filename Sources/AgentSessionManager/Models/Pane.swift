@@ -30,6 +30,8 @@ final class Pane: Identifiable {
     var terminalController: TerminalController?
     var statusLineMonitor: StatusLineMonitor?
 
+    var isPriority: Bool = false
+
     init(name: String, tab: Tab, cliType: CLIType = .claude) {
         self.id = UUID()
         self.name = name

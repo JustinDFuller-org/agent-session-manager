@@ -19,6 +19,9 @@ struct SettingsView: View {
             StatusLineContent()
                 .environment(appSettings)
                 .tabItem { Label("Status Line", systemImage: "chart.bar") }
+            NotificationsContent()
+                .environment(appSettings)
+                .tabItem { Label("Notifications", systemImage: "bell") }
         }
         .frame(width: 560, height: 580)
     }
@@ -649,5 +652,68 @@ private struct AddCustomFlagSheet: View {
         guard isValid else { return }
         onAdd(flagName, isString)
         dismiss()
+    }
+}
+
+private struct NotificationsContent: View {
+    @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        @Bindable var appSettings = appSettings
+        Form {
+            Section {
+                Text("Configure notification behavior for pane alerts.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Sidebar") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sidebar Position")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text("Which side the notification sidebar appears on.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker("Sidebar Position", selection: $appSettings.notificationSidebarSide) {
+                        ForEach(SidebarSide.allCases, id: \.self) { side in
+                            Text(side.displayName).tag(side)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 120)
+                    .accessibilityIdentifier("settings-sidebar-side")
+                    .onChange(of: appSettings.notificationSidebarSide) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            Section("Priority") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Priority Notifications")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text("Allow panes to be marked as priority. Priority notifications appear at the top of the sidebar.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Priority Notifications", isOn: $appSettings.isPriorityNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-priority-notifications-toggle")
+                        .onChange(of: appSettings.isPriorityNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
