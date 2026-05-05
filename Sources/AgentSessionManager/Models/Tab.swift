@@ -145,4 +145,8 @@ final class Tab: Identifiable {
         pane.statusLineMonitor?.stop()
         panes.removeAll { $0.id == pane.id }
     }
+
+    func movePane(from source: IndexSet, to destination: Int) {
+        panes.move(fromOffsets: source, toOffset: destination)
+    }
 }

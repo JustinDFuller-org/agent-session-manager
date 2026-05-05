@@ -3,6 +3,7 @@ import SwiftUI
 struct PaneGridView: View {
     @Environment(AppState.self) private var appState
     @State private var showingNewPane = false
+    @State private var dragTargetPaneID: UUID? = nil
     let tab: Tab
 
     private var layout: GridLayout {
@@ -37,8 +38,35 @@ struct PaneGridView: View {
             LazyVGrid(columns: cols, spacing: spacing) {
                 ForEach(tab.panes) { pane in
                     PaneView(pane: pane, tab: tab)
+                        .accessibilityIdentifier("pane-\(pane.name)")
                         .frame(height: cellHeight)
                         .id(pane.id)
+                        .overlay(
+                            dragTargetPaneID == pane.id
+                                ? RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 2)
+                                : nil
+                        )
+                        .draggable(pane.id.uuidString) {
+                            Text(pane.name)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                        }
+                        .dropDestination(for: String.self) { items, _ in
+                            guard
+                                let droppedID = items.first,
+                                let droppedUUID = UUID(uuidString: droppedID),
+                                let from = tab.panes.firstIndex(where: { $0.id == droppedUUID }),
+                                let to = tab.panes.firstIndex(where: { $0.id == pane.id }),
+                                from != to
+                            else { return false }
+                            tab.movePane(from: IndexSet(integer: from), to: to > from ? to + 1 : to)
+                            SessionPersistence.save(appState: appState)
+                            return true
+                        } isTargeted: { isTargeted in
+                            dragTargetPaneID = isTargeted ? pane.id : nil
+                        }
                 }
                 ForEach(0..<layout.emptyCells, id: \.self) { _ in
                     Color.clear.frame(height: cellHeight)

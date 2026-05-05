@@ -3,6 +3,7 @@ import SwiftUI
 struct TabButtonView: View {
     @Environment(AppState.self) private var appState
     let tab: Tab
+    @State private var isDragTarget = false
 
     private var isActive: Bool {
         appState.activeTabID == tab.id
@@ -55,7 +56,30 @@ struct TabButtonView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isActive ? Color.accentColor.opacity(0.4) : Color.clear, lineWidth: 1)
+                .strokeBorder(
+                    isDragTarget ? Color.accentColor.opacity(0.6) : (isActive ? Color.accentColor.opacity(0.4) : Color.clear),
+                    lineWidth: isDragTarget ? 2 : 1
+                )
         )
+        .draggable(tab.id.uuidString) {
+            Text(tab.name)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        }
+        .dropDestination(for: String.self) { items, _ in
+            guard
+                let droppedID = items.first,
+                let droppedUUID = UUID(uuidString: droppedID),
+                let from = appState.tabs.firstIndex(where: { $0.id == droppedUUID }),
+                let to = appState.tabs.firstIndex(where: { $0.id == tab.id }),
+                from != to
+            else { return false }
+            appState.moveTab(from: IndexSet(integer: from), to: to > from ? to + 1 : to)
+            return true
+        } isTargeted: { isTargeted in
+            isDragTarget = isTargeted
+        }
     }
 }

@@ -45,4 +45,9 @@ final class AppState {
             activeTabID = tabs.last?.id
         }
     }
+
+    func moveTab(from source: IndexSet, to destination: Int) {
+        tabs.move(fromOffsets: source, toOffset: destination)
+        SessionPersistence.save(appState: self)
+    }
 }
