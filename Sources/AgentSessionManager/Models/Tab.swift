@@ -44,7 +44,7 @@ enum WorktreeResolutionError: Error, LocalizedError, Equatable {
     }
 }
 
-/// Result of resolving a branch or ref when “Existing branch or worktree” is enabled.
+/// Result after resolving Git worktree input (attached checkout path and Claude launch semantics).
 struct ResolvedWorktree: Equatable {
     /// Pane header label (short name under `.agent-session-manager/worktrees/`, or worktree folder name / repo name).
     var paneTitle: String
@@ -52,6 +52,16 @@ struct ResolvedWorktree: Equatable {
     var claudeProcessDirectory: URL?
     /// Directory used for duplicate detection and session restore.
     var checkoutURL: URL
+}
+
+/// How the New Pane sheet should proceed for Claude from a single user string.
+enum ClaudePaneIntent: Equatable {
+    /// An existing checkout on disk matched; show confirmation before attaching.
+    case reuse(confirmationMessage: String, rawInput: String, resolved: ResolvedWorktree)
+    /// Run `resolveOrAttachWorktree` (fetch / `git worktree add` under app-managed paths as needed).
+    case resolveViaApp(rawInput: String)
+    /// New session name not tied to an existing git ref; pass `--worktree` to Claude.
+    case claudeWorktreeFlag(name: String)
 }
 
 @Observable
@@ -215,11 +225,34 @@ final class Tab: Identifiable {
         panes.contains { $0.name == name }
     }
 
-    /// Resolves user input (branch, remote ref, or managed worktree name) for the “Existing branch or worktree” flow.
-    func resolveOrAttachWorktree(userRef raw: String) async throws -> ResolvedWorktree {
+    /// Classifies Claude New Pane input (no fetch or `worktree add`). Throws the same preliminary errors as resolving.
+    ///
+    /// A short branch name that exists **only** on the remote and is not fetched yet—while `origin/<name>`
+    /// is not reachable via `git rev-parse`—may classify as `.claudeWorktreeFlag` until refs are fetched.
+    func classifyClaudePaneIntent(userRef raw: String) async throws -> ClaudePaneIntent {
         let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
 
+        if let resolved = try await peekExistingResolvedWorktree(trimmedRef: ref) {
+            return .reuse(
+                confirmationMessage: Self.reuseConfirmationMessage(for: resolved),
+                rawInput: ref,
+                resolved: resolved
+            )
+        }
+
+        // Ref-shaped input or any token that resolves to a commit goes through Git (create managed worktree etc.).
+        if !Tab.isValidWorktreeName(ref) {
+            return .resolveViaApp(rawInput: ref)
+        }
+        if await refExists(ref) {
+            return .resolveViaApp(rawInput: ref)
+        }
+        return .claudeWorktreeFlag(name: ref)
+    }
+
+    /// Resolved checkout already on disk (`git worktree list` match, app-managed linked tree, etc.); ignores fetch/add.
+    private func peekExistingResolvedWorktree(trimmedRef ref: String) async throws -> ResolvedWorktree? {
         if Tab.isValidWorktreeName(ref) {
             let url = Tab.worktreeDirectoryURL(repoRoot: directory, name: ref)
             if FileManager.default.fileExists(atPath: url.path) {
@@ -250,6 +283,31 @@ final class Tab: Identifiable {
                 throw WorktreeResolutionError.pathExistsButNotWorktree(targetURL.path)
             }
             return resolvedManaged(shortName: targetName)
+        }
+
+        return nil
+    }
+
+    nonisolated private static func reuseConfirmationMessage(for resolved: ResolvedWorktree) -> String {
+        let path = resolved.checkoutURL.path
+        if resolved.claudeProcessDirectory != nil {
+            return "A checkout for this repo already exists on disk:\n\(path)\n\nOpen Claude there?"
+        }
+        return "The app-managed worktree already exists:\n\(path)\n\nContinue?"
+    }
+
+    /// Resolves user input (branch, remote ref, or managed worktree name) when attaching or creating Git worktrees in-app.
+    func resolveOrAttachWorktree(userRef raw: String) async throws -> ResolvedWorktree {
+        let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
+
+        if let resolved = try await peekExistingResolvedWorktree(trimmedRef: ref) {
+            return resolved
+        }
+
+        let targetName = Tab.derivedWorktreeName(fromRef: ref)
+        guard Tab.isValidWorktreeName(targetName) else {
+            throw WorktreeResolutionError.invalidDerivedName(targetName)
         }
 
         if !(await refExists(ref)) {

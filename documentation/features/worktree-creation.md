@@ -14,21 +14,33 @@ For those **managed** checkouts, the short `<name>` is the same identifier passe
 
 **Existing** git worktrees for the same repository may live anywhere on disk (sibling folders, `.claude/worktrees/`, etc.). If `git worktree list` shows a branch you ask for, Agent Session Manager can open that checkout: it sets the terminal’s working directory to that path and runs `claude` **without** `--worktree`, matching the usual pattern of `cd <checkout> && claude` for manually added worktrees.
 
-## New Pane: two modes (Claude only)
+## New Pane (Claude): one field, smart routing
 
-When the CLI is **Claude Code**:
+When the CLI is **Claude Code**, the sheet shows a **single** text field. You can type any of the following (the app does not use a separate toggle anymore):
 
-1. **Default — “Existing branch or worktree” is off**  
-   You enter a **Session name** (letters, digits, `.`, `_`, `-` only). The app does **not** run `git worktree add` in this path; it starts Claude with `claude --worktree '<name>'` from the tab directory. Claude may create or use its own layout; the sheet’s path hint shows where the app’s managed worktrees live for consistency.
+- A **short session name** (letters, digits, `.`, `_`, `-` only)—used when that string is **not** an existing Git ref in the repository. The app starts Claude from the tab directory with `claude --worktree '<name>'` and does **not** run `git worktree add` for that path. Claude owns how that worktree is materialized.
+- A **branch or ref** such as `main`, `origin/feature`, or `refs/heads/…`. Slashes or a `refs/` prefix skip the “simple name” character rules in the UI so these inputs stay valid.
+- A **managed worktree folder name**—the last segment of `<repo>/.agent-session-manager/worktrees/<name>` when that path already exists as a linked git worktree.
 
-2. **“Existing branch or worktree” is on**  
-   The Session name field is **hidden**. You enter a single **branch, ref, or managed worktree name** (`main`, `origin/feature`, or a folder name under `.agent-session-manager/worktrees/<name>`, etc.). The app resolves that input (see below), then opens a pane. The pane title is the short managed name or the **last path segment** of an existing checkout elsewhere. All git setup runs in Swift (`Foundation.Process`); failures appear in the sheet, never as extra shell noise in the terminal.
+On **Open**, the app classifies the trimmed string (see below) and then either asks for confirmation, runs in-app Git setup, or hands off to Claude’s `--worktree`.
 
-When the CLI is **Codex**, only the Session name field is shown; worktree resolution does not apply.
+When the CLI is **Codex**, only a **Session name** field is shown; git worktree resolution does not apply.
 
-## Resolution order (toggle on)
+### How input is classified
 
-Implementation lives in `Tab.resolveOrAttachWorktree(userRef:)`, which returns a `ResolvedWorktree` (`paneTitle`, optional process-directory override, `checkoutURL`). At a high level:
+`Tab.classifyClaudePaneIntent(userRef:)` returns a `ClaudePaneIntent` after a read-only pass (no `fetch`, no `worktree add`):
+
+1. **`.reuse`** — An existing checkout already matches the input (same early logic as `peekExistingResolvedWorktree`: managed path on disk, a hit from `git worktree list --porcelain`, or the derived managed path for a ref that already exists). The sheet shows a **confirmation dialog**; if the user continues, `resolveOrAttachWorktree` runs and the pane opens with the same semantics as today (managed → `claude --worktree` from repo root; external listing → `cwd` at that path, no `--worktree`).
+2. **`.resolveViaApp`** — The input looks like a ref (e.g. contains `/` or `refs/`) **or** `git rev-parse` resolves it to a commit, but there is no reuse match yet. The app runs `Tab.resolveOrAttachWorktree` (fetch if needed, then `git worktree add` under `.agent-session-manager/worktrees/<derived>` when creating a new tree). No extra confirmation step beyond errors in the sheet.
+3. **`.claudeWorktreeFlag(name:)`** — The input is a valid simple name, no checkout matched, and Git does not treat it as a ref. The app adds a pane with `claude --worktree '<name>'` from the tab directory (same as the historical “default” path).
+
+**Edge case:** A branch that exists **only** on the remote and is not yet available to `rev-parse` locally may be classified as `.claudeWorktreeFlag` until you fetch or use a ref Git can resolve; this is called out in code on `classifyClaudePaneIntent`.
+
+Duplicate panes in the same tab are still blocked by **checkout directory** (and by simple name when that applies to the Claude-flag path).
+
+## Resolution order (`resolveOrAttachWorktree`)
+
+Implementation lives in `Tab.resolveOrAttachWorktree(userRef:)`, which returns a `ResolvedWorktree` (`paneTitle`, optional process-directory override, `checkoutURL`). The attach/create path begins with **`peekExistingResolvedWorktree`** (shared with classification). At a high level:
 
 1. **Trim** the input. If it is a **valid worktree name** and `<repo>/.agent-session-manager/worktrees/<input>` already exists and looks like a **linked git worktree** (a `.git` *file* with `gitdir:`), that name is used as a managed resolution.
 
@@ -38,8 +50,6 @@ Implementation lives in `Tab.resolveOrAttachWorktree(userRef:)`, which returns a
    - Otherwise the app **reuses** that checkout: process `cwd` is that path, the Claude command **omits** `--worktree`. Paths reported by `git worktree list` are trusted (including the main repo checkout, where `.git` is a directory).
 
 4. Otherwise the app picks a **derived folder name** from the ref (last path segment, sanitized), verifies the ref with `git rev-parse`, runs **`git fetch origin <ref>`** if needed, creates **`.agent-session-manager`** if needed, and runs **`git worktree add .agent-session-manager/worktrees/<n> <ref>`** (only this path is used for **new** trees). If `worktree add` fails because the branch is already checked out, the list is consulted again so a managed or external checkout can be returned.
-
-Duplicate panes in the same tab are detected by **checkout directory** (not only by displayed name).
 
 ## Session restore
 
@@ -58,10 +68,11 @@ So old sessions can still restore if only the legacy path exists; reused externa
 
 | Area | File(s) |
 |------|---------|
-| Resolution + git | `Sources/AgentSessionManager/Models/Tab.swift` |
+| Resolution + git | `Sources/AgentSessionManager/Models/Tab.swift` (`resolveOrAttachWorktree`, `classifyClaudePaneIntent`, `peekExistingResolvedWorktree`, `ClaudePaneIntent`) |
 | New Pane UI | `Sources/AgentSessionManager/Views/NewPaneSheet.swift` |
 | On-disk URL for a pane | `Pane.worktreePath` (managed path or `claudeDirectoryOverride`) |
 | Restore existence check | `Sources/AgentSessionManager/Controllers/SessionPersistence.swift` |
 | Porcelain / ref tests | `Tests/WorktreeListParserTests.swift` |
+| Intent / routing tests | `Tests/ClaudePaneIntentTests.swift` |
 
 For broader app architecture, see `CLAUDE.md` in the repo root.
