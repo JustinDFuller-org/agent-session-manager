@@ -1,7 +1,9 @@
 import SwiftUI
+import AppKit
 
 @main
 struct AgentSessionManagerApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState = AppState()
     @State private var appSettings = AppSettings()
 

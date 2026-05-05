@@ -9,7 +9,8 @@ final class AppLaunchTests: BaseTestCase {
 
     func testEmptyStateHintMentionsOnlyTabShortcut() {
         waitFor(emptyStateHint)
-        XCTAssertEqual(emptyStateHint.label, "Press ⌘T to create a tab")
+        // macOS 26+ SwiftUI stores StaticText content in .value, not .label
+        XCTAssertEqual(emptyStateHint.value as? String, "Press ⌘T to create a tab")
     }
 
     func testNewTabShortcutOpensSheet() {

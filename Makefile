@@ -34,6 +34,9 @@ test-ui: xcodeproj
 open-results:
 	open $(RESULTS_PATH)
 
+setup-hooks:
+	git config core.hooksPath .githooks
+
 restart:
 	pkill -x $(APP_NAME) 2>/dev/null || true
 	sleep 0.5
