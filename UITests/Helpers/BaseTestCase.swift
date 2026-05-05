@@ -8,7 +8,7 @@ class BaseTestCase: XCTestCase {
         continueAfterFailure = false
 
         clearPersistedState()
-        createTestWorkspaceDirectory()
+        GitUITestWorkspace.prepareCleanRepo()
 
         app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
@@ -69,11 +69,5 @@ class BaseTestCase: XCTestCase {
                      "default-branch.json"] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
-    }
-
-    private func createTestWorkspaceDirectory() {
-        let testDir = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
-        try? FileManager.default.createDirectory(at: testDir, withIntermediateDirectories: true)
     }
 }

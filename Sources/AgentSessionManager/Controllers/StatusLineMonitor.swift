@@ -11,8 +11,8 @@ final class StatusLineMonitor {
     private var source: DispatchSourceFileSystemObject?
 
     init(paneID: UUID) {
-        filePath = NSTemporaryDirectory() + "asm-status-\(paneID.uuidString).json"
-        settingsFilePath = NSTemporaryDirectory() + "asm-settings-\(paneID.uuidString).json"
+        filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
+        settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
     }
 
     func start() {
