@@ -6,7 +6,7 @@ Agent Session Manager surfaces terminal bell events (sent by Claude Code and sim
 
 - **Pane indicator** — A colored dot appears in the pane header next to the process status indicator when that pane has an unread notification.
 - **Tab indicator** — A colored dot appears in the tab button when any pane in that tab has a pending notification.
-- **Notification sidebar** — A sidebar panel opens automatically when notifications are queued. It lists all pending notifications in the order they were received, with pane name, tab name, and relative timestamp for each entry.
+- **Notification sidebar** — A sidebar panel opens automatically when notifications are queued. It lists the pane name, tab name, and a formatted timestamp. Timestamps show the time (HH:mm) for today's notifications, and the date (MM/dd/yyyy) for older notifications.
 
 Notification dots and sidebar entries are orange for priority panes and blue for regular panes.
 

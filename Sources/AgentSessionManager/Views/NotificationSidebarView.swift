@@ -53,10 +53,6 @@ struct NotificationSidebarView: View {
             Text("Notifications")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.primary)
-            Spacer()
-            Text("\(appState.notifications.count)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -107,7 +103,7 @@ struct NotificationSidebarView: View {
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    Text(notification.timestamp, style: .relative)
+                    Text(formatTimestamp(notification.timestamp))
                         .font(.system(size: 10))
                         .foregroundStyle(.tertiary)
                 }
@@ -121,5 +117,17 @@ struct NotificationSidebarView: View {
         .buttonStyle(.plain)
         .background(Color.clear)
         .accessibilityIdentifier("notification-row-\(notification.paneName)")
+    }
+
+    private func formatTimestamp(_ date: Date) -> String {
+        if Calendar.current.isDate(date, inSameDayAs: Date()) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: date)
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MM/dd/yyyy"
+            return formatter.string(from: date)
+        }
     }
 }
