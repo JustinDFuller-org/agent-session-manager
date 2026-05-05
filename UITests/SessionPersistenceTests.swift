@@ -16,11 +16,13 @@ final class SessionPersistenceTests: XCTestCase {
 
         let testDir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
-        try? FileManager.default.createDirectory(at: testDir, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: testDir)
+        GitUITestWorkspace.prepareCleanRepo()
 
         app = XCUIApplication()
         app.launchArguments = ["--uitesting"]
         app.launch()
+        app.activate()
     }
 
     override func tearDown() {

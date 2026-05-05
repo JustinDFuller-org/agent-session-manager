@@ -5,6 +5,8 @@ SCHEME = AgentSessionManager
 DERIVED_DATA = .build/DerivedData
 RESULTS_PATH = .build/TestResults.xcresult
 
+export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
+
 build:
 	swift build -c release
 
@@ -24,6 +26,7 @@ xcodeproj:
 	xcodegen generate
 
 test-ui: xcodeproj
+	rm -rf $(RESULTS_PATH)
 	xcodebuild test \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
@@ -33,6 +36,9 @@ test-ui: xcodeproj
 
 open-results:
 	open $(RESULTS_PATH)
+
+setup-hooks:
+	git config core.hooksPath .githooks
 
 restart:
 	pkill -x $(APP_NAME) 2>/dev/null || true

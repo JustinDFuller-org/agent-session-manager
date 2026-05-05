@@ -1,5 +1,10 @@
 import Foundation
 
+private struct DefaultBranchConfig: Codable, Equatable {
+    var isEnabled: Bool = true
+    var branchName: String = "main"
+}
+
 @MainActor
 struct SettingsPersistence {
     private static var appSupportDir: URL {
@@ -13,6 +18,7 @@ struct SettingsPersistence {
     private static var codexSettingsURL: URL { appSupportDir.appending(path: "codex-settings.json") }
     private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
+    private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -88,5 +94,22 @@ struct SettingsPersistence {
             let saved = try? JSONDecoder().decode(StatusLineConfig.self, from: data)
         else { return }
         appSettings.statusLineConfig = saved
+    }
+
+    static func saveDefaultBranch(appSettings: AppSettings) {
+        let config = DefaultBranchConfig(isEnabled: appSettings.isDefaultBranchEnabled, branchName: appSettings.defaultBranch)
+        guard let data = try? JSONEncoder().encode(config) else { return }
+        try? data.write(to: defaultBranchURL)
+    }
+
+    static func restoreDefaultBranch(into appSettings: AppSettings) {
+        guard let data = try? Data(contentsOf: defaultBranchURL) else { return }
+        if let config = try? JSONDecoder().decode(DefaultBranchConfig.self, from: data) {
+            appSettings.isDefaultBranchEnabled = config.isEnabled
+            appSettings.defaultBranch = config.branchName
+        } else if let saved = try? JSONDecoder().decode(String.self, from: data), !saved.isEmpty {
+            appSettings.defaultBranch = saved
+            appSettings.isDefaultBranchEnabled = true
+        }
     }
 }

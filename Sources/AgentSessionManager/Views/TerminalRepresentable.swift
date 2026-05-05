@@ -31,8 +31,12 @@ struct TerminalRepresentable: NSViewRepresentable {
                 }
                 return
             }
+            // Defer to the next run loop so that any in-flight AppKit setFrameSize
+            // calls have updated terminal.cols/rows before the PTY is sized.
             started = true
-            controller.startProcess()
+            DispatchQueue.main.async { [weak controller] in
+                controller?.startProcess()
+            }
         }
 
         func focusIfNeeded(view: LocalProcessTerminalView, isActive: Bool) {

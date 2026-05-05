@@ -5,6 +5,9 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
+            GeneralContent()
+                .environment(appSettings)
+                .tabItem { Label("General", systemImage: "gear") }
             ToolsContent()
                 .environment(appSettings)
                 .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
@@ -18,6 +21,66 @@ struct SettingsView: View {
                 .tabItem { Label("Status Line", systemImage: "chart.bar") }
         }
         .frame(width: 560, height: 580)
+    }
+}
+
+private struct GeneralContent: View {
+    @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        @Bindable var appSettings = appSettings
+        Form {
+            Section {
+                Text("Configure general app behavior.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Git") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Default Branch")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text("Automatically fetch and create worktrees from a default branch.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-default-branch-toggle")
+                        .onChange(of: appSettings.isDefaultBranchEnabled) {
+                            SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
+
+                if appSettings.isDefaultBranchEnabled {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Branch Name")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text("Branch used as the base when creating new worktrees.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        TextField("e.g. main", text: $appSettings.defaultBranch)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(width: 120)
+                            .accessibilityIdentifier("settings-default-branch-field")
+                            .onChange(of: appSettings.defaultBranch) {
+                                SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                            }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

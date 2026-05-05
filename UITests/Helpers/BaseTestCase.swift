@@ -7,12 +7,13 @@ class BaseTestCase: XCTestCase {
         super.setUp()
         continueAfterFailure = false
 
-        clearPersistedSessions()
-        createTestWorkspaceDirectory()
+        clearPersistedState()
+        GitUITestWorkspace.prepareCleanRepo()
 
         app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
         app.launch()
+        app.activate()
     }
 
     override func tearDown() {
@@ -23,9 +24,9 @@ class BaseTestCase: XCTestCase {
             add(attachment)
         }
         app.terminate()
-        // Clear sessions after termination so the next test always starts clean,
+        // Clear state after termination so the next test always starts clean,
         // even if the app saved state during the test.
-        clearPersistedSessions()
+        clearPersistedState()
         super.tearDown()
     }
 
@@ -59,17 +60,14 @@ class BaseTestCase: XCTestCase {
 
     var emptyStateHint: XCUIElement { app.staticTexts["empty-state-hint"] }
 
-    func clearPersistedSessions() {
+    func clearPersistedState() {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let sessionFile = support
-            .appending(path: "agent-session-manager/sessions.json")
-        try? FileManager.default.removeItem(at: sessionFile)
-    }
-
-    private func createTestWorkspaceDirectory() {
-        let testDir = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
-        try? FileManager.default.createDirectory(at: testDir, withIntermediateDirectories: true)
+            .appending(path: "agent-session-manager")
+        for file in ["sessions.json", "settings.json", "codex-settings.json",
+                     "statusline-settings.json", "active-tools-settings.json",
+                     "default-branch.json"] {
+            try? FileManager.default.removeItem(at: support.appending(path: file))
+        }
     }
 }
