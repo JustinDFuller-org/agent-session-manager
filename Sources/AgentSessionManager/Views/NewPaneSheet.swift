@@ -121,6 +121,7 @@ struct NewPaneSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .toggleStyle(.checkbox)
                 .accessibilityIdentifier("new-pane-priority-toggle")
             }
 
