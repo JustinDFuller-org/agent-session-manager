@@ -2,6 +2,8 @@
 
 This document describes how Agent Session Manager places git worktrees on disk, how the **New Pane** sheet behaves for Claude Code sessions, and how errors are surfaced. It is the reference for users and contributors working on `Tab`, `NewPaneSheet`, `Pane`, or session restore.
 
+**See also:** [panes.md](panes.md) (pane model and sheet overview), [default-branch.md](default-branch.md) (Settings-only default branch preference and scope).
+
 ## Why this path exists
 
 New worktrees created **by Agent Session Manager** (when you attach to a branch that is not yet checked out) are placed only under the **tab’s repo root** at:
@@ -74,5 +76,6 @@ So old sessions can still restore if only the legacy path exists; reused externa
 | Restore existence check | `Sources/AgentSessionManager/Controllers/SessionPersistence.swift` |
 | Porcelain / ref tests | `Tests/WorktreeListParserTests.swift` |
 | Intent / routing tests | `Tests/ClaudePaneIntentTests.swift` |
+| New Pane Git routing (UI) | `UITests/NewPaneWorktreeRoutingTests.swift`, `UITests/GitUITestWorkspace.swift` (clean repo + branch helpers), `UITests/BaseTestCase.swift` |
 
 For broader app architecture, see `CLAUDE.md` in the repo root.
