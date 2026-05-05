@@ -67,7 +67,7 @@ private struct GeneralContent: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        TextField("e.g. main, develop", text: $appSettings.defaultBranch)
+                        TextField("e.g. main", text: $appSettings.defaultBranch)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .frame(width: 120)
