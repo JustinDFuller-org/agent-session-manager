@@ -41,21 +41,43 @@ private struct GeneralContent: View {
                         Text("Default Branch")
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
-                        Text("Branch used as the base when creating new worktrees.")
+                        Text("Automatically fetch and create worktrees from a default branch.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    TextField("main", text: $appSettings.defaultBranch)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(width: 120)
-                        .accessibilityIdentifier("settings-default-branch-field")
-                        .onChange(of: appSettings.defaultBranch) {
+                    Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-default-branch-toggle")
+                        .onChange(of: appSettings.isDefaultBranchEnabled) {
                             SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
                         }
                 }
                 .padding(.vertical, 2)
+
+                if appSettings.isDefaultBranchEnabled {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Branch Name")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text("Branch used as the base when creating new worktrees.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        TextField("e.g. main, develop", text: $appSettings.defaultBranch)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(width: 120)
+                            .accessibilityIdentifier("settings-default-branch-field")
+                            .onChange(of: appSettings.defaultBranch) {
+                                SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                            }
+                    }
+                    .padding(.vertical, 2)
+                }
             }
         }
         .formStyle(.grouped)

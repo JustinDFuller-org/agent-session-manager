@@ -48,6 +48,47 @@ final class SettingsTests: BaseTestCase {
         XCTAssertEqual(field.value as? String, "develop")
     }
 
+    func testDefaultBranchToggleExists() {
+        openSettings()
+        let generalTab = app.buttons["General"]
+        waitFor(generalTab)
+        generalTab.click()
+
+        let toggle = app.checkBoxes["settings-default-branch-toggle"]
+        waitFor(toggle)
+        XCTAssertTrue(toggle.exists)
+    }
+
+    func testDefaultBranchFieldHiddenWhenDisabled() {
+        openSettings()
+        let generalTab = app.buttons["General"]
+        waitFor(generalTab)
+        generalTab.click()
+
+        let toggle = app.checkBoxes["settings-default-branch-toggle"]
+        waitFor(toggle)
+        toggle.click()
+
+        let field = app.textFields["settings-default-branch-field"]
+        XCTAssertFalse(field.waitForExistence(timeout: 0.5))
+    }
+
+    func testDefaultBranchFieldVisibleWhenReEnabled() {
+        openSettings()
+        let generalTab = app.buttons["General"]
+        waitFor(generalTab)
+        generalTab.click()
+
+        let toggle = app.checkBoxes["settings-default-branch-toggle"]
+        waitFor(toggle)
+        toggle.click()
+        toggle.click()
+
+        let field = app.textFields["settings-default-branch-field"]
+        waitFor(field)
+        XCTAssertTrue(field.exists)
+    }
+
     private func openSettings() {
         app.typeKey(",", modifierFlags: .command)
     }

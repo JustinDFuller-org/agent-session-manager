@@ -1,5 +1,10 @@
 import Foundation
 
+private struct DefaultBranchConfig: Codable, Equatable {
+    var isEnabled: Bool = true
+    var branchName: String = "main"
+}
+
 @MainActor
 struct SettingsPersistence {
     private static var appSupportDir: URL {
@@ -92,16 +97,19 @@ struct SettingsPersistence {
     }
 
     static func saveDefaultBranch(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.defaultBranch) else { return }
+        let config = DefaultBranchConfig(isEnabled: appSettings.isDefaultBranchEnabled, branchName: appSettings.defaultBranch)
+        guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: defaultBranchURL)
     }
 
     static func restoreDefaultBranch(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: defaultBranchURL),
-            let saved = try? JSONDecoder().decode(String.self, from: data),
-            !saved.isEmpty
-        else { return }
-        appSettings.defaultBranch = saved
+        guard let data = try? Data(contentsOf: defaultBranchURL) else { return }
+        if let config = try? JSONDecoder().decode(DefaultBranchConfig.self, from: data) {
+            appSettings.isDefaultBranchEnabled = config.isEnabled
+            appSettings.defaultBranch = config.branchName
+        } else if let saved = try? JSONDecoder().decode(String.self, from: data), !saved.isEmpty {
+            appSettings.defaultBranch = saved
+            appSettings.isDefaultBranchEnabled = true
+        }
     }
 }

@@ -9,6 +9,7 @@ final class AppSettings {
     var statusLineConfig: StatusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [CLIType.claude.rawValue]
     var defaultBranch: String = "main"
+    var isDefaultBranchEnabled: Bool = true
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

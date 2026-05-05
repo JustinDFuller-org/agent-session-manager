@@ -436,22 +436,39 @@ final class WorktreeNameValidationTests: XCTestCase {
     }
 }
 
+private struct DefaultBranchConfig: Codable, Equatable {
+    var isEnabled: Bool = true
+    var branchName: String = "main"
+}
+
 @MainActor
 final class AppSettingsDefaultBranchTests: XCTestCase {
-    func testDefaultBranchIsMain() {
+    func testDefaultBranchDefaults() {
         let settings = AppSettings()
         XCTAssertEqual(settings.defaultBranch, "main")
+        XCTAssertEqual(settings.isDefaultBranchEnabled, true)
     }
 
-    func testDefaultBranchRoundTripJSON() throws {
+    func testDefaultBranchConfigRoundTripJSON() throws {
+        let config = DefaultBranchConfig(isEnabled: false, branchName: "develop")
+        let encoded = try JSONEncoder().encode(config)
+        let decoded = try JSONDecoder().decode(DefaultBranchConfig.self, from: encoded)
+        XCTAssertEqual(decoded.isEnabled, false)
+        XCTAssertEqual(decoded.branchName, "develop")
+    }
+
+    func testRestoreLegacyFormat() throws {
         let settings = AppSettings()
-        settings.defaultBranch = "develop"
-        let encoded = try JSONEncoder().encode(settings.defaultBranch)
-        let decoded = try JSONDecoder().decode(String.self, from: encoded)
+        let data = try JSONEncoder().encode("develop")
+        let decoded = try JSONDecoder().decode(String.self, from: data)
         XCTAssertEqual(decoded, "develop")
+        settings.defaultBranch = decoded
+        settings.isDefaultBranchEnabled = true
+        XCTAssertEqual(settings.defaultBranch, "develop")
+        XCTAssertEqual(settings.isDefaultBranchEnabled, true)
     }
 
-    func testRestoreDefaultBranchIgnoresEmptyString() {
+    func testRestoreEmptyStringIgnored() {
         let settings = AppSettings()
         settings.defaultBranch = "main"
         let emptyData = try! JSONEncoder().encode("")
@@ -460,6 +477,14 @@ final class AppSettingsDefaultBranchTests: XCTestCase {
             settings.defaultBranch = decoded
         }
         XCTAssertEqual(settings.defaultBranch, "main")
+    }
+
+    func testToggleOffPreservesBranchName() {
+        let settings = AppSettings()
+        settings.defaultBranch = "develop"
+        settings.isDefaultBranchEnabled = false
+        XCTAssertEqual(settings.isDefaultBranchEnabled, false)
+        XCTAssertEqual(settings.defaultBranch, "develop")
     }
 }
 
