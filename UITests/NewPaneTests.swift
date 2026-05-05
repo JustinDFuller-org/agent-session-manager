@@ -21,10 +21,10 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertTrue(openButton.isEnabled)
         openButton.click()
 
-        let paneHeader = app.groups["pane-header-auth-refactor"]
-        waitFor(paneHeader)
+        let paneName = app.staticTexts["auth-refactor"].firstMatch
+        waitFor(paneName)
         screenshot("07-pane-created")
-        XCTAssertTrue(paneHeader.exists)
+        XCTAssertTrue(paneName.exists)
     }
 
     func testOpenButtonDisabledWithEmptyName() {
@@ -74,24 +74,24 @@ final class NewPaneTests: BaseTestCase {
         createPane(named: "feature-c")
         screenshot("09c-three-panes")
 
-        XCTAssertTrue(app.groups["pane-header-feature-a"].firstMatch.exists)
-        XCTAssertTrue(app.groups["pane-header-feature-b"].firstMatch.exists)
-        XCTAssertTrue(app.groups["pane-header-feature-c"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["feature-a"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["feature-b"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["feature-c"].firstMatch.exists)
     }
 
     func testClosingOnePaneKeepsOthers() {
         createPane(named: "keep-pane")
         createPane(named: "close-pane")
 
-        waitFor(app.groups["pane-header-keep-pane"])
-        waitFor(app.groups["pane-header-close-pane"])
+        waitFor(app.staticTexts["keep-pane"].firstMatch)
+        waitFor(app.staticTexts["close-pane"].firstMatch)
         screenshot("10a-two-panes-before-close")
 
-        app.buttons["pane-close-close-pane"].firstMatch.click()
+        app.buttons["close-close-pane"].firstMatch.click()
         screenshot("10b-one-pane-after-close")
 
-        XCTAssertTrue(app.groups["pane-header-keep-pane"].firstMatch.exists)
-        XCTAssertFalse(app.groups["pane-header-close-pane"].exists)
+        XCTAssertTrue(app.staticTexts["keep-pane"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["close-pane"].exists)
     }
 
     func testFourPanesGridLayout() {
@@ -102,10 +102,10 @@ final class NewPaneTests: BaseTestCase {
 
         screenshot("11-four-pane-grid")
 
-        XCTAssertTrue(app.groups["pane-header-pane-1"].firstMatch.exists)
-        XCTAssertTrue(app.groups["pane-header-pane-2"].firstMatch.exists)
-        XCTAssertTrue(app.groups["pane-header-pane-3"].firstMatch.exists)
-        XCTAssertTrue(app.groups["pane-header-pane-4"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-1"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-2"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-3"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-4"].firstMatch.exists)
     }
 
     func testInvalidNameShowsErrorAndDisablesOpenButton() {

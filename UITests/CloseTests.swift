@@ -19,12 +19,12 @@ final class CloseTests: BaseTestCase {
         createTab(named: "PaneCloseTab")
         createPane(named: "pane-to-close")
 
-        let paneHeader = app.groups["pane-header-pane-to-close"]
-        waitFor(paneHeader)
+        let paneName = app.staticTexts["pane-to-close"].firstMatch
+        waitFor(paneName)
 
-        app.buttons["pane-close-pane-to-close"].firstMatch.click()
+        app.buttons["close-pane-to-close"].firstMatch.click()
         screenshot("12-after-close-pane")
 
-        waitForDisappear(paneHeader)
+        waitForDisappear(paneName)
     }
 }

@@ -28,6 +28,7 @@ struct PaneView: View {
         .onTapGesture {
             appState.setActivePane(id: pane.id)
         }
+        .accessibilityElement(children: .contain)
     }
 
     private var paneHeader: some View {
@@ -35,6 +36,7 @@ struct PaneView: View {
             statusDot
 
             Text(pane.name)
+                .accessibilityIdentifier("pane-name-\(pane.name)")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
@@ -53,11 +55,11 @@ struct PaneView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pane-close-\(pane.name)")
+            .accessibilityLabel("close-\(pane.name)")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(Color(nsColor: .windowBackgroundColor))
-        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pane-header-\(pane.name)")
     }
 
