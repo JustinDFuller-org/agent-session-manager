@@ -18,6 +18,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restore(into: appSettings)
                         SettingsPersistence.restoreStatusLine(into: appSettings)
                         SettingsPersistence.restoreCodexOptions(into: appSettings)
+                        SettingsPersistence.restoreCursorOptions(into: appSettings)
                         SettingsPersistence.restoreActiveTools(into: appSettings)
                         SettingsPersistence.restoreDefaultBranch(into: appSettings)
                         SettingsPersistence.restoreNotificationSettings(into: appSettings)

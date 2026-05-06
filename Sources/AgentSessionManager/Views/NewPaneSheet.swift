@@ -27,6 +27,7 @@ struct NewPaneSheet: View {
         switch selectedCLIType {
         case .claude: return appSettings.cliOptions
         case .codex: return appSettings.codexCliOptions
+        case .cursor: return appSettings.cursorCliOptions
         }
     }
 
@@ -75,6 +76,8 @@ struct NewPaneSheet: View {
         case .claude:
             return !trimmedClaudeInput.isEmpty && claudeValidationError == nil
         case .codex:
+            return !trimmedCodexInput.isEmpty && codexNameError == nil
+        case .cursor:
             return !trimmedCodexInput.isEmpty && codexNameError == nil
         }
     }
@@ -183,6 +186,29 @@ struct NewPaneSheet: View {
                 .frame(minHeight: 80, alignment: .topLeading)
             }
 
+            if selectedCLIType == .cursor {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Session Name")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    TextField("auth-refactor, fix-login-bug, etc.", text: $sessionInput)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { create() }
+                        .accessibilityIdentifier("new-pane-name-field")
+                    Text("Will open in \(tab.directory.lastPathComponent)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .font(.system(.caption, design: .monospaced))
+                    if let error = codexNameError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("new-pane-name-error")
+                    }
+                }
+                .frame(minHeight: 80, alignment: .topLeading)
+            }
+
             if selectedCLIType == .claude && appSettings.isPriorityNotificationsEnabled {
                 Toggle(isOn: $isPriority) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -269,6 +295,16 @@ struct NewPaneSheet: View {
             let extraArgs = buildExtraArgs()
             resetForm()
             tab.addPane(name: trimmedCodexInput, extraArgs: extraArgs, cliType: .codex)
+            appState.setActivePane(id: tab.panes.last?.id)
+            SessionPersistence.save(appState: appState)
+            dismiss()
+            return
+
+        case .cursor:
+            guard !trimmedCodexInput.isEmpty, codexNameError == nil else { return }
+            let extraArgs = buildExtraArgs()
+            resetForm()
+            tab.addPane(name: trimmedCodexInput, extraArgs: extraArgs, cliType: .cursor)
             appState.setActivePane(id: tab.panes.last?.id)
             SessionPersistence.save(appState: appState)
             dismiss()

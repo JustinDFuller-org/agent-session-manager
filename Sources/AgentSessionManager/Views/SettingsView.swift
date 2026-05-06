@@ -183,6 +183,15 @@ private struct UnifiedCLIOptionsContent: View {
                     onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
                     customFlagFooter: "Custom flags may not be recognized by all Codex CLI versions."
                 )
+            case .cursor:
+                CLIOptionsContent(
+                    options: Binding(
+                        get: { appSettings.cursorCliOptions },
+                        set: { appSettings.cursorCliOptions = $0 }
+                    ),
+                    onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
+                    customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
+                )
             }
         }
     }
