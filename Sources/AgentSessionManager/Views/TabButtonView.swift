@@ -51,6 +51,9 @@ struct TabButtonView: View {
             .accessibilityAction(.default) {
                 appState.switchToTab(id: tab.id)
             }
+            .onHover { isHovering in
+                if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
+            }
 
             Button {
                 appState.closeTab(tab)

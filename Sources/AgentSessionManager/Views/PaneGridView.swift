@@ -46,13 +46,6 @@ struct PaneGridView: View {
                                 ? RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 2)
                                 : nil
                         )
-                        .draggable(pane.id.uuidString) {
-                            Text(pane.name)
-                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
-                        }
                         .dropDestination(for: String.self) { items, _ in
                             guard
                                 let droppedID = items.first,

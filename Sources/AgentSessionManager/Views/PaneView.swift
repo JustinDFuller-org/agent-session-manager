@@ -73,6 +73,16 @@ struct PaneView: View {
         .padding(.vertical, 5)
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityIdentifier("pane-header-\(pane.name)")
+        .onHover { isHovering in
+            if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
+        }
+        .draggable(pane.id.uuidString) {
+            Text(pane.name)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+        }
     }
 
     @ViewBuilder
