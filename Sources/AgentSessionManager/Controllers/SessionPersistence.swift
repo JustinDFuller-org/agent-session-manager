@@ -70,7 +70,7 @@ struct SessionPersistence {
         try? data.write(to: sessionURL)
     }
 
-    static func restore(into appState: AppState) {
+    static func restore(into appState: AppState, appSettings: AppSettings) {
         guard
             let data = try? Data(contentsOf: sessionURL),
             let session = try? JSONDecoder().decode(PersistedSession.self, from: data)
@@ -86,6 +86,7 @@ struct SessionPersistence {
                         guard FileManager.default.fileExists(atPath: override.path) else { continue }
                         tab.addPane(
                             name: persistedPane.name,
+                            extraArgs: appSettings.continueOnRestart ? ["--continue"] : [],
                             cliType: persistedPane.cliType,
                             claudeDirectoryOverride: override
                         )
@@ -112,7 +113,8 @@ struct SessionPersistence {
                         || FileManager.default.fileExists(atPath: legacy.path)
                     guard hasWorktree else { continue }
                 }
-                let pane = tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
+                let extraArgs = persistedPane.cliType == .claude && appSettings.continueOnRestart ? ["--continue"] : []
+                let pane = tab.addPane(name: persistedPane.name, extraArgs: extraArgs, cliType: persistedPane.cliType)
                 pane.isPriority = persistedPane.isPriority
                 pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
                     Task { @MainActor in

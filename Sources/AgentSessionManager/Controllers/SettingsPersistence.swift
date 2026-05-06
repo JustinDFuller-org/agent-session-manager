@@ -10,6 +10,10 @@ private struct NotificationConfig: Codable {
     var isPriorityEnabled: Bool = true
 }
 
+private struct RestartConfig: Codable {
+    var continueOnRestart: Bool = true
+}
+
 @MainActor
 struct SettingsPersistence {
     private static var appSupportDir: URL {
@@ -25,6 +29,7 @@ struct SettingsPersistence {
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
     private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
     private static var notificationSettingsURL: URL { appSupportDir.appending(path: "notification-settings.json") }
+    private static var restartSettingsURL: URL { appSupportDir.appending(path: "restart-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -135,5 +140,19 @@ struct SettingsPersistence {
         else { return }
         appSettings.notificationSidebarSide = config.sidebarSide
         appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
+    }
+
+    static func saveRestartSettings(appSettings: AppSettings) {
+        let config = RestartConfig(continueOnRestart: appSettings.continueOnRestart)
+        guard let data = try? JSONEncoder().encode(config) else { return }
+        try? data.write(to: restartSettingsURL)
+    }
+
+    static func restoreRestartSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: restartSettingsURL),
+            let config = try? JSONDecoder().decode(RestartConfig.self, from: data)
+        else { return }
+        appSettings.continueOnRestart = config.continueOnRestart
     }
 }

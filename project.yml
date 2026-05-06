@@ -46,6 +46,10 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: ""
         BUNDLE_LOADER: ""
+    entitlements:
+      path: AgentSessionManagerUITests.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
     dependencies:
       - target: AgentSessionManager
         embed: false
