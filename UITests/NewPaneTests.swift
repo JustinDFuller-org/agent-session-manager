@@ -138,6 +138,40 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
     }
 
+    func testSessionNamePersistsAcrossToolSwitch() {
+        // Enable Codex via Settings → Tools
+        app.typeKey(",", modifierFlags: .command)
+        waitFor(app.buttons["Tools"])
+        app.buttons["Tools"].click()
+        let codexCheckbox = app.checkBoxes["Codex"]
+        waitFor(codexCheckbox)
+        if codexCheckbox.value as? Int == 0 {
+            codexCheckbox.click()
+        }
+        app.typeKey("w", modifierFlags: .command)
+
+        // Open New Pane sheet and type a name
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("my-session")
+
+        // Switch to Codex
+        let codexButton = app.segmentedControls.firstMatch.buttons["Codex"]
+        waitFor(codexButton)
+        codexButton.click()
+
+        // Name should persist in the Codex field
+        waitForValue(nameField, value: "my-session")
+        XCTAssertEqual(nameField.value as? String, "my-session")
+
+        // Switch back to Claude — name should still be there
+        app.segmentedControls.firstMatch.buttons["Claude"].click()
+        waitForValue(nameField, value: "my-session")
+        XCTAssertEqual(nameField.value as? String, "my-session")
+    }
+
     func testUnifiedFieldKeepsBranchRefInputAndEnablesOpen() {
         app.typeKey("p", modifierFlags: .command)
         let nameField = app.textFields["new-pane-name-field"]
