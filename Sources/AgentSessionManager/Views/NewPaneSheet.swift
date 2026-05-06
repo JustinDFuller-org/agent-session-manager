@@ -6,10 +6,8 @@ struct NewPaneSheet: View {
     @Environment(AppSettings.self) private var appSettings
     let tab: Tab
 
-    /// Claude: session name, branch ref, or existing worktree name (single unified field).
+    /// Session name shared across tools; for Claude also accepts branch ref or existing worktree name.
     @State private var sessionInput = ""
-    /// Codex session name only.
-    @State private var codexPaneName = ""
     @State private var selectedCLIType: CLIType = .claude
     @State private var optionStates: [String: OptionState] = [:]
     @State private var isCreating = false
@@ -37,7 +35,7 @@ struct NewPaneSheet: View {
     }
 
     private var trimmedCodexInput: String {
-        codexPaneName.trimmingCharacters(in: .whitespacesAndNewlines)
+        sessionInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var isBusy: Bool {
@@ -113,6 +111,7 @@ struct NewPaneSheet: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
+                    .accessibilityIdentifier("new-pane-cli-picker")
                     .onChange(of: selectedCLIType) { _, _ in
                         initializeOptionStates()
                         worktreeSetupError = nil
@@ -166,7 +165,7 @@ struct NewPaneSheet: View {
                     Text("Session Name")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    TextField("auth-refactor, fix-login-bug, etc.", text: $codexPaneName)
+                    TextField("auth-refactor, fix-login-bug, etc.", text: $sessionInput)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit { create() }
                         .accessibilityIdentifier("new-pane-name-field")
@@ -390,7 +389,6 @@ struct NewPaneSheet: View {
 
     private func resetForm() {
         sessionInput = ""
-        codexPaneName = ""
         worktreeSetupError = nil
         isCreating = false
         isClassifyingIntent = false

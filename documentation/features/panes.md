@@ -10,9 +10,7 @@ Use **⌘P** (default; configurable under **Settings → Shortcuts → New Pane 
 
 **CLI** — Pick the tool to launch. Only tools enabled in **Settings → Tools** appear.
 
-**Claude Code — single text field** — One input covers session name, branch/ref, or reuse of an existing worktree path. Classification and confirmation dialogs are described in [worktree-creation.md](worktree-creation.md). There is no separate “branch” row in the sheet.
-
-**Codex — session name** — A short identifier for the pane. Git worktree resolution does not apply.
+**Session / name field** — One text field, shared across tools. Switching tools preserves whatever was typed. For Claude Code it accepts a session name, branch ref, or existing worktree path (classification and confirmation dialogs are described in [worktree-creation.md](worktree-creation.md)); there is no separate “branch” row. For Codex it accepts a session name only; git worktree resolution does not apply.
 
 **CLI options** — Flags enabled in **Settings → CLI Options** appear as toggles and fields. Options marked default-on in Settings start checked.
 
