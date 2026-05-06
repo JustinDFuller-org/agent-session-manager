@@ -245,5 +245,15 @@ final class NewPaneTests: BaseTestCase {
 
         XCTAssertFalse(app.staticTexts["new-pane-name-error"].exists)
     }
+
+    func testSessionNameFocusesOnSheetOpen() {
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+
+        nameField.typeText("hello-focus")
+
+        XCTAssertEqual(nameField.value as? String, "hello-focus")
+    }
 }
 
