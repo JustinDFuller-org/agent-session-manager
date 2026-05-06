@@ -17,6 +17,8 @@ struct NewPaneSheet: View {
     @State private var pendingResolution: ResolvedWorktree?
     @State private var pendingExtraArgs: [String] = []
 
+    @FocusState private var isSessionInputFocused: Bool
+
     private var activeToolList: [CLIType] {
         CLIType.allCases.filter { appSettings.isActive($0) }
     }
@@ -94,6 +96,7 @@ struct NewPaneSheet: View {
                         initializeOptionStates()
                         worktreeSetupError = nil
                         showTakeoverDialog = false
+                        isSessionInputFocused = true
                     }
                 }
             }
@@ -104,6 +107,7 @@ struct NewPaneSheet: View {
                     .foregroundStyle(.secondary)
                 TextField("auth-refactor, origin/feature, my-worktree, …", text: $sessionInput)
                     .textFieldStyle(.roundedBorder)
+                    .focused($isSessionInputFocused)
                     .onSubmit { create() }
                     .accessibilityIdentifier("new-pane-name-field")
                     .disabled(isBusy)
@@ -206,6 +210,10 @@ struct NewPaneSheet: View {
                 selectedCLIType = activeToolList.first ?? .claude
             }
             initializeOptionStates()
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                isSessionInputFocused = true
+            }
         }
     }
 
