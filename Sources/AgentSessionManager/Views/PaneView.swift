@@ -9,6 +9,10 @@ struct PaneView: View {
 
     private var isActive: Bool { appState.activePaneID == pane.id }
 
+    private var pendingNotification: PaneNotification? {
+        appState.notifications.first { $0.paneID == pane.id }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             paneHeader
@@ -35,6 +39,13 @@ struct PaneView: View {
         HStack(spacing: 6) {
             statusDot
 
+            if let notification = pendingNotification {
+                Circle()
+                    .fill(notification.isPriority ? Color.orange : Color.accentColor)
+                    .frame(width: 7, height: 7)
+                    .accessibilityIdentifier("pane-notification-dot-\(pane.name)")
+            }
+
             Text(pane.name)
                 .accessibilityIdentifier("pane-name-\(pane.name)")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -45,6 +56,7 @@ struct PaneView: View {
             Spacer()
 
             Button {
+                appState.clearNotification(paneID: pane.id)
                 tab.closePane(pane)
                 SessionPersistence.save(appState: appState)
             } label: {

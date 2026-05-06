@@ -5,6 +5,11 @@ private struct DefaultBranchConfig: Codable, Equatable {
     var branchName: String = "main"
 }
 
+private struct NotificationConfig: Codable {
+    var sidebarSide: SidebarSide = .right
+    var isPriorityEnabled: Bool = true
+}
+
 @MainActor
 struct SettingsPersistence {
     private static var appSupportDir: URL {
@@ -19,6 +24,7 @@ struct SettingsPersistence {
     private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
     private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
+    private static var notificationSettingsURL: URL { appSupportDir.appending(path: "notification-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -111,5 +117,23 @@ struct SettingsPersistence {
             appSettings.defaultBranch = saved
             appSettings.isDefaultBranchEnabled = true
         }
+    }
+
+    static func saveNotificationSettings(appSettings: AppSettings) {
+        let config = NotificationConfig(
+            sidebarSide: appSettings.notificationSidebarSide,
+            isPriorityEnabled: appSettings.isPriorityNotificationsEnabled
+        )
+        guard let data = try? JSONEncoder().encode(config) else { return }
+        try? data.write(to: notificationSettingsURL)
+    }
+
+    static func restoreNotificationSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: notificationSettingsURL),
+            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return }
+        appSettings.notificationSidebarSide = config.sidebarSide
+        appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
     }
 }

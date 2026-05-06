@@ -10,6 +10,8 @@ final class AppSettings {
     var activeTools: Set<String> = [CLIType.claude.rawValue]
     var defaultBranch: String = "main"
     var isDefaultBranchEnabled: Bool = true
+    var notificationSidebarSide: SidebarSide = .right
+    var isPriorityNotificationsEnabled: Bool = true
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

@@ -1,6 +1,17 @@
 import Foundation
 import Observation
 
+enum SidebarSide: String, Codable, CaseIterable {
+    case left, right
+
+    var displayName: String {
+        switch self {
+        case .left: return "Left"
+        case .right: return "Right"
+        }
+    }
+}
+
 @Observable
 @MainActor
 final class StatusLineMonitor {

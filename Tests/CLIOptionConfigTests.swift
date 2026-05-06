@@ -393,7 +393,7 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
     }
 
     func testRoundTrip() throws {
-        let pane = PersistedPane(id: UUID(), name: "test", cliType: .codex)
+        let pane = PersistedPane(id: UUID(), name: "test", cliType: .codex, isPriority: false)
         let encoded = try JSONEncoder().encode(pane)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
         XCTAssertEqual(decoded.name, "test")

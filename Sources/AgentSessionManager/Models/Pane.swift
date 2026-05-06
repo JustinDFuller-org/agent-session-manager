@@ -31,6 +31,7 @@ final class Pane: Identifiable {
     weak var tab: Tab?
     var terminalController: TerminalController?
     var statusLineMonitor: StatusLineMonitor?
+    var isPriority: Bool = false
 
     init(name: String, tab: Tab, cliType: CLIType = .claude, claudeDirectoryOverride: URL? = nil) {
         self.id = UUID()

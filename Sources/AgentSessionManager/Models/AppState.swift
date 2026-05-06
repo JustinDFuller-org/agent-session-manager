@@ -7,6 +7,7 @@ final class AppState {
     var tabs: [Tab] = []
     var activeTabID: UUID?
     var activePaneID: UUID?
+    var notifications: [PaneNotification] = []
 
     var activeTab: Tab? {
         tabs.first { $0.id == activeTabID }
@@ -32,6 +33,7 @@ final class AppState {
     func setActivePane(id: UUID?) {
         activeTab?.lastActivePaneID = id
         activePaneID = id
+        if let id { clearNotification(paneID: id) }
     }
 
     func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
@@ -51,7 +53,10 @@ final class AppState {
     }
 
     func closeTab(_ tab: Tab) {
-        tab.panes.forEach { $0.terminalController?.terminate() }
+        tab.panes.forEach {
+            $0.terminalController?.terminate()
+            clearNotification(paneID: $0.id)
+        }
         tabs.removeAll { $0.id == tab.id }
         if activeTabID == tab.id {
             activeTabID = tabs.last?.id
@@ -61,5 +66,26 @@ final class AppState {
     func moveTab(from source: IndexSet, to destination: Int) {
         tabs.move(fromOffsets: source, toOffset: destination)
         SessionPersistence.save(appState: self)
+    }
+
+    func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
+        guard activePaneID != paneID else { return }
+        guard !notifications.contains(where: { $0.paneID == paneID }) else { return }
+        notifications.append(PaneNotification(
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
+            isPriority: isPriority
+        ))
+    }
+
+    func clearNotification(paneID: UUID) {
+        notifications.removeAll { $0.paneID == paneID }
+    }
+
+    func navigateTo(notification: PaneNotification) {
+        switchToTab(id: notification.tabID)
+        setActivePane(id: notification.paneID)
     }
 }

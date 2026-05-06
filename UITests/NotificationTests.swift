@@ -1,0 +1,74 @@
+import XCTest
+
+final class NotificationUITests: BaseTestCase {
+    func testNotificationsTabVisibleInSettings() {
+        app.typeKey(",", modifierFlags: .command)
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+    }
+
+    func testNotificationsSettingsControlsVisible() {
+        app.typeKey(",", modifierFlags: .command)
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+        notificationsTab.click()
+
+        let sidebarSide = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-side")
+            .firstMatch
+        waitFor(sidebarSide, timeout: 3)
+
+        let priorityToggle = app.checkBoxes["settings-priority-notifications-toggle"]
+        waitFor(priorityToggle, timeout: 3)
+    }
+
+    func testPriorityToggleAppearsInNewPaneSheetWhenEnabled() {
+        app.typeKey(",", modifierFlags: .command)
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+        notificationsTab.click()
+
+        let priorityToggle = app.checkBoxes["settings-priority-notifications-toggle"]
+        waitFor(priorityToggle, timeout: 3)
+        if priorityToggle.value as? Int == 0 {
+            priorityToggle.click()
+        }
+
+        let settingsWindow = app.windows.element(boundBy: 1)
+        settingsWindow.typeKey("w", modifierFlags: .command)
+
+        createTab(named: "PriorityTab")
+        app.typeKey("p", modifierFlags: .command)
+
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField, timeout: 3)
+
+        let newPanePriorityToggle = app.checkBoxes["new-pane-priority-toggle"]
+        XCTAssertTrue(newPanePriorityToggle.waitForExistence(timeout: 3))
+    }
+
+    func testPriorityToggleHiddenInNewPaneSheetWhenDisabled() {
+        app.typeKey(",", modifierFlags: .command)
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+        notificationsTab.click()
+
+        let priorityToggle = app.checkBoxes["settings-priority-notifications-toggle"]
+        waitFor(priorityToggle, timeout: 3)
+        if priorityToggle.value as? Int == 1 {
+            priorityToggle.click()
+        }
+
+        let settingsWindow = app.windows.element(boundBy: 1)
+        settingsWindow.typeKey("w", modifierFlags: .command)
+
+        createTab(named: "NonPriorityTab")
+        app.typeKey("p", modifierFlags: .command)
+
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField, timeout: 3)
+
+        let newPanePriorityToggle = app.checkBoxes["new-pane-priority-toggle"]
+        XCTAssertFalse(newPanePriorityToggle.exists)
+    }
+}

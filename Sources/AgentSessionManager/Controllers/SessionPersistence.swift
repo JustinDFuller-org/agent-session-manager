@@ -16,13 +16,15 @@ struct PersistedPane: Codable {
     var id: UUID
     var name: String
     var cliType: CLIType
+    var isPriority: Bool
     /// Absolute path when Claude runs in a reused checkout (not under `.agent-session-manager/worktrees/`).
     var claudeProcessDirectory: String?
 
-    init(id: UUID, name: String, cliType: CLIType, claudeProcessDirectory: String? = nil) {
+    init(id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, claudeProcessDirectory: String? = nil) {
         self.id = id
         self.name = name
         self.cliType = cliType
+        self.isPriority = isPriority
         self.claudeProcessDirectory = claudeProcessDirectory
     }
 
@@ -31,6 +33,7 @@ struct PersistedPane: Codable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
+        isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
         claudeProcessDirectory = try container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
     }
 }
@@ -55,6 +58,7 @@ struct SessionPersistence {
                         id: $0.id,
                         name: $0.name,
                         cliType: $0.cliType,
+                        isPriority: $0.isPriority,
                         claudeProcessDirectory: $0.claudeDirectoryOverride?.path
                     )
                 }
@@ -85,6 +89,21 @@ struct SessionPersistence {
                             cliType: persistedPane.cliType,
                             claudeDirectoryOverride: override
                         )
+                        if let pane = tab.panes.last {
+                            pane.isPriority = persistedPane.isPriority
+                            pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
+                                Task { @MainActor in
+                                    guard let appState, let tab, let pane else { return }
+                                    appState.addNotification(
+                                        paneID: pane.id,
+                                        paneName: pane.name,
+                                        tabID: tab.id,
+                                        tabName: tab.name,
+                                        isPriority: pane.isPriority
+                                    )
+                                }
+                            }
+                        }
                         continue
                     }
                     let managed = Tab.worktreeDirectoryURL(repoRoot: dir, name: persistedPane.name)
@@ -93,7 +112,20 @@ struct SessionPersistence {
                         || FileManager.default.fileExists(atPath: legacy.path)
                     guard hasWorktree else { continue }
                 }
-                tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
+                let pane = tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
+                pane.isPriority = persistedPane.isPriority
+                pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
+                    Task { @MainActor in
+                        guard let appState, let tab, let pane else { return }
+                        appState.addNotification(
+                            paneID: pane.id,
+                            paneName: pane.name,
+                            tabID: tab.id,
+                            tabName: tab.name,
+                            isPriority: pane.isPriority
+                        )
+                    }
+                }
             }
             appState.tabs.append(tab)
         }

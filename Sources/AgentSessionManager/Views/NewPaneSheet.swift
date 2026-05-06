@@ -15,6 +15,7 @@ struct NewPaneSheet: View {
     @State private var isCreating = false
     @State private var isClassifyingIntent = false
     @State private var worktreeSetupError: String?
+    @State private var isPriority = false
     /// Reuse confirmation (Claude existing checkout).
     @State private var reuseConfirmPresented = false
     @State private var reuseConfirmationMessage = ""
@@ -183,6 +184,20 @@ struct NewPaneSheet: View {
                 .frame(minHeight: 80, alignment: .topLeading)
             }
 
+            if selectedCLIType == .claude && appSettings.isPriorityNotificationsEnabled {
+                Toggle(isOn: $isPriority) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Priority Pane")
+                            .font(.subheadline)
+                        Text("Priority notifications jump to the top of the sidebar.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                .accessibilityIdentifier("new-pane-priority-toggle")
+            }
+
             let available = activeOptions.filter(\.isAvailable)
             if !available.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -288,6 +303,9 @@ struct NewPaneSheet: View {
                             let extraArgs = buildExtraArgs()
                             resetForm()
                             tab.addPane(name: name, extraArgs: extraArgs, cliType: .claude)
+                            if let pane = tab.panes.last {
+                                wireBell(pane: pane, priority: isPriority)
+                            }
                             appState.setActivePane(id: tab.panes.last?.id)
                             dismiss()
                         }
@@ -336,6 +354,9 @@ struct NewPaneSheet: View {
                         cliType: .claude,
                         claudeDirectoryOverride: resolved.claudeProcessDirectory
                     )
+                    if let pane = tab.panes.last {
+                        wireBell(pane: pane, priority: isPriority)
+                    }
                     appState.setActivePane(id: tab.panes.last?.id)
                     dismiss()
                 }
@@ -344,6 +365,22 @@ struct NewPaneSheet: View {
                     isCreating = false
                     applyResolveError(error)
                 }
+            }
+        }
+    }
+
+    private func wireBell(pane: Pane, priority: Bool) {
+        pane.isPriority = priority
+        pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
+            Task { @MainActor in
+                guard let appState, let tab, let pane else { return }
+                appState.addNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    isPriority: pane.isPriority
+                )
             }
         }
     }

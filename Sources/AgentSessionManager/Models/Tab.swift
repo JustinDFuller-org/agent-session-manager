@@ -67,7 +67,7 @@ enum ClaudePaneIntent: Equatable {
 @Observable
 @MainActor
 final class Tab: Identifiable {
-    /// Relative to the tab’s git repo root. Git worktrees this app creates live here (parallel to Claude’s `.claude/worktrees/`).
+    /// Relative to the tab's git repo root. Git worktrees this app creates live here (parallel to Claude's `.claude/worktrees/`).
     nonisolated static let worktreesRootRelativePath = ".agent-session-manager/worktrees"
 
     let id: UUID
@@ -98,21 +98,6 @@ final class Tab: Identifiable {
         "\(worktreesRootRelativePath)/\(name)"
     }
 
-    /// When `worktreeName` is `nil`, runs `claude` in the process working directory without `--worktree` (existing checkout).
-    nonisolated static func buildClaudeCommand(worktreeName: String?, settingsPath: String, extraArgs: String) -> String {
-        let escapedSettings = settingsPath.replacingOccurrences(of: "'", with: "'\\''")
-        let settingsFlag = " --settings '\(escapedSettings)'"
-        if let name = worktreeName {
-            let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
-            return "claude --worktree '\(escapedName)'\(settingsFlag)\(extraArgs)"
-        }
-        return "claude\(settingsFlag)\(extraArgs)"
-    }
-
-    nonisolated static func buildClaudeCommand(name: String, settingsPath: String, extraArgs: String) -> String {
-        buildClaudeCommand(worktreeName: name, settingsPath: settingsPath, extraArgs: extraArgs)
-    }
-
     nonisolated static func sanitizeBranchName(_ branch: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         return branch
@@ -127,6 +112,21 @@ final class Tab: Identifiable {
         guard !name.isEmpty else { return false }
         let valid = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         return name.unicodeScalars.allSatisfy { valid.contains($0) }
+    }
+
+    /// When `worktreeName` is `nil`, runs `claude` in the process working directory without `--worktree` (existing checkout).
+    nonisolated static func buildClaudeCommand(worktreeName: String?, settingsPath: String, extraArgs: String) -> String {
+        let escapedSettings = settingsPath.replacingOccurrences(of: "'", with: "'\\''")
+        let settingsFlag = " --settings '\(escapedSettings)'"
+        if let name = worktreeName {
+            let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
+            return "claude --worktree '\(escapedName)'\(settingsFlag)\(extraArgs)"
+        }
+        return "claude\(settingsFlag)\(extraArgs)"
+    }
+
+    nonisolated static func buildClaudeCommand(name: String, settingsPath: String, extraArgs: String) -> String {
+        buildClaudeCommand(worktreeName: name, settingsPath: settingsPath, extraArgs: extraArgs)
     }
 
     /// Parses `git worktree list --porcelain`.
@@ -440,12 +440,13 @@ final class Tab: Identifiable {
         }
     }
 
+    @discardableResult
     func addPane(
         name: String,
         extraArgs: [String] = [],
         cliType: CLIType = .claude,
         claudeDirectoryOverride: URL? = nil
-    ) {
+    ) -> Pane {
         let pane = Pane(name: name, tab: self, cliType: cliType, claudeDirectoryOverride: claudeDirectoryOverride)
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
@@ -478,6 +479,7 @@ final class Tab: Identifiable {
             pane.terminalController = controller
         }
         panes.append(pane)
+        return pane
     }
 
     func closePane(_ pane: Pane) {
