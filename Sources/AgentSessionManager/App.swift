@@ -5,6 +5,7 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     @State private var showingNewTab = false
+    @State private var showCleanupAlert = false
     @State private var pendingCleanupPane: Pane?
     @State private var pendingCleanupTab: Tab?
 
@@ -62,10 +63,7 @@ struct ContentView: View {
         .sheet(isPresented: $showingNewTab) {
             NewTabSheet()
         }
-        .alert("Close Worktree Pane", isPresented: Binding(
-            get: { pendingCleanupPane != nil },
-            set: { if !$0 { pendingCleanupPane = nil; pendingCleanupTab = nil } }
-        )) {
+        .alert("Close Worktree Pane", isPresented: $showCleanupAlert) {
             Button("Keep Worktree") {
                 guard let pane = pendingCleanupPane, let tab = pendingCleanupTab else { return }
                 pendingCleanupPane = nil; pendingCleanupTab = nil
@@ -106,6 +104,7 @@ struct ContentView: View {
         case .ask where pane.worktreeIsManaged:
             pendingCleanupPane = pane
             pendingCleanupTab = tab
+            showCleanupAlert = true
         case .delete where pane.worktreeIsManaged:
             Task {
                 try? await tab.cleanupWorktree(for: pane)
