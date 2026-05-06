@@ -31,11 +31,28 @@ struct TerminalRepresentable: NSViewRepresentable {
                 }
                 return
             }
-            // Defer to the next run loop so that any in-flight AppKit setFrameSize
-            // calls have updated terminal.cols/rows before the PTY is sized.
+            // SwiftUI's GeometryReader/LazyVGrid can produce multiple layout passes
+            // with intermediate (tiny but non-zero) frames. Wait until the frame is
+            // stable across two consecutive run-loop iterations before opening the PTY,
+            // so terminal.cols/rows reflect the final layout dimensions.
             started = true
-            DispatchQueue.main.async { [weak controller] in
-                controller?.startProcess()
+            waitForStableFrame(view: view, controller: controller, lastSize: view.frame.size, attempt: 0)
+        }
+
+        private func waitForStableFrame(
+            view: LocalProcessTerminalView,
+            controller: TerminalController,
+            lastSize: CGSize,
+            attempt: Int
+        ) {
+            DispatchQueue.main.async { [weak self, weak view, weak controller] in
+                guard let view, let controller else { return }
+                let currentSize = view.frame.size
+                if currentSize == lastSize || attempt >= 10 {
+                    controller.startProcess()
+                } else {
+                    self?.waitForStableFrame(view: view, controller: controller, lastSize: currentSize, attempt: attempt + 1)
+                }
             }
         }
 
