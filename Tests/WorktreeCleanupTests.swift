@@ -3,44 +3,32 @@ import XCTest
 
 @MainActor
 final class WorktreeCleanupTests: XCTestCase {
-    func testPaneWorktreeIsManagedClaudeNoOverride() throws {
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appending(path: "asm-worktree-test-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
-
-        let managedPath = Tab.worktreeDirectoryURL(repoRoot: tmpDir, name: "test")
-        let worktreeDir = managedPath.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: worktreeDir, withIntermediateDirectories: true)
-        FileManager.default.createFile(atPath: managedPath.path, contents: "test".data(using: .utf8))
-
-        let tab = Tab(name: "T", directory: tmpDir)
-        let pane = Pane(name: "test", tab: tab, cliType: .claude, claudeDirectoryOverride: nil)
+    func testPaneWorktreeIsManagedStored() throws {
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+        let pane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: nil, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
     }
 
-    func testPaneWorktreeIsManagedClaudeNoOverrideNoWorktreeOnDisk() {
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appending(path: "asm-worktree-test-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
-
-        let tab = Tab(name: "T", directory: tmpDir)
-        let pane = Pane(name: "test", tab: tab, cliType: .claude, claudeDirectoryOverride: nil)
-        XCTAssertFalse(pane.worktreeIsManaged)
-    }
-
-    func testPaneWorktreeIsManagedCodexIsFalse() {
+    func testPaneWorktreeIsManagedFalseByDefault() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .codex, claudeDirectoryOverride: nil)
+        let pane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: nil, worktreeIsManaged: false)
         XCTAssertFalse(pane.worktreeIsManaged)
     }
 
-    func testPaneWorktreeIsManagedClaudeWithOverrideIsFalse() {
+    func testPaneWorktreeIsManagedWorksForAllCLITypes() {
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+        let claudePane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: nil, worktreeIsManaged: true)
+        let codexPane = Pane(name: "test", tab: tab, cliType: .codex, worktreeDirectory: nil, worktreeIsManaged: true)
+        XCTAssertTrue(claudePane.worktreeIsManaged)
+        XCTAssertTrue(codexPane.worktreeIsManaged)
+    }
+
+    func testPaneWorktreeIsManagedFalseForExternalUntracked() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         let override = URL(filePath: "/some/external/path")
-        let pane = Pane(name: "test", tab: tab, cliType: .claude, claudeDirectoryOverride: override)
+        let pane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: override, worktreeIsManaged: false)
         XCTAssertFalse(pane.worktreeIsManaged)
+        XCTAssertEqual(pane.worktreeDirectory, override)
     }
 
     func testWorktreeCleanupBehaviorDisplayNames() {
@@ -66,6 +54,21 @@ final class WorktreeCleanupTests: XCTestCase {
 
     func testWorktreeCleanupBehaviorCaseIterable() {
         XCTAssertEqual(WorktreeCleanupBehavior.allCases, [.ask, .keep, .delete])
+    }
+
+    func testExistingWorktreeManagementDisplayNames() {
+        XCTAssertEqual(ExistingWorktreeManagement.ask.displayName, "Ask")
+        XCTAssertEqual(ExistingWorktreeManagement.always.displayName, "Always")
+        XCTAssertEqual(ExistingWorktreeManagement.never.displayName, "Never")
+    }
+
+    func testExistingWorktreeManagementCodableRoundTrip() throws {
+        let cases: [ExistingWorktreeManagement] = [.ask, .always, .never]
+        for behavior in cases {
+            let encoded = try JSONEncoder().encode(behavior)
+            let decoded = try JSONDecoder().decode(ExistingWorktreeManagement.self, from: encoded)
+            XCTAssertEqual(decoded, behavior)
+        }
     }
 }
 
@@ -107,10 +110,10 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         let rel = Tab.gitWorktreeAddPath(name: "test-wt")
         try runGit(["worktree", "add", rel, "-b", "cleanup-target", "cleanup-test"], cwd: repo)
 
-        let pane = Pane(name: "test-wt", tab: tab, cliType: .claude, claudeDirectoryOverride: nil)
+        let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: "test-wt")
+        let pane = Pane(name: "test-wt", tab: tab, cliType: .claude, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
 
-        let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: "test-wt")
         XCTAssertTrue(FileManager.default.fileExists(atPath: worktreeURL.path))
 
         try await tab.cleanupWorktree(for: pane)
@@ -118,7 +121,7 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: worktreeURL.path))
     }
 
-    func testCleanupWorktreeNoopsForExternalWorktrees() async throws {
+    func testCleanupWorktreeNoopsForUnmanagedWorktrees() async throws {
         let repo = try makeGitRepo()
         let tab = Tab(name: "CleanupTab", directory: repo)
 
@@ -126,7 +129,7 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
             .appending(path: "asm-external-wt-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: externalPath, withIntermediateDirectories: true)
 
-        let pane = Pane(name: "external", tab: tab, cliType: .claude, claudeDirectoryOverride: externalPath)
+        let pane = Pane(name: "external", tab: tab, cliType: .claude, worktreeDirectory: externalPath, worktreeIsManaged: false)
         XCTAssertFalse(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)
@@ -135,11 +138,27 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         try FileManager.default.removeItem(at: externalPath)
     }
 
+    func testCleanupWorktreeNoopsForExternalTakeoverWhenManaged() async throws {
+        let repo = try makeGitRepo()
+        let tab = Tab(name: "CleanupTab", directory: repo)
+        let wtName = "takeover-\(UUID().uuidString.prefix(8))"
+        let rel = Tab.gitWorktreeAddPath(name: wtName)
+        try runGit(["worktree", "add", rel, "-b", wtName, "cleanup-test"], cwd: repo)
+
+        let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: wtName)
+        let pane = Pane(name: "takeover", tab: tab, cliType: .codex, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
+        XCTAssertTrue(pane.worktreeIsManaged)
+
+        try await tab.cleanupWorktree(for: pane)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktreeURL.path))
+    }
+
     func testCleanupWorktreeSkipsWhenPathNotOnDisk() async throws {
         let repo = try makeGitRepo()
         let tab = Tab(name: "CleanupTab", directory: repo)
-        let pane = Pane(name: "nonexistent", tab: tab, cliType: .claude, claudeDirectoryOverride: nil)
-        XCTAssertFalse(pane.worktreeIsManaged)
+        let nonexistent = URL(filePath: "/tmp/nonexistent-worktree-\(UUID().uuidString)")
+        let pane = Pane(name: "nonexistent", tab: tab, cliType: .claude, worktreeDirectory: nonexistent, worktreeIsManaged: true)
+        XCTAssertTrue(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)
     }

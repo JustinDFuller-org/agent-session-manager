@@ -23,6 +23,28 @@ enum WorktreeCleanupBehavior: String, Codable, CaseIterable {
     }
 }
 
+enum ExistingWorktreeManagement: String, Codable, CaseIterable {
+    case ask
+    case always
+    case never
+
+    var displayName: String {
+        switch self {
+        case .ask: return "Ask"
+        case .always: return "Always"
+        case .never: return "Never"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .ask: return "Ask whether to take over management each time an existing worktree is reused."
+        case .always: return "Automatically take over management of existing worktrees so they can be cleaned up later."
+        case .never: return "Never manage existing worktrees — use them as-is without offering cleanup."
+        }
+    }
+}
+
 @Observable
 @MainActor
 final class AppSettings {
@@ -37,6 +59,7 @@ final class AppSettings {
     var isPriorityNotificationsEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
+    var existingWorktreeManagement: ExistingWorktreeManagement = .ask
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

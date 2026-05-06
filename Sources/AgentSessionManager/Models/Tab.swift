@@ -44,24 +44,16 @@ enum WorktreeResolutionError: Error, LocalizedError, Equatable {
     }
 }
 
-/// Result after resolving Git worktree input (attached checkout path and Claude launch semantics).
+/// Result after resolving Git worktree input.
 struct ResolvedWorktree: Equatable {
-    /// Pane header label (short name under `.agent-session-manager/worktrees/`, or worktree folder name / repo name).
+    /// Pane header label.
     var paneTitle: String
-    /// When non-`nil`, the terminal runs Claude in this directory without passing `--worktree`.
-    var claudeProcessDirectory: URL?
+    /// The directory where the CLI tool runs.
+    var processDirectory: URL
     /// Directory used for duplicate detection and session restore.
     var checkoutURL: URL
-}
-
-/// How the New Pane sheet should proceed for Claude from a single user string.
-enum ClaudePaneIntent: Equatable {
-    /// An existing checkout on disk matched; show confirmation before attaching.
-    case reuse(confirmationMessage: String, rawInput: String, resolved: ResolvedWorktree)
-    /// Run `resolveOrAttachWorktree` (fetch / `git worktree add` under app-managed paths as needed).
-    case resolveViaApp(rawInput: String)
-    /// New session name not tied to an existing git ref; pass `--worktree` to Claude.
-    case claudeWorktreeFlag(name: String)
+    /// Whether this is an existing worktree outside `.agent-session-manager/worktrees/`.
+    var isExternalTakeover: Bool
 }
 
 @Observable
@@ -114,19 +106,9 @@ final class Tab: Identifiable {
         return name.unicodeScalars.allSatisfy { valid.contains($0) }
     }
 
-    /// When `worktreeName` is `nil`, runs `claude` in the process working directory without `--worktree` (existing checkout).
-    nonisolated static func buildClaudeCommand(worktreeName: String?, settingsPath: String, extraArgs: String) -> String {
+    nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: String) -> String {
         let escapedSettings = settingsPath.replacingOccurrences(of: "'", with: "'\\''")
-        let settingsFlag = " --settings '\(escapedSettings)'"
-        if let name = worktreeName {
-            let escapedName = name.replacingOccurrences(of: "'", with: "'\\''")
-            return "claude --worktree '\(escapedName)'\(settingsFlag)\(extraArgs)"
-        }
-        return "claude\(settingsFlag)\(extraArgs)"
-    }
-
-    nonisolated static func buildClaudeCommand(name: String, settingsPath: String, extraArgs: String) -> String {
-        buildClaudeCommand(worktreeName: name, settingsPath: settingsPath, extraArgs: extraArgs)
+        return "claude --settings '\(escapedSettings)'\(extraArgs)"
     }
 
     /// Parses `git worktree list --porcelain`.
@@ -225,32 +207,6 @@ final class Tab: Identifiable {
         panes.contains { $0.name == name }
     }
 
-    /// Classifies Claude New Pane input (no fetch or `worktree add`). Throws the same preliminary errors as resolving.
-    ///
-    /// A short branch name that exists **only** on the remote and is not fetched yet—while `origin/<name>`
-    /// is not reachable via `git rev-parse`—may classify as `.claudeWorktreeFlag` until refs are fetched.
-    func classifyClaudePaneIntent(userRef raw: String) async throws -> ClaudePaneIntent {
-        let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
-
-        if let resolved = try await peekExistingResolvedWorktree(trimmedRef: ref) {
-            return .reuse(
-                confirmationMessage: Self.reuseConfirmationMessage(for: resolved),
-                rawInput: ref,
-                resolved: resolved
-            )
-        }
-
-        // Ref-shaped input or any token that resolves to a commit goes through Git (create managed worktree etc.).
-        if !Tab.isValidWorktreeName(ref) {
-            return .resolveViaApp(rawInput: ref)
-        }
-        if await refExists(ref) {
-            return .resolveViaApp(rawInput: ref)
-        }
-        return .claudeWorktreeFlag(name: ref)
-    }
-
     /// Resolved checkout already on disk (`git worktree list` match, app-managed linked tree, etc.); ignores fetch/add.
     private func peekExistingResolvedWorktree(trimmedRef ref: String) async throws -> ResolvedWorktree? {
         if Tab.isValidWorktreeName(ref) {
@@ -288,16 +244,9 @@ final class Tab: Identifiable {
         return nil
     }
 
-    nonisolated private static func reuseConfirmationMessage(for resolved: ResolvedWorktree) -> String {
-        let path = resolved.checkoutURL.path
-        if resolved.claudeProcessDirectory != nil {
-            return "A checkout for this repo already exists on disk:\n\(path)\n\nOpen Claude there?"
-        }
-        return "The app-managed worktree already exists:\n\(path)\n\nContinue?"
-    }
-
-    /// Resolves user input (branch, remote ref, or managed worktree name) when attaching or creating Git worktrees in-app.
-    func resolveOrAttachWorktree(userRef raw: String) async throws -> ResolvedWorktree {
+    /// Resolves user input (branch, remote ref, plain name, or managed worktree name) when attaching or creating Git worktrees in-app.
+    /// If the ref does not exist but is a valid worktree name and `defaultBranch` is provided, creates a worktree from that branch.
+    func resolveOrAttachWorktree(userRef raw: String, defaultBranch: String? = nil) async throws -> ResolvedWorktree {
         let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
 
@@ -310,22 +259,59 @@ final class Tab: Identifiable {
             throw WorktreeResolutionError.invalidDerivedName(targetName)
         }
 
-        if !(await refExists(ref)) {
+        do {
+            try await runGit(["fetch", "origin", ref])
+        } catch {}
+
+        let remoteRefExists = await refExists("refs/remotes/origin/\(ref)")
+        let remoteTargetExists = await refExists("refs/remotes/origin/\(targetName)")
+        let localRefExists = await refExists(ref)
+        let refIsRemoteOnly = remoteRefExists || remoteTargetExists
+
+        if localRefExists || refIsRemoteOnly {
+            let resolvedRef: String
+            if await refExists(ref) {
+                resolvedRef = ref
+            } else if await refExists("refs/remotes/origin/\(ref)") {
+                resolvedRef = "refs/remotes/origin/\(ref)"
+            } else {
+                resolvedRef = "refs/remotes/origin/\(targetName)"
+            }
+
+            let appConfigRoot = directory.appending(path: ".agent-session-manager", directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: appConfigRoot, withIntermediateDirectories: true)
+            let rel = Tab.gitWorktreeAddPath(name: targetName)
             do {
-                try await runGit(["fetch", "origin", ref])
+                try await runGit(["worktree", "add", rel, resolvedRef])
             } catch {
-                throw WorktreeResolutionError.refNotFound(ref)
+                let listAgain = try await runGitOutput(["worktree", "list", "--porcelain"])
+                let again = Tab.parseWorktreeListPorcelain(listAgain)
+                if let found = Tab.preferWorktreeEntry(matchingUserRef: ref, entries: again) {
+                    if let name = managedWorktreeName(forAbsoluteWorktreePath: found.path) {
+                        return resolvedManaged(shortName: name)
+                    }
+                    return resolvedExternalGitListPath(found.path)
+                }
+                throw error
             }
-            guard await refExists(ref) else {
-                throw WorktreeResolutionError.refNotFound(ref)
-            }
+
+            return resolvedManaged(shortName: targetName)
+        }
+
+        guard let branch = defaultBranch else {
+            throw WorktreeResolutionError.refNotFound(ref)
         }
 
         let appConfigRoot = directory.appending(path: ".agent-session-manager", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: appConfigRoot, withIntermediateDirectories: true)
+
+        if !(await refExists(branch)) {
+            try await runGit(["fetch", "origin", branch])
+        }
+
         let rel = Tab.gitWorktreeAddPath(name: targetName)
         do {
-            try await runGit(["worktree", "add", rel, ref])
+            try await runGit(["worktree", "add", rel, branch])
         } catch {
             let listAgain = try await runGitOutput(["worktree", "list", "--porcelain"])
             let again = Tab.parseWorktreeListPorcelain(listAgain)
@@ -343,7 +329,7 @@ final class Tab: Identifiable {
 
     private func resolvedManaged(shortName: String) -> ResolvedWorktree {
         let checkout = Tab.worktreeDirectoryURL(repoRoot: directory, name: shortName).standardizedFileURL
-        return ResolvedWorktree(paneTitle: shortName, claudeProcessDirectory: nil, checkoutURL: checkout)
+        return ResolvedWorktree(paneTitle: shortName, processDirectory: checkout, checkoutURL: checkout, isExternalTakeover: false)
     }
 
     /// Paths from `git worktree list` are authoritative (includes main checkout with a `.git` directory).
@@ -351,7 +337,7 @@ final class Tab: Identifiable {
         let url = URL(fileURLWithPath: absolutePath).standardizedFileURL
         var title = url.lastPathComponent
         if title.isEmpty { title = url.path }
-        return ResolvedWorktree(paneTitle: title, claudeProcessDirectory: url, checkoutURL: url)
+        return ResolvedWorktree(paneTitle: title, processDirectory: url, checkoutURL: url, isExternalTakeover: true)
     }
 
     private func managedWorktreeName(forAbsoluteWorktreePath path: String) -> String? {
@@ -445,38 +431,28 @@ final class Tab: Identifiable {
         name: String,
         extraArgs: [String] = [],
         cliType: CLIType = .claude,
-        claudeDirectoryOverride: URL? = nil
+        worktreeDirectory: URL? = nil,
+        worktreeIsManaged: Bool = false
     ) -> Pane {
-        let pane = Pane(name: name, tab: self, cliType: cliType, claudeDirectoryOverride: claudeDirectoryOverride)
+        let pane = Pane(name: name, tab: self, cliType: cliType, worktreeDirectory: worktreeDirectory, worktreeIsManaged: worktreeIsManaged)
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            let cwd = worktreeDirectory?.path ?? directory.path
+            controller.pendingDirectory = cwd
             switch cliType {
             case .claude:
                 let monitor = StatusLineMonitor(paneID: pane.id)
                 monitor.start()
-                if let override = claudeDirectoryOverride {
-                    controller.pendingDirectory = override.path
-                    controller.pendingCommand = Tab.buildClaudeCommand(
-                        worktreeName: nil,
-                        settingsPath: monitor.settingsFilePath,
-                        extraArgs: extra
-                    )
-                } else {
-                    controller.pendingDirectory = directory.path
-                    controller.pendingCommand = Tab.buildClaudeCommand(
-                        worktreeName: name,
-                        settingsPath: monitor.settingsFilePath,
-                        extraArgs: extra
-                    )
-                }
+                controller.pendingCommand = Tab.buildClaudeCommand(
+                    settingsPath: monitor.settingsFilePath,
+                    extraArgs: extra
+                )
                 pane.statusLineMonitor = monitor
             case .codex:
-                controller.pendingDirectory = directory.path
                 controller.pendingCommand = "codex\(extra)"
             case .cursor:
-                controller.pendingDirectory = directory.path
                 controller.pendingCommand = "agent\(extra)"
             }
             pane.terminalController = controller
@@ -492,10 +468,9 @@ final class Tab: Identifiable {
     }
 
     func cleanupWorktree(for pane: Pane) async throws {
-        guard pane.worktreeIsManaged else { return }
-        let worktreePath = Tab.worktreeDirectoryURL(repoRoot: directory, name: pane.name)
-        guard FileManager.default.fileExists(atPath: worktreePath.path) else { return }
-        try await runGit(["worktree", "remove", worktreePath.path])
+        guard pane.worktreeIsManaged, let path = pane.worktreeDirectory else { return }
+        guard FileManager.default.fileExists(atPath: path.path) else { return }
+        try await runGit(["worktree", "remove", path.path])
     }
 
     func movePane(from source: IndexSet, to destination: Int) {

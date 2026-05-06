@@ -6,18 +6,16 @@ struct NewPaneSheet: View {
     @Environment(AppSettings.self) private var appSettings
     let tab: Tab
 
-    /// Session name shared across tools; for Claude also accepts branch ref or existing worktree name.
     @State private var sessionInput = ""
     @State private var selectedCLIType: CLIType = .claude
     @State private var optionStates: [String: OptionState] = [:]
     @State private var isCreating = false
-    @State private var isClassifyingIntent = false
     @State private var worktreeSetupError: String?
     @State private var isPriority = false
-    /// Reuse confirmation (Claude existing checkout).
-    @State private var reuseConfirmPresented = false
-    @State private var reuseConfirmationMessage = ""
-    @State private var reuseRawRefForConfirm = ""
+
+    @State private var showTakeoverDialog = false
+    @State private var pendingResolution: ResolvedWorktree?
+    @State private var pendingExtraArgs: [String] = []
 
     private var activeToolList: [CLIType] {
         CLIType.allCases.filter { appSettings.isActive($0) }
@@ -31,20 +29,16 @@ struct NewPaneSheet: View {
         }
     }
 
-    private var trimmedClaudeInput: String {
-        sessionInput.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var trimmedCodexInput: String {
+    private var trimmedInput: String {
         sessionInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var isBusy: Bool {
-        isCreating || isClassifyingIntent
+        isCreating
     }
 
-    private var claudeValidationError: String? {
-        let t = trimmedClaudeInput
+    private var validationError: String? {
+        let t = trimmedInput
         guard !t.isEmpty else { return nil }
         if t.contains("/") || t.hasPrefix("refs/") {
             return nil
@@ -58,32 +52,13 @@ struct NewPaneSheet: View {
         return nil
     }
 
-    private var codexNameError: String? {
-        let t = trimmedCodexInput
-        guard !t.isEmpty else { return nil }
-        if !Tab.isValidWorktreeName(t) {
-            return "Name may only contain letters, digits, dots, underscores, and dashes."
-        }
-        if appState.isWorktreeDuplicate(directory: tab.directory, name: t) {
-            return "A pane with this worktree is already open."
-        }
-        return nil
-    }
-
     private var canSubmit: Bool {
         guard !activeToolList.isEmpty, !isBusy else { return false }
-        switch selectedCLIType {
-        case .claude:
-            return !trimmedClaudeInput.isEmpty && claudeValidationError == nil
-        case .codex:
-            return !trimmedCodexInput.isEmpty && codexNameError == nil
-        case .cursor:
-            return !trimmedCodexInput.isEmpty && codexNameError == nil
-        }
+        return !trimmedInput.isEmpty && validationError == nil
     }
 
     private var worktreePathPreview: String {
-        let name = trimmedClaudeInput.isEmpty ? "<name>" : trimmedClaudeInput
+        let name = trimmedInput.isEmpty ? "<name>" : trimmedInput
         return "\(tab.directory.lastPathComponent)/\(Tab.worktreesRootRelativePath)/\(name)"
     }
 
@@ -118,98 +93,50 @@ struct NewPaneSheet: View {
                     .onChange(of: selectedCLIType) { _, _ in
                         initializeOptionStates()
                         worktreeSetupError = nil
-                        reuseConfirmPresented = false
+                        showTakeoverDialog = false
                     }
                 }
             }
 
-            if selectedCLIType == .claude {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Session, branch, or worktree")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    TextField("auth-refactor, origin/feature, my-worktree, …", text: $sessionInput)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { create() }
-                        .accessibilityIdentifier("new-pane-name-field")
-                        .disabled(isBusy)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Session name, branch ref, or worktree.")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Session, branch, or worktree")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("auth-refactor, origin/feature, my-worktree, …", text: $sessionInput)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { create() }
+                    .accessibilityIdentifier("new-pane-name-field")
+                    .disabled(isBusy)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Session name, branch ref, or worktree.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Text(worktreePathPreview)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                    if let validation = validationError {
+                        Text(validation)
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
-                        Text(worktreePathPreview)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.tertiary)
-                        if let validation = claudeValidationError {
-                            Text(validation)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("new-pane-name-error")
+                    }
+                    if let error = worktreeSetupError {
+                        ScrollView {
+                            Text(error)
                                 .font(.caption)
                                 .foregroundStyle(.red)
-                                .accessibilityIdentifier("new-pane-name-error")
+                                .multilineTextAlignment(.leading)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        if let error = worktreeSetupError {
-                            ScrollView {
-                                Text(error)
-                                    .font(.caption)
-                                    .foregroundStyle(.red)
-                                    .multilineTextAlignment(.leading)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .frame(maxHeight: 120)
-                            .accessibilityIdentifier("new-pane-worktree-error")
-                        }
-                    }
-                    .frame(minHeight: 120, alignment: .topLeading)
-                }
-            }
-
-            if selectedCLIType == .codex {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Session Name")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    TextField("auth-refactor, fix-login-bug, etc.", text: $sessionInput)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { create() }
-                        .accessibilityIdentifier("new-pane-name-field")
-                    Text("Will open in \(tab.directory.lastPathComponent)")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .font(.system(.caption, design: .monospaced))
-                    if let error = codexNameError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("new-pane-name-error")
+                        .frame(maxHeight: 120)
+                        .accessibilityIdentifier("new-pane-worktree-error")
                     }
                 }
-                .frame(minHeight: 80, alignment: .topLeading)
+                .frame(minHeight: 120, alignment: .topLeading)
             }
 
-            if selectedCLIType == .cursor {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Session Name")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    TextField("auth-refactor, fix-login-bug, etc.", text: $sessionInput)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { create() }
-                        .accessibilityIdentifier("new-pane-name-field")
-                    Text("Will open in \(tab.directory.lastPathComponent)")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .font(.system(.caption, design: .monospaced))
-                    if let error = codexNameError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("new-pane-name-error")
-                    }
-                }
-                .frame(minHeight: 80, alignment: .topLeading)
-            }
-
-            if selectedCLIType == .claude && appSettings.isPriorityNotificationsEnabled {
+            if appSettings.isPriorityNotificationsEnabled {
                 Toggle(isOn: $isPriority) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Priority Pane")
@@ -251,19 +178,29 @@ struct NewPaneSheet: View {
         .padding(24)
         .frame(width: 420)
         .confirmationDialog(
-            "Reuse checkout",
-            isPresented: $reuseConfirmPresented,
+            "Manage existing worktree?",
+            isPresented: $showTakeoverDialog,
             titleVisibility: .visible
         ) {
-            Button("Continue") {
-                runResolveAttached(rawRef: reuseRawRefForConfirm)
+            Button("Manage") {
+                guard let resolved = pendingResolution else { return }
+                finishCreate(resolved: resolved, managed: true)
             }
-            .keyboardShortcut(.defaultAction)
-            .accessibilityIdentifier("new-pane-reuse-confirm-continue")
-            Button("Cancel", role: .cancel) {}
-                .accessibilityIdentifier("new-pane-reuse-confirm-cancel")
+            .accessibilityIdentifier("takeover-manage-button")
+            Button("Don't Manage") {
+                guard let resolved = pendingResolution else { return }
+                finishCreate(resolved: resolved, managed: false)
+            }
+            .accessibilityIdentifier("takeover-dont-manage-button")
+            Button("Cancel", role: .cancel) {
+                pendingResolution = nil
+                pendingExtraArgs = []
+            }
+            .accessibilityIdentifier("takeover-cancel-button")
         } message: {
-            Text(reuseConfirmationMessage)
+            if let resolved = pendingResolution {
+                Text("A checkout for this repo already exists:\n\(resolved.processDirectory.path)\n\nTake over management so the worktree can be cleaned up later?")
+            }
         }
         .onAppear {
             if !activeToolList.contains(selectedCLIType) {
@@ -289,75 +226,66 @@ struct NewPaneSheet: View {
 
     private func create() {
         guard canSubmit else { return }
-        switch selectedCLIType {
-        case .codex:
-            guard !trimmedCodexInput.isEmpty, codexNameError == nil else { return }
-            let name = trimmedCodexInput
-            let extraArgs = buildExtraArgs()
-            resetForm()
-            tab.addPane(name: name, extraArgs: extraArgs, cliType: .codex)
-            appState.setActivePane(id: tab.panes.last?.id)
-            SessionPersistence.save(appState: appState)
-            dismiss()
-            return
+        let trimmed = trimmedInput
+        guard !trimmed.isEmpty, validationError == nil else { return }
+        isCreating = true
+        worktreeSetupError = nil
+        let extraArgs = buildExtraArgs()
 
-        case .cursor:
-            guard !trimmedCodexInput.isEmpty, codexNameError == nil else { return }
-            let name = trimmedCodexInput
-            let extraArgs = buildExtraArgs()
-            resetForm()
-            tab.addPane(name: name, extraArgs: extraArgs, cliType: .cursor)
-            appState.setActivePane(id: tab.panes.last?.id)
-            SessionPersistence.save(appState: appState)
-            dismiss()
-            return
-
-        case .claude:
-            let trimmed = trimmedClaudeInput
-            guard !trimmed.isEmpty, claudeValidationError == nil else { return }
-            isClassifyingIntent = true
-            worktreeSetupError = nil
-
-            Task {
-                do {
-                    let intent = try await tab.classifyClaudePaneIntent(userRef: trimmed)
-                    await MainActor.run {
-                        isClassifyingIntent = false
-
-                        switch intent {
-                        case let .reuse(confirmationMessage, rawInput, resolved):
-                            if appState.isClaudeCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL) {
-                                worktreeSetupError = "A pane with this worktree is already open."
-                                return
-                            }
-                            reuseConfirmationMessage = confirmationMessage
-                            reuseRawRefForConfirm = rawInput
-                            reuseConfirmPresented = true
-
-                        case let .resolveViaApp(rawInput):
-                            runResolveAttached(rawRef: rawInput)
-
-                        case let .claudeWorktreeFlag(name):
-                            let extraArgs = buildExtraArgs()
-                            resetForm()
-                            tab.addPane(name: name, extraArgs: extraArgs, cliType: .claude)
-                            if let pane = tab.panes.last {
-                                wireBell(pane: pane, priority: isPriority)
-                            }
-                            appState.setActivePane(id: tab.panes.last?.id)
-                            SessionPersistence.save(appState: appState)
-                            dismiss()
-                        }
+        Task {
+            do {
+                let defaultBranch: String? = appSettings.isDefaultBranchEnabled ? appSettings.defaultBranch : nil
+                let resolved = try await tab.resolveOrAttachWorktree(userRef: trimmed, defaultBranch: defaultBranch)
+                await MainActor.run {
+                    if appState.isCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL) {
+                        isCreating = false
+                        worktreeSetupError = "A pane with this worktree is already open."
+                        return
                     }
-                } catch {
-                    await MainActor.run {
-                        isClassifyingIntent = false
-                        applyResolveError(error)
+
+                    if resolved.isExternalTakeover {
+                        switch appSettings.existingWorktreeManagement {
+                        case .always:
+                            finishCreate(resolved: resolved, managed: true)
+                        case .ask:
+                            isCreating = false
+                            pendingResolution = resolved
+                            pendingExtraArgs = extraArgs
+                            showTakeoverDialog = true
+                        case .never:
+                            finishCreate(resolved: resolved, managed: false)
+                        }
+                    } else {
+                        finishCreate(resolved: resolved, managed: true)
                     }
                 }
+            } catch {
+                await MainActor.run {
+                    isCreating = false
+                    applyResolveError(error)
+                }
             }
-            return
         }
+    }
+
+    private func finishCreate(resolved: ResolvedWorktree, managed: Bool) {
+        let extraArgs = pendingExtraArgs
+        pendingResolution = nil
+        pendingExtraArgs = []
+        resetForm()
+        tab.addPane(
+            name: resolved.paneTitle,
+            extraArgs: extraArgs,
+            cliType: selectedCLIType,
+            worktreeDirectory: resolved.processDirectory,
+            worktreeIsManaged: managed
+        )
+        if let pane = tab.panes.last {
+            wireBell(pane: pane, priority: isPriority)
+        }
+        appState.setActivePane(id: tab.panes.last?.id)
+        SessionPersistence.save(appState: appState)
+        dismiss()
     }
 
     private func applyResolveError(_ error: Error) {
@@ -368,44 +296,6 @@ struct NewPaneSheet: View {
         } else {
             worktreeSetupError =
                 (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        }
-    }
-
-    /// Runs Git attach/create then opens the pane (after confirmation or `.resolveViaApp`).
-    private func runResolveAttached(rawRef: String) {
-        guard !rawRef.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let extraArgs = buildExtraArgs()
-        isCreating = true
-        worktreeSetupError = nil
-        Task {
-            do {
-                let resolved = try await tab.resolveOrAttachWorktree(userRef: rawRef)
-                await MainActor.run {
-                    if appState.isClaudeCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL) {
-                        isCreating = false
-                        worktreeSetupError = "A pane with this worktree is already open."
-                        return
-                    }
-                    resetForm()
-                    tab.addPane(
-                        name: resolved.paneTitle,
-                        extraArgs: extraArgs,
-                        cliType: .claude,
-                        claudeDirectoryOverride: resolved.claudeProcessDirectory
-                    )
-                    if let pane = tab.panes.last {
-                        wireBell(pane: pane, priority: isPriority)
-                    }
-                    appState.setActivePane(id: tab.panes.last?.id)
-                    SessionPersistence.save(appState: appState)
-                    dismiss()
-                }
-            } catch {
-                await MainActor.run {
-                    isCreating = false
-                    applyResolveError(error)
-                }
-            }
         }
     }
 
@@ -429,7 +319,6 @@ struct NewPaneSheet: View {
         sessionInput = ""
         worktreeSetupError = nil
         isCreating = false
-        isClassifyingIntent = false
     }
 
     private func buildExtraArgs() -> [String] {

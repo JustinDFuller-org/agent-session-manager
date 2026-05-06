@@ -24,6 +24,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreNotificationSettings(into: appSettings)
                         SettingsPersistence.restoreRestartSettings(into: appSettings)
                         SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
+                        SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
                         SessionPersistence.restore(into: appState, appSettings: appSettings)
                     }
                 }

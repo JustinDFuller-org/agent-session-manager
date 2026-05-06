@@ -32,6 +32,7 @@ struct SettingsPersistence {
     private static var notificationSettingsURL: URL { appSupportDir.appending(path: "notification-settings.json") }
     private static var restartSettingsURL: URL { appSupportDir.appending(path: "restart-settings.json") }
     private static var worktreeCleanupURL: URL { appSupportDir.appending(path: "worktree-cleanup.json") }
+    private static var existingWorktreeManagementURL: URL { appSupportDir.appending(path: "existing-worktree-management.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -193,5 +194,18 @@ struct SettingsPersistence {
             let behavior = try? JSONDecoder().decode(WorktreeCleanupBehavior.self, from: data)
         else { return }
         appSettings.worktreeCleanupBehavior = behavior
+    }
+
+    static func saveExistingWorktreeManagement(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.existingWorktreeManagement) else { return }
+        try? data.write(to: existingWorktreeManagementURL)
+    }
+
+    static func restoreExistingWorktreeManagement(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: existingWorktreeManagementURL),
+            let behavior = try? JSONDecoder().decode(ExistingWorktreeManagement.self, from: data)
+        else { return }
+        appSettings.existingWorktreeManagement = behavior
     }
 }

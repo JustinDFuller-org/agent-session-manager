@@ -40,13 +40,12 @@ final class AppState {
         tabs.contains { $0.directory == directory && $0.hasPaneNamed(name) }
     }
 
-    /// True if a Claude pane in that tab already uses this checkout directory (managed or external).
-    func isClaudeCheckoutInUse(directory: URL, checkout: URL) -> Bool {
+    /// True if a pane in that tab already uses this checkout directory.
+    func isCheckoutInUse(directory: URL, checkout: URL) -> Bool {
         let normalized = checkout.standardizedFileURL
         return tabs.contains { tab in
             guard tab.directory == directory else { return false }
             return tab.panes.contains { pane in
-                guard pane.cliType == .claude else { return false }
                 return pane.worktreePath?.standardizedFileURL == normalized
             }
         }
