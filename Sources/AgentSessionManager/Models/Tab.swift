@@ -477,7 +477,7 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "codex\(extra)"
             case .cursor:
                 controller.pendingDirectory = directory.path
-                controller.pendingCommand = "cursor\(extra)"
+                controller.pendingCommand = "agent\(extra)"
             }
             pane.terminalController = controller
         }

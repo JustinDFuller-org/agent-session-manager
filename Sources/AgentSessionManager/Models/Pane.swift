@@ -18,7 +18,7 @@ enum CLIType: String, Codable, CaseIterable {
         switch self {
         case .claude: return "claude"
         case .codex: return "codex"
-        case .cursor: return "cursor"
+        case .cursor: return "agent"
         }
     }
 }
