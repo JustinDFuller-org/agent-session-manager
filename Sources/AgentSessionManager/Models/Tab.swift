@@ -310,8 +310,14 @@ final class Tab: Identifiable {
         }
 
         let rel = Tab.gitWorktreeAddPath(name: targetName)
+        let args: [String]
+        if await refExists(targetName) {
+            args = ["worktree", "add", rel, targetName]
+        } else {
+            args = ["worktree", "add", "-b", targetName, rel, branch]
+        }
         do {
-            try await runGit(["worktree", "add", rel, branch])
+            try await runGit(args)
         } catch {
             let listAgain = try await runGitOutput(["worktree", "list", "--porcelain"])
             let again = Tab.parseWorktreeListPorcelain(listAgain)
