@@ -27,4 +27,38 @@ final class CloseTests: BaseTestCase {
 
         waitForDisappear(paneName)
     }
+
+    func testCloseTabViaKeyboardShortcut() {
+        createTab(named: "KeepTab")
+        createTab(named: "CloseTab")
+        waitFor(app.buttons["tab-button-CloseTab"].firstMatch)
+
+        app.typeKey("k", modifierFlags: .command)
+        screenshot("13-after-close-tab-shortcut")
+
+        waitForDisappear(app.buttons["tab-button-CloseTab"].firstMatch)
+        XCTAssertTrue(app.buttons["tab-button-KeepTab"].firstMatch.exists)
+    }
+
+    func testCloseTabViaMenuItem() {
+        createTab(named: "KeepTab")
+        createTab(named: "CloseTab")
+        waitFor(app.buttons["tab-button-CloseTab"].firstMatch)
+
+        app.menuBars.menuBarItems["File"].click()
+        let menuItem = app.menuBars.menuBarItems["File"].menuItems["Close Tab"]
+        waitFor(menuItem)
+        XCTAssertTrue(menuItem.isEnabled)
+        menuItem.click()
+
+        waitForDisappear(app.buttons["tab-button-CloseTab"].firstMatch)
+        XCTAssertTrue(app.buttons["tab-button-KeepTab"].firstMatch.exists)
+    }
+
+    func testCloseTabMenuItemDisabledWithNoTabs() {
+        app.menuBars.menuBarItems["File"].click()
+        let menuItem = app.menuBars.menuBarItems["File"].menuItems["Close Tab"]
+        waitFor(menuItem)
+        XCTAssertFalse(menuItem.isEnabled)
+    }
 }

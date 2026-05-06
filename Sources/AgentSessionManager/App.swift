@@ -48,9 +48,13 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .newTab)) { _ in
             showingNewTab = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
+            closeActiveTab()
+        }
         .background(KeyboardShortcutView(
             appState: appState,
             onClosePane: closeActivePane,
+            onCloseTab: closeActiveTab,
             onSwitchTab: switchTab
         ))
         .sheet(isPresented: $showingNewTab) {
@@ -69,6 +73,12 @@ struct ContentView: View {
     private func switchTab(index: Int) {
         guard index < appState.tabs.count else { return }
         appState.switchToTab(id: appState.tabs[index].id)
+    }
+
+    private func closeActiveTab() {
+        guard let tab = appState.activeTab else { return }
+        appState.closeTab(tab)
+        SessionPersistence.save(appState: appState)
     }
 }
 
@@ -102,6 +112,7 @@ extension FocusedValues {
 private struct KeyboardShortcutView: NSViewRepresentable {
     let appState: AppState
     let onClosePane: () -> Void
+    let onCloseTab: () -> Void
     let onSwitchTab: (Int) -> Void
 
     func makeNSView(context: Context) -> NSView { NSView() }
@@ -109,6 +120,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         let c = context.coordinator
         c.onClosePane = onClosePane
+        c.onCloseTab = onCloseTab
         c.onSwitchTab = onSwitchTab
         c.appState = appState
         guard c.keyMonitor == nil else { return }
@@ -129,6 +141,11 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             let closePaneKey = UserDefaults.standard.string(forKey: "keyBinding.closePaneKey") ?? "w"
             if let chars = event.characters, chars == closePaneKey {
                 c.onClosePane()
+                return nil
+            }
+            let closeTabKey = UserDefaults.standard.string(forKey: "keyBinding.closeTabKey") ?? "k"
+            if let chars = event.characters, chars == closeTabKey {
+                c.onCloseTab()
                 return nil
             }
             if let chars = event.characters, let digit = Int(chars), (1...9).contains(digit) {
@@ -152,6 +169,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
     @MainActor
     final class Coordinator {
         var onClosePane: () -> Void = {}
+        var onCloseTab: () -> Void = {}
         var onSwitchTab: (Int) -> Void = { _ in }
         var appState: AppState?
         var keyMonitor: Any?

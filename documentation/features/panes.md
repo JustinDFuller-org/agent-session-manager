@@ -30,8 +30,10 @@ Open panes are saved to `~/Library/Application Support/agent-session-manager/ses
 
 | Shortcut | Action |
 |----------|--------|
+| ⌘T (default) | New tab |
 | ⌘P (default) | New pane in current tab |
 | ⌘W | Close active pane |
+| ⌘K | Close active tab |
 | ⌘1–⌘9 | Switch to tab by index |
 
 For **default branch** settings (stored in Settings but not the same as per-ref resolution in the New Pane flow), see [default-branch.md](default-branch.md).
