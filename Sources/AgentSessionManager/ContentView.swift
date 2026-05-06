@@ -40,6 +40,7 @@ struct AgentSessionManagerApp: App {
 private struct AppCommands: Commands {
     @AppStorage("keyBinding.newTabKey") var newTabKey = "t"
     @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
+    @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
     @FocusedValue(\.hasActiveTab) var hasActiveTab
 
     var body: some Commands {
@@ -54,6 +55,14 @@ private struct AppCommands: Commands {
             }
             .keyboardShortcut(KeyEquivalent(Character(newPaneKey)), modifiers: .command)
             .disabled(!(hasActiveTab ?? false))
+
+            Divider()
+
+            Button("Close Tab") {
+                NotificationCenter.default.post(name: .closeTab, object: nil)
+            }
+            .keyboardShortcut(KeyEquivalent(Character(closeTabKey)), modifiers: .command)
+            .disabled(!(hasActiveTab ?? false))
         }
     }
 }
@@ -61,6 +70,7 @@ private struct AppCommands: Commands {
 extension Notification.Name {
     static let newTab = Notification.Name("newTab")
     static let newPane = Notification.Name("newPane")
+    static let closeTab = Notification.Name("closeTab")
 }
 
 extension AgentSessionManagerApp {

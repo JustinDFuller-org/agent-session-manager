@@ -103,6 +103,17 @@ final class SettingsTests: BaseTestCase {
         XCTAssertEqual(toggle.value as? Int, 1)
     }
 
+    func testCloseActiveTabShortcutExistsInSettings() {
+        openSettings()
+        let shortcutsTab = app.buttons["Shortcuts"]
+        waitFor(shortcutsTab)
+        shortcutsTab.click()
+
+        let closeTabName = app.staticTexts["Close Active Tab"]
+        waitFor(closeTabName)
+        XCTAssertTrue(closeTabName.exists)
+    }
+
     private func openSettings() {
         app.typeKey(",", modifierFlags: .command)
     }

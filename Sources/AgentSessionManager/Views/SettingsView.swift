@@ -267,6 +267,7 @@ private struct KeyboardShortcutsContent: View {
     @AppStorage("keyBinding.newTabKey") var newTabKey = "t"
     @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
     @AppStorage("keyBinding.closePaneKey") var closePaneKey = "w"
+    @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
 
     var body: some View {
         Form {
@@ -279,6 +280,7 @@ private struct KeyboardShortcutsContent: View {
                 KeyBindingRow(label: "New Tab", description: "Open the New Tab sheet", modifier: "⌘", key: $newTabKey)
                 KeyBindingRow(label: "New Pane in Current Tab", description: "Open the New Pane sheet", modifier: "⌘", key: $newPaneKey)
                 KeyBindingRow(label: "Close Active Pane", description: "Close the focused pane", modifier: "⌘", key: $closePaneKey)
+                KeyBindingRow(label: "Close Active Tab", description: "Close the current tab", modifier: "⌘", key: $closeTabKey)
             }
             Section {
                 HStack {

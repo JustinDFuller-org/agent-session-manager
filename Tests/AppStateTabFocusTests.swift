@@ -119,4 +119,44 @@ final class AppStateTabFocusTests: XCTestCase {
 
         XCTAssertTrue(state.isClaudeCheckoutInUse(directory: repo, checkout: managed))
     }
+
+    func testCloseTabRemovesTabAndFallsBackActiveTabID() {
+        let (state, _) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"]),
+            (name: "tab2", paneNames: ["b"])
+        ])
+        state.activeTabID = state.tabs[0].id
+
+        state.closeTab(state.tabs[0])
+
+        XCTAssertEqual(state.tabs.count, 1)
+        XCTAssertEqual(state.tabs[0].name, "tab2")
+        XCTAssertEqual(state.activeTabID, state.tabs[0].id)
+    }
+
+    func testCloseLastTabLeavesEmptyState() {
+        let (state, _) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"])
+        ])
+        state.activeTabID = state.tabs[0].id
+
+        state.closeTab(state.tabs[0])
+
+        XCTAssertTrue(state.tabs.isEmpty)
+        XCTAssertNil(state.activeTabID)
+    }
+
+    func testCloseInactiveTabPreservesActiveTabID() {
+        let (state, _) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"]),
+            (name: "tab2", paneNames: ["b"])
+        ])
+        state.activeTabID = state.tabs[1].id
+
+        state.closeTab(state.tabs[0])
+
+        XCTAssertEqual(state.tabs.count, 1)
+        XCTAssertEqual(state.tabs[0].name, "tab2")
+        XCTAssertEqual(state.activeTabID, state.tabs[0].id)
+    }
 }
