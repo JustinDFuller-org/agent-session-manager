@@ -133,7 +133,6 @@ struct NewPaneSheet: View {
                         .accessibilityIdentifier("new-pane-worktree-error")
                     }
                 }
-                .frame(minHeight: 120, alignment: .topLeading)
             }
 
             if appSettings.isPriorityNotificationsEnabled {
