@@ -29,25 +29,25 @@ final class Pane: Identifiable {
     let id: UUID
     var name: String
     var cliType: CLIType
-    /// When set, Claude runs in this directory without `--worktree` (reuse path from `git worktree list`).
-    var claudeDirectoryOverride: URL?
+    var worktreeDirectory: URL?
+    var worktreeIsManaged: Bool = false
     weak var tab: Tab?
     var terminalController: TerminalController?
     var statusLineMonitor: StatusLineMonitor?
     var isPriority: Bool = false
 
-    init(name: String, tab: Tab, cliType: CLIType = .claude, claudeDirectoryOverride: URL? = nil) {
+    init(name: String, tab: Tab, cliType: CLIType = .claude, worktreeDirectory: URL? = nil, worktreeIsManaged: Bool = false) {
         self.id = UUID()
         self.name = name
         self.cliType = cliType
-        self.claudeDirectoryOverride = claudeDirectoryOverride
+        self.worktreeDirectory = worktreeDirectory
+        self.worktreeIsManaged = worktreeIsManaged
         self.tab = tab
     }
 
     var worktreePath: URL? {
-        guard cliType == .claude else { return nil }
+        if let worktreeDirectory { return worktreeDirectory }
         guard let tab else { return nil }
-        if let claudeDirectoryOverride { return claudeDirectoryOverride }
         return Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: name)
     }
 }

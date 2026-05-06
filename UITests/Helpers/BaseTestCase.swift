@@ -67,7 +67,7 @@ class BaseTestCase: XCTestCase {
         for file in ["sessions.json", "settings.json", "codex-settings.json",
                       "statusline-settings.json", "active-tools-settings.json",
                       "default-branch.json", "notification-settings.json",
-                      "restart-settings.json"] {
+                      "restart-settings.json", "worktree-cleanup.json"] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
     }

@@ -14,6 +14,9 @@ struct SettingsView: View {
             UnifiedCLIOptionsContent()
                 .environment(appSettings)
                 .tabItem { Label("CLI Options", systemImage: "terminal") }
+            WorktreesContent()
+                .environment(appSettings)
+                .tabItem { Label("Worktrees", systemImage: "folder.badge.gearshape") }
             KeyboardShortcutsContent()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
             StatusLineContent()
@@ -141,6 +144,76 @@ private struct ToolsContent: View {
                     }
                     .padding(.vertical, 2)
                 }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct WorktreesContent: View {
+    @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        @Bindable var appSettings = appSettings
+        Form {
+            Section {
+                Text("Configure worktree management behavior.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Created Worktrees") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Worktree Cleanup")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text(appSettings.worktreeCleanupBehavior.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
+                        ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 220)
+                    .accessibilityIdentifier("settings-worktree-cleanup-picker")
+                    .onChange(of: appSettings.worktreeCleanupBehavior) {
+                        SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            Section("Existing Worktrees") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Manage Existing Worktrees")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text(appSettings.existingWorktreeManagement.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker("Manage Existing", selection: $appSettings.existingWorktreeManagement) {
+                        ForEach(ExistingWorktreeManagement.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 220)
+                    .accessibilityIdentifier("settings-existing-worktree-management-picker")
+                    .onChange(of: appSettings.existingWorktreeManagement) {
+                        SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
+                    }
+                }
+                .padding(.vertical, 2)
             }
         }
         .formStyle(.grouped)

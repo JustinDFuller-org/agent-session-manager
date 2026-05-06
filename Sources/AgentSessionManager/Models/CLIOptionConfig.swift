@@ -214,8 +214,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "classic (or leave empty)")
         case "--tools":
             return .string(placeholder: "\"Bash,Edit,Read\" or \"\" for none")
-        case "--worktree":
-            return .string(placeholder: "Worktree name (auto-generated if empty)")
         default:
             return .boolean
         }
@@ -287,7 +285,6 @@ struct CLIOptionConfig: Identifiable, Codable {
         CLIOptionConfig(id: "--tools", label: "Tools", description: "Restrict which built-in tools Claude can use", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--verbose", label: "Verbose", description: "Enable verbose logging with full turn-by-turn output", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--version", label: "Version", description: "Output the version number", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--worktree", label: "Worktree", description: "Start Claude in an isolated git worktree", isAvailable: false, isDefaultEnabled: false),
     ]
 
     static let codexAll: [CLIOptionConfig] = [

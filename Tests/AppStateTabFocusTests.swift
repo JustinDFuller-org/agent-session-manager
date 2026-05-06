@@ -97,19 +97,19 @@ final class AppStateTabFocusTests: XCTestCase {
         XCTAssertEqual(state.activePaneID, panes[0][0].id)
     }
 
-    func testIsClaudeCheckoutInUseExternalPath() {
+    func testIsCheckoutInUseExternalPath() {
         let state = AppState()
         let repo = URL(filePath: "/tmp/myproject")
         let tab = Tab(name: "t", directory: repo)
         let external = URL(filePath: "/tmp/sibling-wt")
-        tab.panes = [Pane(name: "sibling-wt", tab: tab, claudeDirectoryOverride: external)]
+        tab.panes = [Pane(name: "sibling-wt", tab: tab, worktreeDirectory: external)]
         state.tabs = [tab]
 
-        XCTAssertTrue(state.isClaudeCheckoutInUse(directory: repo, checkout: external))
-        XCTAssertFalse(state.isClaudeCheckoutInUse(directory: repo, checkout: URL(filePath: "/tmp/other")))
+        XCTAssertTrue(state.isCheckoutInUse(directory: repo, checkout: external))
+        XCTAssertFalse(state.isCheckoutInUse(directory: repo, checkout: URL(filePath: "/tmp/other")))
     }
 
-    func testIsClaudeCheckoutInUseManagedWorktreePath() {
+    func testIsCheckoutInUseManagedWorktreePath() {
         let state = AppState()
         let repo = URL(filePath: "/tmp/myproject")
         let tab = Tab(name: "t", directory: repo)
@@ -117,7 +117,7 @@ final class AppStateTabFocusTests: XCTestCase {
         state.tabs = [tab]
         let managed = Tab.worktreeDirectoryURL(repoRoot: repo, name: "feat")
 
-        XCTAssertTrue(state.isClaudeCheckoutInUse(directory: repo, checkout: managed))
+        XCTAssertTrue(state.isCheckoutInUse(directory: repo, checkout: managed))
     }
 
     func testCloseTabRemovesTabAndFallsBackActiveTabID() {
