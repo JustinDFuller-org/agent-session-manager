@@ -491,6 +491,13 @@ final class Tab: Identifiable {
         panes.removeAll { $0.id == pane.id }
     }
 
+    func cleanupWorktree(for pane: Pane) async throws {
+        guard pane.worktreeIsManaged else { return }
+        let worktreePath = Tab.worktreeDirectoryURL(repoRoot: directory, name: pane.name)
+        guard FileManager.default.fileExists(atPath: worktreePath.path) else { return }
+        try await runGit(["worktree", "remove", worktreePath.path])
+    }
+
     func movePane(from source: IndexSet, to destination: Int) {
         panes.move(fromOffsets: source, toOffset: destination)
     }

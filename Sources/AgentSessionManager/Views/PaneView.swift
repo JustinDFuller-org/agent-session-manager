@@ -4,7 +4,7 @@ struct PaneView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     let pane: Pane
-    let tab: Tab
+    let onClosePane: (Pane) -> Void
     @State private var pulse = false
 
     private var isActive: Bool { appState.activePaneID == pane.id }
@@ -57,8 +57,7 @@ struct PaneView: View {
 
             Button {
                 appState.clearNotification(paneID: pane.id)
-                tab.closePane(pane)
-                SessionPersistence.save(appState: appState)
+                onClosePane(pane)
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .medium))

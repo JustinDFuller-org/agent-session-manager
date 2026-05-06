@@ -5,6 +5,8 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     @State private var showingNewTab = false
+    @State private var pendingCleanupPane: Pane?
+    @State private var pendingCleanupTab: Tab?
 
     private var hasNotifications: Bool { !appState.notifications.isEmpty }
 
@@ -27,7 +29,7 @@ struct ContentView: View {
                     if appState.tabs.isEmpty {
                         EmptyStateView()
                     } else if let tab = appState.activeTab {
-                        PaneGridView(tab: tab)
+                        PaneGridView(tab: tab, onClosePane: handleClosePane)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
@@ -60,14 +62,62 @@ struct ContentView: View {
         .sheet(isPresented: $showingNewTab) {
             NewTabSheet()
         }
+        .alert("Close Worktree Pane", isPresented: Binding(
+            get: { pendingCleanupPane != nil },
+            set: { if !$0 { pendingCleanupPane = nil; pendingCleanupTab = nil } }
+        )) {
+            Button("Keep Worktree") {
+                guard let pane = pendingCleanupPane, let tab = pendingCleanupTab else { return }
+                pendingCleanupPane = nil; pendingCleanupTab = nil
+                tab.closePane(pane)
+                SessionPersistence.save(appState: appState)
+            }
+            Button("Delete Worktree", role: .destructive) {
+                guard let pane = pendingCleanupPane, let tab = pendingCleanupTab else { return }
+                pendingCleanupPane = nil; pendingCleanupTab = nil
+                Task {
+                    try? await tab.cleanupWorktree(for: pane)
+                    await MainActor.run {
+                        tab.closePane(pane)
+                        SessionPersistence.save(appState: appState)
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingCleanupPane = nil; pendingCleanupTab = nil
+            }
+        } message: {
+            if let pane = pendingCleanupPane {
+                Text("The worktree \"\(pane.name)\" was created by Agent Session Manager. Would you like to delete it?")
+            }
+        }
     }
 
     private func closeActivePane() {
         guard let tab = appState.activeTab else { return }
         let pane = appState.activePane ?? tab.panes.last
         guard let pane else { return }
-        tab.closePane(pane)
-        SessionPersistence.save(appState: appState)
+        handleClosePane(pane)
+    }
+
+    private func handleClosePane(_ pane: Pane) {
+        guard let tab = pane.tab else { return }
+        switch appSettings.worktreeCleanupBehavior {
+        case .ask where pane.worktreeIsManaged:
+            pendingCleanupPane = pane
+            pendingCleanupTab = tab
+        case .delete where pane.worktreeIsManaged:
+            Task {
+                try? await tab.cleanupWorktree(for: pane)
+                await MainActor.run {
+                    tab.closePane(pane)
+                    SessionPersistence.save(appState: appState)
+                }
+            }
+        default:
+            tab.closePane(pane)
+            SessionPersistence.save(appState: appState)
+        }
     }
 
     private func switchTab(index: Int) {

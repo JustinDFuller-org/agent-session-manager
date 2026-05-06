@@ -102,6 +102,31 @@ private struct GeneralContent: View {
                         }
                 }
                 .padding(.vertical, 2)
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Worktree Cleanup")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text(appSettings.worktreeCleanupBehavior.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
+                        ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 220)
+                    .accessibilityIdentifier("settings-worktree-cleanup-picker")
+                    .onChange(of: appSettings.worktreeCleanupBehavior) {
+                        SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
+                    }
+                }
+                .padding(.vertical, 2)
             }
         }
         .formStyle(.grouped)

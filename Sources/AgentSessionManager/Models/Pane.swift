@@ -50,4 +50,10 @@ final class Pane: Identifiable {
         if let claudeDirectoryOverride { return claudeDirectoryOverride }
         return Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: name)
     }
+
+    var worktreeIsManaged: Bool {
+        guard cliType == .claude, claudeDirectoryOverride == nil, let tab else { return false }
+        let path = Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: name)
+        return FileManager.default.fileExists(atPath: path.path)
+    }
 }
