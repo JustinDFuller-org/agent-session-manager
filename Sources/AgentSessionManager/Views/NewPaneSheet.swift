@@ -292,9 +292,10 @@ struct NewPaneSheet: View {
         switch selectedCLIType {
         case .codex:
             guard !trimmedCodexInput.isEmpty, codexNameError == nil else { return }
+            let name = trimmedCodexInput
             let extraArgs = buildExtraArgs()
             resetForm()
-            tab.addPane(name: trimmedCodexInput, extraArgs: extraArgs, cliType: .codex)
+            tab.addPane(name: name, extraArgs: extraArgs, cliType: .codex)
             appState.setActivePane(id: tab.panes.last?.id)
             SessionPersistence.save(appState: appState)
             dismiss()
@@ -302,9 +303,10 @@ struct NewPaneSheet: View {
 
         case .cursor:
             guard !trimmedCodexInput.isEmpty, codexNameError == nil else { return }
+            let name = trimmedCodexInput
             let extraArgs = buildExtraArgs()
             resetForm()
-            tab.addPane(name: trimmedCodexInput, extraArgs: extraArgs, cliType: .cursor)
+            tab.addPane(name: name, extraArgs: extraArgs, cliType: .cursor)
             appState.setActivePane(id: tab.panes.last?.id)
             SessionPersistence.save(appState: appState)
             dismiss()
