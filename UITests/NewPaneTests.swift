@@ -172,6 +172,66 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertEqual(nameField.value as? String, "my-session")
     }
 
+    func testCursorPaneShowsSessionNameInHeader() {
+        // Enable Cursor via Settings → Tools
+        app.typeKey(",", modifierFlags: .command)
+        waitFor(app.buttons["Tools"])
+        app.buttons["Tools"].click()
+        let cursorCheckbox = app.checkBoxes["Cursor"]
+        waitFor(cursorCheckbox)
+        if cursorCheckbox.value as? Int == 0 {
+            cursorCheckbox.click()
+        }
+        app.typeKey("w", modifierFlags: .command)
+
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+
+        let cursorButton = app.segmentedControls.firstMatch.buttons["Cursor"]
+        waitFor(cursorButton)
+        cursorButton.click()
+
+        nameField.click()
+        nameField.typeText("fix-login")
+
+        app.buttons["new-pane-open-button"].click()
+
+        let paneName = app.staticTexts["pane-name-fix-login"].firstMatch
+        waitFor(paneName)
+        XCTAssertTrue(paneName.exists)
+    }
+
+    func testCodexPaneShowsSessionNameInHeader() {
+        // Enable Codex via Settings → Tools
+        app.typeKey(",", modifierFlags: .command)
+        waitFor(app.buttons["Tools"])
+        app.buttons["Tools"].click()
+        let codexCheckbox = app.checkBoxes["Codex"]
+        waitFor(codexCheckbox)
+        if codexCheckbox.value as? Int == 0 {
+            codexCheckbox.click()
+        }
+        app.typeKey("w", modifierFlags: .command)
+
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+
+        let codexButton = app.segmentedControls.firstMatch.buttons["Codex"]
+        waitFor(codexButton)
+        codexButton.click()
+
+        nameField.click()
+        nameField.typeText("auth-refactor")
+
+        app.buttons["new-pane-open-button"].click()
+
+        let paneName = app.staticTexts["pane-name-auth-refactor"].firstMatch
+        waitFor(paneName)
+        XCTAssertTrue(paneName.exists)
+    }
+
     func testUnifiedFieldKeepsBranchRefInputAndEnablesOpen() {
         app.typeKey("p", modifierFlags: .command)
         let nameField = app.textFields["new-pane-name-field"]

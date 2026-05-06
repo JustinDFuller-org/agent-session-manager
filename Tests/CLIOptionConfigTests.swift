@@ -347,6 +347,55 @@ final class CodexCLIOptionConfigTests: XCTestCase {
     }
 }
 
+final class CursorCLIOptionConfigTests: XCTestCase {
+    private var cursorOptions: [CLIOptionConfig] {
+        CLIOptionConfig.cursorAll.filter { !$0.isUserAdded }
+    }
+
+    func testCursorFlagCount() {
+        XCTAssertEqual(cursorOptions.count, 17, "Expected exactly 17 Cursor CLI flags")
+    }
+
+    func testNoDuplicateCursorIDs() {
+        let ids = cursorOptions.map(\.id)
+        let unique = Set(ids)
+        XCTAssertEqual(ids.count, unique.count, "Duplicate Cursor flag IDs detected")
+    }
+
+    func testAllCursorFlagsHaveNonEmptyLabelsAndDescriptions() {
+        for option in cursorOptions {
+            XCTAssertFalse(option.label.isEmpty, "\(option.id) has empty label")
+            XCTAssertFalse(option.description.isEmpty, "\(option.id) has empty description")
+        }
+    }
+
+    func testCursorOptionTypeDefinedForAllFlags() {
+        for option in cursorOptions {
+            switch option.optionType {
+            case .boolean:
+                break
+            case .string(let placeholder):
+                XCTAssertFalse(placeholder.isEmpty, "\(option.id) string type has empty placeholder")
+            }
+        }
+    }
+
+    func testCursorFlagRoundTrip() throws {
+        let original = CLIOptionConfig.cursorAll.first { $0.id == "--api-key" }!
+        var mutable = original
+        mutable.isAvailable = true
+        mutable.isDefaultEnabled = false
+
+        let encoded = try JSONEncoder().encode(mutable)
+        let decoded = try JSONDecoder().decode(CLIOptionConfig.self, from: encoded)
+
+        XCTAssertEqual(decoded.id, "--api-key")
+        XCTAssertFalse(decoded.isUserAdded)
+        XCTAssertTrue(decoded.isAvailable)
+        XCTAssertFalse(decoded.isDefaultEnabled)
+    }
+}
+
 final class CLITypeTests: XCTestCase {
     func testCLITypeRoundTrip() throws {
         let encoded = try JSONEncoder().encode(CLIType.codex)
@@ -357,17 +406,20 @@ final class CLITypeTests: XCTestCase {
     func testCLITypeRawValues() {
         XCTAssertEqual(CLIType.claude.rawValue, "claude")
         XCTAssertEqual(CLIType.codex.rawValue, "codex")
+        XCTAssertEqual(CLIType.cursor.rawValue, "cursor")
     }
 
     func testCLITypeDisplayNames() {
         XCTAssertEqual(CLIType.claude.displayName, "Claude Code")
         XCTAssertEqual(CLIType.codex.displayName, "Codex")
+        XCTAssertEqual(CLIType.cursor.displayName, "Cursor")
     }
 
     func testAllCLITypeCases() {
-        XCTAssertEqual(CLIType.allCases.count, 2)
+        XCTAssertEqual(CLIType.allCases.count, 3)
         XCTAssertTrue(CLIType.allCases.contains(.claude))
         XCTAssertTrue(CLIType.allCases.contains(.codex))
+        XCTAssertTrue(CLIType.allCases.contains(.cursor))
     }
 }
 
@@ -537,10 +589,11 @@ final class AppSettingsActiveToolsTests: XCTestCase {
     func testRestoreDropsUnknownRawValues() {
         let settings = AppSettings()
         let knownRaws = Set(CLIType.allCases.map(\.rawValue))
-        let saved: Set<String> = ["claude", "cursor"]
+        let saved: Set<String> = ["claude", "cursor", "unknowntool"]
         settings.activeTools = saved.intersection(knownRaws)
         XCTAssertTrue(settings.activeTools.contains("claude"))
-        XCTAssertFalse(settings.activeTools.contains("cursor"))
+        XCTAssertTrue(settings.activeTools.contains("cursor"))
+        XCTAssertFalse(settings.activeTools.contains("unknowntool"))
     }
 }
 

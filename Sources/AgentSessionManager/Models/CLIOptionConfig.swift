@@ -43,7 +43,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
         } else {
             let id = try container.decode(String.self, forKey: .id)
-            let allTemplates = CLIOptionConfig.all + CLIOptionConfig.codexAll
+            let allTemplates = CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll
             guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
             }
@@ -104,6 +104,24 @@ struct CLIOptionConfig: Identifiable, Codable {
              "--oss",
              "--search":
             return .boolean
+        // Cursor-specific boolean flags
+        case "--approve-mcps",
+             "--force",
+             "--list-models",
+             "--plan",
+             "--stream-partial-output",
+             "--trust",
+             "--yolo":
+            return .boolean
+        // Cursor-specific string flags
+        case "--api-key":
+            return .string(placeholder: "API key (or set CURSOR_API_KEY env var)")
+        case "--header":
+            return .string(placeholder: "Name: Value")
+        case "--mode":
+            return .string(placeholder: "plan / ask (default: agent)")
+        case "--workspace":
+            return .string(placeholder: "Path to workspace directory")
         // Codex-specific string flags (not in Claude's all list)
         case "--ask-for-approval":
             return .string(placeholder: "untrusted / on-request / never")
@@ -285,5 +303,25 @@ struct CLIOptionConfig: Identifiable, Codable {
         CLIOptionConfig(id: "--profile", label: "Profile", description: "Load a named configuration profile", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--sandbox", label: "Sandbox", description: "Sandbox policy: read-only, workspace-write, or danger-full-access", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--search", label: "Web Search", description: "Enable live web search during the session", isAvailable: false, isDefaultEnabled: false),
+    ]
+
+    static let cursorAll: [CLIOptionConfig] = [
+        CLIOptionConfig(id: "--api-key", label: "API Key", description: "API key for authentication (alternative to CURSOR_API_KEY env var)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--approve-mcps", label: "Approve MCPs", description: "Automatically approve all MCP servers without prompting", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--continue", label: "Continue", description: "Continue the previous session (alias for --resume=-1)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--force", label: "Force", description: "Force allow commands unless explicitly denied", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--header", label: "Header", description: "Add a custom header to agent requests (format: Name: Value)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--list-models", label: "List Models", description: "List all available models and exit", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--mode", label: "Mode", description: "Set agent mode: plan or ask (default is agent when unspecified)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--model", label: "Model", description: "Model to use for this session", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--output-format", label: "Output Format", description: "Output format when using --print: text, json, or stream-json", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--plan", label: "Plan Mode", description: "Start in plan mode (shorthand for --mode=plan)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--print", label: "Print Mode", description: "Print responses to console for non-interactive use (has access to all tools)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--resume", label: "Resume", description: "Resume a chat session by ID", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--sandbox", label: "Sandbox", description: "Set sandbox mode: enabled or disabled", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--stream-partial-output", label: "Stream Partial Output", description: "Stream partial output as individual text deltas (requires --print and stream-json)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--trust", label: "Trust", description: "Trust the workspace without prompting (headless mode only)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--workspace", label: "Workspace", description: "Workspace directory to use for this session", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--yolo", label: "Yolo", description: "Alias for --force: force allow commands unless explicitly denied", isAvailable: false, isDefaultEnabled: false),
     ]
 }

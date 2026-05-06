@@ -4,11 +4,13 @@ import Observation
 enum CLIType: String, Codable, CaseIterable {
     case claude
     case codex
+    case cursor
 
     var displayName: String {
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
+        case .cursor: return "Cursor"
         }
     }
 
@@ -16,6 +18,7 @@ enum CLIType: String, Codable, CaseIterable {
         switch self {
         case .claude: return "claude"
         case .codex: return "codex"
+        case .cursor: return "agent"
         }
     }
 }

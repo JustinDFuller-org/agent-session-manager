@@ -25,6 +25,7 @@ struct SettingsPersistence {
 
     private static var settingsURL: URL { appSupportDir.appending(path: "settings.json") }
     private static var codexSettingsURL: URL { appSupportDir.appending(path: "codex-settings.json") }
+    private static var cursorSettingsURL: URL { appSupportDir.appending(path: "cursor-settings.json") }
     private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
     private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
@@ -77,6 +78,30 @@ struct SettingsPersistence {
             }
         }
         appSettings.codexCliOptions = updated + userAdded
+    }
+
+    static func saveCursorOptions(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.cursorCliOptions) else { return }
+        try? data.write(to: cursorSettingsURL)
+    }
+
+    static func restoreCursorOptions(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: cursorSettingsURL),
+            let saved = try? JSONDecoder().decode([CLIOptionConfig].self, from: data)
+        else { return }
+
+        var updated = CLIOptionConfig.cursorAll
+        var userAdded: [CLIOptionConfig] = []
+        for savedOption in saved {
+            if savedOption.isUserAdded {
+                userAdded.append(savedOption)
+            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
+                updated[index].isAvailable = savedOption.isAvailable
+                updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
+            }
+        }
+        appSettings.cursorCliOptions = updated + userAdded
     }
 
     static func saveActiveTools(appSettings: AppSettings) {
