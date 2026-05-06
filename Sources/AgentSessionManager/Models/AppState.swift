@@ -3,58 +3,89 @@ import Observation
 
 @Observable
 @MainActor
-final class StatusLineMonitor {
-    private(set) var currentData: StatusLineData?
+final class AppState {
+    var tabs: [Tab] = []
+    var activeTabID: UUID?
+    var activePaneID: UUID?
+    var notifications: [PaneNotification] = []
 
-    let filePath: String
-    let settingsFilePath: String
-    private var source: DispatchSourceFileSystemObject?
-
-    init(paneID: UUID) {
-        filePath = NSTemporaryDirectory() + "asm-status-\(paneID.uuidString).json"
-        settingsFilePath = NSTemporaryDirectory() + "asm-settings-\(paneID.uuidString).json"
+    var activeTab: Tab? {
+        tabs.first { $0.id == activeTabID }
     }
 
-    func start() {
-        writeSettingsFile()
-        FileManager.default.createFile(atPath: filePath, contents: nil)
+    var activePane: Pane? {
+        activeTab?.panes.first { $0.id == activePaneID }
+    }
 
-        let fd = open(filePath, O_EVTONLY)
-        guard fd >= 0 else { return }
+    func addTab(name: String, directory: URL) {
+        let tab = Tab(name: name, directory: directory)
+        tabs.append(tab)
+        activeTabID = tab.id
+    }
 
-        let src = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        src.setEventHandler { [weak self, filePath] in
-            guard let data = try? Data(contentsOf: URL(filePath: filePath)),
-                  let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
-            else { return }
-            Task { @MainActor [weak self] in
-                self?.currentData = parsed
+    func switchToTab(id: UUID) {
+        activeTab?.lastActivePaneID = activePaneID
+        activeTabID = id
+        let saved = activeTab?.lastActivePaneID
+        activePaneID = activeTab?.panes.first(where: { $0.id == saved })?.id ?? activeTab?.panes.first?.id
+    }
+
+    func setActivePane(id: UUID?) {
+        activeTab?.lastActivePaneID = id
+        activePaneID = id
+        if let id { clearNotification(paneID: id) }
+    }
+
+    func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
+        tabs.contains { $0.directory == directory && $0.hasPaneNamed(name) }
+    }
+
+    /// True if a Claude pane in that tab already uses this checkout directory (managed or external).
+    func isClaudeCheckoutInUse(directory: URL, checkout: URL) -> Bool {
+        let normalized = checkout.standardizedFileURL
+        return tabs.contains { tab in
+            guard tab.directory == directory else { return false }
+            return tab.panes.contains { pane in
+                guard pane.cliType == .claude else { return false }
+                return pane.worktreePath?.standardizedFileURL == normalized
             }
         }
-        src.setCancelHandler { close(fd) }
-        src.resume()
-        source = src
     }
 
-    func stop() {
-        source?.cancel()
-        source = nil
-        try? FileManager.default.removeItem(atPath: filePath)
-        try? FileManager.default.removeItem(atPath: settingsFilePath)
+    func closeTab(_ tab: Tab) {
+        tab.panes.forEach {
+            $0.terminalController?.terminate()
+            clearNotification(paneID: $0.id)
+        }
+        tabs.removeAll { $0.id == tab.id }
+        if activeTabID == tab.id {
+            activeTabID = tabs.last?.id
+        }
     }
 
-    private func writeSettingsFile() {
-        let settings: [String: Any] = [
-            "statusLine": [
-                "type": "command",
-                "command": "cat > '\(filePath)'"
-            ]
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) else { return }
-        try? data.write(to: URL(filePath: settingsFilePath))
+    func moveTab(from source: IndexSet, to destination: Int) {
+        tabs.move(fromOffsets: source, toOffset: destination)
+        SessionPersistence.save(appState: self)
+    }
+
+    func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
+        guard activePaneID != paneID else { return }
+        guard !notifications.contains(where: { $0.paneID == paneID }) else { return }
+        notifications.append(PaneNotification(
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
+            isPriority: isPriority
+        ))
+    }
+
+    func clearNotification(paneID: UUID) {
+        notifications.removeAll { $0.paneID == paneID }
+    }
+
+    func navigateTo(notification: PaneNotification) {
+        switchToTab(id: notification.tabID)
+        setActivePane(id: notification.paneID)
     }
 }

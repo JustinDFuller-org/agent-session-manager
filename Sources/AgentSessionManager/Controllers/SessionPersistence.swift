@@ -17,12 +17,15 @@ struct PersistedPane: Codable {
     var name: String
     var cliType: CLIType
     var isPriority: Bool
+    /// Absolute path when Claude runs in a reused checkout (not under `.agent-session-manager/worktrees/`).
+    var claudeProcessDirectory: String?
 
-    init(id: UUID, name: String, cliType: CLIType, isPriority: Bool) {
+    init(id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, claudeProcessDirectory: String? = nil) {
         self.id = id
         self.name = name
         self.cliType = cliType
         self.isPriority = isPriority
+        self.claudeProcessDirectory = claudeProcessDirectory
     }
 
     init(from decoder: Decoder) throws {
@@ -31,6 +34,7 @@ struct PersistedPane: Codable {
         name = try container.decode(String.self, forKey: .name)
         cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
         isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
+        claudeProcessDirectory = try container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
     }
 }
 
@@ -49,7 +53,15 @@ struct SessionPersistence {
                 id: tab.id,
                 name: tab.name,
                 directory: tab.directory.path,
-                panes: tab.panes.map { PersistedPane(id: $0.id, name: $0.name, cliType: $0.cliType, isPriority: $0.isPriority) }
+                panes: tab.panes.map {
+                    PersistedPane(
+                        id: $0.id,
+                        name: $0.name,
+                        cliType: $0.cliType,
+                        isPriority: $0.isPriority,
+                        claudeProcessDirectory: $0.claudeDirectoryOverride?.path
+                    )
+                }
             )
         }
         let activeTabIndex = appState.tabs.firstIndex { $0.id == appState.activeTabID }
@@ -69,8 +81,36 @@ struct SessionPersistence {
             let tab = Tab(name: persistedTab.name, directory: dir)
             for persistedPane in persistedTab.panes {
                 if persistedPane.cliType == .claude {
-                    let worktreePath = dir.appending(path: ".tree/\(persistedPane.name)")
-                    guard FileManager.default.fileExists(atPath: worktreePath.path) else { continue }
+                    if let pathStr = persistedPane.claudeProcessDirectory {
+                        let override = URL(fileURLWithPath: pathStr).standardizedFileURL
+                        guard FileManager.default.fileExists(atPath: override.path) else { continue }
+                        tab.addPane(
+                            name: persistedPane.name,
+                            cliType: persistedPane.cliType,
+                            claudeDirectoryOverride: override
+                        )
+                        if let pane = tab.panes.last {
+                            pane.isPriority = persistedPane.isPriority
+                            pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
+                                Task { @MainActor in
+                                    guard let appState, let tab, let pane else { return }
+                                    appState.addNotification(
+                                        paneID: pane.id,
+                                        paneName: pane.name,
+                                        tabID: tab.id,
+                                        tabName: tab.name,
+                                        isPriority: pane.isPriority
+                                    )
+                                }
+                            }
+                        }
+                        continue
+                    }
+                    let managed = Tab.worktreeDirectoryURL(repoRoot: dir, name: persistedPane.name)
+                    let legacy = dir.appending(path: ".tree/\(persistedPane.name)", directoryHint: .notDirectory)
+                    let hasWorktree = FileManager.default.fileExists(atPath: managed.path)
+                        || FileManager.default.fileExists(atPath: legacy.path)
+                    guard hasWorktree else { continue }
                 }
                 let pane = tab.addPane(name: persistedPane.name, cliType: persistedPane.cliType)
                 pane.isPriority = persistedPane.isPriority

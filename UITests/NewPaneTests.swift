@@ -137,4 +137,19 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertTrue(errorText.exists)
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
     }
+
+    func testUnifiedFieldKeepsBranchRefInputAndEnablesOpen() {
+        app.typeKey("p", modifierFlags: .command)
+        let nameField = app.textFields["new-pane-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("origin/feature-branch")
+
+        XCTAssertTrue(app.textFields["new-pane-name-field"].exists)
+        XCTAssertTrue(app.buttons["new-pane-open-button"].isEnabled)
+        screenshot("13b-new-pane-unified-branch-ref")
+
+        XCTAssertFalse(app.staticTexts["new-pane-name-error"].exists)
+    }
 }
+
