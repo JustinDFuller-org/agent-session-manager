@@ -271,6 +271,7 @@ struct NewPaneSheet: View {
             resetForm()
             tab.addPane(name: trimmedCodexInput, extraArgs: extraArgs, cliType: .codex)
             appState.setActivePane(id: tab.panes.last?.id)
+            SessionPersistence.save(appState: appState)
             dismiss()
             return
 
@@ -307,6 +308,7 @@ struct NewPaneSheet: View {
                                 wireBell(pane: pane, priority: isPriority)
                             }
                             appState.setActivePane(id: tab.panes.last?.id)
+                            SessionPersistence.save(appState: appState)
                             dismiss()
                         }
                     }
@@ -358,6 +360,7 @@ struct NewPaneSheet: View {
                         wireBell(pane: pane, priority: isPriority)
                     }
                     appState.setActivePane(id: tab.panes.last?.id)
+                    SessionPersistence.save(appState: appState)
                     dismiss()
                 }
             } catch {

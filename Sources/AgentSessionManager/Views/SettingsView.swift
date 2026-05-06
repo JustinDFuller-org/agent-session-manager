@@ -82,6 +82,27 @@ private struct GeneralContent: View {
                     .padding(.vertical, 2)
                 }
             }
+            Section("Sessions") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Continue on Restart")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text("Resume the last conversation when Claude panes reopen after a restart.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-continue-on-restart-toggle")
+                        .onChange(of: appSettings.continueOnRestart) {
+                            SettingsPersistence.saveRestartSettings(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
+            }
         }
         .formStyle(.grouped)
     }

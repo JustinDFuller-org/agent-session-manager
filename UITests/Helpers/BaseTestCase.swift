@@ -66,7 +66,8 @@ class BaseTestCase: XCTestCase {
             .appending(path: "agent-session-manager")
         for file in ["sessions.json", "settings.json", "codex-settings.json",
                       "statusline-settings.json", "active-tools-settings.json",
-                      "default-branch.json", "notification-settings.json"] {
+                      "default-branch.json", "notification-settings.json",
+                      "restart-settings.json"] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
     }

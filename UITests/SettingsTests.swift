@@ -89,6 +89,20 @@ final class SettingsTests: BaseTestCase {
         XCTAssertTrue(field.exists)
     }
 
+    func testContinueOnRestartToggleExists() {
+        openSettings()
+        let toggle = app.checkBoxes["settings-continue-on-restart-toggle"]
+        waitFor(toggle)
+        XCTAssertTrue(toggle.exists)
+    }
+
+    func testContinueOnRestartToggleDefaultsToOn() {
+        openSettings()
+        let toggle = app.checkBoxes["settings-continue-on-restart-toggle"]
+        waitFor(toggle)
+        XCTAssertEqual(toggle.value as? Int, 1)
+    }
+
     private func openSettings() {
         app.typeKey(",", modifierFlags: .command)
     }

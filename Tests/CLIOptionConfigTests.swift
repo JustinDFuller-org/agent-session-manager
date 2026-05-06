@@ -604,3 +604,23 @@ final class BranchSanitizationTests: XCTestCase {
         XCTAssertTrue(Tab.isValidWorktreeName(sanitized))
     }
 }
+
+
+final class ContinueOnRestartCommandTests: XCTestCase {
+    func testBuildClaudeCommandWithContinueFlag() {
+        let cmd = Tab.buildClaudeCommand(name: "auth-fix", settingsPath: "/tmp/s.json", extraArgs: " --continue")
+        XCTAssertTrue(cmd.contains("--continue"))
+        XCTAssertTrue(cmd.hasSuffix("--continue"))
+    }
+
+    func testBuildClaudeCommandReuseCheckoutWithContinueFlag() {
+        let cmd = Tab.buildClaudeCommand(worktreeName: nil, settingsPath: "/tmp/s.json", extraArgs: " --continue")
+        XCTAssertFalse(cmd.contains("--worktree"))
+        XCTAssertTrue(cmd.hasSuffix("--continue"))
+    }
+
+    func testBuildClaudeCommandWithoutContinueFlagWhenDisabled() {
+        let cmd = Tab.buildClaudeCommand(name: "auth-fix", settingsPath: "/tmp/s.json", extraArgs: "")
+        XCTAssertFalse(cmd.contains("--continue"))
+    }
+}

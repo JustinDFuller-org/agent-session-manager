@@ -12,6 +12,7 @@ final class AppSettings {
     var isDefaultBranchEnabled: Bool = true
     var notificationSidebarSide: SidebarSide = .right
     var isPriorityNotificationsEnabled: Bool = true
+    var continueOnRestart: Bool = true
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

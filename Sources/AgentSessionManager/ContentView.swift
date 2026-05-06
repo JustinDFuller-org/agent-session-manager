@@ -21,7 +21,8 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreActiveTools(into: appSettings)
                         SettingsPersistence.restoreDefaultBranch(into: appSettings)
                         SettingsPersistence.restoreNotificationSettings(into: appSettings)
-                        SessionPersistence.restore(into: appState)
+                        SettingsPersistence.restoreRestartSettings(into: appSettings)
+                        SessionPersistence.restore(into: appState, appSettings: appSettings)
                     }
                 }
                 .onChange(of: appState.tabs.count) { SessionPersistence.save(appState: appState) }
