@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct StatusLineView: View {
     let monitor: StatusLineMonitor
@@ -44,11 +45,11 @@ struct StatusLineView: View {
 
     @ViewBuilder
     private func chipView(item: StatusLineItem, data: StatusLineData) -> some View {
-        HStack(spacing: 4) {
+        let content = HStack(spacing: 4) {
             if config.chipLabelStyle != .labelOnly {
                 Image(systemName: item.sfSymbol)
                     .font(.system(size: 10))
-                    .foregroundStyle(item.id == "exceeds200k" && data.exceeds200kTokens == true ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
+                    .foregroundStyle(iconTint(itemID: item.id, data: data))
             }
             if config.chipLabelStyle == .symbolAndLabel || config.chipLabelStyle == .labelOnly {
                 Text(item.label)
@@ -57,6 +58,31 @@ struct StatusLineView: View {
             }
             chipContent(for: item.id, data: data)
         }
+        if item.id == "pr", let url = URL(string: data.pr?.url ?? "") {
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+        } else {
+            content
+        }
+    }
+
+    private func iconTint(itemID: String, data: StatusLineData) -> AnyShapeStyle {
+        if itemID == "exceeds200k", data.exceeds200kTokens == true {
+            return AnyShapeStyle(.orange)
+        }
+        if itemID == "pr", let pr = data.pr {
+            switch pr.state.lowercased() {
+            case "open": return AnyShapeStyle(.green)
+            case "merged": return AnyShapeStyle(.purple)
+            case "closed": return AnyShapeStyle(.red)
+            default: return AnyShapeStyle(.tertiary)
+            }
+        }
+        return AnyShapeStyle(.tertiary)
     }
 
     @ViewBuilder
@@ -99,6 +125,23 @@ struct StatusLineView: View {
             Text(data.exceeds200kTokens == true ? "200k+" : "—")
                 .font(.caption)
                 .foregroundStyle(data.exceeds200kTokens == true ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+        case "pr":
+            if let pr = data.pr {
+                HStack(spacing: 4) {
+                    Text("#\(pr.number)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    stateBadge(pr.state)
+                    Text(truncatedTitle(pr.title))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            } else {
+                Text("—")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         default:
             Text(textValue(for: itemID, data: data))
                 .font(.caption)
@@ -181,5 +224,24 @@ struct StatusLineView: View {
         let minutes = (Int(remaining) % 3600) / 60
         if hours > 0 { return "in \(hours)h \(minutes)m" }
         return "in \(minutes)m"
+    }
+
+    private func stateBadge(_ state: String) -> some View {
+        let color: Color = {
+            switch state.lowercased() {
+            case "open": return .green
+            case "merged": return .purple
+            case "closed": return .red
+            default: return .secondary
+            }
+        }()
+        return Circle()
+            .fill(color)
+            .frame(width: 6, height: 6)
+    }
+
+    private func truncatedTitle(_ title: String) -> String {
+        if title.count <= 40 { return title }
+        return String(title.prefix(37)) + "..."
     }
 }

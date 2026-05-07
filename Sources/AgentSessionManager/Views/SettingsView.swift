@@ -567,7 +567,7 @@ private struct StatusLineContent: View {
         @Bindable var appSettings = appSettings
         Form {
             Section {
-                Text("Configure the info panel shown at the bottom of each pane. Items are populated from Claude session data.")
+                Text("Configure the info panel shown at the bottom of each pane. Items are populated from tool session data.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -588,6 +588,21 @@ private struct StatusLineContent: View {
                 .onChange(of: appSettings.statusLineConfig.rowAlignment) {
                     SettingsPersistence.saveStatusLine(appSettings: appSettings)
                 }
+            }
+            Section("GitHub PR Tracking") {
+                Toggle(isOn: $appSettings.githubPRTrackingEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Track pull requests")
+                        Text("Detects the PR for the current git branch and shows its status in the status line. Requires the GitHub CLI (gh) installed and authenticated.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                .onChange(of: appSettings.githubPRTrackingEnabled) {
+                    SettingsPersistence.savePRTracking(appSettings: appSettings)
+                }
+                .accessibilityIdentifier("settings-pr-tracking-toggle")
             }
             ForEach(appSettings.statusLineConfig.rows.indices, id: \.self) { rowIndex in
                 rowSection(rowIndex: rowIndex, appSettings: appSettings)
@@ -720,6 +735,7 @@ private struct StatusLineContent: View {
         case "version": return "Claude CLI version"
         case "outputStyle": return "Output style name"
         case "exceeds200k": return "Warning when context exceeds 200k tokens"
+        case "pr": return "GitHub pull request status for the current branch"
         default: return ""
         }
     }

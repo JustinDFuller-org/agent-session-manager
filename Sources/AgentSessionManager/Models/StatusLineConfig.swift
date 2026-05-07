@@ -101,6 +101,7 @@ struct StatusLineConfig: Codable {
         "version":          ("Version",           "info.circle"),
         "outputStyle":      ("Output Style",      "text.alignleft"),
         "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
+        "pr":               ("PR",                "arrow.triangle.pull"),
     ]
 
     static let itemOrder: [String] = [
@@ -108,6 +109,7 @@ struct StatusLineConfig: Codable {
         "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
+        "pr",
     ]
 
     private static let defaultVisible: Set<String> = ["model", "worktree", "cost", "context"]
@@ -170,6 +172,28 @@ struct StatusLineConfig: Codable {
     enum CodingKeys: String, CodingKey {
         case rows, chipLabelStyle, rowAlignment
         case items
+    }
+}
+
+struct PullRequest: Codable, Identifiable {
+    let number: Int
+    let title: String
+    let state: String
+    let url: String
+
+    var id: Int { number }
+
+    var stateDisplayName: String {
+        switch state.lowercased() {
+        case "open": return "open"
+        case "merged": return "merged"
+        case "closed": return "closed"
+        default: return state.lowercased()
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case number, title, state, url
     }
 }
 
@@ -274,6 +298,7 @@ struct StatusLineData: Codable {
     let sessionName: String?
     let version: String?
     let exceeds200kTokens: Bool?
+    var pr: PullRequest?
 
     enum CodingKeys: String, CodingKey {
         case model
@@ -290,5 +315,6 @@ struct StatusLineData: Codable {
         case sessionName = "session_name"
         case version
         case exceeds200kTokens = "exceeds_200k_tokens"
+        case pr
     }
 }
