@@ -9,13 +9,11 @@ struct TabButtonView: View {
         appState.activeTabID == tab.id
     }
 
-    private var tabNotification: PaneNotification? {
-        let tabPaneIDs = Set(tab.panes.map(\.id))
-        return appState.notifications.first { tabPaneIDs.contains($0.paneID) && $0.isPriority }
-            ?? appState.notifications.first { tabPaneIDs.contains($0.paneID) }
-    }
-
     var body: some View {
+        @Bindable var appState = appState
+        let tabPaneIDs = Set(tab.panes.map(\.id))
+        let tabNotification = appState.notifications.first { tabPaneIDs.contains($0.paneID) && $0.isPriority }
+            ?? appState.notifications.first { tabPaneIDs.contains($0.paneID) }
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 1) {

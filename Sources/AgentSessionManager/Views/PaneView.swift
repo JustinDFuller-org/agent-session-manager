@@ -7,17 +7,14 @@ struct PaneView: View {
     let onClosePane: (Pane) -> Void
     @State private var pulse = false
 
-    private var isActive: Bool { appState.activePaneID == pane.id }
-
-    private var pendingNotification: PaneNotification? {
-        appState.notifications.first { $0.paneID == pane.id }
-    }
-
     var body: some View {
+        @Bindable var appState = appState
+        let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
+        let isActive = appState.activePaneID == pane.id
         VStack(spacing: 0) {
-            paneHeader
+            paneHeader(pendingNotification: pendingNotification)
             Divider()
-            terminalBody
+            terminalBody(isActive: isActive)
             statusLine
         }
         .background(Color(nsColor: .textBackgroundColor))
@@ -35,7 +32,7 @@ struct PaneView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var paneHeader: some View {
+    private func paneHeader(pendingNotification: PaneNotification?) -> some View {
         HStack(spacing: 6) {
             statusDot
 
@@ -110,7 +107,7 @@ struct PaneView: View {
     }
 
     @ViewBuilder
-    private var terminalBody: some View {
+    private func terminalBody(isActive: Bool) -> some View {
         if let controller = pane.terminalController {
             TerminalRepresentable(controller: controller, isActive: isActive)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

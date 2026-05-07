@@ -9,9 +9,9 @@ struct ContentView: View {
     @State private var pendingCleanupPane: Pane?
     @State private var pendingCleanupTab: Tab?
 
-    private var hasNotifications: Bool { !appState.notifications.isEmpty }
-
     var body: some View {
+        @Bindable var appState = appState
+        let hasNotifications = !appState.notifications.isEmpty
         VStack(spacing: 0) {
             TabBarView()
                 .frame(height: 44)

@@ -125,19 +125,11 @@ struct SessionPersistence {
                     worktreeDirectory: worktreeDir,
                     worktreeIsManaged: persistedPane.worktreeIsManaged
                 )
-                pane.isPriority = persistedPane.isPriority
-                pane.terminalController?.onBell = { [weak appState, weak tab, weak pane] in
-                    Task { @MainActor in
-                        guard let appState, let tab, let pane else { return }
-                        appState.addNotification(
-                            paneID: pane.id,
-                            paneName: pane.name,
-                            tabID: tab.id,
-                            tabName: tab.name,
-                            isPriority: pane.isPriority
-                        )
-                    }
-                }
+                pane.wireTerminalBellForNotifications(
+                    appState: appState,
+                    tab: tab,
+                    isPriority: persistedPane.isPriority
+                )
             }
             appState.tabs.append(tab)
         }
