@@ -5,12 +5,14 @@ enum CLIType: String, Codable, CaseIterable {
     case claude
     case codex
     case cursor
+    case opencode
 
     var displayName: String {
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
         case .cursor: return "Cursor"
+        case .opencode: return "OpenCode"
         }
     }
 
@@ -19,6 +21,7 @@ enum CLIType: String, Codable, CaseIterable {
         case .claude: return "claude"
         case .codex: return "codex"
         case .cursor: return "agent"
+        case .opencode: return "opencode"
         }
     }
 }

@@ -292,6 +292,15 @@ private struct UnifiedCLIOptionsContent: View {
                     onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
                     customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
                 )
+            case .opencode:
+                CLIOptionsContent(
+                    options: Binding(
+                        get: { appSettings.opencodeCliOptions },
+                        set: { appSettings.opencodeCliOptions = $0 }
+                    ),
+                    onSave: { SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings) },
+                    customFlagFooter: "Custom flags may not be recognized by all OpenCode CLI versions."
+                )
             }
         }
     }
