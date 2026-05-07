@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var showCleanupAlert = false
     @State private var pendingCleanupPane: Pane?
     @State private var pendingCleanupTab: Tab?
+    @State private var showDebugLog = false
 
     private var hasNotifications: Bool { !appState.notifications.isEmpty }
 
@@ -48,6 +49,22 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
         .focusedSceneValue(\.hasActiveTab, !appState.tabs.isEmpty)
+        .overlay(alignment: .bottomTrailing) {
+            if appSettings.debugLoggingEnabled {
+                Button {
+                    showDebugLog = true
+                } label: {
+                    Image(systemName: "ladybug")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+                .accessibilityIdentifier("debug-log-button")
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .newTab)) { _ in
             showingNewTab = true
         }
@@ -62,6 +79,10 @@ struct ContentView: View {
         ))
         .sheet(isPresented: $showingNewTab) {
             NewTabSheet()
+        }
+        .sheet(isPresented: $showDebugLog) {
+            DebugLogView()
+                .environment(appState)
         }
         .alert("Close Worktree Pane", isPresented: $showCleanupAlert) {
             Button("Keep Worktree") {

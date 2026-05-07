@@ -38,13 +38,35 @@ final class TerminalController: NSObject {
     func startProcess() {
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         if let cmd = pendingCommand {
+            // Args evolution:
+            // - Removed -l (login shell) because it causes zsh to source /etc/zprofile,
+            //   ~/.zprofile, and shell init scripts which access TCC-protected paths
+            //   (iCloud Drive, Music, etc.) and trigger macOS permission dialogs.
+            // - Added -f (fast start) to skip loading ~/.zshrc, /etc/zshenv, and all
+            //   other startup files. The -i flag is kept for interactive PTY behavior.
+            // - HOME is NOT scoped — Claude Code needs real HOME for ~/.claude/ auth.
+            //   Remaining TCC prompts are one-time decisions from Claude's startup
+            //   path scanning. See documentation/features/panes.md.
+            let args = ["-f", "-i", "-c", cmd]
+            DebugLogger.shared.logProcessStart(
+                executable: shell,
+                args: args,
+                environment: pendingEnvironment,
+                currentDirectory: pendingDirectory
+            )
             terminalView.startProcess(
                 executable: shell,
-                args: ["-l", "-i", "-c", cmd],
+                args: args,
                 environment: pendingEnvironment,
                 currentDirectory: pendingDirectory
             )
         } else {
+            DebugLogger.shared.logProcessStart(
+                executable: shell,
+                args: [],
+                environment: pendingEnvironment,
+                currentDirectory: pendingDirectory
+            )
             terminalView.startProcess(
                 executable: shell,
                 environment: pendingEnvironment,
@@ -55,6 +77,28 @@ final class TerminalController: NSObject {
         if pid > 0 {
             processState = .running(pid: pid)
         }
+    }
+
+    var terminalContent: String {
+        let terminal = terminalView.terminal
+        guard let terminal, terminal.rows > 0, terminal.cols > 0 else { return "" }
+        var lines: [String] = []
+        for row in 0..<terminal.rows {
+            var chars: [Character] = []
+            for col in 0..<terminal.cols {
+                if let ch = terminal.getCharacter(col: col, row: row) {
+                    chars.append(ch)
+                } else {
+                    chars.append(" ")
+                }
+            }
+            let line = String(chars).replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
+            lines.append(line)
+        }
+        while let last = lines.last, last.isEmpty {
+            lines.removeLast()
+        }
+        return lines.joined(separator: "\n")
     }
 
     func terminate() {
