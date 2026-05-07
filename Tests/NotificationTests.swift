@@ -27,12 +27,13 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications.count, 1)
     }
 
-    func testAddNotificationSkipsActivePane() {
+    func testAddNotificationIncludesActivePane() {
         let state = AppState()
         let paneID = UUID()
         state.activePaneID = paneID
         state.addNotification(paneID: paneID, paneName: "auth-fix", tabID: UUID(), tabName: "myapp", isPriority: false)
-        XCTAssertTrue(state.notifications.isEmpty)
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications[0].paneID, paneID)
     }
 
     func testClearNotification() {

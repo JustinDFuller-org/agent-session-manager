@@ -68,7 +68,6 @@ final class AppState {
     }
 
     func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
-        guard activePaneID != paneID else { return }
         guard !notifications.contains(where: { $0.paneID == paneID }) else { return }
         notifications.append(PaneNotification(
             paneID: paneID,

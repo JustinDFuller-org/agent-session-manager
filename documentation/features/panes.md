@@ -26,7 +26,7 @@ Open panes are saved to `~/Library/Application Support/agent-session-manager/ses
 
 ## Attention notifications
 
-When a tool sends a terminal bell (`\a`) from a pane that is not focused, Agent Session Manager can surface [in-app notifications and optional macOS banners](notifications.md).
+When a tool sends a terminal bell (`\a`), Agent Session Manager can surface [in-app notifications and optional macOS banners](notifications.md) (including when that pane is focused).
 
 ## macOS Permission Prompts
 

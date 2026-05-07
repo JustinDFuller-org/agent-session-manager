@@ -20,7 +20,7 @@ Claude Code sends a terminal bell character (`\a`) when it needs the developer's
 printf '\a'
 ```
 
-The pane must not be the currently focused (active) pane for a notification to be recorded.
+Bell events are recorded even when the pane is the active (focused) pane, to make testing and attention signals consistent.
 
 ## Notification Sidebar
 

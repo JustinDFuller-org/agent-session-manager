@@ -21,7 +21,7 @@ final class TerminalBellNotificationTests: XCTestCase {
         XCTAssertTrue(appState.notifications.first?.isPriority ?? false)
     }
 
-    func testWireTerminalBellForNotificationsSkipsWhenPaneIsActive() async {
+    func testWireTerminalBellForNotificationsAddsWhenPaneIsActive() async {
         let appState = AppState()
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp", directoryHint: .isDirectory))
         let pane = tab.addPane(name: "p1")
@@ -31,7 +31,8 @@ final class TerminalBellNotificationTests: XCTestCase {
         pane.terminalController?.onBell?()
         try? await Task.sleep(nanoseconds: 100_000_000)
 
-        XCTAssertTrue(appState.notifications.isEmpty)
+        XCTAssertEqual(appState.notifications.count, 1)
+        XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
     }
 
     func testBellFeedInvokesOnBell() async {
