@@ -99,7 +99,7 @@ final class DebugLogger {
         log(lines.joined(separator: "\n"))
     }
 
-    func buildReportText() -> String {
+    func buildReportText(maxBodyLength: Int? = nil) -> String {
         var lines: [String] = []
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -111,12 +111,42 @@ final class DebugLogger {
         lines.append("")
         lines.append("### Debug Log")
         lines.append("```")
-        for entry in entries {
+
+        let footer = "```"
+        var includedCount = 0
+
+        for entry in entries.reversed() {
             df.dateFormat = "HH:mm:ss.SSS"
-            let msg = entry.message.count > 8000 ? String(entry.message.prefix(8000)) + "…" : entry.message
-            lines.append("[\(df.string(from: entry.timestamp))] \(msg)")
+            var msg = entry.message.count > 8000 ? String(entry.message.prefix(8000)) + "…" : entry.message
+            let timestampPrefix = "[\(df.string(from: entry.timestamp))] "
+
+            if let maxLen = maxBodyLength, includedCount > 0 {
+                let prospective = (lines + [timestampPrefix + msg, "", footer]).joined(separator: "\n")
+                if prospective.count > maxLen {
+                    break
+                }
+            }
+
+            if let maxLen = maxBodyLength, includedCount == 0 {
+                let overhead = (lines + [timestampPrefix, "", footer]).joined(separator: "\n").count
+                let maxMsgLen = maxLen - overhead
+                if maxMsgLen <= 0 {
+                    msg = "(entry omitted — report body too large for URL)"
+                } else if msg.count > maxMsgLen {
+                    msg = String(msg.prefix(maxMsgLen)) + "…"
+                }
+            }
+
+            lines.append(timestampPrefix + msg)
+            lines.append("")
+            includedCount += 1
+        }
+
+        if let _ = maxBodyLength, includedCount < entries.count {
+            lines.append("...showing \(includedCount) of \(entries.count) most recent entries")
             lines.append("")
         }
+
         lines.append("```")
         return lines.joined(separator: "\n")
     }

@@ -180,6 +180,95 @@ final class DebugLoggerTests: XCTestCase {
         XCTAssertFalse(restored.debugLoggingEnabled)
     }
 
+    func testBuildReportTextNoTruncationWhenFits() {
+        DebugLogger.shared.isEnabled = true
+        DebugLogger.shared.log("short message one")
+        DebugLogger.shared.log("short message two")
+
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 5000)
+        XCTAssertTrue(report.contains("short message one"))
+        XCTAssertTrue(report.contains("short message two"))
+        XCTAssertFalse(report.contains("...showing"))
+        XCTAssertTrue(report.hasSuffix("```"))
+    }
+
+    func testBuildReportTextTruncatesWithSmallLimit() {
+        DebugLogger.shared.isEnabled = true
+        DebugLogger.shared.log("alpha-message")
+        DebugLogger.shared.log("beta-message")
+        DebugLogger.shared.log("gamma-message")
+
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 185)
+        XCTAssertFalse(report.contains("alpha-message"), "oldest entry should be dropped")
+        XCTAssertTrue(report.contains("...showing"), "truncation note should be present")
+        XCTAssertTrue(report.contains("of \(DebugLogger.shared.entries.count)"), "should show entry count")
+        XCTAssertTrue(report.hasSuffix("```"))
+    }
+
+    func testBuildReportTextIncludesAllEntriesWhenNilMaxLength() {
+        DebugLogger.shared.isEnabled = true
+        DebugLogger.shared.log("msg a")
+        DebugLogger.shared.log("msg b")
+        DebugLogger.shared.log("msg c")
+
+        let report = DebugLogger.shared.buildReportText()
+        XCTAssertTrue(report.contains("msg a"))
+        XCTAssertTrue(report.contains("msg b"))
+        XCTAssertTrue(report.contains("msg c"))
+        XCTAssertFalse(report.contains("...showing"))
+    }
+
+    func testBuildReportTextEmptyEntries() {
+        DebugLogger.shared.isEnabled = true
+
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 100)
+        XCTAssertTrue(report.contains("## Bug Report"))
+        XCTAssertTrue(report.contains("### Debug Log"))
+        XCTAssertTrue(report.contains("```"))
+        XCTAssertFalse(report.contains("...showing"))
+    }
+
+    func testBuildReportTextPreservesMostRecentEntries() {
+        DebugLogger.shared.isEnabled = true
+        for i in 1...20 {
+            DebugLogger.shared.log("entry-\(String(format: "%02d", i))")
+        }
+
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 200)
+        XCTAssertTrue(report.contains("entry-20"), "most recent entry should be kept")
+        XCTAssertFalse(report.contains("entry-05"), "older entries should be dropped")
+        XCTAssertTrue(report.contains("...showing"), "truncation note should be present")
+    }
+
+    func testBuildReportTextIndividualMessageTruncation() {
+        DebugLogger.shared.isEnabled = true
+        let longMsg = String(repeating: "x", count: 9000)
+        DebugLogger.shared.log(longMsg)
+
+        let report = DebugLogger.shared.buildReportText()
+        XCTAssertTrue(report.contains("…"))
+    }
+
+    func testBuildReportTextIncludesAtLeastOneEntry() {
+        DebugLogger.shared.isEnabled = true
+        DebugLogger.shared.log("first")
+        DebugLogger.shared.log("second")
+
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 150)
+        XCTAssertTrue(report.contains("second"), "most recent entry must be included")
+        XCTAssertTrue(report.contains("...showing"), "truncation note should be present")
+        XCTAssertTrue(report.contains("of \(DebugLogger.shared.entries.count)"))
+    }
+
+    func testBuildReportTextShowsPlaceholderWhenLimitTooSmallForMessage() {
+        DebugLogger.shared.isEnabled = true
+        DebugLogger.shared.log("some log message")
+
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 5)
+        XCTAssertTrue(report.contains("entry omitted"), "placeholder should appear when limit is too small")
+        XCTAssertFalse(report.contains("some log message"))
+    }
+
     func testClearPersistedDebugSettingsFile() {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
