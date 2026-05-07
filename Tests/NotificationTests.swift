@@ -4,6 +4,16 @@ import XCTest
 @MainActor
 final class NotificationTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        PersistenceHelpers.overrideAppSupportSubdirectory = "agent-session-manager"
+    }
+
+    override func tearDown() {
+        PersistenceHelpers.overrideAppSupportSubdirectory = nil
+        super.tearDown()
+    }
+
     // MARK: - AppState notification management
 
     func testAddNotification() {

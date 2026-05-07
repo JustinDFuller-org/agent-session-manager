@@ -45,7 +45,7 @@ private struct RestartConfig: Codable {
 struct SettingsPersistence {
     private static var appSupportDir: URL {
         let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = config.appending(path: "agent-session-manager")
+        let dir = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
