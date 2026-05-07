@@ -65,9 +65,11 @@ class BaseTestCase: XCTestCase {
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "agent-session-manager")
         for file in ["sessions.json", "settings.json", "codex-settings.json",
-                      "statusline-settings.json", "active-tools-settings.json",
-                      "default-branch.json", "notification-settings.json",
-                      "restart-settings.json", "worktree-cleanup.json"] {
+                      "cursor-settings.json", "statusline-settings.json",
+                      "active-tools-settings.json", "default-branch.json",
+                      "notification-settings.json", "restart-settings.json",
+                      "worktree-cleanup.json", "existing-worktree-management.json",
+                      "debug-settings.json"] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
     }
