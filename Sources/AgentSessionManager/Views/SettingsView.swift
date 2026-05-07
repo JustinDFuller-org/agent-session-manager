@@ -125,6 +125,9 @@ private struct GeneralContent: View {
                         .onChange(of: appSettings.debugLoggingEnabled) {
                             DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
                             SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                            if appSettings.debugLoggingEnabled {
+                                DebugLogger.shared.logSystemInfo()
+                            }
                         }
                 }
                 .padding(.vertical, 2)

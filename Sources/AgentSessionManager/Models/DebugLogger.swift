@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+#if canImport(AppKit)
+import AppKit
+#endif
 
 @Observable
 @MainActor
@@ -74,5 +77,57 @@ final class DebugLogger {
         let header = "── Terminal Content: \(paneName) ──"
         let trimmed = content.hasSuffix("\n") ? String(content.dropLast()) : content
         log("\(header)\n\(trimmed)")
+    }
+
+    func logSystemInfo() {
+        guard isEnabled else { return }
+        var lines: [String] = []
+        lines.append("── System Info ──")
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        lines.append("macOS: \(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)")
+        lines.append("macOS string: \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        if let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            lines.append("App version: \(appVersion)")
+        }
+        if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+            lines.append("Build: \(build)")
+        }
+        lines.append("Architecture: \(utsname.machineName)")
+        lines.append("Processor count: \(ProcessInfo.processInfo.processorCount)")
+        lines.append("Physical memory: \(ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024)) GB")
+        log(lines.joined(separator: "\n"))
+    }
+
+    func buildReportText() -> String {
+        var lines: [String] = []
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        lines.append("## Bug Report")
+        lines.append("Generated: \(df.string(from: Date()))")
+        lines.append("")
+        lines.append("### Description")
+        lines.append("<!-- Describe the issue -->")
+        lines.append("")
+        lines.append("### Debug Log")
+        lines.append("```")
+        for entry in entries {
+            df.dateFormat = "HH:mm:ss.SSS"
+            lines.append("[\(df.string(from: entry.timestamp))] \(entry.message)")
+            lines.append("")
+        }
+        lines.append("```")
+        return lines.joined(separator: "\n")
+    }
+}
+
+private extension utsname {
+    static var machineName: String {
+        var sys = utsname()
+        uname(&sys)
+        return withUnsafePointer(to: &sys.machine) { ptr in
+            ptr.withMemoryRebound(to: CChar.self, capacity: Int(_SYS_NAMELEN)) { cstr in
+                String(cString: cstr)
+            }
+        }
     }
 }

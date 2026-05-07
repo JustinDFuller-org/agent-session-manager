@@ -27,6 +27,9 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
                         SettingsPersistence.restoreDebugSettings(into: appSettings)
                         DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
+                        if appSettings.debugLoggingEnabled {
+                            DebugLogger.shared.logSystemInfo()
+                        }
                         SessionPersistence.restore(into: appState, appSettings: appSettings)
                     }
                 }

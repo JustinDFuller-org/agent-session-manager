@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct DebugLogView: View {
     @Environment(\.dismiss) private var dismiss
@@ -41,6 +42,12 @@ struct DebugLogView: View {
                     }
                     .disabled(DebugLogger.shared.entries.isEmpty)
                     .accessibilityIdentifier("debug-log-clear-button")
+
+                    Button("Report Bug") {
+                        reportBug()
+                    }
+                    .disabled(DebugLogger.shared.entries.isEmpty)
+                    .accessibilityIdentifier("debug-log-report-button")
                 }
             }
 
@@ -103,5 +110,16 @@ struct DebugLogView: View {
         let df = DateFormatter()
         df.dateFormat = "HH:mm:ss.SSS"
         return df.string(from: date)
+    }
+
+    private func reportBug() {
+        let body = DebugLogger.shared.buildReportText()
+        let title = "[Bug] "
+        guard let encodedTitle = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        else { return }
+        let urlString = "https://github.com/JustinDFuller/agent-session-manager/issues/new?title=\(encodedTitle)&body=\(encodedBody)"
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
     }
 }
