@@ -1,6 +1,21 @@
 import XCTest
 
 final class NotificationUITests: BaseTestCase {
+    /// Regression: General (debug) and Notifications (banner) settings must both remain reachable after merging those features.
+    func testGeneralDebugToggleAndNotificationsBannerToggleBothExist() {
+        app.typeKey(",", modifierFlags: .command)
+
+        let generalTab = app.buttons["General"]
+        waitFor(generalTab, timeout: 3)
+        generalTab.click()
+        waitFor(app.checkBoxes["settings-debug-logging-toggle"], timeout: 3)
+
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+        notificationsTab.click()
+        waitFor(app.checkBoxes["settings-macos-banner-notifications-toggle"], timeout: 3)
+    }
+
     func testNotificationsTabVisibleInSettings() {
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.buttons["Notifications"]

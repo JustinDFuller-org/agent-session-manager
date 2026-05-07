@@ -54,4 +54,9 @@ Settings → Notifications exposes these controls:
 | Sidebar Position | Which side the notification sidebar opens on (Left / Right) | Right |
 | Priority Notifications | Enable the priority pane toggle and priority sidebar section | On |
 
-These settings are persisted to `~/Library/Application Support/agent-session-manager/notification-settings.json`.
+These settings are persisted to `~/Library/Application Support/agent-session-manager/notification-settings.json` (alongside other app settings such as [debug-settings.json](debug-logging.md) under the same support directory).
+
+## See also
+
+- [debug-logging.md](debug-logging.md) — optional in-app debug log (process starts, git, session restore) separate from bell notifications; useful when diagnosing permission or PATH issues alongside panes.
+- [panes.md](panes.md) — how panes run the shell and CLI; relates to bell events from background panes.

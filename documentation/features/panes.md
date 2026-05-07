@@ -24,6 +24,10 @@ Each pane shows a configurable status bar at the bottom (model, cost, context us
 
 Open panes are saved to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch, the app restores tabs and restarts the CLI in any pane whose checkout still exists on disk (see restore rules in [worktree-creation.md](worktree-creation.md)).
 
+## Attention notifications
+
+When a tool sends a terminal bell (`\a`) from a pane that is not focused, Agent Session Manager can surface [in-app notifications and optional macOS banners](notifications.md).
+
 ## macOS Permission Prompts
 
 When you open your first pane for a repository, macOS may show permission dialogs like:
@@ -34,9 +38,11 @@ When you open your first pane for a repository, macOS may show permission dialog
 
 These are one-time Transparency, Consent, and Control (TCC) prompts. They occur because Claude Code scans common directories during startup (project detection, configuration discovery). Grant permission once and macOS remembers the decision — the prompts should not repeat.
 
-### What we already prevent
+### What we already mitigate
 
-Agent Session Manager launches zsh with `-f` (fast start), which skips all shell init scripts (`~/.zshrc`, `/etc/zshenv`, Oh My Zsh). This eliminates TCC prompts that would otherwise be triggered by shell startup files accessing protected paths.
+The app runs the user’s shell as `zsh -i -c '<command>'` (and omits the login `-l` flag). That avoids sourcing `/etc/zprofile` and `~/.zprofile`, which can trigger extra TCC prompts when those scripts touch protected paths. The shell is still interactive (`-i`), so `~/.zshrc` can run and tools like Homebrew or version managers can adjust `PATH`. The app does **not** use `zsh -f` (which skips init files entirely and often breaks CLI discovery).
+
+For process launches and environment details when diagnosing issues, see [debug-logging.md](debug-logging.md).
 
 ### If prompts persist across sessions
 

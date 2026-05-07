@@ -36,3 +36,7 @@ This is primarily useful for diagnosing issues like unexpected file-access permi
 ## Privacy note
 
 Environment variable values are logged in full (up to 200 characters per value). If your environment contains secrets (API keys, tokens), those will appear in the debug log. Review the log before sharing it with others, or clear the log after diagnosing your issue.
+
+## See also
+
+- [notifications.md](notifications.md) — terminal bell handling, in-app notification dots, sidebar, and optional macOS banners (separate from the debug log).
