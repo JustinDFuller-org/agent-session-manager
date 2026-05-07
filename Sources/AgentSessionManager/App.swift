@@ -48,6 +48,10 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
         .focusedSceneValue(\.hasActiveTab, !appState.tabs.isEmpty)
+        .task {
+            MacNotificationCoordinator.shared.bind(appState: appState, appSettings: appSettings)
+            await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .newTab)) { _ in
             showingNewTab = true
         }

@@ -85,6 +85,7 @@ final class NotificationTests: XCTestCase {
         let settings = AppSettings()
         XCTAssertEqual(settings.notificationSidebarSide, .right)
         XCTAssertTrue(settings.isPriorityNotificationsEnabled)
+        XCTAssertTrue(settings.isMacOSBannerNotificationsEnabled)
     }
 
     // MARK: - PersistedPane isPriority round-trip

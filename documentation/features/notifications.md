@@ -1,12 +1,14 @@
 # Notifications
 
-Agent Session Manager surfaces terminal bell events (sent by Claude Code and similar tools when they need your attention) as in-app notifications with visual indicators and a sidebar panel.
+Agent Session Manager surfaces terminal bell events (sent by Claude Code and similar tools when they need your attention) as in-app notifications with visual indicators, optional **macOS banner notifications** (Notification Center), and a sidebar panel.
 
 ## What It Does
 
 - **Pane indicator** — A colored dot appears in the pane header next to the process status indicator when that pane has an unread notification.
 - **Tab indicator** — A colored dot appears in the tab button when any pane in that tab has a pending notification.
 - **Notification sidebar** — A sidebar panel opens automatically when notifications are queued. It lists the pane name, tab name, and a formatted timestamp. Timestamps show the time (HH:mm) for today's notifications, and the date (MM/dd/yyyy) for older notifications.
+
+- **macOS banners** — When enabled in Settings, a system notification is shown for the same events (typically when the app is not the frontmost app). Clicking the notification focuses that pane. You must allow notifications for Agent Session Manager in **System Settings → Notifications** the first time the app requests permission.
 
 Notification dots and sidebar entries are orange for priority panes and blue for regular panes.
 
@@ -44,10 +46,11 @@ Priority is a per-pane setting and persists across app restarts.
 
 ## Configuration
 
-Settings → Notifications exposes two controls:
+Settings → Notifications exposes these controls:
 
 | Setting | Description | Default |
 |---|---|---|
+| Banner Notifications | Show macOS Notification Center banners for background pane bells (permission required) | On |
 | Sidebar Position | Which side the notification sidebar opens on (Left / Right) | Right |
 | Priority Notifications | Enable the priority pane toggle and priority sidebar section | On |
 

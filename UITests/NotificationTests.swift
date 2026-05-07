@@ -20,6 +20,9 @@ final class NotificationUITests: BaseTestCase {
 
         let priorityToggle = app.checkBoxes["settings-priority-notifications-toggle"]
         waitFor(priorityToggle, timeout: 3)
+
+        let bannerToggle = app.checkBoxes["settings-macos-banner-notifications-toggle"]
+        waitFor(bannerToggle, timeout: 3)
     }
 
     func testPriorityToggleAppearsInNewPaneSheetWhenEnabled() {
