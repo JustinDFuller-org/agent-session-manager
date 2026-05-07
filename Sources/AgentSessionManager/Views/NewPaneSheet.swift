@@ -28,6 +28,7 @@ struct NewPaneSheet: View {
         case .claude: return appSettings.cliOptions
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
+        case .opencode: return appSettings.opencodeCliOptions
         }
     }
 

@@ -26,6 +26,7 @@ struct SettingsPersistence {
     private static var settingsURL: URL { appSupportDir.appending(path: "settings.json") }
     private static var codexSettingsURL: URL { appSupportDir.appending(path: "codex-settings.json") }
     private static var cursorSettingsURL: URL { appSupportDir.appending(path: "cursor-settings.json") }
+    private static var opencodeSettingsURL: URL { appSupportDir.appending(path: "opencode-settings.json") }
     private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
     private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
@@ -105,6 +106,30 @@ struct SettingsPersistence {
             }
         }
         appSettings.cursorCliOptions = updated + userAdded
+    }
+
+    static func saveOpenCodeOptions(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.opencodeCliOptions) else { return }
+        try? data.write(to: opencodeSettingsURL)
+    }
+
+    static func restoreOpenCodeOptions(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: opencodeSettingsURL),
+            let saved = try? JSONDecoder().decode([CLIOptionConfig].self, from: data)
+        else { return }
+
+        var updated = CLIOptionConfig.opencodeAll
+        var userAdded: [CLIOptionConfig] = []
+        for savedOption in saved {
+            if savedOption.isUserAdded {
+                userAdded.append(savedOption)
+            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
+                updated[index].isAvailable = savedOption.isAvailable
+                updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
+            }
+        }
+        appSettings.opencodeCliOptions = updated + userAdded
     }
 
     static func saveActiveTools(appSettings: AppSettings) {

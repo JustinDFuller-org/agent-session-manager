@@ -43,7 +43,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
         } else {
             let id = try container.decode(String.self, forKey: .id)
-            let allTemplates = CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll
+            let allTemplates = CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll + CLIOptionConfig.opencodeAll
             guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
             }
@@ -113,6 +113,10 @@ struct CLIOptionConfig: Identifiable, Codable {
              "--trust",
              "--yolo":
             return .boolean
+        // OpenCode-specific boolean flags
+        case "--fork",
+             "--mdns":
+            return .boolean
         // Cursor-specific string flags
         case "--api-key":
             return .string(placeholder: "API key (or set CURSOR_API_KEY env var)")
@@ -137,6 +141,19 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "profile name")
         case "--sandbox":
             return .string(placeholder: "read-only / workspace-write / danger-full-access")
+        // OpenCode-specific string flags
+        case "--session":
+            return .string(placeholder: "Session ID")
+        case "--prompt":
+            return .string(placeholder: "Initial prompt")
+        case "--port":
+            return .string(placeholder: "Port number")
+        case "--hostname":
+            return .string(placeholder: "Hostname")
+        case "--mdns-domain":
+            return .string(placeholder: "Custom mDNS domain")
+        case "--cors":
+            return .string(placeholder: "Browser origin(s)")
         // String flags
         case "--add-dir":
             return .string(placeholder: "Path to additional working directory")
@@ -320,5 +337,19 @@ struct CLIOptionConfig: Identifiable, Codable {
         CLIOptionConfig(id: "--trust", label: "Trust", description: "Trust the workspace without prompting (headless mode only)", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--workspace", label: "Workspace", description: "Workspace directory to use for this session", isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(id: "--yolo", label: "Yolo", description: "Alias for --force: force allow commands unless explicitly denied", isAvailable: false, isDefaultEnabled: false),
+    ]
+
+    static let opencodeAll: [CLIOptionConfig] = [
+        CLIOptionConfig(id: "--agent", label: "Agent", description: "Agent to use", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--continue", label: "Continue", description: "Continue the last session", isAvailable: true, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--cors", label: "CORS", description: "Additional browser origin(s) to allow CORS", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--fork", label: "Fork", description: "Fork the session when continuing (use with --continue or --session)", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--hostname", label: "Hostname", description: "Hostname to listen on", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--mdns", label: "mDNS", description: "Enable mDNS discovery", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--mdns-domain", label: "mDNS Domain", description: "Custom mDNS domain name", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--model", label: "Model", description: "Model to use in the form of provider/model", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--port", label: "Port", description: "Port to listen on", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--prompt", label: "Prompt", description: "Prompt to use", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(id: "--session", label: "Session", description: "Session ID to continue", isAvailable: false, isDefaultEnabled: false),
     ]
 }

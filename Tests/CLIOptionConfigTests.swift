@@ -395,6 +395,76 @@ final class CursorCLIOptionConfigTests: XCTestCase {
     }
 }
 
+final class OpenCodeCLIOptionConfigTests: XCTestCase {
+    private var opencodeOptions: [CLIOptionConfig] {
+        CLIOptionConfig.opencodeAll.filter { !$0.isUserAdded }
+    }
+
+    func testOpenCodeFlagCount() {
+        XCTAssertEqual(opencodeOptions.count, 11, "Expected exactly 11 OpenCode CLI flags")
+    }
+
+    func testNoDuplicateOpenCodeIDs() {
+        let ids = opencodeOptions.map(\.id)
+        let unique = Set(ids)
+        XCTAssertEqual(ids.count, unique.count, "Duplicate OpenCode flag IDs detected")
+    }
+
+    func testAllOpenCodeFlagsHaveNonEmptyLabelsAndDescriptions() {
+        for option in opencodeOptions {
+            XCTAssertFalse(option.label.isEmpty, "\(option.id) has empty label")
+            XCTAssertFalse(option.description.isEmpty, "\(option.id) has empty description")
+        }
+    }
+
+    func testOpenCodeOptionTypeDefinedForAllFlags() {
+        for option in opencodeOptions {
+            switch option.optionType {
+            case .boolean:
+                break
+            case .string(let placeholder):
+                XCTAssertFalse(placeholder.isEmpty, "\(option.id) string type has empty placeholder")
+            }
+        }
+    }
+
+    func testOpenCodeFlagRoundTrip() throws {
+        let original = CLIOptionConfig.opencodeAll.first { $0.id == "--prompt" }!
+        var mutable = original
+        mutable.isAvailable = true
+        mutable.isDefaultEnabled = false
+
+        let encoded = try JSONEncoder().encode(mutable)
+        let decoded = try JSONDecoder().decode(CLIOptionConfig.self, from: encoded)
+
+        XCTAssertEqual(decoded.id, "--prompt")
+        XCTAssertFalse(decoded.isUserAdded)
+        XCTAssertTrue(decoded.isAvailable)
+        XCTAssertFalse(decoded.isDefaultEnabled)
+    }
+
+    func testOpenCodeBooleanFlags() {
+        let booleanIDs: Set<String> = ["--continue", "--fork", "--mdns"]
+        for flag in opencodeOptions where booleanIDs.contains(flag.id) {
+            if case .boolean = flag.optionType {} else {
+                XCTFail("\(flag.id) should be boolean type")
+            }
+        }
+    }
+
+    func testOpenCodeStringFlags() {
+        let stringIDs: Set<String> = [
+            "--session", "--prompt", "--model", "--agent",
+            "--port", "--hostname", "--mdns-domain", "--cors",
+        ]
+        for flag in opencodeOptions where stringIDs.contains(flag.id) {
+            if case .string = flag.optionType {} else {
+                XCTFail("\(flag.id) should be string type")
+            }
+        }
+    }
+}
+
 final class CLITypeTests: XCTestCase {
     func testCLITypeRoundTrip() throws {
         let encoded = try JSONEncoder().encode(CLIType.codex)
@@ -406,19 +476,22 @@ final class CLITypeTests: XCTestCase {
         XCTAssertEqual(CLIType.claude.rawValue, "claude")
         XCTAssertEqual(CLIType.codex.rawValue, "codex")
         XCTAssertEqual(CLIType.cursor.rawValue, "cursor")
+        XCTAssertEqual(CLIType.opencode.rawValue, "opencode")
     }
 
     func testCLITypeDisplayNames() {
         XCTAssertEqual(CLIType.claude.displayName, "Claude Code")
         XCTAssertEqual(CLIType.codex.displayName, "Codex")
         XCTAssertEqual(CLIType.cursor.displayName, "Cursor")
+        XCTAssertEqual(CLIType.opencode.displayName, "OpenCode")
     }
 
     func testAllCLITypeCases() {
-        XCTAssertEqual(CLIType.allCases.count, 3)
+        XCTAssertEqual(CLIType.allCases.count, 4)
         XCTAssertTrue(CLIType.allCases.contains(.claude))
         XCTAssertTrue(CLIType.allCases.contains(.codex))
         XCTAssertTrue(CLIType.allCases.contains(.cursor))
+        XCTAssertTrue(CLIType.allCases.contains(.opencode))
     }
 }
 

@@ -474,6 +474,8 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "codex\(extra)"
             case .cursor:
                 controller.pendingCommand = "agent\(extra)"
+            case .opencode:
+                controller.pendingCommand = "opencode\(extra)"
             }
             pane.terminalController = controller
         }
