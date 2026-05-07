@@ -35,6 +35,7 @@ private struct GeneralContent: View {
 
     var body: some View {
         @Bindable var appSettings = appSettings
+        ScrollView {
         Form {
             Section {
                 Text("Configure general app behavior.")
@@ -106,8 +107,34 @@ private struct GeneralContent: View {
                 }
                 .padding(.vertical, 2)
             }
+            Section("Debug") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Debug Logging")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text("Log process launches, git commands, and environment details to help diagnose issues.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Debug Logging", isOn: $appSettings.debugLoggingEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-debug-logging-toggle")
+                        .onChange(of: appSettings.debugLoggingEnabled) {
+                            DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
+                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                            if appSettings.debugLoggingEnabled {
+                                DebugLogger.shared.logSystemInfo()
+                            }
+                        }
+                }
+                .padding(.vertical, 2)
+            }
         }
         .formStyle(.grouped)
+        }
     }
 }
 

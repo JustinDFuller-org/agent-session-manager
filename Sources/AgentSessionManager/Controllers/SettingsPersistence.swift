@@ -60,6 +60,7 @@ struct SettingsPersistence {
     private static var restartSettingsURL: URL { appSupportDir.appending(path: "restart-settings.json") }
     private static var worktreeCleanupURL: URL { appSupportDir.appending(path: "worktree-cleanup.json") }
     private static var existingWorktreeManagementURL: URL { appSupportDir.appending(path: "existing-worktree-management.json") }
+    private static var debugSettingsURL: URL { appSupportDir.appending(path: "debug-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -236,5 +237,18 @@ struct SettingsPersistence {
             let behavior = try? JSONDecoder().decode(ExistingWorktreeManagement.self, from: data)
         else { return }
         appSettings.existingWorktreeManagement = behavior
+    }
+
+    static func saveDebugSettings(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.debugLoggingEnabled) else { return }
+        try? data.write(to: debugSettingsURL)
+    }
+
+    static func restoreDebugSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: debugSettingsURL),
+            let enabled = try? JSONDecoder().decode(Bool.self, from: data)
+        else { return }
+        appSettings.debugLoggingEnabled = enabled
     }
 }

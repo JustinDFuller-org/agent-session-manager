@@ -24,6 +24,28 @@ Each pane shows a configurable status bar at the bottom (model, cost, context us
 
 Open panes are saved to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch, the app restores tabs and restarts the CLI in any pane whose checkout still exists on disk (see restore rules in [worktree-creation.md](worktree-creation.md)).
 
+## macOS Permission Prompts
+
+When you open your first pane for a repository, macOS may show permission dialogs like:
+
+- **"AgentSessionManager" would like to access files in your Documents folder.**
+- **"AgentSessionManager" would like to access files in your Desktop folder.**
+- **"AgentSessionManager" would like to access data from other apps.**
+
+These are one-time Transparency, Consent, and Control (TCC) prompts. They occur because Claude Code scans common directories during startup (project detection, configuration discovery). Grant permission once and macOS remembers the decision — the prompts should not repeat.
+
+### What we already prevent
+
+Agent Session Manager launches zsh with `-f` (fast start), which skips all shell init scripts (`~/.zshrc`, `/etc/zshenv`, Oh My Zsh). This eliminates TCC prompts that would otherwise be triggered by shell startup files accessing protected paths.
+
+### If prompts persist across sessions
+
+macOS stores TCC decisions per app bundle. If permissions don't stick:
+
+1. Open **System Settings → Privacy & Security**
+2. Check **Files and Folders** and **Full Disk Access** for Agent Session Manager entries
+3. Run `tccutil reset All com.justinfuller.agent-session-manager` to reset and re-grant
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |

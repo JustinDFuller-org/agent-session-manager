@@ -95,6 +95,13 @@ struct SessionPersistence {
             let session = try? JSONDecoder().decode(PersistedSession.self, from: data)
         else { return }
 
+        var lines: [String] = []
+        lines.append("Restoring \(session.tabs.count) tab(s) from \(sessionURL.path)")
+        for persistedTab in session.tabs {
+            lines.append("  tab: \(persistedTab.name), directory: \(persistedTab.directory), panes: \(persistedTab.panes.count)")
+        }
+        DebugLogger.shared.logSessionRestore(summary: lines.joined(separator: "\n"))
+
         for persistedTab in session.tabs {
             guard let dir = URL(string: "file://\(persistedTab.directory)") else { continue }
             let tab = Tab(name: persistedTab.name, directory: dir)

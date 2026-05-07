@@ -61,6 +61,7 @@ final class AppSettings {
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
+    var debugLoggingEnabled: Bool = false
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

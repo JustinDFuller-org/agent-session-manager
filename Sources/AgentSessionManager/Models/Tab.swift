@@ -379,7 +379,8 @@ final class Tab: Identifiable {
     }
 
     private func runGitOutput(_ args: [String]) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
+        DebugLogger.shared.logGitCommand(args, cwd: directory.path)
+        return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let outPipe = Pipe()
             let errPipe = Pipe()
@@ -407,6 +408,7 @@ final class Tab: Identifiable {
     }
 
     private func runGit(_ args: [String]) async throws {
+        DebugLogger.shared.logGitCommand(args, cwd: directory.path)
         try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let errPipe = Pipe()
@@ -440,12 +442,24 @@ final class Tab: Identifiable {
         worktreeDirectory: URL? = nil,
         worktreeIsManaged: Bool = false
     ) -> Pane {
+        if let wd = worktreeDirectory {
+            DebugLogger.shared.logWorktreeResolution(userRef: name, result: "dir: \(wd.path), managed: \(worktreeIsManaged)")
+        } else {
+            DebugLogger.shared.logWorktreeResolution(userRef: name, result: "cwd: \(directory.path)")
+        }
         let pane = Pane(name: name, tab: self, cliType: cliType, worktreeDirectory: worktreeDirectory, worktreeIsManaged: worktreeIsManaged)
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            // Environment evolution:
+            // - Pass the full parent environment to child processes. Claude Code relies on
+            //   real HOME to find ~/.claude/ for authentication credentials.
+            // - Shell-init-related TCC permission prompts are eliminated by the -f flag
+            //   passed to zsh in TerminalController (skips all startup files).
+            // - Remaining TCC prompts (Documents, Desktop) are one-time decisions from
+            //   Claude's startup path scanning. See documentation/features/panes.md.
             let cwd = worktreeDirectory?.path ?? directory.path
+            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
             switch cliType {
             case .claude:
