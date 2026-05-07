@@ -63,6 +63,7 @@ final class AppSettings {
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
     var debugLoggingEnabled: Bool = false
+    var githubPRTrackingEnabled: Bool = true
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

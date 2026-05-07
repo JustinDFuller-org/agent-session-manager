@@ -69,7 +69,7 @@ class BaseTestCase: XCTestCase {
                       "active-tools-settings.json", "default-branch.json",
                       "notification-settings.json", "restart-settings.json",
                       "worktree-cleanup.json", "existing-worktree-management.json",
-                      "debug-settings.json"] {
+                       "debug-settings.json", "pr-tracking-settings.json"] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
     }
