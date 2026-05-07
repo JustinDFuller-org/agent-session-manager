@@ -1,26 +1,92 @@
 APP_NAME = AgentSessionManager
+APP_NAME_DEV = AgentSessionManagerDev
 BUILD_DIR = .build/release
 APP_BUNDLE = $(APP_NAME).app
+APP_BUNDLE_DEV = $(APP_NAME_DEV).app
 SCHEME = AgentSessionManager
 DERIVED_DATA = .build/DerivedData
 RESULTS_PATH = .build/TestResults.xcresult
 
+BUNDLE_ID = com.justinfuller.agent-session-manager
+BUNDLE_ID_DEV = com.justinfuller.agent-session-manager.dev
+
 export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 
-build:
+# --- Production targets ---
+
+build: build-prd
+
+build-prd:
 	swift build -c release
 
-app: build
+app: app-prd
+
+app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Info.plist $(APP_BUNDLE)/Contents/
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.justinfuller.agent-session-manager" $(APP_BUNDLE)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" $(APP_BUNDLE)/Contents/Info.plist
 
-run: app
+run: run-prd
+
+run-prd: app-prd
 	open $(APP_BUNDLE)
+
+watch: watch-prd
+
+watch-prd:
+	@echo "Building and running (prod)..."
+	@$(MAKE) run-prd
+	@touch /tmp/agent-session-manager-watch-prd-sentinel
+	@echo "Watching Sources/ and Tests/ for changes... (Ctrl+C to stop)"
+	@while true; do \
+		if find Sources/ Tests/ -name '*.swift' -newer /tmp/agent-session-manager-watch-prd-sentinel | grep -q .; then \
+			echo "Changes detected, rebuilding (prod)..."; \
+			touch /tmp/agent-session-manager-watch-prd-sentinel; \
+			pkill -x $(APP_NAME) 2>/dev/null || true; \
+			sleep 0.5; \
+			$(MAKE) run-prd || true; \
+		fi; \
+		sleep 1; \
+	done
+
+# --- Dev targets ---
+
+build-dev:
+	swift build -c release -Xswiftc -D -Xswiftc DEV_BUILD
+
+app-dev: build-dev
+	mkdir -p $(APP_BUNDLE_DEV)/Contents/MacOS
+	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
+	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
+	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" $(APP_BUNDLE_DEV)/Contents/Info.plist
+
+run-dev: app-dev
+	open $(APP_BUNDLE_DEV)
+
+watch-dev:
+	@echo "Building and running (dev)..."
+	@$(MAKE) run-dev
+	@touch /tmp/agent-session-manager-watch-dev-sentinel
+	@echo "Watching Sources/ and Tests/ for changes... (Ctrl+C to stop)"
+	@while true; do \
+		if find Sources/ Tests/ -name '*.swift' -newer /tmp/agent-session-manager-watch-dev-sentinel | grep -q .; then \
+			echo "Changes detected, rebuilding (dev)..."; \
+			touch /tmp/agent-session-manager-watch-dev-sentinel; \
+			pkill -x $(APP_NAME_DEV) 2>/dev/null || true; \
+			sleep 0.5; \
+			$(MAKE) run-dev || true; \
+		fi; \
+		sleep 1; \
+	done
+
+# --- Shared targets ---
 
 xcodeproj:
 	xcodegen generate
@@ -45,21 +111,10 @@ restart:
 	sleep 0.5
 	open $(APP_BUNDLE)
 
-watch:
-	@echo "Building and running..."
-	@$(MAKE) run
-	@touch /tmp/agent-session-manager-watch-sentinel
-	@echo "Watching Sources/ and Tests/ for changes... (Ctrl+C to stop)"
-	@while true; do \
-		if find Sources/ Tests/ -name '*.swift' -newer /tmp/agent-session-manager-watch-sentinel | grep -q .; then \
-			echo "Changes detected, rebuilding..."; \
-			touch /tmp/agent-session-manager-watch-sentinel; \
-			pkill -x $(APP_NAME) 2>/dev/null || true; \
-			sleep 0.5; \
-			$(MAKE) run || true; \
-		fi; \
-		sleep 1; \
-	done
+restart-dev:
+	pkill -x $(APP_NAME_DEV) 2>/dev/null || true
+	sleep 0.5
+	open $(APP_BUNDLE_DEV)
 
 clean:
-	rm -rf $(APP_BUNDLE) .build $(APP_NAME).xcodeproj
+	rm -rf $(APP_BUNDLE) $(APP_BUNDLE_DEV) .build $(APP_NAME).xcodeproj

@@ -8,7 +8,7 @@ struct AgentSessionManagerApp: App {
     @State private var appSettings = AppSettings()
 
     var body: some Scene {
-        WindowGroup("Agent Session Manager") {
+        WindowGroup(appWindowTitle) {
             ContentView()
                 .environment(appState)
                 .environment(appSettings)
@@ -85,5 +85,13 @@ extension Notification.Name {
 extension AgentSessionManagerApp {
     static var isUITesting: Bool {
         CommandLine.arguments.contains("--uitesting")
+    }
+
+    private var appWindowTitle: String {
+#if DEV_BUILD
+        "Agent Session Manager (Dev)"
+#else
+        "Agent Session Manager"
+#endif
     }
 }
