@@ -79,6 +79,20 @@ final class AppStateTabFocusTests: XCTestCase {
         XCTAssertEqual(state.tabs[0].lastActivePaneID, newPane.id)
     }
 
+    func testFocusPaneSwitchesTabAndActivePane() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a", "b"]),
+            (name: "tab2", paneNames: ["c", "d"]),
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][0].id
+
+        state.focusPane(tabID: state.tabs[1].id, paneID: panes[1][1].id)
+
+        XCTAssertEqual(state.activeTabID, state.tabs[1].id)
+        XCTAssertEqual(state.activePaneID, panes[1][1].id)
+    }
+
     func testSwitchTabIgnoresInvalidLastActivePaneID() {
         let (state, panes) = makeState(tabs: [
             (name: "tab1", paneNames: ["a", "b"]),

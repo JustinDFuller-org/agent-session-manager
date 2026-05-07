@@ -10,9 +10,9 @@ struct ContentView: View {
     @State private var pendingCleanupTab: Tab?
     @State private var showDebugLog = false
 
-    private var hasNotifications: Bool { !appState.notifications.isEmpty }
-
     var body: some View {
+        @Bindable var appState = appState
+        let hasNotifications = !appState.notifications.isEmpty
         VStack(spacing: 0) {
             TabBarView()
                 .frame(height: 44)
@@ -49,6 +49,10 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
         .focusedSceneValue(\.hasActiveTab, !appState.tabs.isEmpty)
+        .task {
+            MacNotificationCoordinator.shared.bind(appState: appState, appSettings: appSettings)
+            await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+        }
         .overlay(alignment: .bottomTrailing) {
             if appSettings.debugLoggingEnabled {
                 Button {

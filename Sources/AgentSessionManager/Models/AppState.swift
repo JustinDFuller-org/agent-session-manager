@@ -77,6 +77,12 @@ final class AppState {
             tabName: tabName,
             isPriority: isPriority
         ))
+        MacNotificationCoordinator.shared.postPaneAttentionIfNeeded(
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName
+        )
     }
 
     func clearNotification(paneID: UUID) {
@@ -86,5 +92,10 @@ final class AppState {
     func navigateTo(notification: PaneNotification) {
         switchToTab(id: notification.tabID)
         setActivePane(id: notification.paneID)
+    }
+
+    func focusPane(tabID: UUID, paneID: UUID) {
+        switchToTab(id: tabID)
+        setActivePane(id: paneID)
     }
 }

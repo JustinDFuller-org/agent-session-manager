@@ -4,15 +4,10 @@ struct NotificationSidebarView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
 
-    private var priorityNotifications: [PaneNotification] {
-        appState.notifications.filter { $0.isPriority }
-    }
-
-    private var regularNotifications: [PaneNotification] {
-        appState.notifications.filter { !$0.isPriority }
-    }
-
     var body: some View {
+        @Bindable var appState = appState
+        let priorityNotifications = appState.notifications.filter { $0.isPriority }
+        let regularNotifications = appState.notifications.filter { !$0.isPriority }
         VStack(spacing: 0) {
             header
             Divider()

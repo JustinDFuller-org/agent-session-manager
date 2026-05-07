@@ -85,6 +85,48 @@ final class NotificationTests: XCTestCase {
         let settings = AppSettings()
         XCTAssertEqual(settings.notificationSidebarSide, .right)
         XCTAssertTrue(settings.isPriorityNotificationsEnabled)
+        XCTAssertTrue(settings.isMacOSBannerNotificationsEnabled)
+    }
+
+    func testNotificationSettingsPersistRoundTrip() {
+        let notificationURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager/notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: notificationURL) }
+
+        let settings = AppSettings()
+        settings.notificationSidebarSide = .left
+        settings.isPriorityNotificationsEnabled = false
+        settings.isMacOSBannerNotificationsEnabled = false
+        SettingsPersistence.saveNotificationSettings(appSettings: settings)
+
+        let restored = AppSettings()
+        SettingsPersistence.restoreNotificationSettings(into: restored)
+        XCTAssertEqual(restored.notificationSidebarSide, .left)
+        XCTAssertFalse(restored.isPriorityNotificationsEnabled)
+        XCTAssertFalse(restored.isMacOSBannerNotificationsEnabled)
+    }
+
+    /// Older `notification-settings.json` files did not encode the macOS banner flag; it should default on.
+    func testNotificationSettingsLegacyJSONDefaultsMacOSBannerOn() throws {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appending(path: "notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let legacy = """
+        {"sidebarSide":"left","isPriorityEnabled":true}
+        """.data(using: .utf8)!
+        try legacy.write(to: url)
+
+        let restored = AppSettings()
+        restored.isMacOSBannerNotificationsEnabled = false
+        SettingsPersistence.restoreNotificationSettings(into: restored)
+        XCTAssertEqual(restored.notificationSidebarSide, .left)
+        XCTAssertTrue(restored.isPriorityNotificationsEnabled)
+        XCTAssertTrue(restored.isMacOSBannerNotificationsEnabled)
     }
 
     // MARK: - PersistedPane isPriority round-trip

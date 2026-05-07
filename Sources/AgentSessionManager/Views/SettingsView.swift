@@ -798,6 +798,27 @@ private struct NotificationsContent: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+            Section("macOS") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Banner Notifications")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text("Show a system notification when a background pane rings the bell. Requires permission in System Settings.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
+                        .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
+            }
             Section("Sidebar") {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {

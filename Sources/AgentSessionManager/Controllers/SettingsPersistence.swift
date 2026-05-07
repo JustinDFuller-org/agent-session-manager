@@ -6,8 +6,35 @@ private struct DefaultBranchConfig: Codable, Equatable {
 }
 
 private struct NotificationConfig: Codable {
-    var sidebarSide: SidebarSide = .right
-    var isPriorityEnabled: Bool = true
+    var sidebarSide: SidebarSide
+    var isPriorityEnabled: Bool
+    var isMacOSBannerEnabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case sidebarSide
+        case isPriorityEnabled
+        case isMacOSBannerEnabled
+    }
+
+    init(sidebarSide: SidebarSide, isPriorityEnabled: Bool, isMacOSBannerEnabled: Bool) {
+        self.sidebarSide = sidebarSide
+        self.isPriorityEnabled = isPriorityEnabled
+        self.isMacOSBannerEnabled = isMacOSBannerEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sidebarSide = try c.decodeIfPresent(SidebarSide.self, forKey: .sidebarSide) ?? .right
+        isPriorityEnabled = try c.decodeIfPresent(Bool.self, forKey: .isPriorityEnabled) ?? true
+        isMacOSBannerEnabled = try c.decodeIfPresent(Bool.self, forKey: .isMacOSBannerEnabled) ?? true
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(sidebarSide, forKey: .sidebarSide)
+        try c.encode(isPriorityEnabled, forKey: .isPriorityEnabled)
+        try c.encode(isMacOSBannerEnabled, forKey: .isMacOSBannerEnabled)
+    }
 }
 
 private struct RestartConfig: Codable {
@@ -155,7 +182,8 @@ struct SettingsPersistence {
     static func saveNotificationSettings(appSettings: AppSettings) {
         let config = NotificationConfig(
             sidebarSide: appSettings.notificationSidebarSide,
-            isPriorityEnabled: appSettings.isPriorityNotificationsEnabled
+            isPriorityEnabled: appSettings.isPriorityNotificationsEnabled,
+            isMacOSBannerEnabled: appSettings.isMacOSBannerNotificationsEnabled
         )
         guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: notificationSettingsURL)
@@ -168,6 +196,7 @@ struct SettingsPersistence {
         else { return }
         appSettings.notificationSidebarSide = config.sidebarSide
         appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
+        appSettings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
     }
 
     static func saveRestartSettings(appSettings: AppSettings) {

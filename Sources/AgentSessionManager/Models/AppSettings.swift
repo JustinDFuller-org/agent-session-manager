@@ -57,6 +57,7 @@ final class AppSettings {
     var isDefaultBranchEnabled: Bool = true
     var notificationSidebarSide: SidebarSide = .right
     var isPriorityNotificationsEnabled: Bool = true
+    var isMacOSBannerNotificationsEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
