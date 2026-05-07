@@ -42,12 +42,14 @@ final class TerminalController: NSObject {
             // - Removed -l (login shell) because it causes zsh to source /etc/zprofile,
             //   ~/.zprofile, and shell init scripts which access TCC-protected paths
             //   (iCloud Drive, Music, etc.) and trigger macOS permission dialogs.
-            // - Added -f (fast start) to skip loading ~/.zshrc, /etc/zshenv, and all
-            //   other startup files. The -i flag is kept for interactive PTY behavior.
+            // - Do NOT use -f (fast start). It skips ~/.zshrc, which prevents tools
+            //   like nvm (node), homebrew, and other PATH-managing shell init from
+            //   running. This breaks CLI tools like codex and cursor that rely on the
+            //   user's shell environment for PATH resolution.
             // - HOME is NOT scoped — Claude Code needs real HOME for ~/.claude/ auth.
             //   Remaining TCC prompts are one-time decisions from Claude's startup
             //   path scanning. See documentation/features/panes.md.
-            let args = ["-f", "-i", "-c", cmd]
+            let args = ["-i", "-c", cmd]
             DebugLogger.shared.logProcessStart(
                 executable: shell,
                 args: args,
