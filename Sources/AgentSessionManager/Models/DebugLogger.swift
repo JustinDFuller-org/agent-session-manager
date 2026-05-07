@@ -76,7 +76,8 @@ final class DebugLogger {
         guard isEnabled else { return }
         let header = "── Terminal Content: \(paneName) ──"
         let trimmed = content.hasSuffix("\n") ? String(content.dropLast()) : content
-        log("\(header)\n\(trimmed)")
+        let capped = trimmed.count > 4000 ? String(trimmed.prefix(4000)) + "…" : trimmed
+        log("\(header)\n\(capped)")
     }
 
     func logSystemInfo() {
@@ -112,7 +113,8 @@ final class DebugLogger {
         lines.append("```")
         for entry in entries {
             df.dateFormat = "HH:mm:ss.SSS"
-            lines.append("[\(df.string(from: entry.timestamp))] \(entry.message)")
+            let msg = entry.message.count > 8000 ? String(entry.message.prefix(8000)) + "…" : entry.message
+            lines.append("[\(df.string(from: entry.timestamp))] \(msg)")
             lines.append("")
         }
         lines.append("```")

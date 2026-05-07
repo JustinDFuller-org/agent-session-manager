@@ -88,8 +88,6 @@ final class TerminalController: NSObject {
             for col in 0..<terminal.cols {
                 if let ch = terminal.getCharacter(col: col, row: row) {
                     chars.append(ch)
-                } else {
-                    chars.append(" ")
                 }
             }
             let line = String(chars).replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
