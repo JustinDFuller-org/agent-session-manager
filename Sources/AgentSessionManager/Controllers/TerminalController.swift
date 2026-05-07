@@ -88,7 +88,8 @@ final class TerminalController: NSObject {
         for row in 0..<terminal.rows {
             var chars: [Character] = []
             for col in 0..<terminal.cols {
-                if let ch = terminal.getCharacter(col: col, row: row) {
+                if let ch = terminal.getCharacter(col: col, row: row),
+                   ch.unicodeScalars.first?.value != 0 {
                     chars.append(ch)
                 }
             }
