@@ -131,6 +131,9 @@ private struct GeneralContent: View {
                             SettingsPersistence.saveDebugSettings(appSettings: appSettings)
                             if appSettings.debugLoggingEnabled {
                                 DebugLogger.shared.logSystemInfo()
+                                DebugLogger.shared.logNotificationEnvironment(
+                                    macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                                )
                             }
                         }
                 }
@@ -911,6 +914,35 @@ private struct NotificationsContent: View {
                         .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
                         .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
                             SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                            if appSettings.debugLoggingEnabled {
+                                DebugLogger.shared.logNotificationEnvironment(
+                                    macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                                )
+                            }
+                        }
+                }
+                .padding(.vertical, 2)
+            }
+            Section("Claude Code") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Notification hook for attention")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text(
+                            "Merge Claude’s Notification hook into each pane’s --settings so permission prompts and other notifies can trigger the same in‑app alerts as a terminal bell, even when no BEL or OSC 777 is sent."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Notification hook for attention", isOn: $appSettings.isClaudeNotificationHookAttentionEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-claude-notification-hook-toggle")
+                        .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                            NotificationCenter.default.post(name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
                         }
                 }
                 .padding(.vertical, 2)

@@ -2,6 +2,8 @@
 
 Agent Session Manager surfaces terminal bell events (sent by Claude Code and similar tools when they need your attention) as in-app notifications with visual indicators, optional **macOS banner notifications** (Notification Center), and a sidebar panel.
 
+**In-app vs macOS:** The sidebar and pane/tab dots are **purely in-app** and do not require notification permission. **macOS banners** use `UNUserNotificationCenter` and require permission in **System Settings → Notifications** for Agent Session Manager. If `requestAuthorization` fails (for example `UNErrorDomain` code **1**, often meaning notifications are not allowed for the app), fix that in System Settings or by resetting the app’s notification registration — **in-app alerts still work** when a bell or hook fires; only banners are affected.
+
 ## What It Does
 
 - **Pane indicator** — A colored dot appears in the pane header next to the process status indicator when that pane has an unread notification.
@@ -14,7 +16,7 @@ Notification dots and sidebar entries are orange for priority panes and blue for
 
 ## Triggering a Notification
 
-Claude Code can signal attention in two ways that Agent Session Manager recognizes:
+Claude Code can signal attention in these ways that Agent Session Manager recognizes:
 
 1. **ASCII bell** — a BEL character (`\a`). To test manually:
 
@@ -23,6 +25,8 @@ Claude Code can signal attention in two ways that Agent Session Manager recogniz
    ```
 
 2. **OSC 777** — the sequence `ESC]777;notify;title;body` terminated with BEL (0x07). Many tools use this so the BEL byte acts as an OSC string terminator; SwiftTerm delivers that through `notify` rather than `bell()`. Both paths trigger the same in-app notification and optional macOS banner.
+
+3. **Claude `Notification` hook** (optional, Settings → Notifications → **Notification hook for attention**) — Claude Code can run settings-defined hooks when it raises a notification event (for example tool permission, or when input is idle for a long interval). Agent Session Manager merges a hook into each pane’s `--settings` file so that stdin is written to a temp file and the app raises the **same** attention path as a bell. Turn this off if you see unwanted sidebar entries. New or refreshed panes pick up changes immediately; existing panes refresh when you toggle the setting.
 
 Attention events are surfaced even when the pane is the active (focused) pane, to keep testing and signals consistent.
 
@@ -57,6 +61,7 @@ Settings → Notifications exposes these controls:
 | Setting | Description | Default |
 |---|---|---|
 | Banner Notifications | Show macOS Notification Center banners for background pane bells (permission required) | On |
+| Notification hook for attention | Merge Claude Code `Notification` hook into each pane’s `--settings` (see above) | On |
 | Sidebar Position | Which side the notification sidebar opens on (Left / Right) | Right |
 | Priority Notifications | Enable the priority pane toggle and priority sidebar section | On |
 

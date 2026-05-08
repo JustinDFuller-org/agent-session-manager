@@ -10,6 +10,50 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     var telemetryPaneUUID: UUID?
     private var osc777HookInstalled = false
 
+    private let terminalStreamDebounceLock = NSLock()
+    private var terminalStreamDebounceWork: DispatchWorkItem?
+    /// Fingerprint of last streamed screen text; only read/written on the main actor.
+    private var lastTerminalStreamFingerprint: Int?
+
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        super.dataReceived(slice: slice)
+        scheduleDebouncedTerminalStreamFlush()
+    }
+
+    private func scheduleDebouncedTerminalStreamFlush() {
+        terminalStreamDebounceLock.lock()
+        terminalStreamDebounceWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                self.flushTerminalStreamSnapshotToDebugIfNeeded()
+            }
+        }
+        terminalStreamDebounceWork = work
+        terminalStreamDebounceLock.unlock()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    @MainActor
+    private func flushTerminalStreamSnapshotToDebugIfNeeded() {
+        guard let paneID = telemetryPaneUUID else { return }
+        guard DebugLogger.shared.isTerminalCaptureEnabled(for: paneID) else { return }
+        let content = TerminalController.renderedScreenText(from: getTerminal())
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        var hasher = Hasher()
+        hasher.combine(content)
+        let fingerprint = hasher.finalize()
+        if fingerprint == lastTerminalStreamFingerprint { return }
+        lastTerminalStreamFingerprint = fingerprint
+        DebugLogger.shared.logTerminalContent(
+            paneName: telemetryPaneName.isEmpty ? "?" : telemetryPaneName,
+            content: content,
+            tabName: telemetryTabName.isEmpty ? "?" : telemetryTabName,
+            paneID: paneID,
+            kind: DebugLogger.TerminalContentLogKind.stream
+        )
+    }
+
     override func bell(source: Terminal) {
         super.bell(source: source)
         let pane = telemetryPaneName.isEmpty ? "?" : telemetryPaneName
@@ -44,7 +88,7 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
             guard let self else { return }
             let debug = DebugLogger.shared
             if let id = paneId {
-                if debug.isEnabled || debug.tracedPaneIDs.contains(id) {
+                if debug.acceptsPaneDiagnostics(paneID: id) {
                     debug.log(
                         logMessage,
                         paneID: id,
@@ -143,7 +187,11 @@ final class TerminalController: NSObject {
     }
 
     var terminalContent: String {
-        let terminal = terminalView.terminal
+        Self.renderedScreenText(from: terminalView.terminal)
+    }
+
+    /// On-screen terminal text for the current viewport (`Terminal.getCharacter`), excluding NULs and trailing blank lines.
+    static func renderedScreenText(from terminal: Terminal?) -> String {
         guard let terminal, terminal.rows > 0, terminal.cols > 0 else { return "" }
         var lines: [String] = []
         for row in 0..<terminal.rows {

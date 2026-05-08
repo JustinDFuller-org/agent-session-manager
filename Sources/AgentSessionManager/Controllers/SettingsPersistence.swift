@@ -9,17 +9,26 @@ private struct NotificationConfig: Codable {
     var sidebarSide: SidebarSide
     var isPriorityEnabled: Bool
     var isMacOSBannerEnabled: Bool
+    /// When true, merge Claude Code `Notification` hook into per-pane `--settings` so permission-style notifies reach the app without a terminal bell.
+    var isClaudeHookAttentionEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case sidebarSide
         case isPriorityEnabled
         case isMacOSBannerEnabled
+        case isClaudeHookAttentionEnabled
     }
 
-    init(sidebarSide: SidebarSide, isPriorityEnabled: Bool, isMacOSBannerEnabled: Bool) {
+    init(
+        sidebarSide: SidebarSide,
+        isPriorityEnabled: Bool,
+        isMacOSBannerEnabled: Bool,
+        isClaudeHookAttentionEnabled: Bool
+    ) {
         self.sidebarSide = sidebarSide
         self.isPriorityEnabled = isPriorityEnabled
         self.isMacOSBannerEnabled = isMacOSBannerEnabled
+        self.isClaudeHookAttentionEnabled = isClaudeHookAttentionEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -27,6 +36,7 @@ private struct NotificationConfig: Codable {
         sidebarSide = try c.decodeIfPresent(SidebarSide.self, forKey: .sidebarSide) ?? .right
         isPriorityEnabled = try c.decodeIfPresent(Bool.self, forKey: .isPriorityEnabled) ?? true
         isMacOSBannerEnabled = try c.decodeIfPresent(Bool.self, forKey: .isMacOSBannerEnabled) ?? true
+        isClaudeHookAttentionEnabled = try c.decodeIfPresent(Bool.self, forKey: .isClaudeHookAttentionEnabled) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -34,6 +44,7 @@ private struct NotificationConfig: Codable {
         try c.encode(sidebarSide, forKey: .sidebarSide)
         try c.encode(isPriorityEnabled, forKey: .isPriorityEnabled)
         try c.encode(isMacOSBannerEnabled, forKey: .isMacOSBannerEnabled)
+        try c.encode(isClaudeHookAttentionEnabled, forKey: .isClaudeHookAttentionEnabled)
     }
 }
 
@@ -209,7 +220,8 @@ struct SettingsPersistence {
         let config = NotificationConfig(
             sidebarSide: appSettings.notificationSidebarSide,
             isPriorityEnabled: appSettings.isPriorityNotificationsEnabled,
-            isMacOSBannerEnabled: appSettings.isMacOSBannerNotificationsEnabled
+            isMacOSBannerEnabled: appSettings.isMacOSBannerNotificationsEnabled,
+            isClaudeHookAttentionEnabled: appSettings.isClaudeNotificationHookAttentionEnabled
         )
         guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: notificationSettingsURL)
@@ -223,6 +235,15 @@ struct SettingsPersistence {
         appSettings.notificationSidebarSide = config.sidebarSide
         appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
         appSettings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
+        appSettings.isClaudeNotificationHookAttentionEnabled = config.isClaudeHookAttentionEnabled
+    }
+
+    static func isClaudeHookAttentionEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: notificationSettingsURL),
+            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return true }
+        return config.isClaudeHookAttentionEnabled
     }
 
     static func saveRestartSettings(appSettings: AppSettings) {

@@ -35,6 +35,9 @@ struct AgentSessionManagerApp: App {
                         }
                         if appSettings.debugLoggingEnabled {
                             DebugLogger.shared.logSystemInfo()
+                            DebugLogger.shared.logNotificationEnvironment(
+                                macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                            )
                         }
                         SessionPersistence.restore(into: appState, appSettings: appSettings)
                     }

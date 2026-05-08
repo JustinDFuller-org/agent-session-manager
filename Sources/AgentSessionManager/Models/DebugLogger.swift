@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AppKit
+import UserNotifications
 
 // MARK: - File sink
 
@@ -127,6 +128,21 @@ final class DebugLogger {
         (isEnabled && includeTerminalContentsGlobally) || tracedPaneTerminalCaptureIDs.contains(paneID)
     }
 
+    /// Event and notification-style pane lines (`[notify]`, `[banner]`, bells, process start) when the pane is fully traced, terminal capture is on for that pane, or global debug is on.
+    func acceptsPaneDiagnostics(paneID: UUID) -> Bool {
+        acceptsPaneTaggedLogging(paneID: paneID) || shouldWriteTerminalSnapshot(paneID: paneID)
+    }
+
+    /// Whether on-screen terminal text may be written for this pane (global debug + include-terminal, or per-pane capture).
+    func isTerminalCaptureEnabled(for paneID: UUID) -> Bool {
+        shouldWriteTerminalSnapshot(paneID: paneID)
+    }
+
+    enum TerminalContentLogKind: Sendable {
+        case manualSnapshot
+        case stream
+    }
+
     func setPaneTraceEnabled(_ paneID: UUID, _ enabled: Bool) {
         if enabled {
             tracedPaneIDs.insert(paneID)
@@ -170,7 +186,7 @@ final class DebugLogger {
     }
 
     func log(_ message: String, paneID: UUID, tabName: String = "", paneName: String = "") {
-        guard acceptsPaneTaggedLogging(paneID: paneID) else { return }
+        guard acceptsPaneDiagnostics(paneID: paneID) else { return }
         recordMessage(
             message,
             paneID: paneID,
@@ -212,7 +228,7 @@ final class DebugLogger {
         paneName: String?
     ) {
         if let paneID {
-            guard acceptsPaneTaggedLogging(paneID: paneID) else { return }
+            guard acceptsPaneDiagnostics(paneID: paneID) else { return }
         } else {
             guard isEnabled else { return }
         }
@@ -260,9 +276,21 @@ final class DebugLogger {
         recordMessage("── Worktree Resolution ──\nref: \(userRef)\nresult: \(result)", paneID: nil, tabName: nil, paneName: nil)
     }
 
-    func logTerminalContent(paneName: String, content: String, tabName: String, paneID: UUID) {
+    func logTerminalContent(
+        paneName: String,
+        content: String,
+        tabName: String,
+        paneID: UUID,
+        kind: TerminalContentLogKind = .manualSnapshot
+    ) {
         guard shouldWriteTerminalSnapshot(paneID: paneID) else { return }
-        let header = "── Terminal Content: \(paneName) ──"
+        let header: String
+        switch kind {
+        case .manualSnapshot:
+            header = "── Terminal Content: \(paneName) ──"
+        case .stream:
+            header = "── Terminal stream: \(paneName) ──"
+        }
         let trimmed = content.hasSuffix("\n") ? String(content.dropLast()) : content
         let capped = trimmed.count > 4000 ? String(trimmed.prefix(4000)) + "…" : trimmed
         recordMessage("\(header)\n\(capped)", paneID: paneID, tabName: tabName, paneName: paneName)
@@ -271,6 +299,25 @@ final class DebugLogger {
     func logSystemInfo() {
         guard isEnabled else { return }
         recordMessage(Self.systemInfoBlock(), paneID: nil, tabName: nil, paneName: nil)
+    }
+
+    /// UNUserNotificationCenter delivery settings; call when global debug turns on or after changing notification prefs.
+    func logNotificationEnvironment(macOSBannerNotificationsEnabled: Bool) {
+        guard isEnabled else { return }
+        Task(priority: .utility) { @MainActor in
+            guard self.isEnabled else { return }
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            var lines: [String] = []
+            lines.append("── Notification Environment ──")
+            lines.append("settings.isMacOSBannerNotificationsEnabled: \(macOSBannerNotificationsEnabled)")
+            lines.append("UNUserNotificationCenter.authorizationStatus: \(String(describing: settings.authorizationStatus))")
+            lines.append("alertSetting: \(String(describing: settings.alertSetting))")
+            lines.append("soundSetting: \(String(describing: settings.soundSetting))")
+            lines.append("notificationCenterSetting: \(String(describing: settings.notificationCenterSetting))")
+            lines.append("lockScreenSetting: \(String(describing: settings.lockScreenSetting))")
+            self.recordMessage(lines.joined(separator: "\n"), paneID: nil, tabName: nil, paneName: nil)
+        }
     }
 
     static func systemInfoBlock() -> String {
@@ -400,6 +447,8 @@ final class DebugLogger {
 extension Notification.Name {
     /// Posted when per-pane debug tracing membership changes (ladybug visibility).
     static let agentSessionManagerDebugTracingChanged = Notification.Name("agentSessionManagerDebugTracingChanged")
+    /// Posted when Claude `Notification` hook integration is toggled (refresh per-pane `--settings` files).
+    static let agentSessionManagerClaudeHookAttentionSettingChanged = Notification.Name("agentSessionManagerClaudeHookAttentionSettingChanged")
 }
 
 private extension utsname {

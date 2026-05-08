@@ -18,21 +18,33 @@ enum SidebarSide: String, Codable, CaseIterable {
 final class StatusLineMonitor {
     private(set) var currentData: StatusLineData?
 
+    private let paneID: UUID
     let filePath: String
     let settingsFilePath: String
+    /// Written by Claude Code `Notification` hook stdin when `isClaudeHookAttentionEnabled` is on.
+    let attentionSignalFilePath: String
     private let workingDirectory: String?
     private let needsSettingsHook: Bool
     private var source: DispatchSourceFileSystemObject?
+    private var attentionSource: DispatchSourceFileSystemObject?
+    private let attentionDebounceLock = NSLock()
+    private var attentionDebounceWork: DispatchWorkItem?
+    private var lastAttentionPayloadFingerprint: Int?
     private var prTimer: Timer?
     private var prQueryTask: Process?
     /// Bumped when starting a new query or in `stop()` so older `terminationHandler` callbacks cannot mutate `currentData`.
     private var prQueryToken: UInt64 = 0
 
+    /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
+    var onClaudeHookAttention: (() -> Void)?
+
     init(paneID: UUID, workingDirectory: String? = nil, needsSettingsHook: Bool = true) {
-        filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
-        settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
+        self.paneID = paneID
         self.workingDirectory = workingDirectory
         self.needsSettingsHook = needsSettingsHook
+        filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
+        settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
+        attentionSignalFilePath = NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
     }
 
     func start() {
@@ -65,6 +77,8 @@ final class StatusLineMonitor {
         src.resume()
         source = src
 
+        restartAttentionWatcherIfEligible()
+
         queryPR()
         prTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -73,9 +87,17 @@ final class StatusLineMonitor {
         }
     }
 
+    /// Rewrites Claude `--settings` and restarts the attention file watcher (e.g. when the user toggles the hook in Settings).
+    func refreshClaudeIntegrationFromSettings() {
+        guard needsSettingsHook else { return }
+        writeSettingsFile()
+        restartAttentionWatcherIfEligible()
+    }
+
     func stop() {
         source?.cancel()
         source = nil
+        stopAttentionWatcher()
         prTimer?.invalidate()
         prTimer = nil
         prQueryToken += 1
@@ -83,17 +105,91 @@ final class StatusLineMonitor {
         prQueryTask = nil
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
+        try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
     }
 
     private func writeSettingsFile() {
-        let settings: [String: Any] = [
+        let attentionEnabled = needsSettingsHook && SettingsPersistence.isClaudeHookAttentionEnabled()
+        var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
                 "command": "cat > '\(filePath)'"
             ]
         ]
+        if attentionEnabled {
+            settings["hooks"] = [
+                "Notification": [
+                    [
+                        "matcher": "",
+                        "hooks": [
+                            [
+                                "type": "command",
+                                "command": "cat > '\(attentionSignalFilePath)'"
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        }
         guard let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) else { return }
         try? data.write(to: URL(filePath: settingsFilePath))
+    }
+
+    private func restartAttentionWatcherIfEligible() {
+        stopAttentionWatcher()
+        guard needsSettingsHook, SettingsPersistence.isClaudeHookAttentionEnabled() else { return }
+        FileManager.default.createFile(atPath: attentionSignalFilePath, contents: nil)
+        let fd = open(attentionSignalFilePath, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        src.setEventHandler { [weak self] in
+            self?.scheduleAttentionSignalProcessing()
+        }
+        src.setCancelHandler { close(fd) }
+        src.resume()
+        attentionSource = src
+    }
+
+    private func stopAttentionWatcher() {
+        attentionDebounceLock.lock()
+        attentionDebounceWork?.cancel()
+        attentionDebounceWork = nil
+        attentionDebounceLock.unlock()
+        attentionSource?.cancel()
+        attentionSource = nil
+        lastAttentionPayloadFingerprint = nil
+    }
+
+    private func scheduleAttentionSignalProcessing() {
+        attentionDebounceLock.lock()
+        attentionDebounceWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else { return }
+            var hasher = Hasher()
+            hasher.combine(data)
+            let fingerprint = hasher.finalize()
+            Task { @MainActor in
+                guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                self.lastAttentionPayloadFingerprint = fingerprint
+                if DebugLogger.shared.acceptsPaneDiagnostics(paneID: self.paneID) || DebugLogger.shared.isEnabled {
+                    DebugLogger.shared.log(
+                        "[notify] Claude Notification hook stdin written to attention file (\(data.count) bytes)",
+                        paneID: self.paneID,
+                        tabName: "",
+                        paneName: ""
+                    )
+                }
+                self.onClaudeHookAttention?()
+            }
+        }
+        attentionDebounceWork = work
+        attentionDebounceLock.unlock()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
     @MainActor
@@ -147,6 +243,36 @@ final class StatusLineMonitor {
         } else {
             currentData?.pr = pr
         }
+    }
+
+    /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus optional `hooks`) for tests and tooling.
+    nonisolated static func makeClaudeSettingsDictionaryForTesting(
+        statusOutputPath: String,
+        attentionOutputPath: String,
+        includeNotificationHook: Bool
+    ) -> [String: Any] {
+        var settings: [String: Any] = [
+            "statusLine": [
+                "type": "command",
+                "command": "cat > '\(statusOutputPath)'"
+            ]
+        ]
+        if includeNotificationHook {
+            settings["hooks"] = [
+                "Notification": [
+                    [
+                        "matcher": "",
+                        "hooks": [
+                            [
+                                "type": "command",
+                                "command": "cat > '\(attentionOutputPath)'"
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        }
+        return settings
     }
 }
 

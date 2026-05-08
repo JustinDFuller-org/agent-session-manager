@@ -59,6 +59,8 @@ final class AppSettings {
     var notificationSidebarSide: SidebarSide = .right
     var isPriorityNotificationsEnabled: Bool = true
     var isMacOSBannerNotificationsEnabled: Bool = true
+    /// Merges Claude Code `Notification` hook into per-pane `--settings` for attention when the terminal does not ring the bell (default on).
+    var isClaudeNotificationHookAttentionEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask

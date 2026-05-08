@@ -135,6 +135,87 @@ final class DebugLoggerTests: XCTestCase {
         XCTAssertTrue(s.contains("from-pane"))
     }
 
+    func testIsTerminalCaptureEnabledReflectsGlobalAndPerPane() {
+        let id = UUID()
+        var app = AppSettings()
+        app.debugLoggingEnabled = false
+        app.debugLogIncludeTerminalContents = true
+        DebugLogger.shared.syncFromAppSettings(app)
+        DebugLogger.shared.isEnabled = false
+        XCTAssertFalse(DebugLogger.shared.isTerminalCaptureEnabled(for: id))
+
+        DebugLogger.shared.isEnabled = true
+        XCTAssertTrue(DebugLogger.shared.isTerminalCaptureEnabled(for: id))
+
+        DebugLogger.shared.isEnabled = false
+        app.debugLogIncludeTerminalContents = false
+        DebugLogger.shared.syncFromAppSettings(app)
+        XCTAssertFalse(DebugLogger.shared.isTerminalCaptureEnabled(for: id))
+
+        DebugLogger.shared.setPaneTerminalCaptureEnabled(id, true)
+        XCTAssertTrue(DebugLogger.shared.isTerminalCaptureEnabled(for: id))
+    }
+
+    func testDataReceivedWritesTerminalStreamWhenCaptureEnabled() async throws {
+        let id = UUID()
+        var app = AppSettings()
+        app.debugLoggingEnabled = false
+        app.debugLogIncludeTerminalContents = false
+        DebugLogger.shared.syncFromAppSettings(app)
+        DebugLogger.shared.setPaneTerminalCaptureEnabled(id, true)
+
+        let controller = TerminalController()
+        controller.terminalView.telemetryPaneUUID = id
+        controller.terminalView.telemetryTabName = "TabX"
+        controller.terminalView.telemetryPaneName = "PaneY"
+        controller.terminalView.frame = CGRect(x: 0, y: 0, width: 640, height: 480)
+        #if os(macOS)
+        controller.terminalView.layoutSubtreeIfNeeded()
+        #endif
+
+        let marker = "ZStreamMark9"
+        let bytes = Array(marker.utf8)
+        controller.terminalView.dataReceived(slice: bytes[...])
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let s = try traceContents()
+        XCTAssertTrue(s.contains("Terminal stream"), s)
+        XCTAssertTrue(s.contains(marker), s)
+    }
+
+    func testPaneTaggedLogWhenOnlyTerminalCaptureEnabled() throws {
+        let id = UUID()
+        var app = AppSettings()
+        app.debugLoggingEnabled = false
+        app.debugLogIncludeTerminalContents = false
+        DebugLogger.shared.syncFromAppSettings(app)
+        DebugLogger.shared.isEnabled = false
+        DebugLogger.shared.removeAllTracedPanes()
+        DebugLogger.shared.setPaneTerminalCaptureEnabled(id, true)
+
+        DebugLogger.shared.log("[notify] terminal-capture-only marker", paneID: id, tabName: "T", paneName: "P")
+        let s = try traceContents()
+        XCTAssertTrue(s.contains("terminal-capture-only marker"))
+    }
+
+    func testAcceptsPaneDiagnosticsMatchesExpectedOrCombination() {
+        let id = UUID()
+        var app = AppSettings()
+        app.debugLogIncludeTerminalContents = false
+        DebugLogger.shared.syncFromAppSettings(app)
+        DebugLogger.shared.isEnabled = false
+        DebugLogger.shared.removeAllTracedPanes()
+
+        XCTAssertFalse(DebugLogger.shared.acceptsPaneDiagnostics(paneID: id))
+
+        DebugLogger.shared.setPaneTerminalCaptureEnabled(id, true)
+        XCTAssertTrue(DebugLogger.shared.acceptsPaneDiagnostics(paneID: id))
+
+        DebugLogger.shared.setPaneTerminalCaptureEnabled(id, false)
+        DebugLogger.shared.setPaneTraceEnabled(id, true)
+        XCTAssertTrue(DebugLogger.shared.acceptsPaneDiagnostics(paneID: id))
+    }
+
     func testLogWithPaneIDWithoutTracingIsIgnored() throws {
         let id = UUID()
         DebugLogger.shared.isEnabled = false

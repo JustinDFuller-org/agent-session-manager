@@ -23,5 +23,10 @@ extension Pane {
                 )
             }
         }
+        statusLineMonitor?.onClaudeHookAttention = { [weak self] in
+            Task { @MainActor in
+                self?.terminalController?.onBell?()
+            }
+        }
     }
 }

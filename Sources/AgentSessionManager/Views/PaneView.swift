@@ -73,6 +73,9 @@ struct PaneView: View {
         .onTapGesture {
             appState.setActivePane(id: pane.id)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerClaudeHookAttentionSettingChanged)) { _ in
+            pane.statusLineMonitor?.refreshClaudeIntegrationFromSettings()
+        }
         .accessibilityElement(children: .contain)
     }
 

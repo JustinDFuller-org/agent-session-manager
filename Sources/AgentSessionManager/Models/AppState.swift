@@ -33,7 +33,18 @@ final class AppState {
     func setActivePane(id: UUID?) {
         activeTab?.lastActivePaneID = id
         activePaneID = id
-        if let id { clearNotification(paneID: id) }
+        if let id {
+            let hadNotification = notifications.contains { $0.paneID == id }
+            clearNotification(paneID: id)
+            if hadNotification {
+                DebugLogger.shared.log(
+                    "[notify] clearNotification reason=activatedPane paneID=\(id.uuidString)",
+                    paneID: id,
+                    tabName: "",
+                    paneName: ""
+                )
+            }
+        }
     }
 
     func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
@@ -104,11 +115,23 @@ final class AppState {
     }
 
     func navigateTo(notification: PaneNotification) {
+        DebugLogger.shared.log(
+            "[notify] navigateToNotification sidebar pane=\(notification.paneName) tab=\(notification.tabName)",
+            paneID: notification.paneID,
+            tabName: notification.tabName,
+            paneName: notification.paneName
+        )
         switchToTab(id: notification.tabID)
         setActivePane(id: notification.paneID)
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {
+        DebugLogger.shared.log(
+            "[notify] focusPane tabID=\(tabID.uuidString) paneID=\(paneID.uuidString) source=bannerOrExternal",
+            paneID: paneID,
+            tabName: "",
+            paneName: ""
+        )
         switchToTab(id: tabID)
         setActivePane(id: paneID)
     }
