@@ -10,7 +10,14 @@ final class DebugLogger {
     /// Hard cap on stored log lines to bound memory; oldest entries are discarded first.
     static let telemetryEntryCap = 1000
 
+    /// Separate cap for bell / notification / banner diagnostics — not evicted by the main ring buffer.
+    static let notificationDiagnosticCap = 200
+
+    /// Beyond this, process-start env logging lists only the first N entries (MainActor + privacy).
+    static let processStartEnvSampleLineCap = 12
+
     private let maxMessageLength = 4000
+    private let processStartEnvValueCap = 96
 
     struct Entry: Identifiable, Codable {
         let id: UUID
@@ -19,20 +26,113 @@ final class DebugLogger {
     }
 
     var isEnabled = false
+    /// In-memory only; enables pane-tagged telemetry when global debug logging is off.
+    private(set) var tracedPaneIDs: Set<UUID> = []
     var entries: [Entry] = []
+    /// Bell / notify / banner lines pinned so they survive main-buffer eviction (debugging notifications).
+    private(set) var notificationDiagnosticEntries: [Entry] = []
     /// Entries removed because of `telemetryEntryCap` (not including lines removed by Clear).
     private(set) var totalEntriesDropped = 0
 
+    var isDebugLogButtonVisible: Bool { isEnabled || !tracedPaneIDs.isEmpty }
+
+    private func acceptsPaneTaggedLogging(paneID: UUID) -> Bool {
+        isEnabled || tracedPaneIDs.contains(paneID)
+    }
+
+    func setPaneTraceEnabled(_ paneID: UUID, _ enabled: Bool) {
+        if enabled {
+            tracedPaneIDs.insert(paneID)
+        } else {
+            tracedPaneIDs.remove(paneID)
+        }
+        Self.postTracingChangedNotification()
+    }
+
+    func removeTracedPane(_ paneID: UUID) {
+        tracedPaneIDs.remove(paneID)
+        Self.postTracingChangedNotification()
+    }
+
+    /// Resets per-pane tracing (e.g. tests). Does not clear log entries.
+    func removeAllTracedPanes() {
+        tracedPaneIDs.removeAll()
+        Self.postTracingChangedNotification()
+    }
+
+    private static func postTracingChangedNotification() {
+        NotificationCenter.default.post(name: .agentSessionManagerDebugTracingChanged, object: nil)
+    }
+
     func log(_ message: String) {
         guard isEnabled else { return }
+        recordMessage(message)
+    }
+
+    func log(_ message: String, paneID: UUID) {
+        guard acceptsPaneTaggedLogging(paneID: paneID) else { return }
+        recordMessage(message)
+    }
+
+    private func recordMessage(_ message: String) {
         let capped = message.count > maxMessageLength
             ? String(message.prefix(maxMessageLength)) + "…"
             : message
-        appendEntry(Entry(id: UUID(), timestamp: Date(), message: capped))
+        let entry = Entry(id: UUID(), timestamp: Date(), message: capped)
+        if Self.messageTriggersNotificationDiagnosticPin(capped) {
+            appendNotificationDiagnosticEntry(entry)
+        }
+        appendEntry(entry)
     }
+
+    private static func messageTriggersNotificationDiagnosticPin(_ message: String) -> Bool {
+        message.contains("[bell]")
+            || message.contains("[notify]")
+            || message.contains("[banner]")
+            || message.contains("[telemetry] ring buffer")
+    }
+
+    private func appendNotificationDiagnosticEntry(_ entry: Entry) {
+        notificationDiagnosticEntries.append(entry)
+        while notificationDiagnosticEntries.count > Self.notificationDiagnosticCap {
+            notificationDiagnosticEntries.removeFirst()
+        }
+    }
+
+    /// Redacts environment-style `KEY=value` lines when the key suggests credentials (copy / GitHub issue body).
+    static func redactSensitiveEnvStyleLines(_ text: String) -> String {
+        text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+            .map { redactSensitiveEnvStyleLine($0) }
+            .joined(separator: "\n")
+    }
+
+    static func redactSensitiveEnvStyleLine(_ line: String) -> String {
+        guard let eq = line.firstIndex(of: "="), eq > line.startIndex else { return line }
+        let keyPart = line[..<eq].trimmingCharacters(in: .whitespaces)
+        guard !keyPart.isEmpty else { return line }
+        let valueStart = line.index(after: eq)
+        guard valueStart < line.endIndex else { return line }
+
+        let keyUpper = String(keyPart).uppercased()
+        for token in sensitiveEnvKeySubstrings {
+            if keyUpper.contains(token) {
+                return "\(keyPart)=<redacted>"
+            }
+        }
+        return line
+    }
+
+    private static let sensitiveEnvKeySubstrings: [String] = [
+        "TOKEN", "SECRET", "PASSWORD", "API_KEY", "APIKEY",
+        "PRIVATE_KEY", "CREDENTIAL", "BEARER", "AUTHORIZATION",
+        "ANTHROPIC", "JIRA", "DATADOG", "DRONE", "VAULT", "ARTIFACTORY",
+        "AWS_", "GCLOUD", "GOOGLE_APPLICATION", "SSH_",
+    ]
 
     func clear() {
         entries = []
+        notificationDiagnosticEntries = []
         totalEntriesDropped = 0
     }
 
@@ -60,8 +160,18 @@ final class DebugLogger {
         }
     }
 
-    func logProcessStart(executable: String, args: [String], environment: [String]?, currentDirectory: String?) {
-        guard isEnabled else { return }
+    func logProcessStart(
+        executable: String,
+        args: [String],
+        environment: [String]?,
+        currentDirectory: String?,
+        paneID: UUID? = nil
+    ) {
+        if let paneID {
+            guard acceptsPaneTaggedLogging(paneID: paneID) else { return }
+        } else {
+            guard isEnabled else { return }
+        }
         var lines: [String] = []
         lines.append("── Process Start ──")
         lines.append("executable: \(executable)")
@@ -70,16 +180,21 @@ final class DebugLogger {
             lines.append("cwd: \(cwd)")
         }
         if let env = environment {
-            lines.append("environment (\(env.count) vars):")
-            for pair in env {
+            lines.append("environment (\(env.count) vars, showing first \(min(env.count, Self.processStartEnvSampleLineCap))):")
+            for (index, pair) in env.enumerated() where index < Self.processStartEnvSampleLineCap {
                 let parts = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
                 let key = parts.first.map(String.init) ?? ""
                 let value = parts.count > 1 ? String(parts[1]) : ""
-                let truncated = value.count > 200 ? String(value.prefix(200)) + "…" : value
+                let truncated = value.count > processStartEnvValueCap
+                    ? String(value.prefix(processStartEnvValueCap)) + "…"
+                    : value
                 lines.append("  \(key)=\(truncated)")
             }
+            if env.count > Self.processStartEnvSampleLineCap {
+                lines.append("  … \(env.count - Self.processStartEnvSampleLineCap) more vars omitted (disable Debug Logging or use Capture Terminal to reduce overhead)")
+            }
         }
-        log(lines.joined(separator: "\n"))
+        recordMessage(lines.joined(separator: "\n"))
     }
 
     func logGitCommand(_ args: [String], cwd: String) {
@@ -101,12 +216,16 @@ final class DebugLogger {
         log("── Worktree Resolution ──\nref: \(userRef)\nresult: \(result)")
     }
 
-    func logTerminalContent(paneName: String, content: String) {
-        guard isEnabled else { return }
+    func logTerminalContent(paneName: String, content: String, paneID: UUID? = nil) {
+        if let paneID {
+            guard acceptsPaneTaggedLogging(paneID: paneID) else { return }
+        } else {
+            guard isEnabled else { return }
+        }
         let header = "── Terminal Content: \(paneName) ──"
         let trimmed = content.hasSuffix("\n") ? String(content.dropLast()) : content
         let capped = trimmed.count > 4000 ? String(trimmed.prefix(4000)) + "…" : trimmed
-        log("\(header)\n\(capped)")
+        recordMessage("\(header)\n\(capped)")
     }
 
     func logSystemInfo() {
@@ -138,7 +257,24 @@ final class DebugLogger {
         lines.append("### Description")
         lines.append("<!-- Describe the issue -->")
         lines.append("")
+
+        if !notificationDiagnosticEntries.isEmpty {
+            lines.append("### Pinned notification diagnostics")
+            lines.append("(Bell, notify, and banner log lines; kept when the main telemetry ring drops older entries.)")
+            lines.append("```")
+            df.dateFormat = "HH:mm:ss.SSS"
+            for entry in notificationDiagnosticEntries {
+                let raw = entry.message.count > 8000 ? String(entry.message.prefix(8000)) + "…" : entry.message
+                let msg = Self.redactSensitiveEnvStyleLines(raw)
+                lines.append("[\(df.string(from: entry.timestamp))] \(msg)")
+                lines.append("")
+            }
+            lines.append("```")
+            lines.append("")
+        }
+
         lines.append("### Debug Log")
+        lines.append("Environment-style secrets in `KEY=value` lines are redacted (`<redacted>`).")
         lines.append("```")
 
         let footer = "```"
@@ -146,7 +282,8 @@ final class DebugLogger {
 
         for entry in entries.reversed() {
             df.dateFormat = "HH:mm:ss.SSS"
-            var msg = entry.message.count > 8000 ? String(entry.message.prefix(8000)) + "…" : entry.message
+            let raw = entry.message.count > 8000 ? String(entry.message.prefix(8000)) + "…" : entry.message
+            var msg = Self.redactSensitiveEnvStyleLines(raw)
             let timestampPrefix = "[\(df.string(from: entry.timestamp))] "
 
             if let maxLen = maxBodyLength, includedCount > 0 {
@@ -202,6 +339,11 @@ final class DebugLogger {
             maxRawBody = maxRawBody / 2
         }
     }
+}
+
+extension Notification.Name {
+    /// Posted when per-pane debug tracing membership changes (ladybug visibility).
+    static let agentSessionManagerDebugTracingChanged = Notification.Name("agentSessionManagerDebugTracingChanged")
 }
 
 private extension utsname {

@@ -482,12 +482,14 @@ final class Tab: Identifiable {
             }
             pane.terminalController = controller
             controller.terminalView.telemetryPaneLabel = "\(pane.name) \(String(pane.id.uuidString.prefix(8)))"
+            controller.terminalView.telemetryPaneUUID = pane.id
         }
         panes.append(pane)
         return pane
     }
 
     func closePane(_ pane: Pane) {
+        DebugLogger.shared.removeTracedPane(pane.id)
         pane.terminalController?.terminate()
         pane.statusLineMonitor?.stop()
         panes.removeAll { $0.id == pane.id }

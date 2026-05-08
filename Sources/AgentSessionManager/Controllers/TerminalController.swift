@@ -1,44 +1,30 @@
 import AppKit
+import Foundation
 import SwiftTerm
 
 final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onBell: (() -> Void)?
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryPaneLabel: String = ""
+    var telemetryPaneUUID: UUID?
 
     override func bell(source: Terminal) {
         super.bell(source: source)
         let label = telemetryPaneLabel
-        Task { @MainActor in
-            guard DebugLogger.shared.isEnabled else { return }
-            DebugLogger.shared.log("[bell] SwiftTerm bell() pane=\(label.isEmpty ? "?" : label)")
-        }
+        let msg = "[bell] SwiftTerm bell() pane=\(label.isEmpty ? "?" : label)"
+        let paneId = telemetryPaneUUID
         DispatchQueue.main.async { [weak self] in
-            self?.onBell?()
-        }
-    }
-
-    override func dataReceived(slice: ArraySlice<UInt8>) {
-        if slice.contains(0x07) {
-            let byteCount = slice.count
-            let label = telemetryPaneLabel
-            let preview = Self.hexPreviewAroundBEL(slice)
-            Task { @MainActor in
-                guard DebugLogger.shared.isEnabled else { return }
-                DebugLogger.shared.log(
-                    "[pty] chunk contains BEL bytes=\(byteCount) pane=\(label.isEmpty ? "?" : label) preview=\(preview)"
-                )
+            guard let self else { return }
+            let debug = DebugLogger.shared
+            if let id = paneId {
+                if debug.isEnabled || debug.tracedPaneIDs.contains(id) {
+                    debug.log(msg, paneID: id)
+                }
+            } else if debug.isEnabled {
+                debug.log(msg)
             }
+            self.onBell?()
         }
-        super.dataReceived(slice: slice)
-    }
-
-    private static func hexPreviewAroundBEL(_ slice: ArraySlice<UInt8>) -> String {
-        let arr = Array(slice)
-        guard let idx = arr.firstIndex(of: 0x07) else { return "" }
-        let lo = max(0, idx - 8)
-        let hi = min(arr.count, idx + 9)
-        return arr[lo..<hi].map { String(format: "%02x", $0) }.joined(separator: " ")
     }
 }
 
@@ -80,29 +66,37 @@ final class TerminalController: NSObject {
             //   Remaining TCC prompts are one-time decisions from Claude's startup
             //   path scanning. See documentation/features/panes.md.
             let args = ["-i", "-c", cmd]
-            DebugLogger.shared.logProcessStart(
-                executable: shell,
-                args: args,
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
-            )
+            let tracePane = terminalView.telemetryPaneUUID
+            let env = pendingEnvironment
+            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
                 args: args,
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
+                environment: env,
+                currentDirectory: cwd
+            )
+            Self.scheduleDeferredProcessStartLog(
+                executable: shell,
+                args: args,
+                environment: env,
+                currentDirectory: cwd,
+                paneID: tracePane
             )
         } else {
-            DebugLogger.shared.logProcessStart(
-                executable: shell,
-                args: [],
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
-            )
+            let tracePane = terminalView.telemetryPaneUUID
+            let env = pendingEnvironment
+            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
+                environment: env,
+                currentDirectory: cwd
+            )
+            Self.scheduleDeferredProcessStartLog(
+                executable: shell,
+                args: [],
+                environment: env,
+                currentDirectory: cwd,
+                paneID: tracePane
             )
         }
         let pid = terminalView.process.shellPid
@@ -134,6 +128,25 @@ final class TerminalController: NSObject {
 
     func terminate() {
         terminalView.terminate()
+    }
+
+    /// Builds large log lines off the critical path so the PTY can start before telemetry work runs.
+    private static func scheduleDeferredProcessStartLog(
+        executable: String,
+        args: [String],
+        environment: [String]?,
+        currentDirectory: String?,
+        paneID: UUID?
+    ) {
+        Task(priority: .utility) { @MainActor in
+            DebugLogger.shared.logProcessStart(
+                executable: executable,
+                args: args,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                paneID: paneID
+            )
+        }
     }
 }
 

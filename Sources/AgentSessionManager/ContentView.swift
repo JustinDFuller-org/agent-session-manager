@@ -29,6 +29,9 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreDebugSettings(into: appSettings)
                         SettingsPersistence.restorePRTracking(into: appSettings)
                         DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
+                        if !appSettings.debugLoggingEnabled {
+                            DebugLogger.shared.removeAllTracedPanes()
+                        }
                         if appSettings.debugLoggingEnabled {
                             DebugLogger.shared.logSystemInfo()
                         }

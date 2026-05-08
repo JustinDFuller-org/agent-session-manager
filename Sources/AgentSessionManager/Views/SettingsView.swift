@@ -124,6 +124,9 @@ private struct GeneralContent: View {
                         .accessibilityIdentifier("settings-debug-logging-toggle")
                         .onChange(of: appSettings.debugLoggingEnabled) {
                             DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
+                            if !appSettings.debugLoggingEnabled {
+                                DebugLogger.shared.removeAllTracedPanes()
+                            }
                             SettingsPersistence.saveDebugSettings(appSettings: appSettings)
                             if appSettings.debugLoggingEnabled {
                                 DebugLogger.shared.logSystemInfo()

@@ -6,7 +6,8 @@ enum MacNotificationUserInfoKey {
     static let tabID = "tabID"
 }
 
-/// Posts macOS banner notifications when a background pane rings the terminal bell (with user permission).
+/// Posts macOS banner notifications when a pane rings the terminal bell (with user permission).
+/// Banners are presented even while Agent Session Manager is frontmost so attention is visible on the desktop.
 @MainActor
 final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelegate {
     static let shared = MacNotificationCoordinator()
@@ -34,11 +35,14 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         tabName: String
     ) {
         guard let appSettings, appSettings.isMacOSBannerNotificationsEnabled else {
-            DebugLogger.shared.log("[banner] skipped banner notifications disabled in settings")
+            DebugLogger.shared.log(
+                "[banner] skipped banner notifications disabled in settings",
+                paneID: paneID
+            )
             return
         }
         guard !AgentSessionManagerApp.isUITesting else {
-            DebugLogger.shared.log("[banner] skipped UI testing")
+            DebugLogger.shared.log("[banner] skipped UI testing", paneID: paneID)
             return
         }
         Task { @MainActor in
@@ -46,7 +50,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             let settings = await center.notificationSettings()
             guard settings.authorizationStatus == .authorized else {
                 DebugLogger.shared.log(
-                    "[banner] skipped authorization=\(String(describing: settings.authorizationStatus))"
+                    "[banner] skipped authorization=\(String(describing: settings.authorizationStatus))",
+                    paneID: paneID
                 )
                 return
             }
@@ -63,9 +68,15 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
             do {
                 try await center.add(request)
-                DebugLogger.shared.log("[banner] UNUserNotificationCenter.add succeeded identifier=\(identifier)")
+                DebugLogger.shared.log(
+                    "[banner] UNUserNotificationCenter.add succeeded identifier=\(identifier)",
+                    paneID: paneID
+                )
             } catch {
-                DebugLogger.shared.log("[banner] UNUserNotificationCenter.add failed: \(error.localizedDescription)")
+                DebugLogger.shared.log(
+                    "[banner] UNUserNotificationCenter.add failed: \(error.localizedDescription)",
+                    paneID: paneID
+                )
             }
         }
     }
@@ -83,6 +94,9 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Options passed to `willPresent` — exposed for unit tests.
+    nonisolated static let willPresentPresentationOptions: UNNotificationPresentationOptions = [.banner, .sound]
+
     // MARK: - UNUserNotificationCenterDelegate
 
     nonisolated func userNotificationCenter(
@@ -91,7 +105,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         DispatchQueue.main.async {
-            completionHandler(NSApp.isActive ? [] : [.banner, .sound])
+            completionHandler(Self.willPresentPresentationOptions)
         }
     }
 

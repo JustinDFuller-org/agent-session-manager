@@ -6,7 +6,8 @@ extension Pane {
     func wireTerminalBellForNotifications(appState: AppState, tab: Tab, isPriority: Bool) {
         self.isPriority = isPriority
         DebugLogger.shared.log(
-            "[notify] wireBell pane=\(name) tab=\(tab.name) priority=\(isPriority) hasTerminal=\(terminalController != nil)"
+            "[notify] wireBell pane=\(name) tab=\(tab.name) priority=\(isPriority) hasTerminal=\(terminalController != nil)",
+            paneID: self.id
         )
         terminalController?.onBell = { [weak appState, weak tab, weak self] in
             Task { @MainActor in

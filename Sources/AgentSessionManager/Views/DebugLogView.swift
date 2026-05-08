@@ -19,23 +19,42 @@ struct DebugLogView: View {
                                 guard let content = pane.terminalController?.terminalContent,
                                       !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 else { continue }
-                                DebugLogger.shared.logTerminalContent(paneName: pane.name, content: content)
+                                DebugLogger.shared.logTerminalContent(
+                                    paneName: pane.name,
+                                    content: content,
+                                    paneID: pane.id
+                                )
                             }
                         }
                     }
-                    .disabled(debug.isEnabled == false || appState.tabs.isEmpty)
+                    .disabled(!debug.isDebugLogButtonVisible || appState.tabs.isEmpty)
                     .accessibilityIdentifier("debug-log-capture-button")
 
                     Button("Copy") {
-                        let text = debug.entries.map { entry in
+                        var chunks: [String] = []
+                        if !debug.notificationDiagnosticEntries.isEmpty {
+                            let pinnedText = debug.notificationDiagnosticEntries.map { entry in
+                                let df = DateFormatter()
+                                df.dateFormat = "HH:mm:ss.SSS"
+                                let redacted = DebugLogger.redactSensitiveEnvStyleLines(entry.message)
+                                return "[\(df.string(from: entry.timestamp))] \(redacted)"
+                            }.joined(separator: "\n\n")
+                            chunks.append("── Pinned notification diagnostics ──\n\n\(pinnedText)")
+                        }
+                        let mainText = debug.entries.map { entry in
                             let df = DateFormatter()
                             df.dateFormat = "HH:mm:ss.SSS"
-                            return "[\(df.string(from: entry.timestamp))] \(entry.message)"
+                            let redacted = DebugLogger.redactSensitiveEnvStyleLines(entry.message)
+                            return "[\(df.string(from: entry.timestamp))] \(redacted)"
                         }.joined(separator: "\n\n")
+                        if !mainText.isEmpty {
+                            chunks.append(mainText)
+                        }
+                        let text = chunks.joined(separator: "\n\n")
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(text, forType: .string)
                     }
-                    .disabled(debug.entries.isEmpty)
+                    .disabled(debug.entries.isEmpty && debug.notificationDiagnosticEntries.isEmpty)
                     .accessibilityIdentifier("debug-log-copy-button")
 
                     Button("Clear") {
@@ -47,7 +66,7 @@ struct DebugLogView: View {
                     Button("Report Bug") {
                         DebugLogger.openBugReport()
                     }
-                    .disabled(debug.entries.isEmpty)
+                    .disabled(debug.entries.isEmpty && debug.notificationDiagnosticEntries.isEmpty)
                     .accessibilityIdentifier("debug-log-report-button")
                 }
             }
@@ -57,7 +76,7 @@ struct DebugLogView: View {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 36))
                         .foregroundStyle(.quaternary)
-                    Text("No log entries yet.\nPerform actions in the app with debug logging enabled to see details here.")
+                    Text("No log entries yet.\nEnable debug logging in Settings, or trace a pane from its context menu, then reproduce the issue.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -97,7 +116,7 @@ struct DebugLogView: View {
             }
 
             Text(
-                "Telemetry buffer: \(debug.entries.count) / \(DebugLogger.telemetryEntryCap) entries — total dropped (cap): \(debug.totalEntriesDropped)"
+                "Telemetry buffer: \(debug.entries.count) / \(DebugLogger.telemetryEntryCap) entries — dropped (cap): \(debug.totalEntriesDropped) — pinned bell/notify/banner: \(debug.notificationDiagnosticEntries.count) / \(DebugLogger.notificationDiagnosticCap). Copy scrubs env-style secrets from keys that look like credentials."
             )
             .font(.caption)
             .foregroundStyle(.tertiary)

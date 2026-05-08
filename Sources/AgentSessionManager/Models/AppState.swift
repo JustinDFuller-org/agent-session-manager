@@ -53,6 +53,7 @@ final class AppState {
 
     func closeTab(_ tab: Tab) {
         tab.panes.forEach {
+            DebugLogger.shared.removeTracedPane($0.id)
             $0.terminalController?.terminate()
             clearNotification(paneID: $0.id)
         }
@@ -69,7 +70,10 @@ final class AppState {
 
     func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
         if notifications.contains(where: { $0.paneID == paneID }) {
-            DebugLogger.shared.log("[notify] addNotification skipped duplicate paneID=\(paneID.uuidString) name=\(paneName)")
+            DebugLogger.shared.log(
+                "[notify] addNotification skipped duplicate paneID=\(paneID.uuidString) name=\(paneName)",
+                paneID: paneID
+            )
             return
         }
         notifications.append(PaneNotification(
@@ -80,7 +84,8 @@ final class AppState {
             isPriority: isPriority
         ))
         DebugLogger.shared.log(
-            "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)"
+            "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)",
+            paneID: paneID
         )
         MacNotificationCoordinator.shared.postPaneAttentionIfNeeded(
             paneID: paneID,

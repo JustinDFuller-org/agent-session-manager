@@ -40,6 +40,16 @@ struct PaneView: View {
                 }
             }
             if appSettings.debugLoggingEnabled {
+                Text("Per-pane trace is unnecessary while global Debug Logging is on (Settings → General). Turn global logging off to trace individual panes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Toggle("Trace this pane in debug log", isOn: Binding(
+                    get: { DebugLogger.shared.tracedPaneIDs.contains(pane.id) },
+                    set: { DebugLogger.shared.setPaneTraceEnabled(pane.id, $0) }
+                ))
+            }
+            if appSettings.debugLoggingEnabled || DebugLogger.shared.tracedPaneIDs.contains(pane.id) {
                 Button("Report a Bug") {
                     DebugLogger.openBugReport()
                 }

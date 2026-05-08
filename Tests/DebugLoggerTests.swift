@@ -7,12 +7,14 @@ final class DebugLoggerTests: XCTestCase {
     override func setUp() {
         super.setUp()
         DebugLogger.shared.isEnabled = false
+        DebugLogger.shared.removeAllTracedPanes()
         DebugLogger.shared.clear()
         PersistenceHelpers.overrideAppSupportSubdirectory = "agent-session-manager"
     }
 
     override func tearDown() {
         DebugLogger.shared.isEnabled = false
+        DebugLogger.shared.removeAllTracedPanes()
         DebugLogger.shared.clear()
         PersistenceHelpers.overrideAppSupportSubdirectory = nil
         super.tearDown()
@@ -38,6 +40,7 @@ final class DebugLoggerTests: XCTestCase {
         XCTAssertEqual(DebugLogger.shared.entries.count, 2)
         DebugLogger.shared.clear()
         XCTAssertEqual(DebugLogger.shared.entries.count, 0)
+        XCTAssertEqual(DebugLogger.shared.notificationDiagnosticEntries.count, 0)
         XCTAssertEqual(DebugLogger.shared.totalEntriesDropped, 0)
     }
 
@@ -60,6 +63,44 @@ final class DebugLoggerTests: XCTestCase {
             DebugLogger.shared.log("fill-\(i)")
         }
         XCTAssertTrue(DebugLogger.shared.entries.contains { $0.message.contains("[telemetry] ring buffer dropped") })
+    }
+
+    func testNotificationDiagnosticPinSurvivesMainRingEviction() {
+        DebugLogger.shared.isEnabled = true
+        let cap = DebugLogger.telemetryEntryCap
+        DebugLogger.shared.log("[notify] early wireBell test")
+        for i in 0..<(cap + 10) {
+            DebugLogger.shared.log("row-\(i)")
+        }
+        XCTAssertFalse(DebugLogger.shared.entries.contains { $0.message.contains("[notify]") })
+        XCTAssertTrue(DebugLogger.shared.notificationDiagnosticEntries.contains { $0.message.contains("[notify]") })
+    }
+
+    func testRedactSensitiveEnvStyleLineRedactsTokenLikeKeys() {
+        XCTAssertEqual(
+            DebugLogger.redactSensitiveEnvStyleLine("  JIRA_TOKEN=at-secret"),
+            "JIRA_TOKEN=<redacted>"
+        )
+        XCTAssertEqual(
+            DebugLogger.redactSensitiveEnvStyleLine("PATH=/usr/bin"),
+            "PATH=/usr/bin"
+        )
+    }
+
+    func testRedactSensitiveEnvStyleLinesMultiline() {
+        let raw = "line a\n  DATADOG_API_KEY=abc123\nHOME=/Users/me"
+        let out = DebugLogger.redactSensitiveEnvStyleLines(raw)
+        XCTAssertTrue(out.contains("DATADOG_API_KEY=<redacted>"))
+        XCTAssertTrue(out.contains("HOME=/Users/me"))
+    }
+
+    func testBuildReportTextIncludesPinnedDiagnostics() {
+        DebugLogger.shared.isEnabled = true
+        DebugLogger.shared.log("[notify] pinned only")
+        let report = DebugLogger.shared.buildReportText()
+        XCTAssertTrue(report.contains("### Pinned notification diagnostics"))
+        XCTAssertTrue(report.contains("[notify] pinned only"))
+        XCTAssertTrue(report.contains("redacted"))
     }
 
     func testLogTruncatesVeryLongSingleMessage() {
@@ -108,7 +149,7 @@ final class DebugLoggerTests: XCTestCase {
         XCTAssertTrue(msg.contains("HOME=/Users/test"))
         XCTAssertTrue(msg.contains("PATH=/usr/bin"))
         XCTAssertTrue(msg.contains("SECRET_KEY=abcdef123456"))
-        XCTAssertTrue(msg.contains("environment (3 vars)"))
+        XCTAssertTrue(msg.contains("environment (3 vars, showing first 3):"))
     }
 
     func testLogProcessStartWithoutEnvironment() {
@@ -135,6 +176,22 @@ final class DebugLoggerTests: XCTestCase {
         )
         let msg = DebugLogger.shared.entries.first?.message ?? ""
         XCTAssertTrue(msg.contains("…"))
+    }
+
+    func testLogProcessStartSamplesLargeEnvironment() {
+        DebugLogger.shared.isEnabled = true
+        let env = (0..<20).map { "KEY\($0)=value\($0)" }
+        DebugLogger.shared.logProcessStart(
+            executable: "/bin/sh",
+            args: [],
+            environment: env,
+            currentDirectory: nil
+        )
+        let msg = DebugLogger.shared.entries.first?.message ?? ""
+        XCTAssertTrue(msg.contains("environment (20 vars, showing first \(DebugLogger.processStartEnvSampleLineCap)):"))
+        XCTAssertTrue(msg.contains("more vars omitted"))
+        XCTAssertTrue(msg.contains("KEY0=value0"))
+        XCTAssertFalse(msg.contains("KEY19=value19"))
     }
 
     func testLogGitCommandRecordsDetails() {
@@ -168,6 +225,8 @@ final class DebugLoggerTests: XCTestCase {
     func testDisabledLoggerDoesNotRecordAnyLogMethod() {
         DebugLogger.shared.isEnabled = false
         DebugLogger.shared.log("plain")
+        let orphanID = UUID()
+        DebugLogger.shared.log("pane-tagged", paneID: orphanID)
         DebugLogger.shared.logProcessStart(executable: "/bin/sh", args: [], environment: nil, currentDirectory: nil)
         DebugLogger.shared.logGitCommand(["status"], cwd: "/tmp")
         DebugLogger.shared.logSessionRestore(summary: "restore")
@@ -231,7 +290,7 @@ final class DebugLoggerTests: XCTestCase {
         DebugLogger.shared.log("beta-message")
         DebugLogger.shared.log("gamma-message")
 
-        let report = DebugLogger.shared.buildReportText(maxBodyLength: 185)
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 260)
         XCTAssertFalse(report.contains("alpha-message"), "oldest entry should be dropped")
         XCTAssertTrue(report.contains("...showing"), "truncation note should be present")
         XCTAssertTrue(report.contains("of \(DebugLogger.shared.entries.count)"), "should show entry count")
@@ -267,7 +326,7 @@ final class DebugLoggerTests: XCTestCase {
             DebugLogger.shared.log("entry-\(String(format: "%02d", i))")
         }
 
-        let report = DebugLogger.shared.buildReportText(maxBodyLength: 200)
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 320)
         XCTAssertTrue(report.contains("entry-20"), "most recent entry should be kept")
         XCTAssertFalse(report.contains("entry-05"), "older entries should be dropped")
         XCTAssertTrue(report.contains("...showing"), "truncation note should be present")
@@ -287,7 +346,8 @@ final class DebugLoggerTests: XCTestCase {
         DebugLogger.shared.log("first")
         DebugLogger.shared.log("second")
 
-        let report = DebugLogger.shared.buildReportText(maxBodyLength: 150)
+        // Header + redaction note leaves little room; keep limit tight so only the newest entry fits.
+        let report = DebugLogger.shared.buildReportText(maxBodyLength: 220)
         XCTAssertTrue(report.contains("second"), "most recent entry must be included")
         XCTAssertTrue(report.contains("...showing"), "truncation note should be present")
         XCTAssertTrue(report.contains("of \(DebugLogger.shared.entries.count)"))
@@ -300,6 +360,78 @@ final class DebugLoggerTests: XCTestCase {
         let report = DebugLogger.shared.buildReportText(maxBodyLength: 5)
         XCTAssertTrue(report.contains("entry omitted"), "placeholder should appear when limit is too small")
         XCTAssertFalse(report.contains("some log message"))
+    }
+
+    func testLogWithPaneIDRecordsWhenPaneTracedAndGlobalOff() {
+        DebugLogger.shared.isEnabled = false
+        let paneID = UUID()
+        DebugLogger.shared.setPaneTraceEnabled(paneID, true)
+        DebugLogger.shared.log("pane-only", paneID: paneID)
+        XCTAssertEqual(DebugLogger.shared.entries.count, 1)
+        XCTAssertEqual(DebugLogger.shared.entries.first?.message, "pane-only")
+    }
+
+    func testLogWithPaneIDSilentWhenPaneNotTraced() {
+        DebugLogger.shared.isEnabled = false
+        DebugLogger.shared.log("nope", paneID: UUID())
+        XCTAssertEqual(DebugLogger.shared.entries.count, 0)
+    }
+
+    func testLogWithPaneIDRecordsWhenGlobalOnWithoutTraceSet() {
+        DebugLogger.shared.isEnabled = true
+        let paneID = UUID()
+        DebugLogger.shared.log("with-global", paneID: paneID)
+        XCTAssertEqual(DebugLogger.shared.entries.count, 1)
+    }
+
+    func testLogProcessStartWithPaneIDWhenTraced() {
+        DebugLogger.shared.isEnabled = false
+        let paneID = UUID()
+        DebugLogger.shared.setPaneTraceEnabled(paneID, true)
+        DebugLogger.shared.logProcessStart(
+            executable: "/bin/zsh",
+            args: ["-c", "true"],
+            environment: nil,
+            currentDirectory: "/tmp",
+            paneID: paneID
+        )
+        XCTAssertEqual(DebugLogger.shared.entries.count, 1)
+        let msg = DebugLogger.shared.entries.first?.message ?? ""
+        XCTAssertTrue(msg.contains("Process Start"))
+        XCTAssertTrue(msg.contains("/tmp"))
+    }
+
+    func testLogProcessStartWithPaneIDSilentWhenNotTraced() {
+        DebugLogger.shared.isEnabled = false
+        DebugLogger.shared.logProcessStart(
+            executable: "/bin/sh",
+            args: [],
+            environment: nil,
+            currentDirectory: nil,
+            paneID: UUID()
+        )
+        XCTAssertEqual(DebugLogger.shared.entries.count, 0)
+    }
+
+    func testRemoveTracedPaneStopsPaneTaggedLogging() {
+        DebugLogger.shared.isEnabled = false
+        let paneID = UUID()
+        DebugLogger.shared.setPaneTraceEnabled(paneID, true)
+        DebugLogger.shared.log("one", paneID: paneID)
+        XCTAssertEqual(DebugLogger.shared.entries.count, 1)
+        DebugLogger.shared.removeTracedPane(paneID)
+        DebugLogger.shared.log("two", paneID: paneID)
+        XCTAssertEqual(DebugLogger.shared.entries.count, 1)
+    }
+
+    func testLogTerminalContentWithPaneIDWhenTraced() {
+        DebugLogger.shared.isEnabled = false
+        let paneID = UUID()
+        DebugLogger.shared.setPaneTraceEnabled(paneID, true)
+        DebugLogger.shared.logTerminalContent(paneName: "p1", content: "hello\n", paneID: paneID)
+        XCTAssertEqual(DebugLogger.shared.entries.count, 1)
+        XCTAssertTrue(DebugLogger.shared.entries.first?.message.contains("Terminal Content: p1") ?? false)
+        XCTAssertTrue(DebugLogger.shared.entries.first?.message.contains("hello") ?? false)
     }
 
     func testClearPersistedDebugSettingsFile() {
