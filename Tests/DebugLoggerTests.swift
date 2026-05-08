@@ -8,11 +8,13 @@ final class DebugLoggerTests: XCTestCase {
         super.setUp()
         DebugLogger.shared.isEnabled = false
         DebugLogger.shared.clear()
+        PersistenceHelpers.overrideAppSupportSubdirectory = "agent-session-manager"
     }
 
     override func tearDown() {
         DebugLogger.shared.isEnabled = false
         DebugLogger.shared.clear()
+        PersistenceHelpers.overrideAppSupportSubdirectory = nil
         super.tearDown()
     }
 

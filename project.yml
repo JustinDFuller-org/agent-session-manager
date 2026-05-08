@@ -5,6 +5,11 @@ options:
     macOS: "14.0"
   generateEmptyDirectories: true
 
+configs:
+  Debug: debug
+  Release: release
+  Dev: release
+
 packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
@@ -20,10 +25,17 @@ targets:
       path: Info.plist
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager
-        SWIFT_VERSION: 5.9
+        SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ENABLE_HARDENED_RUNTIME: YES
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager
+        Dev:
+          PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.dev
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEV_BUILD
     dependencies:
       - package: SwiftTerm
         product: SwiftTerm
@@ -41,11 +53,19 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.uitests
-        SWIFT_VERSION: 5.9
+        SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: ""
         BUNDLE_LOADER: ""
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.uitests
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.uitests
+        Dev:
+          PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.dev.uitests
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEV_BUILD
     entitlements:
       path: AgentSessionManagerUITests.entitlements
       properties:

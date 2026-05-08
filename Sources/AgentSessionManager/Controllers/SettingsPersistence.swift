@@ -45,7 +45,7 @@ private struct RestartConfig: Codable {
 struct SettingsPersistence {
     private static var appSupportDir: URL {
         let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = config.appending(path: "agent-session-manager")
+        let dir = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
@@ -62,6 +62,7 @@ struct SettingsPersistence {
     private static var worktreeCleanupURL: URL { appSupportDir.appending(path: "worktree-cleanup.json") }
     private static var existingWorktreeManagementURL: URL { appSupportDir.appending(path: "existing-worktree-management.json") }
     private static var debugSettingsURL: URL { appSupportDir.appending(path: "debug-settings.json") }
+    private static var prTrackingSettingsURL: URL { appSupportDir.appending(path: "pr-tracking-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -275,5 +276,26 @@ struct SettingsPersistence {
             let enabled = try? JSONDecoder().decode(Bool.self, from: data)
         else { return }
         appSettings.debugLoggingEnabled = enabled
+    }
+
+    static func savePRTracking(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.githubPRTrackingEnabled) else { return }
+        try? data.write(to: prTrackingSettingsURL)
+    }
+
+    static func restorePRTracking(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: prTrackingSettingsURL),
+            let enabled = try? JSONDecoder().decode(Bool.self, from: data)
+        else { return }
+        appSettings.githubPRTrackingEnabled = enabled
+    }
+
+    static func isPRTrackingEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: prTrackingSettingsURL),
+            let enabled = try? JSONDecoder().decode(Bool.self, from: data)
+        else { return true }
+        return enabled
     }
 }

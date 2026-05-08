@@ -461,15 +461,18 @@ final class Tab: Identifiable {
             let cwd = worktreeDirectory?.path ?? directory.path
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
+
+            let needsHook = cliType == .claude
+            let monitor = StatusLineMonitor(paneID: pane.id, workingDirectory: cwd, needsSettingsHook: needsHook)
+            monitor.start()
+            pane.statusLineMonitor = monitor
+
             switch cliType {
             case .claude:
-                let monitor = StatusLineMonitor(paneID: pane.id)
-                monitor.start()
                 controller.pendingCommand = Tab.buildClaudeCommand(
                     settingsPath: monitor.settingsFilePath,
                     extraArgs: extra
                 )
-                pane.statusLineMonitor = monitor
             case .codex:
                 controller.pendingCommand = "codex\(extra)"
             case .cursor:

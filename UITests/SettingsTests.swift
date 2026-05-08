@@ -114,6 +114,42 @@ final class SettingsTests: BaseTestCase {
         XCTAssertTrue(closeTabName.exists)
     }
 
+    func testPRTrackingToggleExistsInStatusLineTab() {
+        openSettings()
+        let statusLineTab = app.buttons["Status Line"]
+        waitFor(statusLineTab)
+        statusLineTab.click()
+
+        let toggle = app.checkBoxes["settings-pr-tracking-toggle"]
+        waitFor(toggle)
+        XCTAssertTrue(toggle.exists)
+    }
+
+    func testPRTrackingToggleDefaultsToOn() {
+        openSettings()
+        let statusLineTab = app.buttons["Status Line"]
+        waitFor(statusLineTab)
+        statusLineTab.click()
+
+        let toggle = app.checkBoxes["settings-pr-tracking-toggle"]
+        waitFor(toggle)
+        XCTAssertEqual(toggle.value as? Int, 1)
+    }
+
+    func testPRTrackingToggleCanBeToggled() {
+        openSettings()
+        let statusLineTab = app.buttons["Status Line"]
+        waitFor(statusLineTab)
+        statusLineTab.click()
+
+        let toggle = app.checkBoxes["settings-pr-tracking-toggle"]
+        waitFor(toggle)
+        toggle.click()
+        XCTAssertEqual(toggle.value as? Int, 0)
+        toggle.click()
+        XCTAssertEqual(toggle.value as? Int, 1)
+    }
+
     private func openSettings() {
         app.typeKey(",", modifierFlags: .command)
     }

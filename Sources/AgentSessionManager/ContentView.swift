@@ -8,7 +8,7 @@ struct AgentSessionManagerApp: App {
     @State private var appSettings = AppSettings()
 
     var body: some Scene {
-        WindowGroup("Agent Session Manager") {
+        WindowGroup(appWindowTitle) {
             ContentView()
                 .environment(appState)
                 .environment(appSettings)
@@ -27,6 +27,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
                         SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
                         SettingsPersistence.restoreDebugSettings(into: appSettings)
+                        SettingsPersistence.restorePRTracking(into: appSettings)
                         DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
                         if appSettings.debugLoggingEnabled {
                             DebugLogger.shared.logSystemInfo()
@@ -85,5 +86,13 @@ extension Notification.Name {
 extension AgentSessionManagerApp {
     static var isUITesting: Bool {
         CommandLine.arguments.contains("--uitesting")
+    }
+
+    private var appWindowTitle: String {
+#if DEV_BUILD
+        "Agent Session Manager (Dev)"
+#else
+        "Agent Session Manager"
+#endif
     }
 }

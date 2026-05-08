@@ -18,7 +18,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 24)
+        XCTAssertEqual(StatusLineConfig.allItems.count, 25)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -752,5 +752,101 @@ final class ContinueOnRestartCommandTests: XCTestCase {
         let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: "")
         XCTAssertFalse(cmd.contains("--continue"))
         XCTAssertFalse(cmd.contains("--worktree"))
+    }
+}
+
+@MainActor
+final class PRTrackingTests: XCTestCase {
+    func testPullRequestDecode() throws {
+        let json = """
+        {"number": 42, "title": "Fix login bug", "state": "OPEN", "url": "https://github.com/owner/repo/pull/42"}
+        """.data(using: .utf8)!
+        let pr = try JSONDecoder().decode(PullRequest.self, from: json)
+        XCTAssertEqual(pr.number, 42)
+        XCTAssertEqual(pr.title, "Fix login bug")
+        XCTAssertEqual(pr.state, "OPEN")
+        XCTAssertEqual(pr.url, "https://github.com/owner/repo/pull/42")
+        XCTAssertEqual(pr.id, 42)
+    }
+
+    func testPullRequestStateDisplayName() {
+        let openPR = PullRequest(number: 1, title: "t", state: "OPEN", url: "https://example.com")
+        XCTAssertEqual(openPR.stateDisplayName, "open")
+        let mergedPR = PullRequest(number: 2, title: "t", state: "MERGED", url: "https://example.com")
+        XCTAssertEqual(mergedPR.stateDisplayName, "merged")
+        let closedPR = PullRequest(number: 3, title: "t", state: "CLOSED", url: "https://example.com")
+        XCTAssertEqual(closedPR.stateDisplayName, "closed")
+    }
+
+    func testStatusLineDataDecodeWithPR() throws {
+        let json = """
+        {"pr": {"number": 7, "title": "Add feature X", "state": "OPEN", "url": "https://github.com/o/r/pull/7"}}
+        """.data(using: .utf8)!
+        let data = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertEqual(data.pr?.number, 7)
+        XCTAssertEqual(data.pr?.title, "Add feature X")
+        XCTAssertEqual(data.pr?.state, "OPEN")
+    }
+
+    func testStatusLineDataDecodeWithoutPR() throws {
+        let json = """
+        {"model": {"id": "opus", "display_name": "Claude Opus"}}
+        """.data(using: .utf8)!
+        let data = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertNil(data.pr)
+        XCTAssertEqual(data.model?.id, "opus")
+    }
+
+    func testAllItemsIncludesPR() {
+        let items = StatusLineConfig.allItems
+        XCTAssertTrue(items.contains { $0.id == "pr" })
+        let prItem = items.first { $0.id == "pr" }
+        XCTAssertEqual(prItem?.label, "PR")
+        XCTAssertEqual(prItem?.sfSymbol, "arrow.triangle.pull")
+    }
+
+    func testItemOrderIncludesPR() {
+        XCTAssertTrue(StatusLineConfig.itemOrder.contains("pr"))
+    }
+
+    func testItemMetadataIncludesPR() {
+        let meta = StatusLineConfig.itemMetadata["pr"]
+        XCTAssertNotNil(meta)
+        XCTAssertEqual(meta?.label, "PR")
+        XCTAssertEqual(meta?.symbol, "arrow.triangle.pull")
+    }
+
+    func testPRTrackingSettingsDefaultTrue() {
+        let settings = AppSettings()
+        XCTAssertTrue(settings.githubPRTrackingEnabled)
+    }
+
+    func testPRTrackingSettingsPersistence() throws {
+        let settings = AppSettings()
+        settings.githubPRTrackingEnabled = false
+        SettingsPersistence.savePRTracking(appSettings: settings)
+
+        let restored = AppSettings()
+        SettingsPersistence.restorePRTracking(into: restored)
+        XCTAssertFalse(restored.githubPRTrackingEnabled)
+    }
+
+    func testPRTrackingEnabledCheckWithoutFile() throws {
+        let fileManager = FileManager.default
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        let url = support.appending(path: "pr-tracking-settings.json")
+        try? fileManager.removeItem(at: url)
+        XCTAssertTrue(SettingsPersistence.isPRTrackingEnabled())
+    }
+
+    func testPRTrackingSettingsRoundTrip() throws {
+        let settings = AppSettings()
+        settings.githubPRTrackingEnabled = true
+        SettingsPersistence.savePRTracking(appSettings: settings)
+
+        let restored = AppSettings()
+        SettingsPersistence.restorePRTracking(into: restored)
+        XCTAssertTrue(restored.githubPRTrackingEnabled)
     }
 }
