@@ -5,14 +5,15 @@ import SwiftTerm
 final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onBell: (() -> Void)?
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
-    var telemetryPaneLabel: String = ""
+    var telemetryTabName: String = ""
+    var telemetryPaneName: String = ""
     var telemetryPaneUUID: UUID?
     private var osc777HookInstalled = false
 
     override func bell(source: Terminal) {
         super.bell(source: source)
-        let label = telemetryPaneLabel
-        let msg = "[bell] SwiftTerm bell() pane=\(label.isEmpty ? "?" : label)"
+        let pane = telemetryPaneName.isEmpty ? "?" : telemetryPaneName
+        let msg = "[bell] SwiftTerm bell() pane=\(pane)"
         deliverAttentionToHost(logMessage: msg)
     }
 
@@ -29,10 +30,10 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
             guard parts.count >= 3, parts[0] == "notify" else { return }
             let title = parts[1]
             let body = parts[2...].joined(separator: ";")
-            let label = self.telemetryPaneLabel
+            let label = self.telemetryPaneName.isEmpty ? "?" : self.telemetryPaneName
             let safeTitle = String(title.prefix(200)).replacingOccurrences(of: "\n", with: " ")
             let safeBody = String(body.prefix(500)).replacingOccurrences(of: "\n", with: " ")
-            let msg = "[bell] SwiftTerm notify(OSC 777) pane=\(label.isEmpty ? "?" : label) title=\(safeTitle) body=\(safeBody)"
+            let msg = "[bell] SwiftTerm notify(OSC 777) pane=\(label) title=\(safeTitle) body=\(safeBody)"
             self.deliverAttentionToHost(logMessage: msg)
         }
     }
@@ -44,7 +45,12 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
             let debug = DebugLogger.shared
             if let id = paneId {
                 if debug.isEnabled || debug.tracedPaneIDs.contains(id) {
-                    debug.log(logMessage, paneID: id)
+                    debug.log(
+                        logMessage,
+                        paneID: id,
+                        tabName: self.telemetryTabName,
+                        paneName: self.telemetryPaneName
+                    )
                 }
             } else if debug.isEnabled {
                 debug.log(logMessage)
@@ -107,7 +113,9 @@ final class TerminalController: NSObject {
                 args: args,
                 environment: env,
                 currentDirectory: cwd,
-                paneID: tracePane
+                paneID: tracePane,
+                tabName: terminalView.telemetryTabName,
+                paneName: terminalView.telemetryPaneName
             )
         } else {
             let tracePane = terminalView.telemetryPaneUUID
@@ -123,7 +131,9 @@ final class TerminalController: NSObject {
                 args: [],
                 environment: env,
                 currentDirectory: cwd,
-                paneID: tracePane
+                paneID: tracePane,
+                tabName: terminalView.telemetryTabName,
+                paneName: terminalView.telemetryPaneName
             )
         }
         let pid = terminalView.process.shellPid
@@ -163,7 +173,9 @@ final class TerminalController: NSObject {
         args: [String],
         environment: [String]?,
         currentDirectory: String?,
-        paneID: UUID?
+        paneID: UUID?,
+        tabName: String,
+        paneName: String
     ) {
         Task(priority: .utility) { @MainActor in
             DebugLogger.shared.logProcessStart(
@@ -171,7 +183,9 @@ final class TerminalController: NSObject {
                 args: args,
                 environment: environment,
                 currentDirectory: currentDirectory,
-                paneID: paneID
+                paneID: paneID,
+                tabName: tabName.isEmpty ? nil : tabName,
+                paneName: paneName.isEmpty ? nil : paneName
             )
         }
     }

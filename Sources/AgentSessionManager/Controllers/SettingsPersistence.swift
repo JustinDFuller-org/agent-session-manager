@@ -265,17 +265,36 @@ struct SettingsPersistence {
         appSettings.existingWorktreeManagement = behavior
     }
 
+    private struct DebugSettings: Codable, Equatable {
+        var enabled: Bool = false
+        var logFilePath: String = ""
+        var maxFileBytes: Int = 15 * 1024 * 1024
+        var includeTerminalContents: Bool = false
+    }
+
     static func saveDebugSettings(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.debugLoggingEnabled) else { return }
+        let payload = DebugSettings(
+            enabled: appSettings.debugLoggingEnabled,
+            logFilePath: appSettings.debugLogFilePath,
+            maxFileBytes: max(1_048_576, appSettings.debugLogMaxFileBytes),
+            includeTerminalContents: appSettings.debugLogIncludeTerminalContents
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: debugSettingsURL)
     }
 
     static func restoreDebugSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: debugSettingsURL),
-            let enabled = try? JSONDecoder().decode(Bool.self, from: data)
-        else { return }
-        appSettings.debugLoggingEnabled = enabled
+        guard let data = try? Data(contentsOf: debugSettingsURL) else { return }
+        if let settings = try? JSONDecoder().decode(DebugSettings.self, from: data) {
+            appSettings.debugLoggingEnabled = settings.enabled
+            appSettings.debugLogFilePath = settings.logFilePath
+            appSettings.debugLogMaxFileBytes = max(1_048_576, settings.maxFileBytes)
+            appSettings.debugLogIncludeTerminalContents = settings.includeTerminalContents
+            return
+        }
+        if let legacy = try? JSONDecoder().decode(Bool.self, from: data) {
+            appSettings.debugLoggingEnabled = legacy
+        }
     }
 
     static func savePRTracking(appSettings: AppSettings) {

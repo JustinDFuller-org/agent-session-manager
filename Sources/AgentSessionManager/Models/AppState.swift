@@ -72,7 +72,9 @@ final class AppState {
         if notifications.contains(where: { $0.paneID == paneID }) {
             DebugLogger.shared.log(
                 "[notify] addNotification skipped duplicate paneID=\(paneID.uuidString) name=\(paneName)",
-                paneID: paneID
+                paneID: paneID,
+                tabName: tabName,
+                paneName: paneName
             )
             return
         }
@@ -85,7 +87,9 @@ final class AppState {
         ))
         DebugLogger.shared.log(
             "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)",
-            paneID: paneID
+            paneID: paneID,
+            tabName: tabName,
+            paneName: paneName
         )
         MacNotificationCoordinator.shared.postPaneAttentionIfNeeded(
             paneID: paneID,

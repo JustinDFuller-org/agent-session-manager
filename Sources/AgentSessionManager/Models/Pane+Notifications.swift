@@ -7,7 +7,9 @@ extension Pane {
         self.isPriority = isPriority
         DebugLogger.shared.log(
             "[notify] wireBell pane=\(name) tab=\(tab.name) priority=\(isPriority) hasTerminal=\(terminalController != nil)",
-            paneID: self.id
+            paneID: self.id,
+            tabName: tab.name,
+            paneName: name
         )
         terminalController?.onBell = { [weak appState, weak tab, weak self] in
             Task { @MainActor in

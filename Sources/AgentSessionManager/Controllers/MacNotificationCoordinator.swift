@@ -37,12 +37,14 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         guard let appSettings, appSettings.isMacOSBannerNotificationsEnabled else {
             DebugLogger.shared.log(
                 "[banner] skipped banner notifications disabled in settings",
-                paneID: paneID
+                paneID: paneID,
+                tabName: tabName,
+                paneName: paneName
             )
             return
         }
         guard !AgentSessionManagerApp.isUITesting else {
-            DebugLogger.shared.log("[banner] skipped UI testing", paneID: paneID)
+            DebugLogger.shared.log("[banner] skipped UI testing", paneID: paneID, tabName: tabName, paneName: paneName)
             return
         }
         Task { @MainActor in
@@ -51,7 +53,9 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             guard settings.authorizationStatus == .authorized else {
                 DebugLogger.shared.log(
                     "[banner] skipped authorization=\(String(describing: settings.authorizationStatus))",
-                    paneID: paneID
+                    paneID: paneID,
+                    tabName: tabName,
+                    paneName: paneName
                 )
                 return
             }
@@ -70,12 +74,16 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 try await center.add(request)
                 DebugLogger.shared.log(
                     "[banner] UNUserNotificationCenter.add succeeded identifier=\(identifier)",
-                    paneID: paneID
+                    paneID: paneID,
+                    tabName: tabName,
+                    paneName: paneName
                 )
             } catch {
                 DebugLogger.shared.log(
                     "[banner] UNUserNotificationCenter.add failed: \(error.localizedDescription)",
-                    paneID: paneID
+                    paneID: paneID,
+                    tabName: tabName,
+                    paneName: paneName
                 )
             }
         }
