@@ -96,5 +96,17 @@ struct TabButtonView: View {
         } isTargeted: { isTargeted in
             isDragTarget = isTargeted
         }
+        .contextMenu {
+            Button("Create Tab") {
+                NotificationCenter.default.post(name: .newTab, object: nil)
+            }
+            Button("Delete This Tab") {
+                appState.closeTab(tab)
+            }
+            Button("Create Pane") {
+                appState.switchToTab(id: tab.id)
+                NotificationCenter.default.post(name: .newPane, object: nil)
+            }
+        }
     }
 }

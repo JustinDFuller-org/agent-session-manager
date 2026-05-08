@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct PaneView: View {
     @Environment(AppState.self) private var appState
@@ -26,6 +27,24 @@ struct PaneView: View {
                     lineWidth: isActive ? 1.5 : 1
                 )
         )
+        .contextMenu {
+            Button("Close This Pane") {
+                onClosePane(pane)
+            }
+            Button("Create Pane") {
+                NotificationCenter.default.post(name: .newPane, object: nil)
+            }
+            if let pr = pane.statusLineMonitor?.currentData?.pr, let url = URL(string: pr.url) {
+                Button("Go to Pull Request") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            if appSettings.debugLoggingEnabled {
+                Button("Report a Bug") {
+                    DebugLogger.openBugReport()
+                }
+            }
+        }
         .onTapGesture {
             appState.setActivePane(id: pane.id)
         }
