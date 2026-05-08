@@ -33,12 +33,23 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         tabID: UUID,
         tabName: String
     ) {
-        guard let appSettings, appSettings.isMacOSBannerNotificationsEnabled else { return }
-        guard !AgentSessionManagerApp.isUITesting else { return }
-        Task {
+        guard let appSettings, appSettings.isMacOSBannerNotificationsEnabled else {
+            DebugLogger.shared.log("[banner] skipped banner notifications disabled in settings")
+            return
+        }
+        guard !AgentSessionManagerApp.isUITesting else {
+            DebugLogger.shared.log("[banner] skipped UI testing")
+            return
+        }
+        Task { @MainActor in
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
-            guard settings.authorizationStatus == .authorized else { return }
+            guard settings.authorizationStatus == .authorized else {
+                DebugLogger.shared.log(
+                    "[banner] skipped authorization=\(String(describing: settings.authorizationStatus))"
+                )
+                return
+            }
             let content = UNMutableNotificationContent()
             content.title = "Agent Session Manager"
             content.subtitle = paneName
@@ -50,7 +61,12 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             ]
             let identifier = "pane-\(paneID.uuidString)"
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-            try? await center.add(request)
+            do {
+                try await center.add(request)
+                DebugLogger.shared.log("[banner] UNUserNotificationCenter.add succeeded identifier=\(identifier)")
+            } catch {
+                DebugLogger.shared.log("[banner] UNUserNotificationCenter.add failed: \(error.localizedDescription)")
+            }
         }
     }
 

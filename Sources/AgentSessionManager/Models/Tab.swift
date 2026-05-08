@@ -478,6 +478,7 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "opencode\(extra)"
             }
             pane.terminalController = controller
+            controller.terminalView.telemetryPaneLabel = "\(pane.name) \(String(pane.id.uuidString.prefix(8)))"
         }
         panes.append(pane)
         return pane

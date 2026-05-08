@@ -9,6 +9,11 @@ import AppKit
 final class DebugLogger {
     static let shared = DebugLogger()
 
+    /// Hard cap on stored log lines to bound memory; oldest entries are discarded first.
+    static let telemetryEntryCap = 1000
+
+    private let maxMessageLength = 4000
+
     struct Entry: Identifiable, Codable {
         let id: UUID
         let timestamp: Date
@@ -17,19 +22,45 @@ final class DebugLogger {
 
     var isEnabled = false
     var entries: [Entry] = []
-
-    private let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss.SSS"
-        return f
-    }()
+    /// Entries removed because of `telemetryEntryCap` (not including lines removed by Clear).
+    private(set) var totalEntriesDropped = 0
 
     func log(_ message: String) {
         guard isEnabled else { return }
-        entries.append(Entry(id: UUID(), timestamp: Date(), message: message))
+        let capped = message.count > maxMessageLength
+            ? String(message.prefix(maxMessageLength)) + "…"
+            : message
+        appendEntry(Entry(id: UUID(), timestamp: Date(), message: capped))
     }
 
-    func clear() { entries = [] }
+    func clear() {
+        entries = []
+        totalEntriesDropped = 0
+    }
+
+    private func appendEntry(_ entry: Entry) {
+        entries.append(entry)
+        var removed = 0
+        while entries.count > Self.telemetryEntryCap {
+            entries.removeFirst()
+            removed += 1
+        }
+        guard removed > 0 else { return }
+        let bucketBefore = totalEntriesDropped / 50
+        totalEntriesDropped += removed
+        let bucketAfter = totalEntriesDropped / 50
+        guard bucketAfter > bucketBefore else { return }
+        let summary = Entry(
+            id: UUID(),
+            timestamp: Date(),
+            message: "[telemetry] ring buffer dropped older entries (total dropped: \(totalEntriesDropped), cap=\(Self.telemetryEntryCap))"
+        )
+        entries.append(summary)
+        while entries.count > Self.telemetryEntryCap {
+            entries.removeFirst()
+            totalEntriesDropped += 1
+        }
+    }
 
     func logProcessStart(executable: String, args: [String], environment: [String]?, currentDirectory: String?) {
         guard isEnabled else { return }

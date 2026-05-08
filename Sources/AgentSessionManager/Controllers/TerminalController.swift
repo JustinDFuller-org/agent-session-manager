@@ -3,12 +3,42 @@ import SwiftTerm
 
 final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onBell: (() -> Void)?
+    /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
+    var telemetryPaneLabel: String = ""
 
     override func bell(source: Terminal) {
         super.bell(source: source)
+        let label = telemetryPaneLabel
+        Task { @MainActor in
+            guard DebugLogger.shared.isEnabled else { return }
+            DebugLogger.shared.log("[bell] SwiftTerm bell() pane=\(label.isEmpty ? "?" : label)")
+        }
         DispatchQueue.main.async { [weak self] in
             self?.onBell?()
         }
+    }
+
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        if slice.contains(0x07) {
+            let byteCount = slice.count
+            let label = telemetryPaneLabel
+            let preview = Self.hexPreviewAroundBEL(slice)
+            Task { @MainActor in
+                guard DebugLogger.shared.isEnabled else { return }
+                DebugLogger.shared.log(
+                    "[pty] chunk contains BEL bytes=\(byteCount) pane=\(label.isEmpty ? "?" : label) preview=\(preview)"
+                )
+            }
+        }
+        super.dataReceived(slice: slice)
+    }
+
+    private static func hexPreviewAroundBEL(_ slice: ArraySlice<UInt8>) -> String {
+        let arr = Array(slice)
+        guard let idx = arr.firstIndex(of: 0x07) else { return "" }
+        let lo = max(0, idx - 8)
+        let hi = min(arr.count, idx + 9)
+        return arr[lo..<hi].map { String(format: "%02x", $0) }.joined(separator: " ")
     }
 }
 

@@ -6,6 +6,7 @@ struct DebugLogView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        @Bindable var debug = DebugLogger.shared
         VStack(alignment: .leading, spacing: 20) {
             HStack {
                 Text("Debug Log")
@@ -22,11 +23,11 @@ struct DebugLogView: View {
                             }
                         }
                     }
-                    .disabled(DebugLogger.shared.isEnabled == false || appState.tabs.isEmpty)
+                    .disabled(debug.isEnabled == false || appState.tabs.isEmpty)
                     .accessibilityIdentifier("debug-log-capture-button")
 
                     Button("Copy") {
-                        let text = DebugLogger.shared.entries.map { entry in
+                        let text = debug.entries.map { entry in
                             let df = DateFormatter()
                             df.dateFormat = "HH:mm:ss.SSS"
                             return "[\(df.string(from: entry.timestamp))] \(entry.message)"
@@ -34,24 +35,24 @@ struct DebugLogView: View {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(text, forType: .string)
                     }
-                    .disabled(DebugLogger.shared.entries.isEmpty)
+                    .disabled(debug.entries.isEmpty)
                     .accessibilityIdentifier("debug-log-copy-button")
 
                     Button("Clear") {
-                        DebugLogger.shared.clear()
+                        debug.clear()
                     }
-                    .disabled(DebugLogger.shared.entries.isEmpty)
+                    .disabled(debug.entries.isEmpty)
                     .accessibilityIdentifier("debug-log-clear-button")
 
                     Button("Report Bug") {
                         reportBug()
                     }
-                    .disabled(DebugLogger.shared.entries.isEmpty)
+                    .disabled(debug.entries.isEmpty)
                     .accessibilityIdentifier("debug-log-report-button")
                 }
             }
 
-            if DebugLogger.shared.entries.isEmpty {
+            if debug.entries.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 36))
@@ -67,7 +68,7 @@ struct DebugLogView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
-                            ForEach(DebugLogger.shared.entries) { entry in
+                            ForEach(debug.entries) { entry in
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(formattedTimestamp(entry.timestamp))
                                         .font(.system(.caption, design: .monospaced))
@@ -83,7 +84,7 @@ struct DebugLogView: View {
                         .padding(.vertical, 4)
                         .id("bottom")
                     }
-                    .onChange(of: DebugLogger.shared.entries.count) {
+                    .onChange(of: debug.entries.count) {
                         withAnimation {
                             proxy.scrollTo("bottom", anchor: .bottom)
                         }
@@ -94,6 +95,14 @@ struct DebugLogView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+
+            Text(
+                "Telemetry buffer: \(debug.entries.count) / \(DebugLogger.telemetryEntryCap) entries — total dropped (cap): \(debug.totalEntriesDropped)"
+            )
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("debug-log-telemetry-footer")
 
             HStack {
                 Spacer()

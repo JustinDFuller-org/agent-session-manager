@@ -36,6 +36,37 @@ final class DebugLoggerTests: XCTestCase {
         XCTAssertEqual(DebugLogger.shared.entries.count, 2)
         DebugLogger.shared.clear()
         XCTAssertEqual(DebugLogger.shared.entries.count, 0)
+        XCTAssertEqual(DebugLogger.shared.totalEntriesDropped, 0)
+    }
+
+    func testTelemetryRingEvictsOldest() {
+        DebugLogger.shared.isEnabled = true
+        let cap = DebugLogger.telemetryEntryCap
+        for i in 0..<(cap + 25) {
+            DebugLogger.shared.log("row-\(i)")
+        }
+        XCTAssertEqual(DebugLogger.shared.entries.count, cap)
+        XCTAssertGreaterThanOrEqual(DebugLogger.shared.totalEntriesDropped, 25)
+        XCTAssertTrue(DebugLogger.shared.entries.last?.message.contains("row-\(cap + 24)") ?? false)
+        XCTAssertFalse(DebugLogger.shared.entries.contains { $0.message.contains("row-0") })
+    }
+
+    func testTelemetryRingDropMilestoneSummary() {
+        DebugLogger.shared.isEnabled = true
+        let cap = DebugLogger.telemetryEntryCap
+        for i in 0..<(cap + 50) {
+            DebugLogger.shared.log("fill-\(i)")
+        }
+        XCTAssertTrue(DebugLogger.shared.entries.contains { $0.message.contains("[telemetry] ring buffer dropped") })
+    }
+
+    func testLogTruncatesVeryLongSingleMessage() {
+        DebugLogger.shared.isEnabled = true
+        let long = String(repeating: "z", count: 5000)
+        DebugLogger.shared.log(long)
+        XCTAssertEqual(DebugLogger.shared.entries.count, 1)
+        XCTAssertEqual(DebugLogger.shared.entries.first?.message.count, 4001)
+        XCTAssertTrue(DebugLogger.shared.entries.first?.message.hasSuffix("…") ?? false)
     }
 
     func testEntriesHaveUniqueIDs() {

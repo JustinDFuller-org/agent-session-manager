@@ -68,7 +68,10 @@ final class AppState {
     }
 
     func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
-        guard !notifications.contains(where: { $0.paneID == paneID }) else { return }
+        if notifications.contains(where: { $0.paneID == paneID }) {
+            DebugLogger.shared.log("[notify] addNotification skipped duplicate paneID=\(paneID.uuidString) name=\(paneName)")
+            return
+        }
         notifications.append(PaneNotification(
             paneID: paneID,
             paneName: paneName,
@@ -76,6 +79,9 @@ final class AppState {
             tabName: tabName,
             isPriority: isPriority
         ))
+        DebugLogger.shared.log(
+            "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)"
+        )
         MacNotificationCoordinator.shared.postPaneAttentionIfNeeded(
             paneID: paneID,
             paneName: paneName,
