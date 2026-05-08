@@ -25,6 +25,8 @@ final class StatusLineMonitor {
     private var source: DispatchSourceFileSystemObject?
     private var prTimer: Timer?
     private var prQueryTask: Process?
+    /// Bumped when starting a new query or in `stop()` so older `terminationHandler` callbacks cannot mutate `currentData`.
+    private var prQueryToken: UInt64 = 0
 
     init(paneID: UUID, workingDirectory: String? = nil, needsSettingsHook: Bool = true) {
         filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
@@ -76,6 +78,7 @@ final class StatusLineMonitor {
         source = nil
         prTimer?.invalidate()
         prTimer = nil
+        prQueryToken += 1
         prQueryTask?.terminate()
         prQueryTask = nil
         try? FileManager.default.removeItem(atPath: filePath)
@@ -101,37 +104,66 @@ final class StatusLineMonitor {
         }
         guard let workingDirectory else { return }
         prQueryTask?.terminate()
+        prQueryToken += 1
+        let token = prQueryToken
+
         let task = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
         task.executableURL = URL(filePath: "/bin/zsh")
         task.arguments = ["-c", "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url 2>/dev/null || true"]
-        task.standardOutput = Pipe()
-        task.standardError = Pipe()
-        let output = task.standardOutput as! Pipe
-        output.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let self else { return }
+        task.standardOutput = outPipe
+        task.standardError = errPipe
+
+        task.terminationHandler = { _ in
+            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+            _ = errPipe.fileHandleForReading.readDataToEndOfFile()
             Task { @MainActor [weak self] in
-                guard let self else { return }
-                if let pr = try? JSONDecoder().decode(PullRequest.self, from: data) {
-                    if self.currentData == nil {
-                        self.currentData = StatusLineData(
-                            model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
-                            worktree: nil, workspace: nil, effort: nil, thinking: nil,
-                            agent: nil, outputStyle: nil, vim: nil,
-                            sessionName: nil, version: nil, exceeds200kTokens: nil,
-                            pr: pr
-                        )
-                    } else {
-                        self.currentData?.pr = pr
-                    }
-                }
+                guard let self, token == self.prQueryToken else { return }
+                self.applyPROutputIfValid(outData)
             }
         }
+
         prQueryTask = task
         do {
             try task.run()
         } catch {
             return
         }
+    }
+
+    @MainActor
+    private func applyPROutputIfValid(_ outData: Data) {
+        guard !outData.isEmpty else { return }
+        guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else { return }
+        if currentData == nil {
+            currentData = StatusLineData(
+                model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
+                worktree: nil, workspace: nil, effort: nil, thinking: nil,
+                agent: nil, outputStyle: nil, vim: nil,
+                sessionName: nil, version: nil, exceeds200kTokens: nil,
+                pr: pr
+            )
+        } else {
+            currentData?.pr = pr
+        }
+    }
+}
+
+/// Runs `/bin/zsh -c` and returns stdout after exit; drains stderr so pipes cannot fill. Used by `StatusLineMonitor` tests and mirrors production I/O behavior.
+enum PRQueryShellIO {
+    static func zshCollectOutput(script: String, currentDirectory: URL?) throws -> Data {
+        let task = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.executableURL = URL(filePath: "/bin/zsh")
+        task.arguments = ["-c", script]
+        task.currentDirectoryURL = currentDirectory
+        task.standardOutput = outPipe
+        task.standardError = errPipe
+        try task.run()
+        task.waitUntilExit()
+        _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+        return outPipe.fileHandleForReading.readDataToEndOfFile()
     }
 }
