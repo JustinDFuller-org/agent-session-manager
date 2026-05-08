@@ -7,21 +7,47 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryPaneLabel: String = ""
     var telemetryPaneUUID: UUID?
+    private var osc777HookInstalled = false
 
     override func bell(source: Terminal) {
         super.bell(source: source)
         let label = telemetryPaneLabel
         let msg = "[bell] SwiftTerm bell() pane=\(label.isEmpty ? "?" : label)"
+        deliverAttentionToHost(logMessage: msg)
+    }
+
+    /// Hooks OSC 777 (`ESC]777;notify;title;body BEL`) into the same path as ``bell(source:)``.
+    /// SwiftTerm invokes this via `TerminalDelegate.notify`, but default protocol conformance is not
+    /// overridden by subclasses, so we register a parser handler (see `Terminal.registerOscHandler`).
+    func installOsc777AttentionHookIfNeeded() {
+        guard !osc777HookInstalled else { return }
+        osc777HookInstalled = true
+        getTerminal().registerOscHandler(code: 777) { [weak self] data in
+            guard let self else { return }
+            guard let text = String(bytes: data, encoding: .utf8) else { return }
+            let parts = text.components(separatedBy: ";")
+            guard parts.count >= 3, parts[0] == "notify" else { return }
+            let title = parts[1]
+            let body = parts[2...].joined(separator: ";")
+            let label = self.telemetryPaneLabel
+            let safeTitle = String(title.prefix(200)).replacingOccurrences(of: "\n", with: " ")
+            let safeBody = String(body.prefix(500)).replacingOccurrences(of: "\n", with: " ")
+            let msg = "[bell] SwiftTerm notify(OSC 777) pane=\(label.isEmpty ? "?" : label) title=\(safeTitle) body=\(safeBody)"
+            self.deliverAttentionToHost(logMessage: msg)
+        }
+    }
+
+    private func deliverAttentionToHost(logMessage: String) {
         let paneId = telemetryPaneUUID
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let debug = DebugLogger.shared
             if let id = paneId {
                 if debug.isEnabled || debug.tracedPaneIDs.contains(id) {
-                    debug.log(msg, paneID: id)
+                    debug.log(logMessage, paneID: id)
                 }
             } else if debug.isEnabled {
-                debug.log(msg)
+                debug.log(logMessage)
             }
             self.onBell?()
         }
@@ -48,6 +74,7 @@ final class TerminalController: NSObject {
         super.init()
         terminalView.processDelegate = self
         terminalView.onBell = { [weak self] in self?.onBell?() }
+        terminalView.installOsc777AttentionHookIfNeeded()
     }
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.

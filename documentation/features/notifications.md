@@ -14,13 +14,19 @@ Notification dots and sidebar entries are orange for priority panes and blue for
 
 ## Triggering a Notification
 
-Claude Code sends a terminal bell character (`\a`) when it needs the developer's attention. To test manually, run the following from any terminal session:
+Claude Code can signal attention in two ways that Agent Session Manager recognizes:
 
-```sh
-printf '\a'
-```
+1. **ASCII bell** — a BEL character (`\a`). To test manually:
 
-Bell events are recorded even when the pane is the active (focused) pane, to make testing and attention signals consistent.
+   ```sh
+   printf '\a'
+   ```
+
+2. **OSC 777** — the sequence `ESC]777;notify;title;body` terminated with BEL (0x07). Many tools use this so the BEL byte acts as an OSC string terminator; SwiftTerm delivers that through `notify` rather than `bell()`. Both paths trigger the same in-app notification and optional macOS banner.
+
+Attention events are surfaced even when the pane is the active (focused) pane, to keep testing and signals consistent.
+
+**Note:** A raw BEL that appears only as the terminator of another OSC sequence does not ring the bell; that is normal terminal behavior.
 
 ## Notification Sidebar
 

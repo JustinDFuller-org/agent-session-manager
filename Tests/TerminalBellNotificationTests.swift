@@ -50,6 +50,23 @@ final class TerminalBellNotificationTests: XCTestCase {
 
         XCTAssertTrue(fired.value, "BEL (0x07) should reach bell() and invoke onBell")
     }
+
+    func testOsc777NotifyInvokesOnBell() async {
+        let controller = TerminalController()
+        let fired = LockedFlag()
+        controller.onBell = { fired.set(true) }
+
+        controller.terminalView.frame = CGRect(x: 0, y: 0, width: 640, height: 480)
+        #if os(macOS)
+        controller.terminalView.layoutSubtreeIfNeeded()
+        #endif
+
+        // SwiftTerm: ESC ] 777 ; notify ; title ; body BEL
+        controller.terminalView.feed(text: "\u{1b}]777;notify;OSC Title;OSC Body\u{07}")
+        try? await Task.sleep(nanoseconds: 250_000_000)
+
+        XCTAssertTrue(fired.value, "OSC 777 notify should invoke the same attention path as BEL")
+    }
 }
 
 /// Thread-safe flag for closure capture in async bell test.
