@@ -45,7 +45,7 @@ struct DebugLogView: View {
                     .accessibilityIdentifier("debug-log-clear-button")
 
                     Button("Report Bug") {
-                        reportBug()
+                        DebugLogger.openBugReport()
                     }
                     .disabled(debug.entries.isEmpty)
                     .accessibilityIdentifier("debug-log-report-button")
@@ -119,29 +119,5 @@ struct DebugLogView: View {
         let df = DateFormatter()
         df.dateFormat = "HH:mm:ss.SSS"
         return df.string(from: date)
-    }
-
-    private let reportBugMaxURLLength = 7800
-
-    private func reportBug() {
-        let title = "[Bug] "
-        guard let encodedTitle = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-        else { return }
-
-        let baseURL = "https://github.com/JustinDFuller/agent-session-manager/issues/new?title=\(encodedTitle)&body="
-        var maxRawBody = reportBugMaxURLLength - baseURL.count
-
-        for _ in 0..<3 {
-            let body = DebugLogger.shared.buildReportText(maxBodyLength: maxRawBody)
-            guard let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
-
-            let urlString = baseURL + encodedBody
-            if urlString.count <= reportBugMaxURLLength {
-                guard let url = URL(string: urlString) else { return }
-                NSWorkspace.shared.open(url)
-                return
-            }
-            maxRawBody = maxRawBody / 2
-        }
     }
 }

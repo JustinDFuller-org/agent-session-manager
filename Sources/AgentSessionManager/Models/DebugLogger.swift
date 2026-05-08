@@ -1,8 +1,6 @@
 import Foundation
 import Observation
-#if canImport(AppKit)
 import AppKit
-#endif
 
 @Observable
 @MainActor
@@ -180,6 +178,29 @@ final class DebugLogger {
 
         lines.append("```")
         return lines.joined(separator: "\n")
+    }
+
+    static func openBugReport() {
+        let title = "[Bug] "
+        guard let encodedTitle = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        else { return }
+
+        let maxURLLength = 7800
+        let baseURL = "https://github.com/JustinDFuller/agent-session-manager/issues/new?title=\(encodedTitle)&body="
+        var maxRawBody = maxURLLength - baseURL.count
+
+        for _ in 0..<3 {
+            let body = shared.buildReportText(maxBodyLength: maxRawBody)
+            guard let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
+
+            let urlString = baseURL + encodedBody
+            if urlString.count <= maxURLLength {
+                guard let url = URL(string: urlString) else { return }
+                NSWorkspace.shared.open(url)
+                return
+            }
+            maxRawBody = maxRawBody / 2
+        }
     }
 }
 

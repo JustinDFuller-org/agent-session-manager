@@ -68,6 +68,12 @@ struct PaneGridView: View {
             }
             .padding(padding)
         }
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button("Create Pane") {
+                showingNewPane = true
+            }
+        }
     }
 
     private var tabEmptyState: some View {
@@ -81,5 +87,11 @@ struct PaneGridView: View {
                 .accessibilityIdentifier("tab-empty-state-\(tab.name)")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button("Create Pane") {
+                showingNewPane = true
+            }
+        }
     }
 }
