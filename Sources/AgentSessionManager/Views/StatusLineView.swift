@@ -5,6 +5,8 @@ struct StatusLineView: View {
     let monitor: StatusLineMonitor
     let config: StatusLineConfig
 
+    @State private var showPRPopover = false
+
     private var nonEmptyRows: [StatusLineRow] {
         config.rows.filter { !$0.items.isEmpty }
     }
@@ -47,9 +49,15 @@ struct StatusLineView: View {
     private func chipView(item: StatusLineItem, data: StatusLineData) -> some View {
         let content = HStack(spacing: 4) {
             if config.chipLabelStyle != .labelOnly {
-                Image(systemName: item.sfSymbol)
-                    .font(.system(size: 10))
-                    .foregroundStyle(iconTint(itemID: item.id, data: data))
+                if item.id == "pr", let pr = data.pr {
+                    Image(systemName: pr.stateIconName)
+                        .font(.system(size: 10))
+                        .foregroundStyle(AnyShapeStyle(prCircleColor(pr: pr)))
+                } else {
+                    Image(systemName: item.sfSymbol)
+                        .font(.system(size: 10))
+                        .foregroundStyle(iconTint(itemID: item.id, data: data))
+                }
             }
             if config.chipLabelStyle == .symbolAndLabel || config.chipLabelStyle == .labelOnly {
                 Text(item.label)
@@ -58,13 +66,19 @@ struct StatusLineView: View {
             }
             chipContent(for: item.id, data: data)
         }
-        if item.id == "pr", let url = URL(string: data.pr?.url ?? "") {
+        if item.id == "pr", data.pr != nil {
             Button {
-                NSWorkspace.shared.open(url)
+                showPRPopover.toggle()
             } label: {
                 content
             }
             .buttonStyle(.plain)
+            .popover(isPresented: $showPRPopover, arrowEdge: .bottom) {
+                if let pr = data.pr {
+                    PRPopoverContent(pr: pr)
+                        .padding()
+                }
+            }
         } else {
             content
         }
@@ -75,12 +89,7 @@ struct StatusLineView: View {
             return AnyShapeStyle(.orange)
         }
         if itemID == "pr", let pr = data.pr {
-            switch pr.state.lowercased() {
-            case "open": return AnyShapeStyle(.green)
-            case "merged": return AnyShapeStyle(.purple)
-            case "closed": return AnyShapeStyle(.red)
-            default: return AnyShapeStyle(.tertiary)
-            }
+            return AnyShapeStyle(prCircleColor(pr: pr))
         }
         return AnyShapeStyle(.tertiary)
     }
@@ -128,11 +137,10 @@ struct StatusLineView: View {
         case "pr":
             if let pr = data.pr {
                 HStack(spacing: 4) {
-                    Text("#\(pr.number)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    stateBadge(pr.state)
-                    Text(truncatedTitle(pr.title))
+                    Circle()
+                        .fill(prCircleColor(pr: pr))
+                        .frame(width: 6, height: 6)
+                    Text("#\(pr.number) (\(pr.displayState))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -146,6 +154,21 @@ struct StatusLineView: View {
             Text(textValue(for: itemID, data: data))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private func prCircleColor(pr: PullRequest) -> Color {
+        switch pr.buildStatus {
+        case .success:
+            return .green
+        case .running:
+            return .yellow
+        case .failed:
+            return .red
+        case .cancelled:
+            return .gray
+        case .unknown:
+            return .secondary
         }
     }
 
@@ -225,23 +248,135 @@ struct StatusLineView: View {
         if hours > 0 { return "in \(hours)h \(minutes)m" }
         return "in \(minutes)m"
     }
+}
 
-    private func stateBadge(_ state: String) -> some View {
-        let color: Color = {
-            switch state.lowercased() {
-            case "open": return .green
-            case "merged": return .purple
-            case "closed": return .red
-            default: return .secondary
+private struct PRPopoverContent: View {
+    let pr: PullRequest
+
+    private static let maxCheckNameLen = 60
+    private static let maxVisibleChecks = 5
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Circle()
+                    .fill(circleColor)
+                    .frame(width: 8, height: 8)
+                Text("#\(pr.number)")
+                    .font(.headline)
+                    .fontDesign(.monospaced)
             }
-        }()
-        return Circle()
-            .fill(color)
-            .frame(width: 6, height: 6)
+
+            Text(pr.title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+
+            if !visibleChecks.isEmpty {
+                Divider()
+
+                Text("Failing Checks")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(visibleChecks) { check in
+                        CheckRow(check: check)
+                    }
+                    if hiddenCheckCount > 0 {
+                        Text("and \(hiddenCheckCount) more failing checks...")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+
+            if let count = pr.unresolvedCommentCount, count > 0 {
+                Divider()
+
+                HStack(spacing: 4) {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 10))
+                    Text("\(count) unresolved \(count == 1 ? "comment" : "comments")")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            HStack {
+                if let url = URL(string: pr.url) {
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        Label("Open Pull Request", systemImage: "arrow.up.forward.square")
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+        .frame(width: 320)
     }
 
-    private func truncatedTitle(_ title: String) -> String {
-        if title.count <= 40 { return title }
-        return String(title.prefix(37)) + "..."
+    private var circleColor: Color {
+        switch pr.buildStatus {
+        case .success:
+            return .green
+        case .running:
+            return .yellow
+        case .failed:
+            return .red
+        case .cancelled:
+            return .gray
+        case .unknown:
+            return .secondary
+        }
+    }
+
+    private var visibleChecks: [StatusCheck] {
+        Array(pr.failingChecks.prefix(Self.maxVisibleChecks))
+    }
+
+    private var hiddenCheckCount: Int {
+        max(0, pr.failingChecks.count - Self.maxVisibleChecks)
+    }
+
+    private func truncate(_ name: String) -> String {
+        if name.count <= Self.maxCheckNameLen { return name }
+        return String(name.prefix(Self.maxCheckNameLen - 3)) + "..."
+    }
+
+    private struct CheckRow: View {
+        let check: StatusCheck
+
+        var body: some View {
+            HStack(spacing: 4) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.red)
+                Text(truncatedName)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if let url = URL(string: check.detailsUrl ?? "") {
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        Image(systemName: "arrow.up.forward.square")
+                            .font(.system(size: 9))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+
+        private var truncatedName: String {
+            let maxLen = 60
+            if check.name.count <= maxLen { return check.name }
+            return String(check.name.prefix(maxLen - 3)) + "..."
+        }
     }
 }
