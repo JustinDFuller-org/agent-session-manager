@@ -227,7 +227,7 @@ final class StatusLineMonitor {
         let outPipe = Pipe()
         let errPipe = Pipe()
         task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,statusCheckRollup 2>/dev/null || true"]
+        task.arguments = ["-c", "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,commits,statusCheckRollup 2>/dev/null || true"]
         task.standardOutput = outPipe
         task.standardError = errPipe
 
@@ -238,12 +238,47 @@ final class StatusLineMonitor {
                 guard let self, token == self.prQueryToken else { return }
                 self.applyPROutputIfValid(outData)
                 if let pr = self.currentData?.pr, let cwd = self.workingDirectory {
+                    self.fetchBuildStatus(for: pr, workingDirectory: cwd, outData: outData)
                     self.fetchUnresolvedComments(for: pr, workingDirectory: cwd)
                 }
             }
         }
 
         prQueryTask = task
+        do {
+            try task.run()
+        } catch {
+            return
+        }
+    }
+
+    @MainActor
+    private func fetchBuildStatus(for pr: PullRequest, workingDirectory: String, outData: Data) {
+        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else { return }
+        guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
+              let commits = json["commits"] as? [[String: Any]],
+              let headSHA = commits.first?["oid"] as? String
+        else { return }
+
+        let task = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.executableURL = URL(filePath: "/bin/zsh")
+        task.arguments = ["-c", "cd '\(workingDirectory)' && gh api 'repos/\(owner)/\(repo)/commits/\(headSHA)/status' --jq '.state' 2>/dev/null || true"]
+        task.standardOutput = outPipe
+        task.standardError = errPipe
+
+        task.terminationHandler = { _ in
+            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+            _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let state = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !state.isEmpty {
+                    self.currentData?.pr?.commitStatusState = state
+                }
+            }
+        }
+
         do {
             try task.run()
         } catch {

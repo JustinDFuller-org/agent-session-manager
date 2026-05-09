@@ -255,6 +255,7 @@ struct PullRequest: Codable, Identifiable {
     var isDraft: Bool? = nil
     var statusCheckRollup: [StatusCheck]? = nil
     var unresolvedCommentCount: Int? = nil
+    var commitStatusState: String? = nil
 
     var id: Int { number }
 
@@ -269,18 +270,23 @@ struct PullRequest: Codable, Identifiable {
     }
 
     var buildStatus: BuildStatus {
-        guard let checks = statusCheckRollup, !checks.isEmpty else { return .unknown }
-        let hasRunning = checks.contains { $0.status.uppercased() == "IN_PROGRESS" || $0.status.uppercased() == "QUEUED" || $0.status.uppercased() == "PENDING" }
-        if hasRunning { return .running }
-        let failed = checks.filter { $0.conclusion?.uppercased() == "FAILURE" }
-        let cancelled = checks.filter { $0.conclusion?.uppercased() == "CANCELLED" }
-        let success = checks.filter {
-            $0.conclusion?.uppercased() == "SUCCESS" || $0.conclusion?.uppercased() == "NEUTRAL" || $0.conclusion?.uppercased() == "SKIPPED"
+        guard let apiState = commitStatusState else { return .unknown }
+        switch apiState.uppercased() {
+        case "SUCCESS": return .success
+        case "FAILURE", "ERROR": return .failed
+        case "PENDING": return .running
+        default: return .unknown
         }
-        if !failed.isEmpty { return .failed }
-        if !cancelled.isEmpty && success.isEmpty { return .cancelled }
-        if !success.isEmpty { return .success }
-        return .unknown
+    }
+
+    var stateIconName: String {
+        if isDraft == true { return "pencil.line" }
+        switch state.lowercased() {
+        case "open": return "arrow.triangle.pull"
+        case "merged": return "arrow.triangle.merge"
+        case "closed": return "xmark.circle"
+        default: return "arrow.triangle.pull"
+        }
     }
 
     var failingChecks: [StatusCheck] {

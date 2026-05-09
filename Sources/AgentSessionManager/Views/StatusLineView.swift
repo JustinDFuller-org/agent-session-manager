@@ -49,9 +49,15 @@ struct StatusLineView: View {
     private func chipView(item: StatusLineItem, data: StatusLineData) -> some View {
         let content = HStack(spacing: 4) {
             if config.chipLabelStyle != .labelOnly {
-                Image(systemName: item.sfSymbol)
-                    .font(.system(size: 10))
-                    .foregroundStyle(iconTint(itemID: item.id, data: data))
+                if item.id == "pr", let pr = data.pr {
+                    Image(systemName: pr.stateIconName)
+                        .font(.system(size: 10))
+                        .foregroundStyle(AnyShapeStyle(prCircleColor(pr: pr)))
+                } else {
+                    Image(systemName: item.sfSymbol)
+                        .font(.system(size: 10))
+                        .foregroundStyle(iconTint(itemID: item.id, data: data))
+                }
             }
             if config.chipLabelStyle == .symbolAndLabel || config.chipLabelStyle == .labelOnly {
                 Text(item.label)
@@ -152,14 +158,6 @@ struct StatusLineView: View {
     }
 
     private func prCircleColor(pr: PullRequest) -> Color {
-        switch pr.state.lowercased() {
-        case "merged":
-            return .purple
-        case "closed":
-            return .red
-        default:
-            break
-        }
         switch pr.buildStatus {
         case .success:
             return .green
@@ -322,14 +320,6 @@ private struct PRPopoverContent: View {
     }
 
     private var circleColor: Color {
-        switch pr.state.lowercased() {
-        case "merged":
-            return .purple
-        case "closed":
-            return .red
-        default:
-            break
-        }
         switch pr.buildStatus {
         case .success:
             return .green
