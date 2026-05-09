@@ -221,15 +221,45 @@ struct StatusLineConfig: Codable {
     }
 }
 
+struct StatusCheck: Codable, Identifiable {
+    let name: String
+    let status: String
+    let conclusion: String?
+    let detailsUrl: String?
+
+    var id: String { name }
+
+    var isFailing: Bool { conclusion?.uppercased() == "FAILURE" }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case status
+        case conclusion
+        case detailsUrl
+    }
+}
+
+enum BuildStatus: Equatable {
+    case success
+    case running
+    case failed
+    case cancelled
+    case unknown
+}
+
 struct PullRequest: Codable, Identifiable {
     let number: Int
     let title: String
     let state: String
     let url: String
+    var isDraft: Bool? = nil
+    var statusCheckRollup: [StatusCheck]? = nil
+    var unresolvedCommentCount: Int? = nil
 
     var id: Int { number }
 
-    var stateDisplayName: String {
+    var displayState: String {
+        if isDraft == true { return "draft" }
         switch state.lowercased() {
         case "open": return "open"
         case "merged": return "merged"
@@ -238,8 +268,32 @@ struct PullRequest: Codable, Identifiable {
         }
     }
 
+    var buildStatus: BuildStatus {
+        guard let checks = statusCheckRollup, !checks.isEmpty else { return .unknown }
+        let hasRunning = checks.contains { $0.status.uppercased() == "IN_PROGRESS" || $0.status.uppercased() == "QUEUED" || $0.status.uppercased() == "PENDING" }
+        if hasRunning { return .running }
+        let failed = checks.filter { $0.conclusion?.uppercased() == "FAILURE" }
+        let cancelled = checks.filter { $0.conclusion?.uppercased() == "CANCELLED" }
+        let success = checks.filter {
+            $0.conclusion?.uppercased() == "SUCCESS" || $0.conclusion?.uppercased() == "NEUTRAL" || $0.conclusion?.uppercased() == "SKIPPED"
+        }
+        if !failed.isEmpty { return .failed }
+        if !cancelled.isEmpty && success.isEmpty { return .cancelled }
+        if !success.isEmpty { return .success }
+        return .unknown
+    }
+
+    var failingChecks: [StatusCheck] {
+        statusCheckRollup?.filter { $0.isFailing } ?? []
+    }
+
     enum CodingKeys: String, CodingKey {
-        case number, title, state, url
+        case number
+        case title
+        case state
+        case url
+        case isDraft
+        case statusCheckRollup
     }
 }
 

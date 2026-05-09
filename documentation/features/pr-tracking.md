@@ -2,9 +2,11 @@
 
 ## What it does
 
-GitHub PR Tracking detects the pull request associated with the current git branch and displays its number, title, and state in the status line at the bottom of each pane. The PR chip is clickable — clicking it opens the pull request in your default browser.
+GitHub PR Tracking detects the pull request associated with the current git branch and displays its status in the status line at the bottom of each pane. The PR chip shows the build status with a colored circle, the PR number, and the PR state (draft, open, merged, closed).
 
-This works for all CLI tools (Claude Code, Codex, Cursor, OpenCode) because it runs independently of any tool's session data. It uses `gh pr view <branch>` to query the GitHub CLI.
+Clicking the PR chip opens a popover with detailed information: PR title, failing status checks (with links), unresolved comment count, and a link to open the PR in the browser.
+
+This works for all CLI tools (Claude Code, Codex, Cursor, OpenCode) because it runs independently of any tool's session data. It uses `gh pr view <branch>` to query the GitHub CLI and `gh api graphql` for unresolved review comment counts.
 
 ## How to use
 
@@ -12,23 +14,68 @@ This works for all CLI tools (Claude Code, Codex, Cursor, OpenCode) because it r
 2. Open **Settings** (⌘,) and go to the **Status Line** tab.
 3. Enable the **Track pull requests** toggle in the **GitHub PR Tracking** section.
 4. Add the **PR** item to a status line row (it appears in the "Add Item" menu as "PR").
-5. When you create a pane on a branch that already has an open pull request, the PR chip appears in the status line:
-   - **Green dot** — open
-   - **Purple dot** — merged
-   - **Red dot** — closed
-6. Click the PR chip to open the pull request in your browser.
+5. When you create a pane on a branch that already has an open pull request, the PR chip appears in the status line with the format `<circle> #<number> (<state>)`.
+
+## Circle colors
+
+The colored circle represents the build and state status:
+
+| State | Circle Color | Meaning |
+|---|---|---|
+| `merged` | Purple | Always purple — merged PRs |
+| `closed` | Red | Always red — closed (not merged) |
+| `draft` or `open` | Green | All status checks passing |
+| `draft` or `open` | Yellow | Status checks are running, queued, or pending |
+| `draft` or `open` | Red | At least one status check failed |
+| `draft` or `open` | Gray | All status checks were cancelled |
+| `draft` or `open` | Gray (secondary) | No status checks configured |
+
+## PR chip display
+
+The status line shows: `<circle> #<number> (<state>)`
+
+Examples:
+- `🟢 #31 (open)` — builds passing
+- `🟡 #311 (draft)` — builds running
+- `🔴 #42 (open)` — builds failing
+- `🟣 #55 (merged)` — always purple
+- `🔴 #12 (closed)` — always red
+
+## Popover
+
+Click the PR chip to open a popover showing:
+
+- **PR number** with the colored status circle
+- **PR title** (truncated to 2 lines)
+- **Failing checks** — listed with truncated names (60 chars max) and links to the check details page. If more than 5 checks are failing, "and N more failing checks..." is shown.
+- **Unresolved comments** — count of unresolved review threads (fetched via the GitHub GraphQL API)
+- **Open Pull Request** — button to open the PR in the default browser
+
+Click outside the popover to dismiss it.
 
 ## How it works
 
 When a pane starts, the app runs:
 
 ```
-gh pr view <branch> --json number,title,state,url
+gh pr view <branch> --json number,title,state,url,isDraft,statusCheckRollup
 ```
 
-in the pane's working directory. The current branch is determined by `git branch --show-current`. If `gh` returns a PR, the data is displayed in the status line. The query repeats every 60 seconds to catch status changes.
+in the pane's working directory. The current branch is determined by `git branch --show-current`. If a PR is found, a second query fetches unresolved review comment counts:
+
+```
+gh api graphql -f owner="<owner>" -f repo="<repo>" -f pr=<number> -f query='...'
+```
+
+The owner and repo are extracted from `git remote get-url origin`. The queries repeat every 60 seconds to catch status changes.
 
 If no PR exists for the branch, or `gh` is not installed or not authenticated, nothing is shown.
+
+### Fallback behavior
+
+- If `git remote get-url origin` fails (no remote configured), the unresolved comment count is omitted from the popover.
+- If the GraphQL query fails for any reason, unresolved comments are simply not shown — the rest of the popover still works.
+- If no status checks are configured on the PR, the circle shows the secondary color and the "Failing Checks" section is hidden.
 
 ## How to configure
 

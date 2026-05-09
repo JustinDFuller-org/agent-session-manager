@@ -821,11 +821,99 @@ final class PRTrackingTests: XCTestCase {
 
     func testPullRequestStateDisplayName() {
         let openPR = PullRequest(number: 1, title: "t", state: "OPEN", url: "https://example.com")
-        XCTAssertEqual(openPR.stateDisplayName, "open")
+        XCTAssertEqual(openPR.displayState, "open")
         let mergedPR = PullRequest(number: 2, title: "t", state: "MERGED", url: "https://example.com")
-        XCTAssertEqual(mergedPR.stateDisplayName, "merged")
+        XCTAssertEqual(mergedPR.displayState, "merged")
         let closedPR = PullRequest(number: 3, title: "t", state: "CLOSED", url: "https://example.com")
-        XCTAssertEqual(closedPR.stateDisplayName, "closed")
+        XCTAssertEqual(closedPR.displayState, "closed")
+    }
+
+    func testPullRequestDraftDisplayState() {
+        let pr = PullRequest(number: 5, title: "draft pr", state: "OPEN", url: "https://example.com", isDraft: true)
+        XCTAssertEqual(pr.displayState, "draft")
+    }
+
+    func testPullRequestDecodeWithStatusChecks() throws {
+        let json = """
+        {"number":42,"title":"Fix bug","state":"OPEN","url":"https://example.com","isDraft":true,"statusCheckRollup":[{"name":"CI","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://ci.example.com"}]}
+        """.data(using: .utf8)!
+        let pr = try JSONDecoder().decode(PullRequest.self, from: json)
+        XCTAssertEqual(pr.number, 42)
+        XCTAssertEqual(pr.isDraft, true)
+        XCTAssertEqual(pr.statusCheckRollup?.count, 1)
+        XCTAssertEqual(pr.statusCheckRollup?.first?.name, "CI")
+        XCTAssertEqual(pr.statusCheckRollup?.first?.conclusion, "SUCCESS")
+    }
+
+    func testPullRequestDecodeWithoutStatusChecks() throws {
+        let json = """
+        {"number":42,"title":"Fix bug","state":"OPEN","url":"https://example.com","isDraft":false,"statusCheckRollup":[]}
+        """.data(using: .utf8)!
+        let pr = try JSONDecoder().decode(PullRequest.self, from: json)
+        XCTAssertEqual(pr.isDraft, false)
+        XCTAssertEqual(pr.statusCheckRollup?.isEmpty, true)
+    }
+
+    func testBuildStatusSuccess() {
+        let checks = [StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil)]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testBuildStatusRunning() {
+        let checks = [StatusCheck(name: "CI", status: "IN_PROGRESS", conclusion: nil, detailsUrl: nil)]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .running)
+    }
+
+    func testBuildStatusFailed() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusCancelled() {
+        let checks = [StatusCheck(name: "CI", status: "COMPLETED", conclusion: "CANCELLED", detailsUrl: nil)]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .cancelled)
+    }
+
+    func testBuildStatusUnknownWhenNil() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        XCTAssertEqual(pr.buildStatus, .unknown)
+    }
+
+    func testBuildStatusUnknownWhenEmpty() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: [])
+        XCTAssertEqual(pr.buildStatus, .unknown)
+    }
+
+    func testFailingChecks() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil),
+            StatusCheck(name: "Test", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.failingChecks.count, 2)
+        XCTAssertEqual(pr.failingChecks.first?.name, "Lint")
+    }
+
+    func testFailingChecksEmpty() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        XCTAssertEqual(pr.failingChecks.count, 0)
+    }
+
+    func testBuildStatusMixedSuccessAndCancelled() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Test", status: "COMPLETED", conclusion: "CANCELLED", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .success)
     }
 
     func testStatusLineDataDecodeWithPR() throws {
