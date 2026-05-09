@@ -459,19 +459,11 @@ final class Tab: Identifiable {
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            // Environment evolution:
-            // - Pass the full parent environment to child processes. Claude Code relies on
-            //   real HOME to find ~/.claude/ for authentication credentials.
-            // - Shell-init-related TCC permission prompts are eliminated by the -f flag
-            //   passed to zsh in TerminalController (skips all startup files).
-            // - Remaining TCC prompts (Documents, Desktop) are one-time decisions from
-            //   Claude's startup path scanning. See documentation/features/panes.md.
             let cwd = worktreeDirectory?.path ?? directory.path
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
 
-            let needsHook = cliType == .claude
-            let monitor = StatusLineMonitor(paneID: pane.id, workingDirectory: cwd, needsSettingsHook: needsHook)
+            let monitor = StatusLineMonitor(paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
             monitor.start()
             pane.statusLineMonitor = monitor
 

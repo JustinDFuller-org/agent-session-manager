@@ -1,5 +1,10 @@
 import Foundation
 
+enum ToolAvailability: Codable {
+    case all
+    case claudeOnly
+}
+
 enum ChipLabelStyle: String, Codable, CaseIterable {
     case symbolOnly
     case symbolAndLabel
@@ -43,6 +48,17 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         label = try container.decode(String.self, forKey: .label)
         sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol)
             ?? StatusLineConfig.itemMetadata[id]?.symbol ?? "circle"
+    }
+
+    var availability: ToolAvailability {
+        StatusLineConfig.itemAvailability[id] ?? .all
+    }
+
+    func supportedBy(_ cliType: CLIType) -> Bool {
+        switch availability {
+        case .all: return true
+        case .claudeOnly: return cliType == .claude
+        }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -102,6 +118,36 @@ struct StatusLineConfig: Codable {
         "outputStyle":      ("Output Style",      "text.alignleft"),
         "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
         "pr":               ("PR",                "arrow.triangle.pull"),
+    ]
+
+    static let itemAvailability: [String: ToolAvailability] = [
+        // Agnostic — populated by git queries and process tracking
+        "worktree": .all,
+        "worktreeBranch": .all,
+        "gitWorktree": .all,
+        "duration": .all,
+        "version": .all,
+        "pr": .all,
+        // Claude-only — requires the Claude statusLine hook
+        "model": .claudeOnly,
+        "cost": .claudeOnly,
+        "context": .claudeOnly,
+        "effort": .claudeOnly,
+        "thinking": .claudeOnly,
+        "vimMode": .claudeOnly,
+        "agentName": .claudeOnly,
+        "sessionName": .claudeOnly,
+        "linesAdded": .claudeOnly,
+        "linesRemoved": .claudeOnly,
+        "contextRemaining": .claudeOnly,
+        "inputTokens": .claudeOnly,
+        "outputTokens": .claudeOnly,
+        "rate5h": .claudeOnly,
+        "rate7d": .claudeOnly,
+        "rate5hReset": .claudeOnly,
+        "rate7dReset": .claudeOnly,
+        "outputStyle": .claudeOnly,
+        "exceeds200k": .claudeOnly,
     ]
 
     static let itemOrder: [String] = [

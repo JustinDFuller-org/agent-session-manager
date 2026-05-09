@@ -24,7 +24,8 @@ final class StatusLineMonitor {
     /// Written by Claude Code `Notification` hook stdin when `isClaudeHookAttentionEnabled` is on.
     let attentionSignalFilePath: String
     private let workingDirectory: String?
-    private let needsSettingsHook: Bool
+    private let cliType: CLIType
+    private let isClaude: Bool
     private var source: DispatchSourceFileSystemObject?
     private var attentionSource: DispatchSourceFileSystemObject?
     private let attentionDebounceLock = NSLock()
@@ -34,50 +35,67 @@ final class StatusLineMonitor {
     private var prQueryTask: Process?
     /// Bumped when starting a new query or in `stop()` so older `terminationHandler` callbacks cannot mutate `currentData`.
     private var prQueryToken: UInt64 = 0
+    private var agnosticProvider: ToolAgnosticDataProvider?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: (() -> Void)?
 
-    init(paneID: UUID, workingDirectory: String? = nil, needsSettingsHook: Bool = true) {
+    init(paneID: UUID, workingDirectory: String? = nil, cliType: CLIType, processStartTime: Date = Date()) {
         self.paneID = paneID
         self.workingDirectory = workingDirectory
-        self.needsSettingsHook = needsSettingsHook
+        self.cliType = cliType
+        self.isClaude = cliType == .claude
         filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
         attentionSignalFilePath = NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
+
+        if !isClaude, let cwd = workingDirectory {
+            let toolCmd = cliType.cliCommandDescription
+            agnosticProvider = ToolAgnosticDataProvider(workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            agnosticProvider?.onUpdate = { [weak self] data in
+                guard let self else { return }
+                var merged = data
+                if let existing = self.currentData?.pr {
+                    merged.pr = existing
+                }
+                self.currentData = merged
+            }
+        }
     }
 
     func start() {
-        if needsSettingsHook {
+        if isClaude {
             writeSettingsFile()
-        }
-        FileManager.default.createFile(atPath: filePath, contents: nil)
+            FileManager.default.createFile(atPath: filePath, contents: nil)
 
-        let fd = open(filePath, O_EVTONLY)
-        guard fd >= 0 else { return }
+            let fd = open(filePath, O_EVTONLY)
+            guard fd >= 0 else { return }
 
-        let src = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        src.setEventHandler { [weak self, filePath] in
-            guard let data = try? Data(contentsOf: URL(filePath: filePath)),
-                  let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
-            else { return }
-            Task { @MainActor [weak self] in
-                var merged = parsed
-                if let existing = self?.currentData?.pr {
-                    merged.pr = existing
+            let src = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: fd,
+                eventMask: [.write, .extend],
+                queue: .global(qos: .utility)
+            )
+            src.setEventHandler { [weak self, filePath] in
+                guard let data = try? Data(contentsOf: URL(filePath: filePath)),
+                      let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
+                else { return }
+                Task { @MainActor [weak self] in
+                    var merged = parsed
+                    if let existing = self?.currentData?.pr {
+                        merged.pr = existing
+                    }
+                    self?.currentData = merged
                 }
-                self?.currentData = merged
             }
-        }
-        src.setCancelHandler { close(fd) }
-        src.resume()
-        source = src
+            src.setCancelHandler { close(fd) }
+            src.resume()
+            source = src
 
-        restartAttentionWatcherIfEligible()
+            restartAttentionWatcherIfEligible()
+        } else {
+            agnosticProvider?.start()
+        }
 
         queryPR()
         prTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -89,7 +107,7 @@ final class StatusLineMonitor {
 
     /// Rewrites Claude `--settings` and restarts the attention file watcher (e.g. when the user toggles the hook in Settings).
     func refreshClaudeIntegrationFromSettings() {
-        guard needsSettingsHook else { return }
+        guard isClaude else { return }
         writeSettingsFile()
         restartAttentionWatcherIfEligible()
     }
@@ -98,6 +116,8 @@ final class StatusLineMonitor {
         source?.cancel()
         source = nil
         stopAttentionWatcher()
+        agnosticProvider?.stop()
+        agnosticProvider = nil
         prTimer?.invalidate()
         prTimer = nil
         prQueryToken += 1
@@ -109,7 +129,7 @@ final class StatusLineMonitor {
     }
 
     private func writeSettingsFile() {
-        let attentionEnabled = needsSettingsHook && SettingsPersistence.isClaudeHookAttentionEnabled()
+        let attentionEnabled = isClaude && SettingsPersistence.isClaudeHookAttentionEnabled()
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
@@ -137,7 +157,7 @@ final class StatusLineMonitor {
 
     private func restartAttentionWatcherIfEligible() {
         stopAttentionWatcher()
-        guard needsSettingsHook, SettingsPersistence.isClaudeHookAttentionEnabled() else { return }
+        guard isClaude, SettingsPersistence.isClaudeHookAttentionEnabled() else { return }
         FileManager.default.createFile(atPath: attentionSignalFilePath, contents: nil)
         let fd = open(attentionSignalFilePath, O_EVTONLY)
         guard fd >= 0 else { return }

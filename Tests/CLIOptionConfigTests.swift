@@ -134,6 +134,56 @@ final class StatusLineConfigTests: XCTestCase {
         XCTAssertNil(data.model)
         XCTAssertNil(data.cost)
     }
+
+    func testItemAvailabilityCoversAllMetadataIDs() {
+        for id in StatusLineConfig.itemMetadata.keys {
+            XCTAssertNotNil(StatusLineConfig.itemAvailability[id], "Missing availability for item: \(id)")
+        }
+    }
+
+    func testItemAvailabilityMatchesMetadataCount() {
+        XCTAssertEqual(StatusLineConfig.itemAvailability.count, StatusLineConfig.itemMetadata.count)
+    }
+
+    func testAgnosticItemsAreCorrect() {
+        let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        for id in agnosticIds {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .all, "\(id) should be .all")
+        }
+    }
+
+    func testClaudeOnlyItemsAreAllOtherItems() {
+        let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        for id in StatusLineConfig.itemMetadata.keys where !agnosticIds.contains(id) {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
+        }
+    }
+
+    func testSupportedByClaudeReturnsTrueForAll() {
+        for id in StatusLineConfig.itemMetadata.keys {
+            let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
+            XCTAssertTrue(item.supportedBy(.claude), "\(id) should be supported by Claude")
+        }
+    }
+
+    func testSupportedByNonClaudeReturnsOnlyAgnostic() {
+        let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        for id in StatusLineConfig.itemMetadata.keys {
+            let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
+            let expected = agnosticIds.contains(id)
+            for cliType: CLIType in [.codex, .cursor, .opencode] {
+                XCTAssertEqual(item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
+            }
+        }
+    }
+
+    func testDefaultVisibleIncludesMixedAvailability() {
+        let defaultVisible = StatusLineConfig().rows.flatMap { $0.items.map(\.id) }
+        let hasAgnostic = defaultVisible.contains { StatusLineConfig.itemAvailability[$0] == .all }
+        let hasClaudeOnly = defaultVisible.contains { StatusLineConfig.itemAvailability[$0] == .claudeOnly }
+        XCTAssertTrue(hasAgnostic, "Default visible items should include at least one agnostic item")
+        XCTAssertTrue(hasClaudeOnly, "Default visible items should include at least one Claude-only item")
+    }
 }
 
 
