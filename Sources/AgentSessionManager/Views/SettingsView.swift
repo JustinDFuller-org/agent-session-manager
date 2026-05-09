@@ -641,7 +641,7 @@ private struct StatusLineContent: View {
         @Bindable var appSettings = appSettings
         Form {
             Section {
-                Text("Configure the info panel shown at the bottom of each pane. Items are populated from tool session data.")
+                Text("Configure the info panel shown at the bottom of each pane. Items marked “Claude only” require Claude Code’s statusLine hook; all other items work with any tool via git and process data.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -719,6 +719,22 @@ private struct StatusLineContent: View {
                         }
                     }
                     Spacer()
+                    switch item.availability {
+                    case .claudeOnly:
+                        Text("Claude only")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.blue.opacity(0.1)))
+                    case .all:
+                        Text("All tools")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.green.opacity(0.1)))
+                    }
                     Button(role: .destructive) {
                         appSettings.statusLineConfig.rows[rowIndex].items.removeAll { $0.id == item.id }
                         SettingsPersistence.saveStatusLine(appSettings: appSettings)
@@ -740,9 +756,23 @@ private struct StatusLineContent: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(available) { item in
-                        Button(item.label) {
+                        Button {
                             appSettings.statusLineConfig.rows[rowIndex].items.append(item)
                             SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                        } label: {
+                            HStack {
+                                Text(item.label)
+                                switch item.availability {
+                                case .claudeOnly:
+                                    Text("Claude only")
+                                        .font(.caption2)
+                                        .foregroundStyle(.blue)
+                                case .all:
+                                    Text("All tools")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                }
+                            }
                         }
                     }
                 }
@@ -787,28 +817,28 @@ private struct StatusLineContent: View {
         switch id {
         case "model": return "Claude model name"
         case "worktree": return "Git worktree name"
-        case "cost": return "Total session cost in USD"
-        case "context": return "Context window usage (with progress bar)"
-        case "effort": return "Effort level"
-        case "thinking": return "Whether extended thinking is on or off"
-        case "vimMode": return "Vim editor mode"
-        case "agentName": return "Agent name"
-        case "sessionName": return "Session name"
+        case "cost": return "Total session cost in USD (Claude only)"
+        case "context": return "Context window usage with progress bar (Claude only)"
+        case "effort": return "Effort level (Claude only)"
+        case "thinking": return "Whether extended thinking is on or off (Claude only)"
+        case "vimMode": return "Vim editor mode (Claude only)"
+        case "agentName": return "Agent name (Claude only)"
+        case "sessionName": return "Session name (Claude only)"
         case "worktreeBranch": return "Git branch for the worktree"
         case "gitWorktree": return "Git worktree path"
-        case "linesAdded": return "Total lines added this session"
-        case "linesRemoved": return "Total lines removed this session"
+        case "linesAdded": return "Total lines added this session (Claude only)"
+        case "linesRemoved": return "Total lines removed this session (Claude only)"
         case "duration": return "Total session duration"
-        case "contextRemaining": return "Context window remaining percentage"
-        case "inputTokens": return "Total input tokens used"
-        case "outputTokens": return "Total output tokens used"
-        case "rate5h": return "5-hour rate limit usage (with progress bar)"
-        case "rate7d": return "7-day rate limit usage (with progress bar)"
-        case "rate5hReset": return "Time until 5-hour rate limit resets"
-        case "rate7dReset": return "Time until 7-day rate limit resets"
-        case "version": return "Claude CLI version"
-        case "outputStyle": return "Output style name"
-        case "exceeds200k": return "Warning when context exceeds 200k tokens"
+        case "contextRemaining": return "Context window remaining percentage (Claude only)"
+        case "inputTokens": return "Total input tokens used (Claude only)"
+        case "outputTokens": return "Total output tokens used (Claude only)"
+        case "rate5h": return "5-hour rate limit usage with progress bar (Claude only)"
+        case "rate7d": return "7-day rate limit usage with progress bar (Claude only)"
+        case "rate5hReset": return "Time until 5-hour rate limit resets (Claude only)"
+        case "rate7dReset": return "Time until 7-day rate limit resets (Claude only)"
+        case "version": return "Tool CLI version"
+        case "outputStyle": return "Output style name (Claude only)"
+        case "exceeds200k": return "Warning when context exceeds 200k tokens (Claude only)"
         case "pr": return "GitHub pull request status for the current branch"
         default: return ""
         }
