@@ -4,6 +4,12 @@ Agent Session Manager surfaces terminal bell events (sent by Claude Code and sim
 
 **In-app vs macOS:** The sidebar and pane/tab dots are **purely in-app** and do not require notification permission. **macOS banners** use `UNUserNotificationCenter` and require permission in **System Settings → Notifications** for Agent Session Manager. If `requestAuthorization` fails (for example `UNErrorDomain` code **1**, often meaning notifications are not allowed for the app), fix that in System Settings or by resetting the app’s notification registration — **in-app alerts still work** when a bell or hook fires; only banners are affected.
 
+**Bundle IDs (must match the app you run):** Notification permission is per bundle identifier. **Production** (`make app` / `make run`): `com.justinfuller.agent-session-manager`. **Dev** (`make run-dev`): `com.justinfuller.agent-session-manager.dev`. If you allow notifications for one variant but launch the other, banners will not work until you enable the matching entry under **System Settings → Notifications**.
+
+**Diagnosing `UNErrorDomain` / code 1 in the debug log:** Enable global debug logging and look for `[banner] failureSite=…`. `requestAuthorization` means the permission call failed; `scheduleLocalNotification` means `add(_:)` failed after permission. Lines include `unError=notificationsNotAllowed` when the failure is Apple’s “not allowed” case. Compare to an **Xcode** build (development-signed) if a **SwiftPM `make app`** build still misbehaves after `make app` (ad-hoc codesign runs automatically).
+
+**Alerts vs authorization:** Even with `authorizationStatus == authorized`, **System Settings** can disable **alerts/banners** for the app (`alertSetting`), in which case the debug log shows `[banner] skipped alertSetting=…` and no banner is scheduled.
+
 ## What It Does
 
 - **Pane indicator** — A colored dot appears in the pane header next to the process status indicator when that pane has an unread notification.

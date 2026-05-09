@@ -6,6 +6,11 @@ enum MacNotificationUserInfoKey {
     static let tabID = "tabID"
 }
 
+enum MacNotificationFailureSite: String {
+    case requestAuthorization
+    case scheduleLocalNotification
+}
+
 /// Posts macOS banner notifications when a pane rings the terminal bell (with user permission).
 /// Banners are presented even while Agent Session Manager is frontmost so attention is visible on the desktop.
 @MainActor
@@ -17,6 +22,23 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
 
     /// Logged once per process when banners are on but UN authorization is denied.
     private static var hasLoggedDeniedBannerHint = false
+
+    /// Maps `NSError` from UserNotifications APIs for debug logs and unit tests.
+    nonisolated static func describeUserNotificationsNSError(_ error: Error) -> String {
+        let ns = error as NSError
+        var suffix = ""
+        if ns.domain == UNError.errorDomain {
+            if ns.code == UNError.Code.notificationsNotAllowed.rawValue {
+                suffix =
+                    " unError=notificationsNotAllowed (see System Settings → Notifications for this app’s bundle ID; `make app` builds are ad-hoc signed)"
+            } else if let code = UNError.Code(rawValue: ns.code) {
+                suffix = " unError=\(String(describing: code))"
+            } else {
+                suffix = " unError=raw(\(ns.code))"
+            }
+        }
+        return "domain=\(ns.domain) code=\(ns.code)\(suffix) description=\(ns.localizedDescription) userInfo=\(ns.userInfo as NSDictionary)"
+    }
 
     func bind(appState: AppState, appSettings: AppSettings) {
         self.appState = appState
@@ -32,7 +54,17 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             }
             return
         }
-        guard let appSettings = self.appSettings, appSettings.isMacOSBannerNotificationsEnabled else {
+        guard let appSettings = self.appSettings else {
+            await MainActor.run {
+                if DebugLogger.shared.isEnabled {
+                    DebugLogger.shared.log(
+                        "[banner] requestAuthorization skipped (coordinator not bound yet; banner flow requires bind before ContentView loads)"
+                    )
+                }
+            }
+            return
+        }
+        guard appSettings.isMacOSBannerNotificationsEnabled else {
             await MainActor.run {
                 if DebugLogger.shared.isEnabled {
                     DebugLogger.shared.log("[banner] requestAuthorization skipped (macOS banner notifications off in settings)")
@@ -59,10 +91,9 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         do {
             granted = try await center.requestAuthorization(options: [.alert, .sound])
         } catch {
-            let ns = error as NSError
             await MainActor.run {
                 DebugLogger.shared.log(
-                    "[banner] requestAuthorization error domain=\(ns.domain) code=\(ns.code) description=\(ns.localizedDescription) userInfo=\(ns.userInfo as NSDictionary)"
+                    "[banner] failureSite=\(MacNotificationFailureSite.requestAuthorization.rawValue) \(Self.describeUserNotificationsNSError(error))"
                 )
             }
             return
@@ -84,7 +115,16 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             tabName: tabName,
             paneName: paneName
         )
-        guard let appSettings = self.appSettings, appSettings.isMacOSBannerNotificationsEnabled else {
+        guard let appSettings = self.appSettings else {
+            DebugLogger.shared.log(
+                "[banner] skipped coordinator not bound (no app settings)",
+                paneID: paneID,
+                tabName: tabName,
+                paneName: paneName
+            )
+            return
+        }
+        guard appSettings.isMacOSBannerNotificationsEnabled else {
             DebugLogger.shared.log(
                 "[banner] skipped banner notifications disabled in settings",
                 paneID: paneID,
@@ -103,6 +143,15 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             guard settings.authorizationStatus == .authorized else {
                 DebugLogger.shared.log(
                     "[banner] skipped authorization=\(String(describing: settings.authorizationStatus))",
+                    paneID: paneID,
+                    tabName: tabName,
+                    paneName: paneName
+                )
+                return
+            }
+            guard settings.alertSetting == .enabled else {
+                DebugLogger.shared.log(
+                    "[banner] skipped alertSetting=\(String(describing: settings.alertSetting)) (allow banners or alerts for this app in System Settings → Notifications)",
                     paneID: paneID,
                     tabName: tabName,
                     paneName: paneName
@@ -129,9 +178,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                     paneName: paneName
                 )
             } catch {
-                let ns = error as NSError
                 DebugLogger.shared.log(
-                    "[banner] UNUserNotificationCenter.add failed domain=\(ns.domain) code=\(ns.code) description=\(ns.localizedDescription)",
+                    "[banner] failureSite=\(MacNotificationFailureSite.scheduleLocalNotification.rawValue) \(Self.describeUserNotificationsNSError(error))",
                     paneID: paneID,
                     tabName: tabName,
                     paneName: paneName
