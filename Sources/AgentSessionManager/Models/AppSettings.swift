@@ -59,11 +59,39 @@ final class AppSettings {
     var notificationSidebarSide: SidebarSide = .right
     var isPriorityNotificationsEnabled: Bool = true
     var isMacOSBannerNotificationsEnabled: Bool = true
+    /// Merges Claude Code `Notification` hook into per-pane `--settings` for attention when the terminal does not ring the bell (default on).
+    var isClaudeNotificationHookAttentionEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
     var debugLoggingEnabled: Bool = false
+    /// Empty string means the default file under Application Support.
+    var debugLogFilePath: String = ""
+    /// Maximum debug trace file size before older content is truncated from the beginning.
+    var debugLogMaxFileBytes: Int = AppSettings.defaultDebugLogMaxFileBytes
+    /// When global debug logging is on, allow terminal snapshot capture to write to the trace file for all panes.
+    var debugLogIncludeTerminalContents: Bool = false
     var githubPRTrackingEnabled: Bool = true
+
+    static let defaultDebugLogMaxFileBytes = 15 * 1024 * 1024
+
+    /// Resolved trace file URL (creates the Application Support parent directory when using the default).
+    var resolvedDebugLogFileURL: URL {
+        let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
+        let defaultURL = dir.appending(path: "debug-trace.log")
+        let raw = debugLogFilePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.isEmpty {
+            return defaultURL.standardizedFileURL
+        }
+        let expanded = (raw as NSString).expandingTildeInPath
+        return URL(fileURLWithPath: expanded).standardizedFileURL
+    }
+
+    var debugLogMaxSizeMegabytes: Int {
+        get { max(1, debugLogMaxFileBytes / (1024 * 1024)) }
+        set { debugLogMaxFileBytes = max(1, min(512, newValue)) * 1024 * 1024 }
+    }
 
     func isActive(_ tool: CLIType) -> Bool {
         activeTools.contains(tool.rawValue)

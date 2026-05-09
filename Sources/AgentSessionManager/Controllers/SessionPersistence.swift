@@ -1,8 +1,45 @@
 import Foundation
 
+struct PersistedPaneNotification: Codable, Equatable {
+    var notificationID: UUID
+    var paneID: UUID
+    var paneName: String
+    var tabID: UUID
+    var tabName: String
+    var isPriority: Bool
+    var timestamp: Date
+}
+
 struct PersistedSession: Codable {
     var tabs: [PersistedTab]
     var activeTabIndex: Int?
+    var pendingNotifications: [PersistedPaneNotification]
+
+    enum CodingKeys: String, CodingKey {
+        case tabs
+        case activeTabIndex
+        case pendingNotifications
+    }
+
+    init(tabs: [PersistedTab], activeTabIndex: Int?, pendingNotifications: [PersistedPaneNotification] = []) {
+        self.tabs = tabs
+        self.activeTabIndex = activeTabIndex
+        self.pendingNotifications = pendingNotifications
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        tabs = try c.decode([PersistedTab].self, forKey: .tabs)
+        activeTabIndex = try c.decodeIfPresent(Int.self, forKey: .activeTabIndex)
+        pendingNotifications = try c.decodeIfPresent([PersistedPaneNotification].self, forKey: .pendingNotifications) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(tabs, forKey: .tabs)
+        try c.encodeIfPresent(activeTabIndex, forKey: .activeTabIndex)
+        try c.encode(pendingNotifications, forKey: .pendingNotifications)
+    }
 }
 
 struct PersistedTab: Codable {
@@ -84,7 +121,18 @@ struct SessionPersistence {
             )
         }
         let activeTabIndex = appState.tabs.firstIndex { $0.id == appState.activeTabID }
-        let session = PersistedSession(tabs: tabs, activeTabIndex: activeTabIndex)
+        let pendingNotifications = appState.notifications.map {
+            PersistedPaneNotification(
+                notificationID: $0.id,
+                paneID: $0.paneID,
+                paneName: $0.paneName,
+                tabID: $0.tabID,
+                tabName: $0.tabName,
+                isPriority: $0.isPriority,
+                timestamp: $0.timestamp
+            )
+        }
+        let session = PersistedSession(tabs: tabs, activeTabIndex: activeTabIndex, pendingNotifications: pendingNotifications)
         guard let data = try? JSONEncoder().encode(session) else { return }
         try? data.write(to: sessionURL)
     }
@@ -104,7 +152,7 @@ struct SessionPersistence {
 
         for persistedTab in session.tabs {
             guard let dir = URL(string: "file://\(persistedTab.directory)") else { continue }
-            let tab = Tab(name: persistedTab.name, directory: dir)
+            let tab = Tab(id: persistedTab.id, name: persistedTab.name, directory: dir)
             for persistedPane in persistedTab.panes {
                 let worktreeDir: URL?
                 if let pathStr = persistedPane.worktreeDirectory, !pathStr.isEmpty {
@@ -130,7 +178,8 @@ struct SessionPersistence {
                     extraArgs: extraArgs,
                     cliType: persistedPane.cliType,
                     worktreeDirectory: worktreeDir,
-                    worktreeIsManaged: persistedPane.worktreeIsManaged
+                    worktreeIsManaged: persistedPane.worktreeIsManaged,
+                    id: persistedPane.id
                 )
                 pane.wireTerminalBellForNotifications(
                     appState: appState,
@@ -145,5 +194,27 @@ struct SessionPersistence {
         } else {
             appState.activeTabID = appState.tabs.first?.id
         }
+
+        var restored: [PaneNotification] = []
+        var seenPaneIDs = Set<UUID>()
+        for pending in session.pendingNotifications {
+            guard !seenPaneIDs.contains(pending.paneID) else { continue }
+            guard let tab = appState.tabs.first(where: { $0.id == pending.tabID }),
+                  let pane = tab.panes.first(where: { $0.id == pending.paneID })
+            else { continue }
+            seenPaneIDs.insert(pending.paneID)
+            restored.append(
+                PaneNotification(
+                    id: pending.notificationID,
+                    paneID: pending.paneID,
+                    paneName: pane.name,
+                    tabID: pending.tabID,
+                    tabName: tab.name,
+                    isPriority: pending.isPriority,
+                    timestamp: pending.timestamp
+                )
+            )
+        }
+        appState.notifications = restored
     }
 }

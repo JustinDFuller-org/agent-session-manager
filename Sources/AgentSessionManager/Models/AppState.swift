@@ -33,7 +33,18 @@ final class AppState {
     func setActivePane(id: UUID?) {
         activeTab?.lastActivePaneID = id
         activePaneID = id
-        if let id { clearNotification(paneID: id) }
+        if let id {
+            let hadNotification = notifications.contains { $0.paneID == id }
+            clearNotification(paneID: id)
+            if hadNotification {
+                DebugLogger.shared.log(
+                    "[notify] clearNotification reason=activatedPane paneID=\(id.uuidString)",
+                    paneID: id,
+                    tabName: "",
+                    paneName: ""
+                )
+            }
+        }
     }
 
     func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
@@ -50,16 +61,19 @@ final class AppState {
             }
         }
     }
-
+        
     func closeTab(_ tab: Tab) {
+        let paneIDs = Set(tab.panes.map(\.id))
         tab.panes.forEach {
+            DebugLogger.shared.removeTracedPane($0.id)
             $0.terminalController?.terminate()
-            clearNotification(paneID: $0.id)
         }
+        notifications.removeAll { paneIDs.contains($0.paneID) }
         tabs.removeAll { $0.id == tab.id }
         if activeTabID == tab.id {
             activeTabID = tabs.last?.id
         }
+        SessionPersistence.save(appState: self)
     }
 
     func moveTab(from source: IndexSet, to destination: Int) {
@@ -68,8 +82,15 @@ final class AppState {
     }
 
     func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
-        guard activePaneID != paneID else { return }
-        guard !notifications.contains(where: { $0.paneID == paneID }) else { return }
+        if notifications.contains(where: { $0.paneID == paneID }) {
+            DebugLogger.shared.log(
+                "[notify] addNotification skipped duplicate paneID=\(paneID.uuidString) name=\(paneName)",
+                paneID: paneID,
+                tabName: tabName,
+                paneName: paneName
+            )
+            return
+        }
         notifications.append(PaneNotification(
             paneID: paneID,
             paneName: paneName,
@@ -77,24 +98,49 @@ final class AppState {
             tabName: tabName,
             isPriority: isPriority
         ))
+        DebugLogger.shared.log(
+            "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)",
+            paneID: paneID,
+            tabName: tabName,
+            paneName: paneName
+        )
         MacNotificationCoordinator.shared.postPaneAttentionIfNeeded(
             paneID: paneID,
             paneName: paneName,
             tabID: tabID,
             tabName: tabName
         )
+        SessionPersistence.save(appState: self)
     }
 
     func clearNotification(paneID: UUID) {
         notifications.removeAll { $0.paneID == paneID }
+        SessionPersistence.save(appState: self)
+    }
+
+    func clearAllNotifications() {
+        notifications.removeAll()
+        SessionPersistence.save(appState: self)
     }
 
     func navigateTo(notification: PaneNotification) {
+        DebugLogger.shared.log(
+            "[notify] navigateToNotification sidebar pane=\(notification.paneName) tab=\(notification.tabName)",
+            paneID: notification.paneID,
+            tabName: notification.tabName,
+            paneName: notification.paneName
+        )
         switchToTab(id: notification.tabID)
         setActivePane(id: notification.paneID)
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {
+        DebugLogger.shared.log(
+            "[notify] focusPane tabID=\(tabID.uuidString) paneID=\(paneID.uuidString) source=bannerOrExternal",
+            paneID: paneID,
+            tabName: "",
+            paneName: ""
+        )
         switchToTab(id: tabID)
         setActivePane(id: paneID)
     }

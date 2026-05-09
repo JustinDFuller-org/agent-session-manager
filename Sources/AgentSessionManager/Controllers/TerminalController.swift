@@ -1,13 +1,105 @@
 import AppKit
+import Foundation
 import SwiftTerm
 
 final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onBell: (() -> Void)?
+    /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
+    var telemetryTabName: String = ""
+    var telemetryPaneName: String = ""
+    var telemetryPaneUUID: UUID?
+    private var osc777HookInstalled = false
+
+    private let terminalStreamDebounceLock = NSLock()
+    private var terminalStreamDebounceWork: DispatchWorkItem?
+    /// Fingerprint of last streamed screen text; only read/written on the main actor.
+    private var lastTerminalStreamFingerprint: Int?
+
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        super.dataReceived(slice: slice)
+        scheduleDebouncedTerminalStreamFlush()
+    }
+
+    private func scheduleDebouncedTerminalStreamFlush() {
+        terminalStreamDebounceLock.lock()
+        terminalStreamDebounceWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                self.flushTerminalStreamSnapshotToDebugIfNeeded()
+            }
+        }
+        terminalStreamDebounceWork = work
+        terminalStreamDebounceLock.unlock()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    @MainActor
+    private func flushTerminalStreamSnapshotToDebugIfNeeded() {
+        guard let paneID = telemetryPaneUUID else { return }
+        guard DebugLogger.shared.isTerminalCaptureEnabled(for: paneID) else { return }
+        let content = TerminalController.renderedScreenText(from: getTerminal())
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        var hasher = Hasher()
+        hasher.combine(content)
+        let fingerprint = hasher.finalize()
+        if fingerprint == lastTerminalStreamFingerprint { return }
+        lastTerminalStreamFingerprint = fingerprint
+        DebugLogger.shared.logTerminalContent(
+            paneName: telemetryPaneName.isEmpty ? "?" : telemetryPaneName,
+            content: content,
+            tabName: telemetryTabName.isEmpty ? "?" : telemetryTabName,
+            paneID: paneID,
+            kind: DebugLogger.TerminalContentLogKind.stream
+        )
+    }
 
     override func bell(source: Terminal) {
         super.bell(source: source)
+        let pane = telemetryPaneName.isEmpty ? "?" : telemetryPaneName
+        let msg = "[bell] SwiftTerm bell() pane=\(pane)"
+        deliverAttentionToHost(logMessage: msg)
+    }
+
+    /// Hooks OSC 777 (`ESC]777;notify;title;body BEL`) into the same path as ``bell(source:)``.
+    /// SwiftTerm invokes this via `TerminalDelegate.notify`, but default protocol conformance is not
+    /// overridden by subclasses, so we register a parser handler (see `Terminal.registerOscHandler`).
+    func installOsc777AttentionHookIfNeeded() {
+        guard !osc777HookInstalled else { return }
+        osc777HookInstalled = true
+        getTerminal().registerOscHandler(code: 777) { [weak self] data in
+            guard let self else { return }
+            guard let text = String(bytes: data, encoding: .utf8) else { return }
+            let parts = text.components(separatedBy: ";")
+            guard parts.count >= 3, parts[0] == "notify" else { return }
+            let title = parts[1]
+            let body = parts[2...].joined(separator: ";")
+            let label = self.telemetryPaneName.isEmpty ? "?" : self.telemetryPaneName
+            let safeTitle = String(title.prefix(200)).replacingOccurrences(of: "\n", with: " ")
+            let safeBody = String(body.prefix(500)).replacingOccurrences(of: "\n", with: " ")
+            let msg = "[bell] SwiftTerm notify(OSC 777) pane=\(label) title=\(safeTitle) body=\(safeBody)"
+            self.deliverAttentionToHost(logMessage: msg)
+        }
+    }
+
+    private func deliverAttentionToHost(logMessage: String) {
+        let paneId = telemetryPaneUUID
         DispatchQueue.main.async { [weak self] in
-            self?.onBell?()
+            guard let self else { return }
+            let debug = DebugLogger.shared
+            if let id = paneId {
+                if debug.acceptsPaneDiagnostics(paneID: id) {
+                    debug.log(
+                        logMessage,
+                        paneID: id,
+                        tabName: self.telemetryTabName,
+                        paneName: self.telemetryPaneName
+                    )
+                }
+            } else if debug.isEnabled {
+                debug.log(logMessage)
+            }
+            self.onBell?()
         }
     }
 }
@@ -32,6 +124,7 @@ final class TerminalController: NSObject {
         super.init()
         terminalView.processDelegate = self
         terminalView.onBell = { [weak self] in self?.onBell?() }
+        terminalView.installOsc777AttentionHookIfNeeded()
     }
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
@@ -50,29 +143,41 @@ final class TerminalController: NSObject {
             //   Remaining TCC prompts are one-time decisions from Claude's startup
             //   path scanning. See documentation/features/panes.md.
             let args = ["-i", "-c", cmd]
-            DebugLogger.shared.logProcessStart(
-                executable: shell,
-                args: args,
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
-            )
+            let tracePane = terminalView.telemetryPaneUUID
+            let env = pendingEnvironment
+            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
                 args: args,
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
+                environment: env,
+                currentDirectory: cwd
+            )
+            Self.scheduleDeferredProcessStartLog(
+                executable: shell,
+                args: args,
+                environment: env,
+                currentDirectory: cwd,
+                paneID: tracePane,
+                tabName: terminalView.telemetryTabName,
+                paneName: terminalView.telemetryPaneName
             )
         } else {
-            DebugLogger.shared.logProcessStart(
-                executable: shell,
-                args: [],
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
-            )
+            let tracePane = terminalView.telemetryPaneUUID
+            let env = pendingEnvironment
+            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
-                environment: pendingEnvironment,
-                currentDirectory: pendingDirectory
+                environment: env,
+                currentDirectory: cwd
+            )
+            Self.scheduleDeferredProcessStartLog(
+                executable: shell,
+                args: [],
+                environment: env,
+                currentDirectory: cwd,
+                paneID: tracePane,
+                tabName: terminalView.telemetryTabName,
+                paneName: terminalView.telemetryPaneName
             )
         }
         let pid = terminalView.process.shellPid
@@ -82,7 +187,11 @@ final class TerminalController: NSObject {
     }
 
     var terminalContent: String {
-        let terminal = terminalView.terminal
+        Self.renderedScreenText(from: terminalView.terminal)
+    }
+
+    /// On-screen terminal text for the current viewport (`Terminal.getCharacter`), excluding NULs and trailing blank lines.
+    static func renderedScreenText(from terminal: Terminal?) -> String {
         guard let terminal, terminal.rows > 0, terminal.cols > 0 else { return "" }
         var lines: [String] = []
         for row in 0..<terminal.rows {
@@ -104,6 +213,29 @@ final class TerminalController: NSObject {
 
     func terminate() {
         terminalView.terminate()
+    }
+
+    /// Builds large log lines off the critical path so the PTY can start before telemetry work runs.
+    private static func scheduleDeferredProcessStartLog(
+        executable: String,
+        args: [String],
+        environment: [String]?,
+        currentDirectory: String?,
+        paneID: UUID?,
+        tabName: String,
+        paneName: String
+    ) {
+        Task(priority: .utility) { @MainActor in
+            DebugLogger.shared.logProcessStart(
+                executable: executable,
+                args: args,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                paneID: paneID,
+                tabName: tabName.isEmpty ? nil : tabName,
+                paneName: paneName.isEmpty ? nil : paneName
+            )
+        }
     }
 }
 

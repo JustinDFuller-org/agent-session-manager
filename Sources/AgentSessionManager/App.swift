@@ -9,9 +9,14 @@ struct ContentView: View {
     @State private var pendingCleanupPane: Pane?
     @State private var pendingCleanupTab: Tab?
     @State private var showDebugLog = false
+    @State private var debugLadybugRefreshTick = 0
 
     var body: some View {
         @Bindable var appState = appState
+        let _ = debugLadybugRefreshTick
+        let showDebugLadybug = appSettings.debugLoggingEnabled
+            || !DebugLogger.shared.tracedPaneIDs.isEmpty
+            || !DebugLogger.shared.tracedPaneTerminalCaptureIDs.isEmpty
         let hasNotifications = !appState.notifications.isEmpty
         VStack(spacing: 0) {
             TabBarView()
@@ -53,8 +58,11 @@ struct ContentView: View {
             MacNotificationCoordinator.shared.bind(appState: appState, appSettings: appSettings)
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerDebugTracingChanged)) { _ in
+            debugLadybugRefreshTick &+= 1
+        }
         .overlay(alignment: .bottomTrailing) {
-            if appSettings.debugLoggingEnabled {
+            if showDebugLadybug {
                 Button {
                     showDebugLog = true
                 } label: {
@@ -87,6 +95,7 @@ struct ContentView: View {
         .sheet(isPresented: $showDebugLog) {
             DebugLogView()
                 .environment(appState)
+                .environment(appSettings)
         }
         .alert("Close Worktree Pane", isPresented: $showCleanupAlert) {
             Button("Keep Worktree") {

@@ -113,7 +113,7 @@ private struct GeneralContent: View {
                         Text("Debug Logging")
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
-                        Text("Log process launches, git commands, and environment details to help diagnose issues.")
+                        Text("Append diagnostics to a trace file (see path below) instead of keeping them in memory.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -124,10 +124,84 @@ private struct GeneralContent: View {
                         .accessibilityIdentifier("settings-debug-logging-toggle")
                         .onChange(of: appSettings.debugLoggingEnabled) {
                             DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
+                            DebugLogger.shared.syncFromAppSettings(appSettings)
+                            if !appSettings.debugLoggingEnabled {
+                                DebugLogger.shared.removeAllTracedPanes()
+                            }
                             SettingsPersistence.saveDebugSettings(appSettings: appSettings)
                             if appSettings.debugLoggingEnabled {
                                 DebugLogger.shared.logSystemInfo()
+                                DebugLogger.shared.logNotificationEnvironment(
+                                    macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                                )
                             }
+                        }
+                }
+                .padding(.vertical, 2)
+
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Trace file path")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text("Leave empty for the default file under Application Support. ~ is expanded.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    TextField("Default if empty", text: $appSettings.debugLogFilePath)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minWidth: 220)
+                        .accessibilityIdentifier("settings-debug-log-file-path")
+                        .onChange(of: appSettings.debugLogFilePath) {
+                            DebugLogger.shared.syncFromAppSettings(appSettings)
+                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Max trace file size")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text("When exceeded, older bytes are removed from the start of the file.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Stepper(value: $appSettings.debugLogMaxSizeMegabytes, in: 1...512) {
+                        Text("\(appSettings.debugLogMaxSizeMegabytes) MB")
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minWidth: 72, alignment: .trailing)
+                    }
+                    .accessibilityIdentifier("settings-debug-log-max-mb-stepper")
+                    .onChange(of: appSettings.debugLogMaxSizeMegabytes) {
+                        DebugLogger.shared.syncFromAppSettings(appSettings)
+                        SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                    }
+                }
+                .padding(.vertical, 2)
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Include terminal snapshots")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text("When debug logging is on, allow capturing all panes’ terminal text into the trace file from the debug sheet. You can also enable capture per pane from its context menu without this.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Include terminal snapshots", isOn: $appSettings.debugLogIncludeTerminalContents)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-debug-include-terminal-toggle")
+                        .disabled(!appSettings.debugLoggingEnabled)
+                        .onChange(of: appSettings.debugLogIncludeTerminalContents) {
+                            DebugLogger.shared.syncFromAppSettings(appSettings)
+                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
                         }
                 }
                 .padding(.vertical, 2)
@@ -840,6 +914,35 @@ private struct NotificationsContent: View {
                         .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
                         .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
                             SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                            if appSettings.debugLoggingEnabled {
+                                DebugLogger.shared.logNotificationEnvironment(
+                                    macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                                )
+                            }
+                        }
+                }
+                .padding(.vertical, 2)
+            }
+            Section("Claude Code") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Notification hook for attention")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text(
+                            "Merge Claude’s Notification hook into each pane’s --settings so permission prompts and other notifies can trigger the same in‑app alerts as a terminal bell, even when no BEL or OSC 777 is sent."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Notification hook for attention", isOn: $appSettings.isClaudeNotificationHookAttentionEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-claude-notification-hook-toggle")
+                        .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                            NotificationCenter.default.post(name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
                         }
                 }
                 .padding(.vertical, 2)

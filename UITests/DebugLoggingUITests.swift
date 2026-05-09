@@ -46,7 +46,7 @@ final class DebugLoggingUITests: BaseTestCase {
         XCTAssertTrue(button.exists)
     }
 
-    func testDebugLogSheetOpens() {
+    func testDebugToolsSheetOpens() {
         openSettings()
         let generalTab = app.buttons["General"]
         waitFor(generalTab)
@@ -67,7 +67,7 @@ final class DebugLoggingUITests: BaseTestCase {
         XCTAssertTrue(closeButton.exists)
     }
 
-    func testDebugLogEmptyState() {
+    func testDebugToolsSheetShowsTraceExplanation() {
         openSettings()
         let generalTab = app.buttons["General"]
         waitFor(generalTab)
@@ -83,17 +83,16 @@ final class DebugLoggingUITests: BaseTestCase {
         waitFor(debugButton)
         debugButton.click()
 
-        let emptyState = app.staticTexts["debug-log-empty-state"]
-        waitFor(emptyState)
-        XCTAssertTrue(emptyState.exists)
+        let explanation = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Telemetry is written only")).element
+        waitFor(explanation)
+        XCTAssertTrue(explanation.exists)
 
         let closeButton = app.buttons["debug-log-close-button"]
         closeButton.click()
-
         waitForDisappear(closeButton)
     }
 
-    func testDebugLogCopyButtonDisabledWhenEmpty() {
+    func testCopyPathButtonEnabledInDebugSheet() {
         openSettings()
         let generalTab = app.buttons["General"]
         waitFor(generalTab)
@@ -109,15 +108,15 @@ final class DebugLoggingUITests: BaseTestCase {
         waitFor(debugButton)
         debugButton.click()
 
-        let copyButton = app.buttons["debug-log-copy-button"]
+        let copyButton = app.buttons["debug-log-copy-path-button"]
         waitFor(copyButton)
-        XCTAssertFalse(copyButton.isEnabled)
+        XCTAssertTrue(copyButton.isEnabled)
 
         let closeButton = app.buttons["debug-log-close-button"]
         closeButton.click()
     }
 
-    func testDebugLogClearButtonDisabledWhenEmpty() {
+    func testTruncateTraceButtonEnabledInDebugSheet() {
         openSettings()
         let generalTab = app.buttons["General"]
         waitFor(generalTab)
@@ -135,7 +134,7 @@ final class DebugLoggingUITests: BaseTestCase {
 
         let clearButton = app.buttons["debug-log-clear-button"]
         waitFor(clearButton)
-        XCTAssertFalse(clearButton.isEnabled)
+        XCTAssertTrue(clearButton.isEnabled)
 
         let closeButton = app.buttons["debug-log-close-button"]
         closeButton.click()

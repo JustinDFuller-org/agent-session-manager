@@ -68,8 +68,8 @@ final class Tab: Identifiable {
     var panes: [Pane] = []
     var lastActivePaneID: UUID?
 
-    init(name: String, directory: URL) {
-        self.id = UUID()
+    init(id: UUID = UUID(), name: String, directory: URL) {
+        self.id = id
         self.name = name
         self.directory = directory
     }
@@ -440,14 +440,22 @@ final class Tab: Identifiable {
         extraArgs: [String] = [],
         cliType: CLIType = .claude,
         worktreeDirectory: URL? = nil,
-        worktreeIsManaged: Bool = false
+        worktreeIsManaged: Bool = false,
+        id: UUID? = nil
     ) -> Pane {
         if let wd = worktreeDirectory {
             DebugLogger.shared.logWorktreeResolution(userRef: name, result: "dir: \(wd.path), managed: \(worktreeIsManaged)")
         } else {
             DebugLogger.shared.logWorktreeResolution(userRef: name, result: "cwd: \(directory.path)")
         }
-        let pane = Pane(name: name, tab: self, cliType: cliType, worktreeDirectory: worktreeDirectory, worktreeIsManaged: worktreeIsManaged)
+        let pane = Pane(
+            id: id ?? UUID(),
+            name: name,
+            tab: self,
+            cliType: cliType,
+            worktreeDirectory: worktreeDirectory,
+            worktreeIsManaged: worktreeIsManaged
+        )
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
@@ -481,12 +489,16 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "opencode\(extra)"
             }
             pane.terminalController = controller
+            controller.terminalView.telemetryTabName = name
+            controller.terminalView.telemetryPaneName = pane.name
+            controller.terminalView.telemetryPaneUUID = pane.id
         }
         panes.append(pane)
         return pane
     }
 
     func closePane(_ pane: Pane) {
+        DebugLogger.shared.removeTracedPane(pane.id)
         pane.terminalController?.terminate()
         pane.statusLineMonitor?.stop()
         panes.removeAll { $0.id == pane.id }

@@ -21,7 +21,7 @@ final class TerminalBellNotificationTests: XCTestCase {
         XCTAssertTrue(appState.notifications.first?.isPriority ?? false)
     }
 
-    func testWireTerminalBellForNotificationsSkipsWhenPaneIsActive() async {
+    func testWireTerminalBellForNotificationsAddsWhenPaneIsActive() async {
         let appState = AppState()
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp", directoryHint: .isDirectory))
         let pane = tab.addPane(name: "p1")
@@ -31,7 +31,8 @@ final class TerminalBellNotificationTests: XCTestCase {
         pane.terminalController?.onBell?()
         try? await Task.sleep(nanoseconds: 100_000_000)
 
-        XCTAssertTrue(appState.notifications.isEmpty)
+        XCTAssertEqual(appState.notifications.count, 1)
+        XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
     }
 
     func testBellFeedInvokesOnBell() async {
@@ -48,6 +49,23 @@ final class TerminalBellNotificationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 250_000_000)
 
         XCTAssertTrue(fired.value, "BEL (0x07) should reach bell() and invoke onBell")
+    }
+
+    func testOsc777NotifyInvokesOnBell() async {
+        let controller = TerminalController()
+        let fired = LockedFlag()
+        controller.onBell = { fired.set(true) }
+
+        controller.terminalView.frame = CGRect(x: 0, y: 0, width: 640, height: 480)
+        #if os(macOS)
+        controller.terminalView.layoutSubtreeIfNeeded()
+        #endif
+
+        // SwiftTerm: ESC ] 777 ; notify ; title ; body BEL
+        controller.terminalView.feed(text: "\u{1b}]777;notify;OSC Title;OSC Body\u{07}")
+        try? await Task.sleep(nanoseconds: 250_000_000)
+
+        XCTAssertTrue(fired.value, "OSC 777 notify should invoke the same attention path as BEL")
     }
 }
 
