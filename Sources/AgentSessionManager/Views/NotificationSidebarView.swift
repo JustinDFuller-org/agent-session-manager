@@ -56,7 +56,7 @@ struct NotificationSidebarView: View {
 
     private var clearAllButton: some View {
         Button {
-            appState.notifications.removeAll()
+            appState.clearAllNotifications()
         } label: {
             Text("Clear All")
                 .font(.system(size: 11))

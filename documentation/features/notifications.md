@@ -20,6 +20,8 @@ Agent Session Manager surfaces terminal bell events (sent by Claude Code and sim
 
 Notification dots and sidebar entries are orange for priority panes and blue for regular panes.
 
+**Persistence:** Pending in-app notifications (dots and sidebar rows) are saved in **`sessions.json`** with the rest of the session and restored on launch, so they survive quitting the app (for example alongside **Continue on restart**). They are cleared when you open that pane, dismiss a row, clear all, or remove the tab—as before. macOS banner notifications are not replayed on restore.
+
 ## Triggering a Notification
 
 Claude Code can signal attention in these ways that Agent Session Manager recognizes:

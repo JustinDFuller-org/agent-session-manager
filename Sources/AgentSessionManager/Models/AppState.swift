@@ -61,17 +61,19 @@ final class AppState {
             }
         }
     }
-
+        
     func closeTab(_ tab: Tab) {
+        let paneIDs = Set(tab.panes.map(\.id))
         tab.panes.forEach {
             DebugLogger.shared.removeTracedPane($0.id)
             $0.terminalController?.terminate()
-            clearNotification(paneID: $0.id)
         }
+        notifications.removeAll { paneIDs.contains($0.paneID) }
         tabs.removeAll { $0.id == tab.id }
         if activeTabID == tab.id {
             activeTabID = tabs.last?.id
         }
+        SessionPersistence.save(appState: self)
     }
 
     func moveTab(from source: IndexSet, to destination: Int) {
@@ -108,10 +110,17 @@ final class AppState {
             tabID: tabID,
             tabName: tabName
         )
+        SessionPersistence.save(appState: self)
     }
 
     func clearNotification(paneID: UUID) {
         notifications.removeAll { $0.paneID == paneID }
+        SessionPersistence.save(appState: self)
+    }
+
+    func clearAllNotifications() {
+        notifications.removeAll()
+        SessionPersistence.save(appState: self)
     }
 
     func navigateTo(notification: PaneNotification) {

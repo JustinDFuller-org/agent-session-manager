@@ -39,8 +39,15 @@ final class Pane: Identifiable {
     var statusLineMonitor: StatusLineMonitor?
     var isPriority: Bool = false
 
-    init(name: String, tab: Tab, cliType: CLIType = .claude, worktreeDirectory: URL? = nil, worktreeIsManaged: Bool = false) {
-        self.id = UUID()
+    init(
+        id: UUID = UUID(),
+        name: String,
+        tab: Tab,
+        cliType: CLIType = .claude,
+        worktreeDirectory: URL? = nil,
+        worktreeIsManaged: Bool = false
+    ) {
+        self.id = id
         self.name = name
         self.cliType = cliType
         self.worktreeDirectory = worktreeDirectory
