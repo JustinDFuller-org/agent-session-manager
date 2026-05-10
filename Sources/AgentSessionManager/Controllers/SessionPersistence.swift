@@ -8,6 +8,66 @@ struct PersistedPaneNotification: Codable, Equatable {
     var tabName: String
     var isPriority: Bool
     var timestamp: Date
+    var kind: NotificationKind
+    var prNumber: Int?
+    var prTitle: String?
+
+    enum CodingKeys: String, CodingKey {
+        case notificationID, paneID, paneName, tabID, tabName, isPriority, timestamp
+        case kind, prNumber, prTitle
+    }
+
+    init(
+        notificationID: UUID,
+        paneID: UUID,
+        paneName: String,
+        tabID: UUID,
+        tabName: String,
+        isPriority: Bool,
+        timestamp: Date,
+        kind: NotificationKind = .terminalBell,
+        prNumber: Int? = nil,
+        prTitle: String? = nil
+    ) {
+        self.notificationID = notificationID
+        self.paneID = paneID
+        self.paneName = paneName
+        self.tabID = tabID
+        self.tabName = tabName
+        self.isPriority = isPriority
+        self.timestamp = timestamp
+        self.kind = kind
+        self.prNumber = prNumber
+        self.prTitle = prTitle
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        notificationID = try c.decode(UUID.self, forKey: .notificationID)
+        paneID = try c.decode(UUID.self, forKey: .paneID)
+        paneName = try c.decode(String.self, forKey: .paneName)
+        tabID = try c.decode(UUID.self, forKey: .tabID)
+        tabName = try c.decode(String.self, forKey: .tabName)
+        isPriority = try c.decode(Bool.self, forKey: .isPriority)
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        kind = try c.decodeIfPresent(NotificationKind.self, forKey: .kind) ?? .terminalBell
+        prNumber = try c.decodeIfPresent(Int.self, forKey: .prNumber)
+        prTitle = try c.decodeIfPresent(String.self, forKey: .prTitle)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(notificationID, forKey: .notificationID)
+        try c.encode(paneID, forKey: .paneID)
+        try c.encode(paneName, forKey: .paneName)
+        try c.encode(tabID, forKey: .tabID)
+        try c.encode(tabName, forKey: .tabName)
+        try c.encode(isPriority, forKey: .isPriority)
+        try c.encode(timestamp, forKey: .timestamp)
+        try c.encode(kind, forKey: .kind)
+        try c.encodeIfPresent(prNumber, forKey: .prNumber)
+        try c.encodeIfPresent(prTitle, forKey: .prTitle)
+    }
 }
 
 struct PersistedSession: Codable {
@@ -134,7 +194,10 @@ struct SessionPersistence {
                 tabID: $0.tabID,
                 tabName: $0.tabName,
                 isPriority: $0.isPriority,
-                timestamp: $0.timestamp
+                timestamp: $0.timestamp,
+                kind: $0.kind,
+                prNumber: $0.prNumber,
+                prTitle: $0.prTitle
             )
         }
         let session = PersistedSession(
@@ -218,7 +281,10 @@ struct SessionPersistence {
                     tabID: pending.tabID,
                     tabName: tab.name,
                     isPriority: pending.isPriority,
-                    timestamp: pending.timestamp
+                    timestamp: pending.timestamp,
+                    kind: pending.kind,
+                    prNumber: pending.prNumber,
+                    prTitle: pending.prTitle
                 )
             )
         }

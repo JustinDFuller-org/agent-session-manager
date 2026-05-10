@@ -13,7 +13,8 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftTerm", package: "SwiftTerm")
             ],
-            path: "Sources/AgentSessionManager"
+            path: "Sources/AgentSessionManager",
+            linkerSettings: [.linkedLibrary("sqlite3")]
         ),
         .testTarget(
             name: "AgentSessionManagerTests",

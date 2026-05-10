@@ -35,10 +35,15 @@ final class StatusLineMonitor {
     private var prQueryTask: Process?
     /// Bumped when starting a new query or in `stop()` so older `terminationHandler` callbacks cannot mutate `currentData`.
     private var prQueryToken: UInt64 = 0
-    private var agnosticProvider: ToolAgnosticDataProvider?
+    private var agnosticProvider: (any StatusLineDataProvider)?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: (() -> Void)?
+    /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
+    var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
+
+    private var lastKnownPRState: String?
+    private var hasFiredMergedNotification = false
 
     init(paneID: UUID, workingDirectory: String? = nil, cliType: CLIType, processStartTime: Date = Date()) {
         self.paneID = paneID
@@ -51,9 +56,15 @@ final class StatusLineMonitor {
             NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
 
         if !isClaude, let cwd = workingDirectory {
-            let toolCmd = cliType.cliCommandDescription
-            agnosticProvider = ToolAgnosticDataProvider(
-                workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            let provider: any StatusLineDataProvider
+            if cliType == .opencode {
+                provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
+            } else {
+                let toolCmd = cliType.cliCommandDescription
+                provider = ToolAgnosticDataProvider(
+                    workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            }
+            agnosticProvider = provider
             agnosticProvider?.onUpdate = { [weak self] data in
                 guard let self else { return }
                 var merged = data
@@ -125,6 +136,8 @@ final class StatusLineMonitor {
         prQueryToken += 1
         prQueryTask?.terminate()
         prQueryTask = nil
+        lastKnownPRState = nil
+        hasFiredMergedNotification = false
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
@@ -398,11 +411,32 @@ final class StatusLineMonitor {
                 worktree: nil, workspace: nil, effort: nil, thinking: nil,
                 agent: nil, outputStyle: nil, vim: nil,
                 sessionName: nil, version: nil, exceeds200kTokens: nil,
+                sessionStatus: nil, openCodeMode: nil,
                 pr: pr
             )
         } else {
             currentData?.pr = pr
         }
+        checkForMergedTransition(pr)
+    }
+
+    @MainActor
+    private func checkForMergedTransition(_ pr: PullRequest) {
+        let newState = pr.state.lowercased()
+        defer { lastKnownPRState = newState }
+        guard !hasFiredMergedNotification else { return }
+        guard newState == "merged" else { return }
+        // Suppress on first observation (app launch/restart) — only fire on a live transition.
+        guard lastKnownPRState != nil else { return }
+        guard lastKnownPRState != "merged" else { return }
+        hasFiredMergedNotification = true
+        onPRMerged?(pr.number, pr.title)
+    }
+
+    /// For testing only: simulates a PR data update as if received from `gh pr view`.
+    @MainActor
+    func simulatePRUpdateForTesting(_ data: Data) {
+        applyPROutputIfValid(data)
     }
 
     /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus optional `hooks`) for tests and tooling.

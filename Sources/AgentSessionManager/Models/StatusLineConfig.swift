@@ -3,6 +3,8 @@ import Foundation
 enum ToolAvailability: Codable {
     case all
     case claudeOnly
+    case opencodeOnly
+    case claudeOrOpencode
 }
 
 enum ChipLabelStyle: String, Codable, CaseIterable {
@@ -59,6 +61,8 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         switch availability {
         case .all: return true
         case .claudeOnly: return cliType == .claude
+        case .opencodeOnly: return cliType == .opencode
+        case .claudeOrOpencode: return cliType == .claude || cliType == .opencode
         }
     }
 
@@ -109,16 +113,18 @@ struct StatusLineConfig: Codable {
         "linesRemoved": ("Lines Removed", "minus.square"),
         "duration": ("Duration", "clock"),
         "contextRemaining": ("Context Remaining", "gauge.with.needle.fill"),
-        "inputTokens": ("Input Tokens", "arrow.down.circle"),
-        "outputTokens": ("Output Tokens", "arrow.up.circle"),
-        "rate5h": ("5h Rate", "timer"),
-        "rate7d": ("7d Rate", "calendar.badge.clock"),
-        "rate5hReset": ("5h Resets At", "arrow.clockwise.circle"),
-        "rate7dReset": ("7d Resets At", "arrow.clockwise.circle.fill"),
-        "version": ("Version", "info.circle"),
-        "outputStyle": ("Output Style", "text.alignleft"),
-        "exceeds200k": ("Exceeds 200k", "exclamationmark.triangle"),
-        "pr": ("PR", "arrow.triangle.pull"),
+        "inputTokens":      ("Input Tokens",      "arrow.down.circle"),
+        "outputTokens":     ("Output Tokens",     "arrow.up.circle"),
+        "rate5h":           ("5h Rate",           "timer"),
+        "rate7d":           ("7d Rate",           "calendar.badge.clock"),
+        "rate5hReset":      ("5h Resets At",      "arrow.clockwise.circle"),
+        "rate7dReset":      ("7d Resets At",      "arrow.clockwise.circle.fill"),
+        "version":          ("Version",           "info.circle"),
+        "outputStyle":      ("Output Style",      "text.alignleft"),
+        "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
+        "sessionStatus":    ("Status",            "circle.fill"),
+        "openCodeMode":     ("Mode",              "text.alignleft"),
+        "pr":               ("PR",                "arrow.triangle.pull"),
     ]
 
     static let itemAvailability: [String: ToolAvailability] = [
@@ -129,9 +135,12 @@ struct StatusLineConfig: Codable {
         "duration": .all,
         "version": .all,
         "pr": .all,
+        // Claude + OpenCode — populated by both via their respective APIs
+        "model": .claudeOrOpencode,
+        "cost": .claudeOrOpencode,
+        "inputTokens": .claudeOrOpencode,
+        "outputTokens": .claudeOrOpencode,
         // Claude-only — requires the Claude statusLine hook
-        "model": .claudeOnly,
-        "cost": .claudeOnly,
         "context": .claudeOnly,
         "effort": .claudeOnly,
         "thinking": .claudeOnly,
@@ -141,14 +150,15 @@ struct StatusLineConfig: Codable {
         "linesAdded": .claudeOnly,
         "linesRemoved": .claudeOnly,
         "contextRemaining": .claudeOnly,
-        "inputTokens": .claudeOnly,
-        "outputTokens": .claudeOnly,
         "rate5h": .claudeOnly,
         "rate7d": .claudeOnly,
         "rate5hReset": .claudeOnly,
         "rate7dReset": .claudeOnly,
         "outputStyle": .claudeOnly,
         "exceeds200k": .claudeOnly,
+        // OpenCode-only — populated by OpenCode HTTP API
+        "sessionStatus": .opencodeOnly,
+        "openCodeMode": .opencodeOnly,
     ]
 
     static let itemOrder: [String] = [
@@ -156,6 +166,7 @@ struct StatusLineConfig: Codable {
         "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
+        "sessionStatus", "openCodeMode",
         "pr",
     ]
 
@@ -412,6 +423,11 @@ struct StatusLineData: Codable {
         let mode: String?
     }
 
+    struct SessionStatus: Codable {
+        let state: String?
+        enum CodingKeys: String, CodingKey { case state }
+    }
+
     let model: Model?
     let cost: Cost?
     let contextWindow: ContextWindow?
@@ -426,6 +442,8 @@ struct StatusLineData: Codable {
     let sessionName: String?
     let version: String?
     let exceeds200kTokens: Bool?
+    let sessionStatus: SessionStatus?
+    let openCodeMode: String?
     var pr: PullRequest?
 
     enum CodingKeys: String, CodingKey {
@@ -443,6 +461,8 @@ struct StatusLineData: Codable {
         case sessionName = "session_name"
         case version
         case exceeds200kTokens = "exceeds_200k_tokens"
+        case sessionStatus = "session_status"
+        case openCodeMode = "open_code_mode"
         case pr
     }
 }

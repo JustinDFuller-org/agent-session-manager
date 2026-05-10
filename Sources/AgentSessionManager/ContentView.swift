@@ -88,6 +88,7 @@ extension Notification.Name {
     static let newTab = Notification.Name("newTab")
     static let newPane = Notification.Name("newPane")
     static let closeTab = Notification.Name("closeTab")
+    static let prMergedActionRequested = Notification.Name("prMergedActionRequested")
 }
 
 extension AgentSessionManagerApp {

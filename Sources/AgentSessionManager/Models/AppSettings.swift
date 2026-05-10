@@ -72,6 +72,7 @@ final class AppSettings {
     /// When global debug logging is on, allow terminal snapshot capture to write to the trace file for all panes.
     var debugLogIncludeTerminalContents: Bool = false
     var githubPRTrackingEnabled: Bool = true
+    var isPRMergedNotificationsEnabled: Bool = true
 
     static let defaultDebugLogMaxFileBytes = 15 * 1024 * 1024
 
