@@ -1024,6 +1024,27 @@ private struct NotificationsContent: View {
                 }
                 .padding(.vertical, 2)
             }
+            Section("GitHub PR") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("PR Merged Notifications")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text("Show a sidebar notification and macOS banner when a tracked PR is merged.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("PR Merged Notifications", isOn: $appSettings.isPRMergedNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-pr-merged-notifications-toggle")
+                        .onChange(of: appSettings.isPRMergedNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
+            }
         }
         .formStyle(.grouped)
     }

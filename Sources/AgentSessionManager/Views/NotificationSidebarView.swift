@@ -83,17 +83,32 @@ struct NotificationSidebarView: View {
             appState.navigateTo(notification: notification)
         } label: {
             HStack(spacing: 8) {
-                Circle()
-                    .fill(notification.isPriority ? Color.orange : Color.accentColor)
-                    .frame(width: 7, height: 7)
-                    .padding(.top, 2)
-                    .alignmentGuide(.firstTextBaseline) { d in d[.top] }
+                if notification.kind == .prMerged {
+                    Image(systemName: "arrow.triangle.merge")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.purple)
+                        .frame(width: 7, height: 7)
+                        .padding(.top, 2)
+                        .alignmentGuide(.firstTextBaseline) { d in d[.top] }
+                } else {
+                    Circle()
+                        .fill(notification.isPriority ? Color.orange : Color.accentColor)
+                        .frame(width: 7, height: 7)
+                        .padding(.top, 2)
+                        .alignmentGuide(.firstTextBaseline) { d in d[.top] }
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(notification.paneName)
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
+                    if notification.kind == .prMerged, let num = notification.prNumber {
+                        Text("PR #\(num) merged")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.purple)
+                            .lineLimit(1)
+                    }
                     Text(notification.tabName)
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)

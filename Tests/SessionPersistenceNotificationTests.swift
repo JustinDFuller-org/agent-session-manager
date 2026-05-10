@@ -26,7 +26,8 @@ final class SessionPersistenceNotificationTests: XCTestCase {
             tabID: tabID,
             tabName: "t",
             isPriority: true,
-            timestamp: ts
+            timestamp: ts,
+            kind: .terminalBell
         )
         let session = PersistedSession(
             tabs: [],

@@ -39,6 +39,11 @@ final class StatusLineMonitor {
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: (() -> Void)?
+    /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
+    var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
+
+    private var lastKnownPRState: String?
+    private var hasFiredMergedNotification = false
 
     init(paneID: UUID, workingDirectory: String? = nil, cliType: CLIType, processStartTime: Date = Date()) {
         self.paneID = paneID
@@ -123,6 +128,8 @@ final class StatusLineMonitor {
         prQueryToken += 1
         prQueryTask?.terminate()
         prQueryTask = nil
+        lastKnownPRState = nil
+        hasFiredMergedNotification = false
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
@@ -385,6 +392,26 @@ final class StatusLineMonitor {
         } else {
             currentData?.pr = pr
         }
+        checkForMergedTransition(pr)
+    }
+
+    @MainActor
+    private func checkForMergedTransition(_ pr: PullRequest) {
+        let newState = pr.state.lowercased()
+        defer { lastKnownPRState = newState }
+        guard !hasFiredMergedNotification else { return }
+        guard newState == "merged" else { return }
+        // Suppress on first observation (app launch/restart) — only fire on a live transition.
+        guard lastKnownPRState != nil else { return }
+        guard lastKnownPRState != "merged" else { return }
+        hasFiredMergedNotification = true
+        onPRMerged?(pr.number, pr.title)
+    }
+
+    /// For testing only: simulates a PR data update as if received from `gh pr view`.
+    @MainActor
+    func simulatePRUpdateForTesting(_ data: Data) {
+        applyPROutputIfValid(data)
     }
 
     /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus optional `hooks`) for tests and tooling.
