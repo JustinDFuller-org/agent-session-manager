@@ -245,6 +245,10 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             }
             return event
         }
+
+        c.scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            c.handleScrollWheel(event: event)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -257,6 +261,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         var appState: AppState?
         var keyMonitor: Any?
         var mouseMonitor: Any?
+        var scrollWheelMonitor: Any?
 
         func updateActivePaneFromClick(at location: CGPoint, in window: NSWindow) {
             guard let appState, let tab = appState.activeTab else { return }
@@ -270,9 +275,46 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             }
         }
 
+        func handleScrollWheel(event: NSEvent) -> NSEvent? {
+            guard let window = event.window else { return event }
+            guard abs(event.deltaY) >= 0.5 else { return event }
+            let point = event.locationInWindow
+            guard let hitView = window.contentView?.hitTest(point) else { return event }
+            var view: NSView? = hitView
+            while let v = view, !(v is BellCapturingTerminalView) {
+                view = v.superview
+            }
+            guard let termView = view as? BellCapturingTerminalView else { return event }
+            let terminal = termView.getTerminal()
+            guard terminal.isCurrentBufferAlternate else { return event }
+            guard termView.allowMouseReporting, terminal.mouseMode != .off else { return event }
+
+            let localPoint = termView.convert(point, from: nil)
+            let bw = termView.bounds.width
+            let bh = termView.bounds.height
+            guard bw > 0, bh > 0 else { return event }
+            let cellX = max(0, min(terminal.cols - 1, Int(localPoint.x / bw * CGFloat(terminal.cols))))
+            let terminalY = max(0, min(terminal.rows - 1, Int((1 - localPoint.y / bh) * CGFloat(terminal.rows))))
+            let pixelX = Int(localPoint.x)
+            let pixelY = Int(bh - localPoint.y)
+
+            let button: Int = event.deltaY > 0 ? 4 : 5
+            let flags = event.modifierFlags
+            let pressFlags = terminal.encodeButton(
+                button: button,
+                release: false,
+                shift: flags.contains(.shift),
+                meta: flags.contains(.option),
+                control: flags.contains(.control)
+            )
+            terminal.sendEvent(buttonFlags: pressFlags, x: cellX, y: terminalY, pixelX: pixelX, pixelY: pixelY)
+            return nil
+        }
+
         deinit {
             if let m = keyMonitor { NSEvent.removeMonitor(m) }
             if let m = mouseMonitor { NSEvent.removeMonitor(m) }
+            if let m = scrollWheelMonitor { NSEvent.removeMonitor(m) }
         }
     }
 }
