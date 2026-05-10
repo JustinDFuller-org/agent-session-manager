@@ -763,6 +763,13 @@ final class TabCommandTests: XCTestCase {
         XCTAssertTrue(cmd.hasSuffix(" --verbose"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
+
+    func testBuildClaudeCommandWithAllowDangerouslySkipPermissions() {
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --allow-dangerously-skip-permissions")
+        XCTAssertTrue(cmd.hasPrefix("claude --settings '/tmp/s.json'"))
+        XCTAssertTrue(cmd.contains("--allow-dangerously-skip-permissions"))
+        XCTAssertFalse(cmd.contains("--worktree"))
+    }
 }
 
 final class BranchSanitizationTests: XCTestCase {
