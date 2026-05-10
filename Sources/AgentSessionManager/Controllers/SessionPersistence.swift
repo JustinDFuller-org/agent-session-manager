@@ -28,17 +28,18 @@ struct PersistedSession: Codable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        tabs = try c.decode([PersistedTab].self, forKey: .tabs)
-        activeTabIndex = try c.decodeIfPresent(Int.self, forKey: .activeTabIndex)
-        pendingNotifications = try c.decodeIfPresent([PersistedPaneNotification].self, forKey: .pendingNotifications) ?? []
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tabs = try container.decode([PersistedTab].self, forKey: .tabs)
+        activeTabIndex = try container.decodeIfPresent(Int.self, forKey: .activeTabIndex)
+        pendingNotifications =
+            try container.decodeIfPresent([PersistedPaneNotification].self, forKey: .pendingNotifications) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(tabs, forKey: .tabs)
-        try c.encodeIfPresent(activeTabIndex, forKey: .activeTabIndex)
-        try c.encode(pendingNotifications, forKey: .pendingNotifications)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(tabs, forKey: .tabs)
+        try container.encodeIfPresent(activeTabIndex, forKey: .activeTabIndex)
+        try container.encode(pendingNotifications, forKey: .pendingNotifications)
     }
 }
 
@@ -62,7 +63,10 @@ struct PersistedPane: Codable {
         case claudeProcessDirectory
     }
 
-    init(id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false) {
+    init(
+        id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, worktreeDirectory: String? = nil,
+        worktreeIsManaged: Bool = false
+    ) {
         self.id = id
         self.name = name
         self.cliType = cliType
@@ -77,7 +81,8 @@ struct PersistedPane: Codable {
         name = try container.decode(String.self, forKey: .name)
         cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
         isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
-        worktreeDirectory = try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
+        worktreeDirectory =
+            try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
             ?? container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
         worktreeIsManaged = (try? container.decodeIfPresent(Bool.self, forKey: .worktreeIsManaged)) ?? false
     }
@@ -132,7 +137,8 @@ struct SessionPersistence {
                 timestamp: $0.timestamp
             )
         }
-        let session = PersistedSession(tabs: tabs, activeTabIndex: activeTabIndex, pendingNotifications: pendingNotifications)
+        let session = PersistedSession(
+            tabs: tabs, activeTabIndex: activeTabIndex, pendingNotifications: pendingNotifications)
         guard let data = try? JSONEncoder().encode(session) else { return }
         try? data.write(to: sessionURL)
     }
@@ -146,7 +152,8 @@ struct SessionPersistence {
         var lines: [String] = []
         lines.append("Restoring \(session.tabs.count) tab(s) from \(sessionURL.path)")
         for persistedTab in session.tabs {
-            lines.append("  tab: \(persistedTab.name), directory: \(persistedTab.directory), panes: \(persistedTab.panes.count)")
+            lines.append(
+                "  tab: \(persistedTab.name), directory: \(persistedTab.directory), panes: \(persistedTab.panes.count)")
         }
         DebugLogger.shared.logSessionRestore(summary: lines.joined(separator: "\n"))
 
@@ -200,7 +207,7 @@ struct SessionPersistence {
         for pending in session.pendingNotifications {
             guard !seenPaneIDs.contains(pending.paneID) else { continue }
             guard let tab = appState.tabs.first(where: { $0.id == pending.tabID }),
-                  let pane = tab.panes.first(where: { $0.id == pending.paneID })
+                let pane = tab.panes.first(where: { $0.id == pending.paneID })
             else { continue }
             seenPaneIDs.insert(pending.paneID)
             restored.append(

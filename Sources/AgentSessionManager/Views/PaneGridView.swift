@@ -3,7 +3,7 @@ import SwiftUI
 struct PaneGridView: View {
     @Environment(AppState.self) private var appState
     @State private var showingNewPane = false
-    @State private var dragTargetPaneID: UUID? = nil
+    @State private var dragTargetPaneID: UUID?
     let tab: Tab
     let onClosePane: (Pane) -> Void
 
@@ -44,7 +44,8 @@ struct PaneGridView: View {
                         .id(pane.id)
                         .overlay(
                             dragTargetPaneID == pane.id
-                                ? RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 2)
+                                ? RoundedRectangle(cornerRadius: 8).strokeBorder(
+                                    Color.accentColor.opacity(0.6), lineWidth: 2)
                                 : nil
                         )
                         .dropDestination(for: String.self) { items, _ in

@@ -64,12 +64,14 @@ class BaseTestCase: XCTestCase {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "agent-session-manager")
-        for file in ["sessions.json", "settings.json", "codex-settings.json",
-                      "cursor-settings.json", "statusline-settings.json",
-                      "active-tools-settings.json", "default-branch.json",
-                      "notification-settings.json", "restart-settings.json",
-                      "worktree-cleanup.json", "existing-worktree-management.json",
-                       "debug-settings.json", "pr-tracking-settings.json"] {
+        for file in [
+            "sessions.json", "settings.json", "codex-settings.json",
+            "cursor-settings.json", "statusline-settings.json",
+            "active-tools-settings.json", "default-branch.json",
+            "notification-settings.json", "restart-settings.json",
+            "worktree-cleanup.json", "existing-worktree-management.json",
+            "debug-settings.json", "pr-tracking-settings.json",
+        ] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
     }

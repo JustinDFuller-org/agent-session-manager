@@ -12,7 +12,8 @@ struct TabButtonView: View {
     var body: some View {
         @Bindable var appState = appState
         let tabPaneIDs = Set(tab.panes.map(\.id))
-        let tabNotification = appState.notifications.first { tabPaneIDs.contains($0.paneID) && $0.isPriority }
+        let tabNotification =
+            appState.notifications.first { tabPaneIDs.contains($0.paneID) && $0.isPriority }
             ?? appState.notifications.first { tabPaneIDs.contains($0.paneID) }
         HStack(spacing: 0) {
             HStack(spacing: 6) {
@@ -40,9 +41,11 @@ struct TabButtonView: View {
             .padding(.trailing, 4)
             .padding(.vertical, 5)
             .contentShape(Rectangle())
-            .highPriorityGesture(TapGesture().onEnded {
-                appState.switchToTab(id: tab.id)
-            })
+            .highPriorityGesture(
+                TapGesture().onEnded {
+                    appState.switchToTab(id: tab.id)
+                }
+            )
             .accessibilityIdentifier("tab-button-\(tab.name)")
             .accessibilityValue(isActive ? "active" : "inactive")
             .accessibilityAddTraits(.isButton)
@@ -72,7 +75,8 @@ struct TabButtonView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(
-                    isDragTarget ? Color.accentColor.opacity(0.6) : (isActive ? Color.accentColor.opacity(0.4) : Color.clear),
+                    isDragTarget
+                        ? Color.accentColor.opacity(0.6) : (isActive ? Color.accentColor.opacity(0.4) : Color.clear),
                     lineWidth: isDragTarget ? 2 : 1
                 )
         )

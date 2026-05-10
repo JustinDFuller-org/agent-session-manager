@@ -1,7 +1,6 @@
 import XCTest
 
 final class CloseTests: BaseTestCase {
-
     func testCloseTabButton() {
         createTab(named: "CloseableTab")
         let tabButton = app.buttons["tab-button-CloseableTab"].firstMatch

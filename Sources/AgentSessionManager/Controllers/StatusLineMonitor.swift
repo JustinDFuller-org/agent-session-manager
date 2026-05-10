@@ -1,6 +1,6 @@
+import AppKit
 import Foundation
 import Observation
-import AppKit
 
 enum SidebarSide: String, Codable, CaseIterable {
     case left, right
@@ -47,11 +47,13 @@ final class StatusLineMonitor {
         self.isClaude = cliType == .claude
         filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
-        attentionSignalFilePath = NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
+        attentionSignalFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
 
         if !isClaude, let cwd = workingDirectory {
             let toolCmd = cliType.cliCommandDescription
-            agnosticProvider = ToolAgnosticDataProvider(workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            agnosticProvider = ToolAgnosticDataProvider(
+                workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
             agnosticProvider?.onUpdate = { [weak self] data in
                 guard let self else { return }
                 var merged = data
@@ -78,7 +80,7 @@ final class StatusLineMonitor {
             )
             src.setEventHandler { [weak self, filePath] in
                 guard let data = try? Data(contentsOf: URL(filePath: filePath)),
-                      let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
+                    let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
                 else { return }
                 Task { @MainActor [weak self] in
                     var merged = parsed
@@ -133,7 +135,7 @@ final class StatusLineMonitor {
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
-                "command": "cat > '\(filePath)'"
+                "command": "cat > '\(filePath)'",
             ]
         ]
         if attentionEnabled {
@@ -144,9 +146,9 @@ final class StatusLineMonitor {
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": "cat > '\(attentionSignalFilePath)'"
+                                "command": "cat > '\(attentionSignalFilePath)'",
                             ]
-                        ]
+                        ],
                     ]
                 ]
             ]
@@ -189,7 +191,9 @@ final class StatusLineMonitor {
         attentionDebounceWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else { return }
+            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else {
+                return
+            }
             var hasher = Hasher()
             hasher.combine(data)
             let fingerprint = hasher.finalize()
@@ -227,7 +231,10 @@ final class StatusLineMonitor {
         let outPipe = Pipe()
         let errPipe = Pipe()
         task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url 2>/dev/null || true"]
+        task.arguments = [
+            "-c",
+            "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url 2>/dev/null || true",
+        ]
         task.standardOutput = outPipe
         task.standardError = errPipe
 
@@ -274,7 +281,7 @@ final class StatusLineMonitor {
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
-                "command": "cat > '\(statusOutputPath)'"
+                "command": "cat > '\(statusOutputPath)'",
             ]
         ]
         if includeNotificationHook {
@@ -285,9 +292,9 @@ final class StatusLineMonitor {
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": "cat > '\(attentionOutputPath)'"
+                                "command": "cat > '\(attentionOutputPath)'",
                             ]
-                        ]
+                        ],
                     ]
                 ]
             ]

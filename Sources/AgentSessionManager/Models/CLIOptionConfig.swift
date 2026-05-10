@@ -18,7 +18,10 @@ struct CLIOptionConfig: Identifiable, Codable {
         case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType
     }
 
-    init(id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool, isUserAdded: Bool = false, customIsStringType: Bool = false) {
+    init(
+        id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool,
+        isUserAdded: Bool = false, customIsStringType: Bool = false
+    ) {
         self.id = id
         self.label = label
         self.description = description
@@ -43,9 +46,11 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
         } else {
             let id = try container.decode(String.self, forKey: .id)
-            let allTemplates = CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll + CLIOptionConfig.opencodeAll
+            let allTemplates =
+                CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll + CLIOptionConfig.opencodeAll
             guard let template = allTemplates.first(where: { $0.id == id }) else {
-                throw DecodingError.dataCorruptedError(forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
+                throw DecodingError.dataCorruptedError(
+                    forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
             }
             self.id = template.id
             self.label = template.label
@@ -75,47 +80,47 @@ struct CLIOptionConfig: Identifiable, Codable {
         switch id {
         // Boolean flags
         case "--allow-dangerously-skip-permissions",
-             "--bare",
-             "--chrome",
-             "--continue",
-             "--dangerously-skip-permissions",
-             "--disable-slash-commands",
-             "--enable-auto-mode",
-             "--exclude-dynamic-system-prompt-sections",
-             "--fork-session",
-             "--ide",
-             "--include-hook-events",
-             "--include-partial-messages",
-             "--init",
-             "--init-only",
-             "--maintenance",
-             "--no-chrome",
-             "--no-session-persistence",
-             "--print",
-             "--replay-user-messages",
-             "--strict-mcp-config",
-             "--teleport",
-             "--verbose",
-             "--version":
+            "--bare",
+            "--chrome",
+            "--continue",
+            "--dangerously-skip-permissions",
+            "--disable-slash-commands",
+            "--enable-auto-mode",
+            "--exclude-dynamic-system-prompt-sections",
+            "--fork-session",
+            "--ide",
+            "--include-hook-events",
+            "--include-partial-messages",
+            "--init",
+            "--init-only",
+            "--maintenance",
+            "--no-chrome",
+            "--no-session-persistence",
+            "--print",
+            "--replay-user-messages",
+            "--strict-mcp-config",
+            "--teleport",
+            "--verbose",
+            "--version":
             return .boolean
         // Codex-specific boolean flags (not in Claude's all list)
         case "--dangerously-bypass-approvals-and-sandbox",
-             "--no-alt-screen",
-             "--oss",
-             "--search":
+            "--no-alt-screen",
+            "--oss",
+            "--search":
             return .boolean
         // Cursor-specific boolean flags
         case "--approve-mcps",
-             "--force",
-             "--list-models",
-             "--plan",
-             "--stream-partial-output",
-             "--trust",
-             "--yolo":
+            "--force",
+            "--list-models",
+            "--plan",
+            "--stream-partial-output",
+            "--trust",
+            "--yolo":
             return .boolean
         // OpenCode-specific boolean flags
         case "--fork",
-             "--mdns":
+            "--mdns":
             return .boolean
         // Cursor-specific string flags
         case "--api-key":
@@ -237,119 +242,375 @@ struct CLIOptionConfig: Identifiable, Codable {
     }
 
     static func makeUserAdded(id: String, isString: Bool) -> CLIOptionConfig {
-        CLIOptionConfig(id: id, label: id, description: "User-defined option", isAvailable: false, isDefaultEnabled: false, isUserAdded: true, customIsStringType: isString)
+        CLIOptionConfig(
+            id: id, label: id, description: "User-defined option", isAvailable: false, isDefaultEnabled: false,
+            isUserAdded: true, customIsStringType: isString)
     }
 
     static let all: [CLIOptionConfig] = [
-        CLIOptionConfig(id: "--add-dir", label: "Add Directory", description: "Add additional working directories for Claude to read and edit files", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--agent", label: "Agent", description: "Specify an agent for the current session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--agents", label: "Agents (JSON)", description: "Define custom subagents dynamically via JSON", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--allow-dangerously-skip-permissions", label: "Allow Skip Permissions", description: "Add bypassPermissions to Shift+Tab mode cycle without starting in it", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--allowedTools", label: "Allowed Tools", description: "Tools that execute without prompting for permission", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--append-system-prompt", label: "Append System Prompt", description: "Append custom text to the end of the default system prompt", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--append-system-prompt-file", label: "Append System Prompt File", description: "Append file contents to the end of the default system prompt", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--bare", label: "Bare Mode", description: "Minimal mode: skip auto-discovery of hooks, skills, plugins, MCP servers, auto memory, and CLAUDE.md", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--betas", label: "Betas", description: "Beta headers to include in API requests (API key users only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--channels", label: "Channels", description: "MCP server channel notifications to listen for (research preview, requires Claude.ai auth)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--chrome", label: "Chrome", description: "Enable Chrome browser integration for web automation and testing", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--continue", label: "Continue", description: "Load the most recent conversation in the current directory", isAvailable: true, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--dangerously-load-development-channels", label: "Load Dev Channels", description: "Enable channels not on the approved allowlist for local development", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--dangerously-skip-permissions", label: "Skip Permissions", description: "Skip all permission prompts — equivalent to bypassPermissions mode", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--debug", label: "Debug", description: "Enable debug mode with optional category filtering (e.g. 'api,hooks')", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--debug-file", label: "Debug File", description: "Write debug logs to a specific file path", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--disable-slash-commands", label: "Disable Slash Commands", description: "Disable all skills and commands for this session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--disallowedTools", label: "Disallowed Tools", description: "Tools that are removed from the model's context and cannot be used", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--effort", label: "Effort", description: "Set the effort level (low, medium, high, xhigh, max)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--enable-auto-mode", label: "Enable Auto Mode (Removed)", description: "Removed in v2.1.111. Use --permission-mode auto instead", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--exclude-dynamic-system-prompt-sections", label: "Exclude Dynamic Prompt Sections", description: "Move per-machine sections from system prompt into first user message to improve cache reuse", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--fallback-model", label: "Fallback Model", description: "Automatic fallback model when default model is overloaded (print mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--fork-session", label: "Fork Session", description: "Create a new session ID instead of reusing the original when resuming", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--from-pr", label: "From PR", description: "Resume sessions linked to a specific pull request", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--ide", label: "IDE", description: "Automatically connect to IDE on startup if exactly one valid IDE is available", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--include-hook-events", label: "Include Hook Events", description: "Include all hook lifecycle events in the output stream (requires stream-json)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--include-partial-messages", label: "Include Partial Messages", description: "Include partial streaming events in output (requires print + stream-json)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--init", label: "Init Hooks", description: "Run Setup hooks with the 'init' matcher before the session (print mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--init-only", label: "Init Only", description: "Run Setup and SessionStart hooks, then exit without starting a conversation", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--input-format", label: "Input Format", description: "Specify input format for print mode (text, stream-json)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--json-schema", label: "JSON Schema", description: "Get validated JSON output matching a JSON Schema after agent completes (print mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--maintenance", label: "Maintenance Hooks", description: "Run Setup hooks with the 'maintenance' matcher before the session (print mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--max-budget-usd", label: "Max Budget (USD)", description: "Maximum dollar amount to spend on API calls before stopping (print mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--max-turns", label: "Max Turns", description: "Limit the number of agentic turns (print mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--mcp-config", label: "MCP Config", description: "Load MCP servers from JSON files or strings", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--model", label: "Model", description: "Sets the model for the current session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--name", label: "Session Name", description: "Set a display name for this session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--no-chrome", label: "No Chrome", description: "Disable Chrome browser integration for this session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--no-session-persistence", label: "No Session Persistence", description: "Disable session persistence — sessions are not saved to disk (print mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--output-format", label: "Output Format", description: "Specify output format for print mode (text, json, stream-json)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--permission-mode", label: "Permission Mode", description: "Begin in a specified permission mode", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--permission-prompt-tool", label: "Permission Prompt Tool", description: "MCP tool to handle permission prompts in non-interactive mode", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--plugin-dir", label: "Plugin Directory", description: "Load plugins from a directory for this session only", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--print", label: "Print Mode", description: "Print response without interactive mode", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--remote", label: "Remote", description: "Create a new web session on claude.ai with the provided task description", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--remote-control", label: "Remote Control", description: "Start session with Remote Control enabled to control from claude.ai or the Claude app", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--remote-control-session-name-prefix", label: "Remote Control Name Prefix", description: "Prefix for auto-generated Remote Control session names", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--replay-user-messages", label: "Replay User Messages", description: "Re-emit user messages from stdin back on stdout for acknowledgment", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--resume", label: "Resume", description: "Resume a specific session by name or ID", isAvailable: true, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--session-id", label: "Session ID", description: "Use a specific session ID for the conversation (must be a valid UUID)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--setting-sources", label: "Setting Sources", description: "Comma-separated list of setting sources to load (user, project, local)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--settings", label: "Settings", description: "Path to a settings JSON file or a JSON string to load additional settings from", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--strict-mcp-config", label: "Strict MCP Config", description: "Only use MCP servers from --mcp-config, ignoring all other MCP configurations", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--system-prompt", label: "System Prompt", description: "Replace the entire system prompt with custom text", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--system-prompt-file", label: "System Prompt File", description: "Load system prompt from a file, replacing the default", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--teammate-mode", label: "Teammate Mode", description: "Set how agent team teammates display (auto, in-process, tmux)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--teleport", label: "Teleport", description: "Resume a web session in your local terminal", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--tmux", label: "tmux", description: "Create a tmux session for the worktree (requires --worktree). Pass 'classic' for traditional tmux", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--tools", label: "Tools", description: "Restrict which built-in tools Claude can use", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--verbose", label: "Verbose", description: "Enable verbose logging with full turn-by-turn output", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--version", label: "Version", description: "Output the version number", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--add-dir", label: "Add Directory",
+            description: "Add additional working directories for Claude to read and edit files", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--agent", label: "Agent", description: "Specify an agent for the current session", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--agents", label: "Agents (JSON)", description: "Define custom subagents dynamically via JSON",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--allow-dangerously-skip-permissions", label: "Allow Skip Permissions",
+            description: "Add bypassPermissions to Shift+Tab mode cycle without starting in it", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--allowedTools", label: "Allowed Tools",
+            description: "Tools that execute without prompting for permission", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--append-system-prompt", label: "Append System Prompt",
+            description: "Append custom text to the end of the default system prompt", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--append-system-prompt-file", label: "Append System Prompt File",
+            description: "Append file contents to the end of the default system prompt", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--bare", label: "Bare Mode",
+            description:
+                "Minimal mode: skip auto-discovery of hooks, skills, plugins, MCP servers, auto memory, and CLAUDE.md",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--betas", label: "Betas", description: "Beta headers to include in API requests (API key users only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--channels", label: "Channels",
+            description: "MCP server channel notifications to listen for (research preview, requires Claude.ai auth)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--chrome", label: "Chrome",
+            description: "Enable Chrome browser integration for web automation and testing", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--continue", label: "Continue",
+            description: "Load the most recent conversation in the current directory", isAvailable: true,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--dangerously-load-development-channels", label: "Load Dev Channels",
+            description: "Enable channels not on the approved allowlist for local development", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--dangerously-skip-permissions", label: "Skip Permissions",
+            description: "Skip all permission prompts — equivalent to bypassPermissions mode", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--debug", label: "Debug",
+            description: "Enable debug mode with optional category filtering (e.g. 'api,hooks')", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--debug-file", label: "Debug File", description: "Write debug logs to a specific file path",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--disable-slash-commands", label: "Disable Slash Commands",
+            description: "Disable all skills and commands for this session", isAvailable: false, isDefaultEnabled: false
+        ),
+        CLIOptionConfig(
+            id: "--disallowedTools", label: "Disallowed Tools",
+            description: "Tools that are removed from the model's context and cannot be used", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--effort", label: "Effort", description: "Set the effort level (low, medium, high, xhigh, max)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--enable-auto-mode", label: "Enable Auto Mode (Removed)",
+            description: "Removed in v2.1.111. Use --permission-mode auto instead", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--exclude-dynamic-system-prompt-sections", label: "Exclude Dynamic Prompt Sections",
+            description: "Move per-machine sections from system prompt into first user message to improve cache reuse",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--fallback-model", label: "Fallback Model",
+            description: "Automatic fallback model when default model is overloaded (print mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--fork-session", label: "Fork Session",
+            description: "Create a new session ID instead of reusing the original when resuming", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--from-pr", label: "From PR", description: "Resume sessions linked to a specific pull request",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--ide", label: "IDE",
+            description: "Automatically connect to IDE on startup if exactly one valid IDE is available",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--include-hook-events", label: "Include Hook Events",
+            description: "Include all hook lifecycle events in the output stream (requires stream-json)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--include-partial-messages", label: "Include Partial Messages",
+            description: "Include partial streaming events in output (requires print + stream-json)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--init", label: "Init Hooks",
+            description: "Run Setup hooks with the 'init' matcher before the session (print mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--init-only", label: "Init Only",
+            description: "Run Setup and SessionStart hooks, then exit without starting a conversation",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--input-format", label: "Input Format",
+            description: "Specify input format for print mode (text, stream-json)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--json-schema", label: "JSON Schema",
+            description: "Get validated JSON output matching a JSON Schema after agent completes (print mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--maintenance", label: "Maintenance Hooks",
+            description: "Run Setup hooks with the 'maintenance' matcher before the session (print mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--max-budget-usd", label: "Max Budget (USD)",
+            description: "Maximum dollar amount to spend on API calls before stopping (print mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--max-turns", label: "Max Turns", description: "Limit the number of agentic turns (print mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--mcp-config", label: "MCP Config", description: "Load MCP servers from JSON files or strings",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--model", label: "Model", description: "Sets the model for the current session", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--name", label: "Session Name", description: "Set a display name for this session", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--no-chrome", label: "No Chrome", description: "Disable Chrome browser integration for this session",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--no-session-persistence", label: "No Session Persistence",
+            description: "Disable session persistence — sessions are not saved to disk (print mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--output-format", label: "Output Format",
+            description: "Specify output format for print mode (text, json, stream-json)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--permission-mode", label: "Permission Mode", description: "Begin in a specified permission mode",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--permission-prompt-tool", label: "Permission Prompt Tool",
+            description: "MCP tool to handle permission prompts in non-interactive mode", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--plugin-dir", label: "Plugin Directory",
+            description: "Load plugins from a directory for this session only", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--print", label: "Print Mode", description: "Print response without interactive mode",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--remote", label: "Remote",
+            description: "Create a new web session on claude.ai with the provided task description", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--remote-control", label: "Remote Control",
+            description: "Start session with Remote Control enabled to control from claude.ai or the Claude app",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--remote-control-session-name-prefix", label: "Remote Control Name Prefix",
+            description: "Prefix for auto-generated Remote Control session names", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--replay-user-messages", label: "Replay User Messages",
+            description: "Re-emit user messages from stdin back on stdout for acknowledgment", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--resume", label: "Resume", description: "Resume a specific session by name or ID", isAvailable: true,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--session-id", label: "Session ID",
+            description: "Use a specific session ID for the conversation (must be a valid UUID)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--setting-sources", label: "Setting Sources",
+            description: "Comma-separated list of setting sources to load (user, project, local)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--settings", label: "Settings",
+            description: "Path to a settings JSON file or a JSON string to load additional settings from",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--strict-mcp-config", label: "Strict MCP Config",
+            description: "Only use MCP servers from --mcp-config, ignoring all other MCP configurations",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--system-prompt", label: "System Prompt",
+            description: "Replace the entire system prompt with custom text", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--system-prompt-file", label: "System Prompt File",
+            description: "Load system prompt from a file, replacing the default", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--teammate-mode", label: "Teammate Mode",
+            description: "Set how agent team teammates display (auto, in-process, tmux)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--teleport", label: "Teleport", description: "Resume a web session in your local terminal",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--tmux", label: "tmux",
+            description:
+                "Create a tmux session for the worktree (requires --worktree). Pass 'classic' for traditional tmux",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--tools", label: "Tools", description: "Restrict which built-in tools Claude can use",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--verbose", label: "Verbose", description: "Enable verbose logging with full turn-by-turn output",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--version", label: "Version", description: "Output the version number", isAvailable: false,
+            isDefaultEnabled: false),
     ]
 
     static let codexAll: [CLIOptionConfig] = [
-        CLIOptionConfig(id: "--ask-for-approval", label: "Ask for Approval", description: "Control approval timing: untrusted, on-request, or never", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--config", label: "Config", description: "Override configuration values (JSON-parsed if possible)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--dangerously-bypass-approvals-and-sandbox", label: "Bypass Approvals and Sandbox", description: "Skip all approval prompts and sandbox restrictions (dangerous)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--disable", label: "Disable Feature", description: "Force-disable a named feature flag", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--enable", label: "Enable Feature", description: "Force-enable a named feature flag", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--image", label: "Image", description: "Attach image files to the initial prompt", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--model", label: "Model", description: "Override the configured model for this session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--no-alt-screen", label: "No Alt Screen", description: "Disable alternate screen mode for the TUI", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--oss", label: "OSS Provider", description: "Use a local open source provider (Ollama)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--profile", label: "Profile", description: "Load a named configuration profile", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--sandbox", label: "Sandbox", description: "Sandbox policy: read-only, workspace-write, or danger-full-access", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--search", label: "Web Search", description: "Enable live web search during the session", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--ask-for-approval", label: "Ask for Approval",
+            description: "Control approval timing: untrusted, on-request, or never", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--config", label: "Config", description: "Override configuration values (JSON-parsed if possible)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--dangerously-bypass-approvals-and-sandbox", label: "Bypass Approvals and Sandbox",
+            description: "Skip all approval prompts and sandbox restrictions (dangerous)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--disable", label: "Disable Feature", description: "Force-disable a named feature flag",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--enable", label: "Enable Feature", description: "Force-enable a named feature flag",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--image", label: "Image", description: "Attach image files to the initial prompt", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--model", label: "Model", description: "Override the configured model for this session",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--no-alt-screen", label: "No Alt Screen", description: "Disable alternate screen mode for the TUI",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--oss", label: "OSS Provider", description: "Use a local open source provider (Ollama)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--profile", label: "Profile", description: "Load a named configuration profile", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--sandbox", label: "Sandbox",
+            description: "Sandbox policy: read-only, workspace-write, or danger-full-access", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--search", label: "Web Search", description: "Enable live web search during the session",
+            isAvailable: false, isDefaultEnabled: false),
     ]
 
     static let cursorAll: [CLIOptionConfig] = [
-        CLIOptionConfig(id: "--api-key", label: "API Key", description: "API key for authentication (alternative to CURSOR_API_KEY env var)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--approve-mcps", label: "Approve MCPs", description: "Automatically approve all MCP servers without prompting", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--continue", label: "Continue", description: "Continue the previous session (alias for --resume=-1)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--force", label: "Force", description: "Force allow commands unless explicitly denied", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--header", label: "Header", description: "Add a custom header to agent requests (format: Name: Value)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--list-models", label: "List Models", description: "List all available models and exit", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--mode", label: "Mode", description: "Set agent mode: plan or ask (default is agent when unspecified)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--model", label: "Model", description: "Model to use for this session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--output-format", label: "Output Format", description: "Output format when using --print: text, json, or stream-json", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--plan", label: "Plan Mode", description: "Start in plan mode (shorthand for --mode=plan)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--print", label: "Print Mode", description: "Print responses to console for non-interactive use (has access to all tools)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--resume", label: "Resume", description: "Resume a chat session by ID", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--sandbox", label: "Sandbox", description: "Set sandbox mode: enabled or disabled", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--stream-partial-output", label: "Stream Partial Output", description: "Stream partial output as individual text deltas (requires --print and stream-json)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--trust", label: "Trust", description: "Trust the workspace without prompting (headless mode only)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--workspace", label: "Workspace", description: "Workspace directory to use for this session", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--yolo", label: "Yolo", description: "Alias for --force: force allow commands unless explicitly denied", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--api-key", label: "API Key",
+            description: "API key for authentication (alternative to CURSOR_API_KEY env var)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--approve-mcps", label: "Approve MCPs",
+            description: "Automatically approve all MCP servers without prompting", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--continue", label: "Continue", description: "Continue the previous session (alias for --resume=-1)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--force", label: "Force", description: "Force allow commands unless explicitly denied",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--header", label: "Header", description: "Add a custom header to agent requests (format: Name: Value)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--list-models", label: "List Models", description: "List all available models and exit",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--mode", label: "Mode", description: "Set agent mode: plan or ask (default is agent when unspecified)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--model", label: "Model", description: "Model to use for this session", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--output-format", label: "Output Format",
+            description: "Output format when using --print: text, json, or stream-json", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--plan", label: "Plan Mode", description: "Start in plan mode (shorthand for --mode=plan)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--print", label: "Print Mode",
+            description: "Print responses to console for non-interactive use (has access to all tools)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--resume", label: "Resume", description: "Resume a chat session by ID", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--sandbox", label: "Sandbox", description: "Set sandbox mode: enabled or disabled", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--stream-partial-output", label: "Stream Partial Output",
+            description: "Stream partial output as individual text deltas (requires --print and stream-json)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--trust", label: "Trust", description: "Trust the workspace without prompting (headless mode only)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--workspace", label: "Workspace", description: "Workspace directory to use for this session",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--yolo", label: "Yolo",
+            description: "Alias for --force: force allow commands unless explicitly denied", isAvailable: false,
+            isDefaultEnabled: false),
     ]
 
     static let opencodeAll: [CLIOptionConfig] = [
-        CLIOptionConfig(id: "--agent", label: "Agent", description: "Agent to use", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--continue", label: "Continue", description: "Continue the last session", isAvailable: true, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--cors", label: "CORS", description: "Additional browser origin(s) to allow CORS", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--fork", label: "Fork", description: "Fork the session when continuing (use with --continue or --session)", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--hostname", label: "Hostname", description: "Hostname to listen on", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--mdns", label: "mDNS", description: "Enable mDNS discovery", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--mdns-domain", label: "mDNS Domain", description: "Custom mDNS domain name", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--model", label: "Model", description: "Model to use in the form of provider/model", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--port", label: "Port", description: "Port to listen on", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--prompt", label: "Prompt", description: "Prompt to use", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(id: "--session", label: "Session", description: "Session ID to continue", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--agent", label: "Agent", description: "Agent to use", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--continue", label: "Continue", description: "Continue the last session", isAvailable: true,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--cors", label: "CORS", description: "Additional browser origin(s) to allow CORS", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--fork", label: "Fork",
+            description: "Fork the session when continuing (use with --continue or --session)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--hostname", label: "Hostname", description: "Hostname to listen on", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--mdns", label: "mDNS", description: "Enable mDNS discovery", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--mdns-domain", label: "mDNS Domain", description: "Custom mDNS domain name", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--model", label: "Model", description: "Model to use in the form of provider/model",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--port", label: "Port", description: "Port to listen on", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--prompt", label: "Prompt", description: "Prompt to use", isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--session", label: "Session", description: "Session ID to continue", isAvailable: false,
+            isDefaultEnabled: false),
     ]
 }

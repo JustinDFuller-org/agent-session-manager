@@ -52,7 +52,7 @@ final class AppSettings {
     var codexCliOptions: [CLIOptionConfig] = CLIOptionConfig.codexAll
     var cursorCliOptions: [CLIOptionConfig] = CLIOptionConfig.cursorAll
     var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
-    var statusLineConfig: StatusLineConfig = StatusLineConfig()
+    var statusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [CLIType.claude.rawValue]
     var defaultBranch: String = "main"
     var isDefaultBranchEnabled: Bool = true
@@ -98,7 +98,6 @@ final class AppSettings {
     }
 
     func setActive(_ tool: CLIType, _ active: Bool) {
-        if active { activeTools.insert(tool.rawValue) }
-        else { activeTools.remove(tool.rawValue) }
+        if active { activeTools.insert(tool.rawValue) } else { activeTools.remove(tool.rawValue) }
     }
 }

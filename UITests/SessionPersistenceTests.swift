@@ -10,7 +10,8 @@ final class SessionPersistenceTests: XCTestCase {
         // Clear any prior sessions
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let sessionFile = support
+        let sessionFile =
+            support
             .appending(path: "agent-session-manager/sessions.json")
         try? FileManager.default.removeItem(at: sessionFile)
 

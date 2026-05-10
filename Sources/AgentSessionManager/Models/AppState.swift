@@ -61,12 +61,12 @@ final class AppState {
             }
         }
     }
-        
+
     func closeTab(_ tab: Tab) {
         let paneIDs = Set(tab.panes.map(\.id))
-        tab.panes.forEach {
-            DebugLogger.shared.removeTracedPane($0.id)
-            $0.terminalController?.terminate()
+        for pane in tab.panes {
+            DebugLogger.shared.removeTracedPane(pane.id)
+            pane.terminalController?.terminate()
         }
         notifications.removeAll { paneIDs.contains($0.paneID) }
         tabs.removeAll { $0.id == tab.id }
@@ -91,13 +91,14 @@ final class AppState {
             )
             return
         }
-        notifications.append(PaneNotification(
-            paneID: paneID,
-            paneName: paneName,
-            tabID: tabID,
-            tabName: tabName,
-            isPriority: isPriority
-        ))
+        notifications.append(
+            PaneNotification(
+                paneID: paneID,
+                paneName: paneName,
+                tabID: tabID,
+                tabName: tabName,
+                isPriority: isPriority
+            ))
         DebugLogger.shared.log(
             "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)",
             paneID: paneID,

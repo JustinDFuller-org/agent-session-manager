@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
@@ -20,7 +21,7 @@ final class AppStateTabFocusTests: XCTestCase {
     func testSwitchTabFallsBackToFirstPane() {
         let (state, panes) = makeState(tabs: [
             (name: "tab1", paneNames: ["a", "b"]),
-            (name: "tab2", paneNames: ["c", "d"])
+            (name: "tab2", paneNames: ["c", "d"]),
         ])
         state.activeTabID = state.tabs[0].id
         state.activePaneID = panes[0][1].id
@@ -34,7 +35,7 @@ final class AppStateTabFocusTests: XCTestCase {
     func testSwitchTabRestoresLastActivePaneID() {
         let (state, panes) = makeState(tabs: [
             (name: "tab1", paneNames: ["a", "b"]),
-            (name: "tab2", paneNames: ["c", "d"])
+            (name: "tab2", paneNames: ["c", "d"]),
         ])
         state.activeTabID = state.tabs[0].id
         state.activePaneID = panes[0][1].id
@@ -96,7 +97,7 @@ final class AppStateTabFocusTests: XCTestCase {
     func testSwitchTabIgnoresInvalidLastActivePaneID() {
         let (state, panes) = makeState(tabs: [
             (name: "tab1", paneNames: ["a", "b"]),
-            (name: "tab2", paneNames: ["c"])
+            (name: "tab2", paneNames: ["c"]),
         ])
         // Start on tab2 so tab1's lastActivePaneID is not overwritten on departure
         state.activeTabID = state.tabs[1].id
@@ -137,7 +138,7 @@ final class AppStateTabFocusTests: XCTestCase {
     func testCloseTabRemovesTabAndFallsBackActiveTabID() {
         let (state, _) = makeState(tabs: [
             (name: "tab1", paneNames: ["a"]),
-            (name: "tab2", paneNames: ["b"])
+            (name: "tab2", paneNames: ["b"]),
         ])
         state.activeTabID = state.tabs[0].id
 
@@ -163,7 +164,7 @@ final class AppStateTabFocusTests: XCTestCase {
     func testCloseInactiveTabPreservesActiveTabID() {
         let (state, _) = makeState(tabs: [
             (name: "tab1", paneNames: ["a"]),
-            (name: "tab2", paneNames: ["b"])
+            (name: "tab2", paneNames: ["b"]),
         ])
         state.activeTabID = state.tabs[1].id
 

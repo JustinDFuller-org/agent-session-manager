@@ -37,7 +37,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 suffix = " unError=raw(\(ns.code))"
             }
         }
-        return "domain=\(ns.domain) code=\(ns.code)\(suffix) description=\(ns.localizedDescription) userInfo=\(ns.userInfo as NSDictionary)"
+        return
+            "domain=\(ns.domain) code=\(ns.code)\(suffix) description=\(ns.localizedDescription) userInfo=\(ns.userInfo as NSDictionary)"
     }
 
     func bind(appState: AppState, appSettings: AppSettings) {
@@ -67,7 +68,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         guard appSettings.isMacOSBannerNotificationsEnabled else {
             await MainActor.run {
                 if DebugLogger.shared.isEnabled {
-                    DebugLogger.shared.log("[banner] requestAuthorization skipped (macOS banner notifications off in settings)")
+                    DebugLogger.shared.log(
+                        "[banner] requestAuthorization skipped (macOS banner notifications off in settings)")
                 }
             }
             return
@@ -79,7 +81,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 "[banner] notification settings snapshot authorization=\(String(describing: settings.authorizationStatus)) macOSBannersEnabled=\(appSettings.isMacOSBannerNotificationsEnabled) willRequest=\(settings.authorizationStatus == .notDetermined)"
             )
             if settings.authorizationStatus == .denied, DebugLogger.shared.isEnabled,
-               !Self.hasLoggedDeniedBannerHint {
+                !Self.hasLoggedDeniedBannerHint
+            {
                 Self.hasLoggedDeniedBannerHint = true
                 DebugLogger.shared.log(
                     "[banner] authorization denied for banners — enable Agent Session Manager in System Settings → Notifications (in-app sidebar still works without this)"

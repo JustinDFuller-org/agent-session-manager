@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 /// Regression cover for PR query subprocess I/O: use `terminationHandler`-style full read + drain stderr (see `PRQueryShellIO`), not `readabilityHandler` without EOF teardown (which could spin CPU).

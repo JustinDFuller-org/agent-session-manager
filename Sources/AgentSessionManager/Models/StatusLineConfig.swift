@@ -46,7 +46,8 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         label = try container.decode(String.self, forKey: .label)
-        sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol)
+        sfSymbol =
+            try container.decodeIfPresent(String.self, forKey: .sfSymbol)
             ?? StatusLineConfig.itemMetadata[id]?.symbol ?? "circle"
     }
 
@@ -93,31 +94,31 @@ struct StatusLineConfig: Codable {
     var rowAlignment: RowAlignment
 
     static let itemMetadata: [String: (label: String, symbol: String)] = [
-        "model":            ("Model",             "cpu"),
-        "worktree":         ("Worktree",          "folder.badge.gearshape"),
-        "cost":             ("Cost",              "dollarsign.circle"),
-        "context":          ("Context %",         "gauge.with.needle"),
-        "effort":           ("Effort",            "dial.high"),
-        "thinking":         ("Thinking",          "brain"),
-        "vimMode":          ("Vim Mode",          "keyboard"),
-        "agentName":        ("Agent",             "person.crop.circle"),
-        "sessionName":      ("Session Name",      "tag"),
-        "worktreeBranch":   ("Worktree Branch",   "arrow.branch"),
-        "gitWorktree":      ("Git Worktree",      "internaldrive"),
-        "linesAdded":       ("Lines Added",       "plus.square"),
-        "linesRemoved":     ("Lines Removed",     "minus.square"),
-        "duration":         ("Duration",          "clock"),
+        "model": ("Model", "cpu"),
+        "worktree": ("Worktree", "folder.badge.gearshape"),
+        "cost": ("Cost", "dollarsign.circle"),
+        "context": ("Context %", "gauge.with.needle"),
+        "effort": ("Effort", "dial.high"),
+        "thinking": ("Thinking", "brain"),
+        "vimMode": ("Vim Mode", "keyboard"),
+        "agentName": ("Agent", "person.crop.circle"),
+        "sessionName": ("Session Name", "tag"),
+        "worktreeBranch": ("Worktree Branch", "arrow.branch"),
+        "gitWorktree": ("Git Worktree", "internaldrive"),
+        "linesAdded": ("Lines Added", "plus.square"),
+        "linesRemoved": ("Lines Removed", "minus.square"),
+        "duration": ("Duration", "clock"),
         "contextRemaining": ("Context Remaining", "gauge.with.needle.fill"),
-        "inputTokens":      ("Input Tokens",      "arrow.down.circle"),
-        "outputTokens":     ("Output Tokens",     "arrow.up.circle"),
-        "rate5h":           ("5h Rate",           "timer"),
-        "rate7d":           ("7d Rate",           "calendar.badge.clock"),
-        "rate5hReset":      ("5h Resets At",      "arrow.clockwise.circle"),
-        "rate7dReset":      ("7d Resets At",      "arrow.clockwise.circle.fill"),
-        "version":          ("Version",           "info.circle"),
-        "outputStyle":      ("Output Style",      "text.alignleft"),
-        "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
-        "pr":               ("PR",                "arrow.triangle.pull"),
+        "inputTokens": ("Input Tokens", "arrow.down.circle"),
+        "outputTokens": ("Output Tokens", "arrow.up.circle"),
+        "rate5h": ("5h Rate", "timer"),
+        "rate7d": ("7d Rate", "calendar.badge.clock"),
+        "rate5hReset": ("5h Resets At", "arrow.clockwise.circle"),
+        "rate7dReset": ("7d Resets At", "arrow.clockwise.circle.fill"),
+        "version": ("Version", "info.circle"),
+        "outputStyle": ("Output Style", "text.alignleft"),
+        "exceeds200k": ("Exceeds 200k", "exclamationmark.triangle"),
+        "pr": ("PR", "arrow.triangle.pull"),
     ]
 
     static let itemAvailability: [String: ToolAvailability] = [
@@ -191,7 +192,8 @@ struct StatusLineConfig: Codable {
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows
         } else if let legacyItems = try container.decodeIfPresent([LegacyStatusLineItem].self, forKey: .items) {
-            let visibleItems = legacyItems
+            let visibleItems =
+                legacyItems
                 .filter(\.isVisible)
                 .compactMap { legacy -> StatusLineItem? in
                     guard let meta = StatusLineConfig.itemMetadata[legacy.id] else { return nil }

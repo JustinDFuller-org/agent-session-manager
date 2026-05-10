@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 @main
 struct AgentSessionManagerApp: App {
@@ -96,10 +96,10 @@ extension AgentSessionManagerApp {
     }
 
     private var appWindowTitle: String {
-#if DEV_BUILD
+        #if DEV_BUILD
         "Agent Session Manager (Dev)"
-#else
+        #else
         "Agent Session Manager"
-#endif
+        #endif
     }
 }

@@ -1,0 +1,27 @@
+name: PR Quality
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  pr-description:
+    name: PR Description Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Jedidja/pr-description-checker-action@v1.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          checkDescription: true
+          minLength: 50
+
+  wip-check:
+    name: WIP Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wip/action@v1
+        with:
+          associated_pull_request_number: ${{ github.event.pull_request.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

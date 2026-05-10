@@ -1,0 +1,20 @@
+name: Format
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  swift-format:
+    name: swift-format check
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install swift-format
+        run: brew install swift-format
+
+      - name: Check formatting
+        run: swift-format lint --recursive --strict Sources/ Tests/ UITests/
