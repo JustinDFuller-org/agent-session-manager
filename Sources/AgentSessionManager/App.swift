@@ -8,6 +8,9 @@ struct ContentView: View {
     @State private var showCleanupAlert = false
     @State private var pendingCleanupPane: Pane?
     @State private var pendingCleanupTab: Tab?
+    @State private var showPRMergedAlert = false
+    @State private var pendingPRMergedPane: Pane?
+    @State private var pendingPRMergedTab: Tab?
     @State private var showDebugLog = false
     @State private var debugLadybugRefreshTick = 0
 
@@ -83,6 +86,19 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
             closeActiveTab()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .prMergedActionRequested)) { notif in
+            guard
+                let paneIDStr = notif.userInfo?["paneID"] as? String,
+                let tabIDStr = notif.userInfo?["tabID"] as? String,
+                let paneID = UUID(uuidString: paneIDStr),
+                let tabID = UUID(uuidString: tabIDStr),
+                let tab = appState.tabs.first(where: { $0.id == tabID }),
+                let pane = tab.panes.first(where: { $0.id == paneID })
+            else { return }
+            pendingPRMergedPane = pane
+            pendingPRMergedTab = tab
+            showPRMergedAlert = true
+        }
         .background(KeyboardShortcutView(
             appState: appState,
             onClosePane: closeActivePane,
@@ -121,6 +137,43 @@ struct ContentView: View {
         } message: {
             if let pane = pendingCleanupPane {
                 Text("The worktree \"\(pane.name)\" was created by Agent Session Manager. Would you like to delete it?")
+            }
+        }
+        .alert("PR Merged", isPresented: $showPRMergedAlert) {
+            Button("Close Pane") {
+                guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
+                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                appState.clearNotification(paneID: pane.id)
+                tab.closePane(pane)
+                SessionPersistence.save(appState: appState)
+            }
+            Button("Close Pane and Clean Up Worktree", role: .destructive) {
+                guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
+                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                appState.clearNotification(paneID: pane.id)
+                Task {
+                    try? await tab.cleanupWorktree(for: pane)
+                    await MainActor.run {
+                        tab.closePane(pane)
+                        SessionPersistence.save(appState: appState)
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                if let pane = pendingPRMergedPane, let tab = pendingPRMergedTab {
+                    appState.focusPane(tabID: tab.id, paneID: pane.id)
+                    appState.clearNotification(paneID: pane.id)
+                }
+                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+            }
+        } message: {
+            if let pane = pendingPRMergedPane {
+                let prInfo = pane.statusLineMonitor?.currentData?.pr
+                if let pr = prInfo {
+                    Text("PR #\(pr.number) \"\(pr.title)\" for pane \"\(pane.name)\" has been merged. What would you like to do?")
+                } else {
+                    Text("The PR for pane \"\(pane.name)\" has been merged. What would you like to do?")
+                }
             }
         }
     }

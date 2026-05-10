@@ -28,5 +28,18 @@ extension Pane {
                 self?.terminalController?.onBell?()
             }
         }
+        statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in
+            Task { @MainActor in
+                guard let appState, let tab, let pane = self else { return }
+                appState.addPRMergedNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    prNumber: prNumber,
+                    prTitle: prTitle
+                )
+            }
+        }
     }
 }
