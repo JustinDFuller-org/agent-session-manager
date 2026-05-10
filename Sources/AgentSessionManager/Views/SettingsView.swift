@@ -641,9 +641,12 @@ private struct StatusLineContent: View {
         @Bindable var appSettings = appSettings
         Form {
             Section {
-                Text("Configure the info panel shown at the bottom of each pane. Items marked “Claude only” require Claude Code’s statusLine hook; all other items work with any tool via git and process data.")
+                Text("Configure the info panel shown at the bottom of each pane. Items marked “Claude only” require Claude Code’s statusLine hook. Items marked “OpenCode only” are populated via the OpenCode HTTP API. All other items work with any tool via git and process data.")
+
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("settings-status-line-description")
+
             }
             Section("Display") {
                 Picker("Chip style", selection: $appSettings.statusLineConfig.chipLabelStyle) {
@@ -727,6 +730,20 @@ private struct StatusLineContent: View {
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(Color.blue.opacity(0.1)))
+                    case .opencodeOnly:
+                        Text("OpenCode only")
+                            .font(.caption2)
+                            .foregroundStyle(.purple)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.purple.opacity(0.1)))
+                    case .claudeOrOpencode:
+                        Text("Claude + OpenCode")
+                            .font(.caption2)
+                            .foregroundStyle(.indigo)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.indigo.opacity(0.1)))
                     case .all:
                         Text("All tools")
                             .font(.caption2)
@@ -767,6 +784,14 @@ private struct StatusLineContent: View {
                                     Text("Claude only")
                                         .font(.caption2)
                                         .foregroundStyle(.blue)
+                                case .opencodeOnly:
+                                    Text("OpenCode only")
+                                        .font(.caption2)
+                                        .foregroundStyle(.purple)
+                                case .claudeOrOpencode:
+                                    Text("Claude + OpenCode")
+                                        .font(.caption2)
+                                        .foregroundStyle(.indigo)
                                 case .all:
                                     Text("All tools")
                                         .font(.caption2)

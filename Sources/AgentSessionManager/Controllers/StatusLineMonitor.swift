@@ -35,7 +35,7 @@ final class StatusLineMonitor {
     private var prQueryTask: Process?
     /// Bumped when starting a new query or in `stop()` so older `terminationHandler` callbacks cannot mutate `currentData`.
     private var prQueryToken: UInt64 = 0
-    private var agnosticProvider: ToolAgnosticDataProvider?
+    private var agnosticProvider: (any StatusLineDataProvider)?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: (() -> Void)?
@@ -55,8 +55,13 @@ final class StatusLineMonitor {
         attentionSignalFilePath = NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
 
         if !isClaude, let cwd = workingDirectory {
-            let toolCmd = cliType.cliCommandDescription
-            agnosticProvider = ToolAgnosticDataProvider(workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            let provider: any StatusLineDataProvider
+            if cliType == .opencode {
+                provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
+            } else {
+                provider = ToolAgnosticDataProvider(workingDirectory: cwd, toolCommand: cliType.cliCommandDescription, processStartTime: processStartTime)
+            }
+            agnosticProvider = provider
             agnosticProvider?.onUpdate = { [weak self] data in
                 guard let self else { return }
                 var merged = data
@@ -387,6 +392,7 @@ final class StatusLineMonitor {
                 worktree: nil, workspace: nil, effort: nil, thinking: nil,
                 agent: nil, outputStyle: nil, vim: nil,
                 sessionName: nil, version: nil, exceeds200kTokens: nil,
+                sessionStatus: nil, openCodeMode: nil,
                 pr: pr
             )
         } else {

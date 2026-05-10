@@ -50,7 +50,9 @@ OpenCode-specific flags can be enabled or disabled in **Settings → CLI Options
 
 ## Status Line
 
-OpenCode does not have documented status line hook support. The status bar is not populated for OpenCode panes. If OpenCode adds status line support in a future release, this can be wired up similarly to Claude's `StatusLineMonitor`.
+Agent Session Manager queries the OpenCode HTTP server to populate the status bar for OpenCode panes. See [opencode-status-line.md](opencode-status-line.md) for the full list of available items and how port discovery works.
+
+Items available for OpenCode panes include: model, input/output token counts, session cost, session status (idle/busy/retry), mode (code/ask/architect), version, worktree branch, duration, and PR.
 
 ## Worktrees
 

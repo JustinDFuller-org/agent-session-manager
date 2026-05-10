@@ -18,7 +18,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 25)
+        XCTAssertEqual(StatusLineConfig.allItems.count, 27)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -154,26 +154,44 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testClaudeOnlyItemsAreAllOtherItems() {
         let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
-        for id in StatusLineConfig.itemMetadata.keys where !agnosticIds.contains(id) {
+        let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
+        let claudeOrOpencodeIds: Set<String> = ["model", "cost", "inputTokens", "outputTokens"]
+        for id in StatusLineConfig.itemMetadata.keys
+        where !agnosticIds.contains(id) && !opencodeOnlyIds.contains(id) && !claudeOrOpencodeIds.contains(id) {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
+        }
+        for id in opencodeOnlyIds {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .opencodeOnly, "\(id) should be .opencodeOnly")
+        }
+        for id in claudeOrOpencodeIds {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOrOpencode, "\(id) should be .claudeOrOpencode")
         }
     }
 
     func testSupportedByClaudeReturnsTrueForAll() {
-        for id in StatusLineConfig.itemMetadata.keys {
+        let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
+        for id in StatusLineConfig.itemMetadata.keys where !opencodeOnlyIds.contains(id) {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
             XCTAssertTrue(item.supportedBy(.claude), "\(id) should be supported by Claude")
+        }
+        for id in opencodeOnlyIds {
+            let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
+            XCTAssertFalse(item.supportedBy(.claude), "\(id) should not be supported by Claude")
         }
     }
 
     func testSupportedByNonClaudeReturnsOnlyAgnostic() {
         let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        let opencodeIds: Set<String> = ["sessionStatus", "openCodeMode", "model", "cost", "inputTokens", "outputTokens"]
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
-            let expected = agnosticIds.contains(id)
-            for cliType: CLIType in [.codex, .cursor, .opencode] {
+            for cliType: CLIType in [.codex, .cursor] {
+                let expected = agnosticIds.contains(id)
                 XCTAssertEqual(item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
             }
+            // OpenCode supports agnostic items, its own specific items, and shared Claude+OpenCode items
+            let expectedForOpencode = agnosticIds.contains(id) || opencodeIds.contains(id)
+            XCTAssertEqual(item.supportedBy(.opencode), expectedForOpencode, "\(id) supportedBy opencode should be \(expectedForOpencode)")
         }
     }
 
