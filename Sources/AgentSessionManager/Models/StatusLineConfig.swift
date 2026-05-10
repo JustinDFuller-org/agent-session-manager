@@ -3,6 +3,7 @@ import Foundation
 enum ToolAvailability: Codable {
     case all
     case claudeOnly
+    case opencodeOnly
 }
 
 enum ChipLabelStyle: String, Codable, CaseIterable {
@@ -58,6 +59,7 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         switch availability {
         case .all: return true
         case .claudeOnly: return cliType == .claude
+        case .opencodeOnly: return cliType == .opencode
         }
     }
 
@@ -117,6 +119,8 @@ struct StatusLineConfig: Codable {
         "version":          ("Version",           "info.circle"),
         "outputStyle":      ("Output Style",      "text.alignleft"),
         "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
+        "sessionStatus":    ("Status",            "circle.fill"),
+        "openCodeMode":     ("Mode",              "text.alignleft"),
         "pr":               ("PR",                "arrow.triangle.pull"),
     ]
 
@@ -148,6 +152,9 @@ struct StatusLineConfig: Codable {
         "rate7dReset": .claudeOnly,
         "outputStyle": .claudeOnly,
         "exceeds200k": .claudeOnly,
+        // OpenCode-only — populated by OpenCode HTTP API
+        "sessionStatus": .opencodeOnly,
+        "openCodeMode": .opencodeOnly,
     ]
 
     static let itemOrder: [String] = [
@@ -155,6 +162,7 @@ struct StatusLineConfig: Codable {
         "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
+        "sessionStatus", "openCodeMode",
         "pr",
     ]
 
@@ -330,6 +338,11 @@ struct StatusLineData: Codable {
         let mode: String?
     }
 
+    struct SessionStatus: Codable {
+        let state: String?
+        enum CodingKeys: String, CodingKey { case state }
+    }
+
     let model: Model?
     let cost: Cost?
     let contextWindow: ContextWindow?
@@ -344,6 +357,8 @@ struct StatusLineData: Codable {
     let sessionName: String?
     let version: String?
     let exceeds200kTokens: Bool?
+    let sessionStatus: SessionStatus?
+    let openCodeMode: String?
     var pr: PullRequest?
 
     enum CodingKeys: String, CodingKey {
@@ -361,6 +376,8 @@ struct StatusLineData: Codable {
         case sessionName = "session_name"
         case version
         case exceeds200kTokens = "exceeds_200k_tokens"
+        case sessionStatus = "session_status"
+        case openCodeMode = "open_code_mode"
         case pr
     }
 }

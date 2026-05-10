@@ -1,6 +1,12 @@
 import Foundation
 
-final class ToolAgnosticDataProvider {
+protocol StatusLineDataProvider: AnyObject {
+    var onUpdate: ((StatusLineData) -> Void)? { get set }
+    func start()
+    func stop()
+}
+
+final class ToolAgnosticDataProvider: StatusLineDataProvider {
     let workingDirectory: String
     let toolCommand: String
     let processStartTime: Date
@@ -63,6 +69,8 @@ final class ToolAgnosticDataProvider {
                 sessionName: nil,
                 version: self.versionFetchedVersion,
                 exceeds200kTokens: nil,
+                sessionStatus: nil,
+                openCodeMode: nil,
                 pr: nil
             )
 
