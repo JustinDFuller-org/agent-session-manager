@@ -155,11 +155,16 @@ final class StatusLineConfigTests: XCTestCase {
     func testClaudeOnlyItemsAreAllOtherItems() {
         let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
         let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
-        for id in StatusLineConfig.itemMetadata.keys where !agnosticIds.contains(id) && !opencodeOnlyIds.contains(id) {
+        let claudeOrOpencodeIds: Set<String> = ["model", "cost", "inputTokens", "outputTokens"]
+        for id in StatusLineConfig.itemMetadata.keys
+        where !agnosticIds.contains(id) && !opencodeOnlyIds.contains(id) && !claudeOrOpencodeIds.contains(id) {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
         }
         for id in opencodeOnlyIds {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .opencodeOnly, "\(id) should be .opencodeOnly")
+        }
+        for id in claudeOrOpencodeIds {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOrOpencode, "\(id) should be .claudeOrOpencode")
         }
     }
 
@@ -177,15 +182,15 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testSupportedByNonClaudeReturnsOnlyAgnostic() {
         let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
-        let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
+        let opencodeIds: Set<String> = ["sessionStatus", "openCodeMode", "model", "cost", "inputTokens", "outputTokens"]
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
             for cliType: CLIType in [.codex, .cursor] {
                 let expected = agnosticIds.contains(id)
                 XCTAssertEqual(item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
             }
-            // OpenCode supports agnostic items and its own specific items
-            let expectedForOpencode = agnosticIds.contains(id) || opencodeOnlyIds.contains(id)
+            // OpenCode supports agnostic items, its own specific items, and shared Claude+OpenCode items
+            let expectedForOpencode = agnosticIds.contains(id) || opencodeIds.contains(id)
             XCTAssertEqual(item.supportedBy(.opencode), expectedForOpencode, "\(id) supportedBy opencode should be \(expectedForOpencode)")
         }
     }

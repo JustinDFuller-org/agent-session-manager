@@ -4,6 +4,7 @@ enum ToolAvailability: Codable {
     case all
     case claudeOnly
     case opencodeOnly
+    case claudeOrOpencode
 }
 
 enum ChipLabelStyle: String, Codable, CaseIterable {
@@ -60,6 +61,7 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         case .all: return true
         case .claudeOnly: return cliType == .claude
         case .opencodeOnly: return cliType == .opencode
+        case .claudeOrOpencode: return cliType == .claude || cliType == .opencode
         }
     }
 
@@ -132,9 +134,12 @@ struct StatusLineConfig: Codable {
         "duration": .all,
         "version": .all,
         "pr": .all,
+        // Claude + OpenCode — populated by both via their respective APIs
+        "model": .claudeOrOpencode,
+        "cost": .claudeOrOpencode,
+        "inputTokens": .claudeOrOpencode,
+        "outputTokens": .claudeOrOpencode,
         // Claude-only — requires the Claude statusLine hook
-        "model": .claudeOnly,
-        "cost": .claudeOnly,
         "context": .claudeOnly,
         "effort": .claudeOnly,
         "thinking": .claudeOnly,
@@ -144,8 +149,6 @@ struct StatusLineConfig: Codable {
         "linesAdded": .claudeOnly,
         "linesRemoved": .claudeOnly,
         "contextRemaining": .claudeOnly,
-        "inputTokens": .claudeOnly,
-        "outputTokens": .claudeOnly,
         "rate5h": .claudeOnly,
         "rate7d": .claudeOnly,
         "rate5hReset": .claudeOnly,
