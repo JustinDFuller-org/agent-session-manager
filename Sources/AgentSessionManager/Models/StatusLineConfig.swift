@@ -223,15 +223,46 @@ struct StatusLineConfig: Codable {
     }
 }
 
+struct StatusCheck: Codable, Identifiable {
+    let name: String
+    let status: String
+    let conclusion: String?
+    let detailsUrl: String?
+
+    var id: String { name }
+
+    var isFailing: Bool { conclusion?.uppercased() == "FAILURE" }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case status
+        case conclusion
+        case detailsUrl
+    }
+}
+
+enum BuildStatus: Equatable {
+    case success
+    case running
+    case failed
+    case cancelled
+    case unknown
+}
+
 struct PullRequest: Codable, Identifiable {
     let number: Int
     let title: String
     let state: String
     let url: String
+    var isDraft: Bool?
+    var statusCheckRollup: [StatusCheck]?
+    var unresolvedCommentCount: Int?
+    var commitStatusState: String?
 
     var id: Int { number }
 
-    var stateDisplayName: String {
+    var displayState: String {
+        if isDraft == true { return "draft" }
         switch state.lowercased() {
         case "open": return "open"
         case "merged": return "merged"
@@ -240,8 +271,37 @@ struct PullRequest: Codable, Identifiable {
         }
     }
 
+    var buildStatus: BuildStatus {
+        guard let apiState = commitStatusState else { return .unknown }
+        switch apiState.uppercased() {
+        case "SUCCESS": return .success
+        case "FAILURE", "ERROR": return .failed
+        case "PENDING": return .running
+        default: return .unknown
+        }
+    }
+
+    var stateIconName: String {
+        if isDraft == true { return "pencil.line" }
+        switch state.lowercased() {
+        case "open": return "arrow.triangle.pull"
+        case "merged": return "arrow.triangle.merge"
+        case "closed": return "xmark.circle"
+        default: return "arrow.triangle.pull"
+        }
+    }
+
+    var failingChecks: [StatusCheck] {
+        statusCheckRollup?.filter { $0.isFailing } ?? []
+    }
+
     enum CodingKeys: String, CodingKey {
-        case number, title, state, url
+        case number
+        case title
+        case state
+        case url
+        case isDraft
+        case statusCheckRollup
     }
 }
 
