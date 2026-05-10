@@ -15,7 +15,7 @@ When OpenCode is running and its server is reachable, the following status line 
 | **Status** | Current session state: `Idle`, `Busy`, or `Retry` |
 | **Mode** | The mode of the latest message (e.g., `code`, `ask`, `architect`) |
 
-The **Status** and **Mode** items are marked **OpenCode only** in Settings → Status Line.
+**Model**, **Input Tokens**, **Output Tokens**, and **Cost** are marked **Claude + OpenCode** in Settings → Status Line — they work in both Claude Code and OpenCode panes. **Status** and **Mode** are marked **OpenCode only** — they are exclusive to OpenCode.
 
 ## How It Works
 
@@ -31,7 +31,8 @@ If the server is unreachable, the status bar gracefully falls back to showing on
 
 1. Open **Settings → Status Line**
 2. Click **+** in any row to add items
-3. Items marked **OpenCode only** (purple badge) are populated exclusively when running an OpenCode pane
+3. Items marked **Claude + OpenCode** (indigo badge) are populated for both Claude Code and OpenCode panes
+4. Items marked **OpenCode only** (purple badge) are populated exclusively when running an OpenCode pane
 
 ## Known Limitations
 
