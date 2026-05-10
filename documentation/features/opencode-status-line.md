@@ -19,13 +19,11 @@ When OpenCode is running and its server is reachable, the following status line 
 
 ## How It Works
 
-OpenCode runs a local HTTP server when active. Agent Session Manager polls this server every 15 seconds using the workspace directory as the session filter (`x-opencode-directory` header).
+OpenCode stores all session data in a SQLite database at `~/.local/share/opencode/opencode.db` (respects `XDG_DATA_HOME`). Agent Session Manager queries this database every 15 seconds, filtering by the pane's working directory to find the most recently active session.
 
-**Port discovery** (tried in order):
-1. Port `4096` (OpenCode's preferred default)
-2. `~/.config/opencode/opencode.json` → `server.port` field (respects `XDG_CONFIG_HOME`)
+Token counts and cost are aggregated across all assistant messages in the session. Session status (idle/busy) is determined by whether the most recent assistant message has a completion timestamp.
 
-If the server is unreachable, the status bar gracefully falls back to showing only the tool-agnostic data (version, branch, duration, PR).
+If the database does not exist or no session matches the working directory, the status bar gracefully falls back to showing only the tool-agnostic data (branch, duration, PR).
 
 ## Enabling Status Items
 
@@ -36,6 +34,5 @@ If the server is unreachable, the status bar gracefully falls back to showing on
 
 ## Known Limitations
 
-- **Custom ports via `--port` flag**: If you start OpenCode with `opencode --port <N>` and that port differs from the config file, the app cannot discover it automatically. Set `server.port` in `~/.config/opencode/opencode.json` to match.
-- **Context window percentage**: OpenCode's API does not expose the model's maximum context window size, so the context percentage field is not available (only raw token counts are shown).
-- **Session matching**: When multiple OpenCode sessions exist for the same directory, the most recently active session is used.
+- **Context window percentage**: OpenCode does not store the model's maximum context window size, so the context percentage field is not available (only raw token counts are shown).
+- **Session matching**: When multiple OpenCode sessions exist for the same directory, the most recently updated session is used.
