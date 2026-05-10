@@ -231,7 +231,10 @@ struct StatusCheck: Codable, Identifiable {
 
     var id: String { name }
 
-    var isFailing: Bool { conclusion?.uppercased() == "FAILURE" }
+    var isFailing: Bool {
+        let failedConclusions: Set<String> = ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"]
+        return failedConclusions.contains(conclusion?.uppercased() ?? "")
+    }
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -272,6 +275,23 @@ struct PullRequest: Codable, Identifiable {
     }
 
     var buildStatus: BuildStatus {
+        if let checks = statusCheckRollup, !checks.isEmpty {
+            let failedConclusions: Set<String> = ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"]
+            if checks.contains(where: { failedConclusions.contains($0.conclusion?.uppercased() ?? "") }) {
+                return .failed
+            }
+            if checks.contains(where: { $0.conclusion?.uppercased() == "CANCELLED" }) {
+                return .cancelled
+            }
+            let runningStatuses: Set<String> = ["IN_PROGRESS", "QUEUED", "WAITING", "REQUESTED", "PENDING"]
+            if checks.contains(where: { runningStatuses.contains($0.status.uppercased()) }) {
+                return .running
+            }
+            let passConclusions: Set<String> = ["SUCCESS", "NEUTRAL", "SKIPPED"]
+            if checks.allSatisfy({ passConclusions.contains($0.conclusion?.uppercased() ?? "") }) {
+                return .success
+            }
+        }
         guard let apiState = commitStatusState else { return .unknown }
         switch apiState.uppercased() {
         case "SUCCESS": return .success

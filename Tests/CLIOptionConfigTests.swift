@@ -966,6 +966,78 @@ final class PRTrackingTests: XCTestCase {
         XCTAssertEqual(pr.buildStatus, .failed)
     }
 
+    func testBuildStatusFromStatusCheckRollupFailed() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusFromStatusCheckRollupRunning() {
+        let checks = [
+            StatusCheck(name: "CI", status: "IN_PROGRESS", conclusion: nil, detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "QUEUED", conclusion: nil, detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .running)
+    }
+
+    func testBuildStatusFromStatusCheckRollupSuccess() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testBuildStatusFromStatusCheckRollupCancelled() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "CANCELLED", detailsUrl: nil)
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .cancelled)
+    }
+
+    func testBuildStatusFromStatusCheckRollupTimedOut() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "TIMED_OUT", detailsUrl: nil)
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusRollupTakesPriorityOverCommitStatusState() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil)
+        ]
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        pr.commitStatusState = "SUCCESS"
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusFallsBackToCommitStatusWhenRollupEmpty() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: [])
+        pr.commitStatusState = "SUCCESS"
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testBuildStatusSkippedChecksCountAsSuccess() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Optional", status: "COMPLETED", conclusion: "SKIPPED", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testIsFailingCoversTimedOut() {
+        let check = StatusCheck(name: "CI", status: "COMPLETED", conclusion: "TIMED_OUT", detailsUrl: nil)
+        XCTAssertTrue(check.isFailing)
+    }
+
     func testStatusLineDataDecodeWithPR() throws {
         let json = Data(
             """
