@@ -9,12 +9,14 @@ jobs:
     name: PR Description Check
     runs-on: ubuntu-latest
     steps:
-      - uses: Jedidja/pr-description-checker-action@v1.3.0
+      - name: Check PR description length
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          checkDescription: true
-          minLength: 50
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ ${#PR_BODY} -lt 50 ]; then
+            echo "PR description must be at least 50 characters long."
+            exit 1
+          fi
 
   wip-check:
     name: WIP Check
