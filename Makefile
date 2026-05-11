@@ -105,6 +105,9 @@ test-ui: xcodeproj
 open-results:
 	open $(RESULTS_PATH)
 
+lint:
+	swift-format lint --recursive --strict Sources/ Tests/ UITests/
+
 setup-hooks:
 	git config core.hooksPath .githooks
 

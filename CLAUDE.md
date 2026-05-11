@@ -47,6 +47,7 @@ make run          # build, bundle, and open the app
 make restart      # kill and reopen the running app without rebuilding
 make watch        # watch Sources/ and Tests/ for changes, auto rebuild+restart (no external tools needed)
 make xcodeproj    # regenerate Xcode project via xcodegen (required before UI tests)
+make lint         # swift-format lint --recursive --strict (matches CI format check)
 make setup-hooks  # configure git hooks for pre-commit (unit tests) and pre-push (UI smoke tests)
 make clean        # remove .build/, .app/, .xcodeproj/
 ```

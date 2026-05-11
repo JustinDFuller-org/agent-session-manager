@@ -4,7 +4,8 @@
       "Bash(swift build *)",
       "Bash(swift test *)",
       "Bash(xcodebuild test *)",
-      "Bash(make test-ui)"
+      "Bash(make test-ui)",
+      "Bash(make lint)"
     ]
   }
 }
