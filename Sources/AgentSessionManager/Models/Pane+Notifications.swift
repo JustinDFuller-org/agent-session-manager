@@ -11,6 +11,12 @@ extension Pane {
             tabName: tab.name,
             paneName: name
         )
+        terminalController?.terminalView.onUserInput = { [weak appState, weak self] in
+            Task { @MainActor in
+                guard let appState, let pane = self else { return }
+                appState.clearNotification(paneID: pane.id)
+            }
+        }
         terminalController?.onBell = { [weak appState, weak tab, weak self] in
             Task { @MainActor in
                 guard let appState, let tab, let pane = self else { return }
