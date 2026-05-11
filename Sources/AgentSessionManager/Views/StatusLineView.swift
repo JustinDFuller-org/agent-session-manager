@@ -172,6 +172,7 @@ struct StatusLineView: View {
     }
 
     private func prCircleColor(pr: PullRequest) -> Color {
+        if pr.hasMergeConflicts { return .red }
         switch pr.buildStatus {
         case .success:
             return .green
@@ -287,6 +288,19 @@ private struct PRPopoverContent: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
+            if pr.hasMergeConflicts {
+                Divider()
+
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                    Text("Merge conflicts")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
             if !visibleChecks.isEmpty {
                 Divider()
 
@@ -336,6 +350,7 @@ private struct PRPopoverContent: View {
     }
 
     private var circleColor: Color {
+        if pr.hasMergeConflicts { return .red }
         switch pr.buildStatus {
         case .success:
             return .green

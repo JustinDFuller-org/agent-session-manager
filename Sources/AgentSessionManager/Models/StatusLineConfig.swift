@@ -272,8 +272,13 @@ struct PullRequest: Codable, Identifiable {
     var statusCheckRollup: [StatusCheck]?
     var unresolvedCommentCount: Int?
     var commitStatusState: String?
+    var mergeable: String?
 
     var id: Int { number }
+
+    var hasMergeConflicts: Bool {
+        mergeable?.uppercased() == "CONFLICTING"
+    }
 
     var displayState: String {
         if isDraft == true { return "draft" }
@@ -333,6 +338,7 @@ struct PullRequest: Codable, Identifiable {
         case url
         case isDraft
         case statusCheckRollup
+        case mergeable
     }
 }
 

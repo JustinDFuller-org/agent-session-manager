@@ -32,4 +32,33 @@ final class PRQueryShellIOTests: XCTestCase {
         let pr = try JSONDecoder().decode(PullRequest.self, from: data)
         XCTAssertEqual(pr.number, 1)
     }
+
+    // MARK: - Merge conflict detection
+
+    func testMergeConflictingDecodes() throws {
+        let json =
+            #"{"number":1,"title":"T","state":"open","url":"u","mergeable":"CONFLICTING"}"#
+        let pr = try JSONDecoder().decode(PullRequest.self, from: Data(json.utf8))
+        XCTAssertTrue(pr.hasMergeConflicts)
+    }
+
+    func testMergeableDecodes() throws {
+        let json =
+            #"{"number":1,"title":"T","state":"open","url":"u","mergeable":"MERGEABLE"}"#
+        let pr = try JSONDecoder().decode(PullRequest.self, from: Data(json.utf8))
+        XCTAssertFalse(pr.hasMergeConflicts)
+    }
+
+    func testMergeableAbsent() throws {
+        let json = #"{"number":1,"title":"T","state":"open","url":"u"}"#
+        let pr = try JSONDecoder().decode(PullRequest.self, from: Data(json.utf8))
+        XCTAssertFalse(pr.hasMergeConflicts)
+    }
+
+    func testMergeUnknownIsNotConflicting() throws {
+        let json =
+            #"{"number":1,"title":"T","state":"open","url":"u","mergeable":"UNKNOWN"}"#
+        let pr = try JSONDecoder().decode(PullRequest.self, from: Data(json.utf8))
+        XCTAssertFalse(pr.hasMergeConflicts)
+    }
 }
