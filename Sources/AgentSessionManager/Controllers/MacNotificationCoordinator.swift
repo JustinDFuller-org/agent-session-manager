@@ -266,6 +266,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
         handleNotificationNavigation(paneIDStr: paneIDStr, tabIDStr: tabIDStr, kind: kind)
         NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first { !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.
