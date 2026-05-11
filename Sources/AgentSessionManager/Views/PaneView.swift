@@ -176,9 +176,11 @@ struct PaneView: View {
         if let controller = pane.terminalController {
             TerminalRepresentable(controller: controller, isActive: isActive)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .layoutPriority(1)
         } else {
             Color(nsColor: .textBackgroundColor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .layoutPriority(1)
         }
     }
 }
