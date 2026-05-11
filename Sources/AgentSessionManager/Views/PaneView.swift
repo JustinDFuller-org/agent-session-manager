@@ -141,7 +141,7 @@ struct PaneView: View {
 
     @ViewBuilder
     private func statusDot(pendingNotification: PaneNotification?) -> some View {
-        if pendingNotification?.kind == .prMerged {
+        if pane.isMerged {
             Circle()
                 .fill(Color.purple)
                 .frame(width: 7, height: 7)

@@ -259,6 +259,38 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertTrue(SettingsPersistence.isPRMergedNotificationsEnabled())
     }
 
+    // MARK: - isMerged on Pane
+
+    func testPaneIsMergedSetOnAddPRMergedNotification() {
+        let state = AppState()
+        let tab = Tab(name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = tab.addPane(name: "feature")
+        state.tabs.append(tab)
+
+        state.addPRMergedNotification(
+            paneID: pane.id, paneName: "feature", tabID: tab.id, tabName: "T",
+            prNumber: 7, prTitle: "Fix"
+        )
+
+        XCTAssertTrue(pane.isMerged)
+    }
+
+    func testPaneStaysMergedAfterClearNotification() {
+        let state = AppState()
+        let tab = Tab(name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = tab.addPane(name: "feature")
+        state.tabs.append(tab)
+
+        state.addPRMergedNotification(
+            paneID: pane.id, paneName: "feature", tabID: tab.id, tabName: "T",
+            prNumber: 7, prTitle: "Fix"
+        )
+        state.clearNotification(paneID: pane.id)
+
+        XCTAssertTrue(pane.isMerged, "isMerged must survive notification clearance")
+        XCTAssertTrue(state.notifications.isEmpty, "notification should be cleared")
+    }
+
     // MARK: - Helpers
 
     private func makePRJSON(state: String, number: Int = 1, title: String = "PR") -> Data {

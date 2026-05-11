@@ -48,4 +48,29 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         XCTAssertEqual(tab.id, tabID)
         XCTAssertEqual(pane.id, paneID)
     }
+
+    func testIsMergedPersistedAndRestored() throws {
+        let persisted = PersistedPane(
+            id: UUID(), name: "p", cliType: .claude, isPriority: false, isMerged: true,
+            worktreeDirectory: nil, worktreeIsManaged: false
+        )
+        let data = try JSONEncoder().encode(persisted)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
+        XCTAssertTrue(decoded.isMerged)
+    }
+
+    func testLegacyPaneDefaultsIsMergedFalse() throws {
+        let json = Data(
+            """
+            {
+              "id": "00000000-0000-0000-0000-000000000001",
+              "name": "p",
+              "cliType": "claude",
+              "isPriority": false,
+              "worktreeIsManaged": false
+            }
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
+        XCTAssertFalse(decoded.isMerged)
+    }
 }

@@ -115,22 +115,24 @@ struct PersistedPane: Codable {
     var name: String
     var cliType: CLIType
     var isPriority: Bool
+    var isMerged: Bool
     var worktreeDirectory: String?
     var worktreeIsManaged: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, name, cliType, isPriority, worktreeDirectory, worktreeIsManaged
+        case id, name, cliType, isPriority, isMerged, worktreeDirectory, worktreeIsManaged
         case claudeProcessDirectory
     }
 
     init(
-        id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, worktreeDirectory: String? = nil,
-        worktreeIsManaged: Bool = false
+        id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, isMerged: Bool = false,
+        worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false
     ) {
         self.id = id
         self.name = name
         self.cliType = cliType
         self.isPriority = isPriority
+        self.isMerged = isMerged
         self.worktreeDirectory = worktreeDirectory
         self.worktreeIsManaged = worktreeIsManaged
     }
@@ -141,6 +143,7 @@ struct PersistedPane: Codable {
         name = try container.decode(String.self, forKey: .name)
         cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
         isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
+        isMerged = (try? container.decodeIfPresent(Bool.self, forKey: .isMerged)) ?? false
         worktreeDirectory =
             try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
             ?? container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
@@ -153,6 +156,7 @@ struct PersistedPane: Codable {
         try container.encode(name, forKey: .name)
         try container.encode(cliType, forKey: .cliType)
         try container.encode(isPriority, forKey: .isPriority)
+        try container.encode(isMerged, forKey: .isMerged)
         try container.encode(worktreeDirectory, forKey: .worktreeDirectory)
         try container.encode(worktreeIsManaged, forKey: .worktreeIsManaged)
     }
@@ -179,6 +183,7 @@ struct SessionPersistence {
                         name: $0.name,
                         cliType: $0.cliType,
                         isPriority: $0.isPriority,
+                        isMerged: $0.isMerged,
                         worktreeDirectory: $0.worktreeDirectory?.path,
                         worktreeIsManaged: $0.worktreeIsManaged
                     )
@@ -251,6 +256,7 @@ struct SessionPersistence {
                     worktreeIsManaged: persistedPane.worktreeIsManaged,
                     id: persistedPane.id
                 )
+                pane.isMerged = persistedPane.isMerged
                 pane.wireTerminalBellForNotifications(
                     appState: appState,
                     tab: tab,
@@ -289,5 +295,13 @@ struct SessionPersistence {
             )
         }
         appState.notifications = restored
+
+        for notification in restored where notification.kind == .prMerged {
+            if let tab = appState.tabs.first(where: { $0.id == notification.tabID }),
+                let pane = tab.panes.first(where: { $0.id == notification.paneID })
+            {
+                pane.isMerged = true
+            }
+        }
     }
 }

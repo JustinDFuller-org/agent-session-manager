@@ -135,6 +135,7 @@ final class AppState {
                 prNumber: prNumber,
                 prTitle: prTitle
             ))
+        tabs.flatMap(\.panes).first { $0.id == paneID }?.isMerged = true
         MacNotificationCoordinator.shared.postPRMergedBannerIfNeeded(
             paneID: paneID,
             paneName: paneName,

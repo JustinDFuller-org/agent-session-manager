@@ -101,6 +101,24 @@ final class PRMergedNotificationUITests: XCTestCase {
         )
     }
 
+    // MARK: - Status dot persistence after notification cleared
+
+    func testStatusDotRemainsPurpleAfterClickingNotification() {
+        let row = app.buttons["notification-row-test-pane"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.click()
+
+        let cancelButton = app.buttons["Cancel"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 5))
+        cancelButton.click()
+
+        let mergedDot = app.otherElements["pane-status-dot-merged-test-pane"]
+        XCTAssertTrue(
+            mergedDot.waitForExistence(timeout: 3),
+            "Status dot should remain purple after dismissing the notification"
+        )
+    }
+
     // MARK: - Settings toggle
 
     func testPRMergedNotificationsToggleExistsInSettings() {
@@ -131,6 +149,7 @@ final class PRMergedNotificationUITests: XCTestCase {
                       "name": "test-pane",
                       "cliType": "claude",
                       "isPriority": false,
+                      "isMerged": true,
                       "worktreeDirectory": "\(workspaceDir)",
                       "worktreeIsManaged": false
                     }
