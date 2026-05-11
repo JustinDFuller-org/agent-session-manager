@@ -246,7 +246,7 @@ final class StatusLineMonitor {
         task.executableURL = URL(filePath: "/bin/zsh")
         task.arguments = [
             "-c",
-            "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,commits,statusCheckRollup 2>/dev/null || true",
+            "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,commits,statusCheckRollup,mergeable 2>/dev/null || true",
         ]
         task.standardOutput = outPipe
         task.standardError = errPipe

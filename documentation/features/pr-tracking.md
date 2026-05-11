@@ -18,12 +18,13 @@ This works for all CLI tools (Claude Code, Codex, Cursor, OpenCode) because it r
 
 ## Circle colors
 
-The colored circle represents the build and state status:
+The colored circle represents the build and conflict status:
 
 | State | Circle Color | Meaning |
 |---|---|---|
 | `merged` | Purple | Always purple — merged PRs |
 | `closed` | Red | Always red — closed (not merged) |
+| `draft` or `open` | Red | PR has merge conflicts (takes precedence over build status) |
 | `draft` or `open` | Green | All status checks passing |
 | `draft` or `open` | Yellow | Status checks are running, queued, or pending |
 | `draft` or `open` | Red | At least one status check failed |
@@ -47,6 +48,7 @@ Click the PR chip to open a popover showing:
 
 - **PR number** with the colored status circle
 - **PR title** (truncated to 2 lines)
+- **Merge conflicts** — shown in red with a warning icon when GitHub reports the branch cannot be merged due to conflicts
 - **Failing checks** — listed with truncated names (60 chars max) and links to the check details page. If more than 5 checks are failing, "and N more failing checks..." is shown.
 - **Unresolved comments** — count of unresolved review threads (fetched via the GitHub GraphQL API)
 - **Open Pull Request** — button to open the PR in the default browser
@@ -58,7 +60,7 @@ Click outside the popover to dismiss it.
 When a pane starts, the app runs:
 
 ```
-gh pr view <branch> --json number,title,state,url,isDraft,statusCheckRollup
+gh pr view <branch> --json number,title,state,url,isDraft,statusCheckRollup,mergeable
 ```
 
 in the pane's working directory. The current branch is determined by `git branch --show-current`. If a PR is found, a second query fetches unresolved review comment counts:
