@@ -11,4 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sender.windows.first { !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
         return false
     }
+
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        return false
+    }
 }
