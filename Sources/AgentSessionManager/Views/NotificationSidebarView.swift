@@ -90,13 +90,13 @@ struct NotificationSidebarView: View {
                         .foregroundStyle(.purple)
                         .frame(width: 7, height: 7)
                         .padding(.top, 2)
-                        .alignmentGuide(.firstTextBaseline) { d in d[.top] }
+                        .alignmentGuide(.firstTextBaseline) { dims in dims[.top] }
                 } else {
                     Circle()
                         .fill(notification.isPriority ? Color.orange : Color.accentColor)
                         .frame(width: 7, height: 7)
                         .padding(.top, 2)
-                        .alignmentGuide(.firstTextBaseline) { d in d[.top] }
+                        .alignmentGuide(.firstTextBaseline) { dims in dims[.top] }
                 }
 
                 VStack(alignment: .leading, spacing: 2) {

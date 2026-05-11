@@ -124,16 +124,17 @@ final class AppState {
     ) {
         guard SettingsPersistence.isPRMergedNotificationsEnabled() else { return }
         if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prMerged }) { return }
-        notifications.append(PaneNotification(
-            paneID: paneID,
-            paneName: paneName,
-            tabID: tabID,
-            tabName: tabName,
-            isPriority: false,
-            kind: .prMerged,
-            prNumber: prNumber,
-            prTitle: prTitle
-        ))
+        notifications.append(
+            PaneNotification(
+                paneID: paneID,
+                paneName: paneName,
+                tabID: tabID,
+                tabName: tabName,
+                isPriority: false,
+                kind: .prMerged,
+                prNumber: prNumber,
+                prTitle: prTitle
+            ))
         MacNotificationCoordinator.shared.postPRMergedBannerIfNeeded(
             paneID: paneID,
             paneName: paneName,

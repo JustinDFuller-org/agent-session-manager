@@ -168,7 +168,8 @@ final class StatusLineConfigTests: XCTestCase {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .opencodeOnly, "\(id) should be .opencodeOnly")
         }
         for id in claudeOrOpencodeIds {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOrOpencode, "\(id) should be .claudeOrOpencode")
+            XCTAssertEqual(
+                StatusLineConfig.itemAvailability[id], .claudeOrOpencode, "\(id) should be .claudeOrOpencode")
         }
     }
 
@@ -186,16 +187,21 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testSupportedByNonClaudeReturnsOnlyAgnostic() {
         let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
-        let opencodeIds: Set<String> = ["sessionStatus", "openCodeMode", "model", "cost", "inputTokens", "outputTokens"]
+        let opencodeIds: Set<String> = [
+            "sessionStatus", "openCodeMode", "model", "cost", "inputTokens", "outputTokens",
+        ]
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
             for cliType: CLIType in [.codex, .cursor] {
                 let expected = agnosticIds.contains(id)
-                XCTAssertEqual(item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
+                XCTAssertEqual(
+                    item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
             }
             // OpenCode supports agnostic items, its own specific items, and shared Claude+OpenCode items
             let expectedForOpencode = agnosticIds.contains(id) || opencodeIds.contains(id)
-            XCTAssertEqual(item.supportedBy(.opencode), expectedForOpencode, "\(id) supportedBy opencode should be \(expectedForOpencode)")
+            XCTAssertEqual(
+                item.supportedBy(.opencode), expectedForOpencode,
+                "\(id) supportedBy opencode should be \(expectedForOpencode)")
         }
     }
 

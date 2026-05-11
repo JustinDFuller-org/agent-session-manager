@@ -2,7 +2,7 @@ import Foundation
 import SQLite3
 
 // sqlite3_destructor_type constant required when binding Swift strings to SQLite3 statements.
-private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 final class OpenCodeDataProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
@@ -46,7 +46,8 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
         var openCodeMode: String?
 
         if let dbPath = Self.databasePath(),
-           let result = Self.queryDatabase(path: dbPath, directory: wd) {
+            let result = Self.queryDatabase(path: dbPath, directory: wd)
+        {
             if result.totalInput > 0 || result.totalOutput > 0 {
                 contextWindow = StatusLineData.ContextWindow(
                     usedPercentage: nil,
@@ -74,12 +75,13 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
 
         let data = StatusLineData(
             model: modelInfo,
-            cost: costInfo ?? StatusLineData.Cost(
-                totalCostUsd: nil,
-                totalDurationMs: currentDurationMs,
-                totalLinesAdded: nil,
-                totalLinesRemoved: nil
-            ),
+            cost: costInfo
+                ?? StatusLineData.Cost(
+                    totalCostUsd: nil,
+                    totalDurationMs: currentDurationMs,
+                    totalLinesAdded: nil,
+                    totalLinesRemoved: nil
+                ),
             contextWindow: contextWindow,
             rateLimits: nil,
             worktree: StatusLineData.Worktree(
@@ -113,7 +115,8 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
         if let xdg = ProcessInfo.processInfo.environment["XDG_DATA_HOME"], !xdg.isEmpty {
             base = xdg
         } else {
-            base = FileManager.default.homeDirectoryForCurrentUser
+            base =
+                FileManager.default.homeDirectoryForCurrentUser
                 .appending(path: ".local/share")
                 .path
         }
@@ -154,9 +157,9 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
         defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_text(stmt, 1, directory, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 1, directory, -1, sqliteTransient)
         guard sqlite3_step(stmt) == SQLITE_ROW,
-              let ptr = sqlite3_column_text(stmt, 0)
+            let ptr = sqlite3_column_text(stmt, 0)
         else { return nil }
         return String(cString: ptr)
     }
@@ -176,10 +179,10 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
             """
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, aggSQL, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_text(stmt, 1, sessionID, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 1, sessionID, -1, sqliteTransient)
             if sqlite3_step(stmt) == SQLITE_ROW {
-                totalCost   = sqlite3_column_double(stmt, 0)
-                totalInput  = Int(sqlite3_column_int64(stmt, 1))
+                totalCost = sqlite3_column_double(stmt, 0)
+                totalInput = Int(sqlite3_column_int64(stmt, 1))
                 totalOutput = Int(sqlite3_column_int64(stmt, 2))
             }
             sqlite3_finalize(stmt)
@@ -202,11 +205,11 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
             LIMIT 1
             """
         if sqlite3_prepare_v2(db, latestSQL, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_text(stmt, 1, sessionID, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 1, sessionID, -1, sqliteTransient)
             if sqlite3_step(stmt) == SQLITE_ROW {
-                if let ptr = sqlite3_column_text(stmt, 0) { modelID    = String(cString: ptr) }
+                if let ptr = sqlite3_column_text(stmt, 0) { modelID = String(cString: ptr) }
                 if let ptr = sqlite3_column_text(stmt, 1) { providerID = String(cString: ptr) }
-                if let ptr = sqlite3_column_text(stmt, 2) { mode       = String(cString: ptr) }
+                if let ptr = sqlite3_column_text(stmt, 2) { mode = String(cString: ptr) }
                 isBusy = sqlite3_column_int(stmt, 3) != 0
             }
             sqlite3_finalize(stmt)

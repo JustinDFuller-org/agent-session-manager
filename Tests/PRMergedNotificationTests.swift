@@ -1,9 +1,9 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
 final class PRMergedNotificationTests: XCTestCase {
-
     private var notificationSettingsURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "agent-session-manager/notification-settings.json")
@@ -105,11 +105,11 @@ final class PRMergedNotificationTests: XCTestCase {
             prNumber: 99, prTitle: "Add feature"
         )
         XCTAssertEqual(state.notifications.count, 1)
-        let n = state.notifications[0]
-        XCTAssertEqual(n.kind, .prMerged)
-        XCTAssertEqual(n.prNumber, 99)
-        XCTAssertEqual(n.prTitle, "Add feature")
-        XCTAssertEqual(n.paneID, paneID)
+        let notification = state.notifications[0]
+        XCTAssertEqual(notification.kind, .prMerged)
+        XCTAssertEqual(notification.prNumber, 99)
+        XCTAssertEqual(notification.prTitle, "Add feature")
+        XCTAssertEqual(notification.paneID, paneID)
     }
 
     func testAddPRMergedNotificationDeduplicates() {
@@ -131,9 +131,10 @@ final class PRMergedNotificationTests: XCTestCase {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "agent-session-manager")
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        let config = """
-        {"sidebarSide":"right","isPriorityEnabled":true,"isMacOSBannerEnabled":true,"isClaudeHookAttentionEnabled":true,"isPRMergedNotificationsEnabled":false}
-        """.data(using: .utf8)!
+        let config = Data(
+            """
+            {"sidebarSide":"right","isPriorityEnabled":true,"isMacOSBannerEnabled":true,"isClaudeHookAttentionEnabled":true,"isPRMergedNotificationsEnabled":false}
+            """.utf8)
         try config.write(to: notificationSettingsURL)
 
         let state = AppState()
@@ -176,10 +177,11 @@ final class PRMergedNotificationTests: XCTestCase {
     // MARK: - PaneNotification defaults
 
     func testPaneNotificationDefaultKindIsTerminalBell() {
-        let n = PaneNotification(paneID: UUID(), paneName: "p", tabID: UUID(), tabName: "t", isPriority: false)
-        XCTAssertEqual(n.kind, .terminalBell)
-        XCTAssertNil(n.prNumber)
-        XCTAssertNil(n.prTitle)
+        let notification = PaneNotification(
+            paneID: UUID(), paneName: "p", tabID: UUID(), tabName: "t", isPriority: false)
+        XCTAssertEqual(notification.kind, .terminalBell)
+        XCTAssertNil(notification.prNumber)
+        XCTAssertNil(notification.prTitle)
     }
 
     // MARK: - PersistedPaneNotification: new fields round-trip
@@ -198,17 +200,18 @@ final class PRMergedNotificationTests: XCTestCase {
     }
 
     func testLegacyPersistedNotificationDefaultsToTerminalBell() throws {
-        let json = """
-        {
-          "notificationID": "00000000-0000-0000-0000-000000000001",
-          "paneID": "00000000-0000-0000-0000-000000000002",
-          "paneName": "p",
-          "tabID": "00000000-0000-0000-0000-000000000003",
-          "tabName": "t",
-          "isPriority": false,
-          "timestamp": 0
-        }
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {
+              "notificationID": "00000000-0000-0000-0000-000000000001",
+              "paneID": "00000000-0000-0000-0000-000000000002",
+              "paneName": "p",
+              "tabID": "00000000-0000-0000-0000-000000000003",
+              "tabName": "t",
+              "isPriority": false,
+              "timestamp": 0
+            }
+            """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPaneNotification.self, from: json)
         XCTAssertEqual(decoded.kind, .terminalBell)
         XCTAssertNil(decoded.prNumber)
@@ -238,9 +241,10 @@ final class PRMergedNotificationTests: XCTestCase {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "agent-session-manager")
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        let legacy = """
-        {"sidebarSide":"right","isPriorityEnabled":true,"isMacOSBannerEnabled":true,"isClaudeHookAttentionEnabled":true}
-        """.data(using: .utf8)!
+        let legacy = Data(
+            """
+            {"sidebarSide":"right","isPriorityEnabled":true,"isMacOSBannerEnabled":true,"isClaudeHookAttentionEnabled":true}
+            """.utf8)
         try legacy.write(to: notificationSettingsURL)
 
         let restored = AppSettings()
@@ -258,8 +262,9 @@ final class PRMergedNotificationTests: XCTestCase {
     // MARK: - Helpers
 
     private func makePRJSON(state: String, number: Int = 1, title: String = "PR") -> Data {
-        """
-        {"number":\(number),"title":"\(title)","state":"\(state)","url":"https://github.com/owner/repo/pull/\(number)"}
-        """.data(using: .utf8)!
+        Data(
+            """
+            {"number":\(number),"title":"\(title)","state":"\(state)","url":"https://github.com/owner/repo/pull/\(number)"}
+            """.utf8)
     }
 }

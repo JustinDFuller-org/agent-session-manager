@@ -42,31 +42,31 @@ struct PersistedPaneNotification: Codable, Equatable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        notificationID = try c.decode(UUID.self, forKey: .notificationID)
-        paneID = try c.decode(UUID.self, forKey: .paneID)
-        paneName = try c.decode(String.self, forKey: .paneName)
-        tabID = try c.decode(UUID.self, forKey: .tabID)
-        tabName = try c.decode(String.self, forKey: .tabName)
-        isPriority = try c.decode(Bool.self, forKey: .isPriority)
-        timestamp = try c.decode(Date.self, forKey: .timestamp)
-        kind = try c.decodeIfPresent(NotificationKind.self, forKey: .kind) ?? .terminalBell
-        prNumber = try c.decodeIfPresent(Int.self, forKey: .prNumber)
-        prTitle = try c.decodeIfPresent(String.self, forKey: .prTitle)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        notificationID = try container.decode(UUID.self, forKey: .notificationID)
+        paneID = try container.decode(UUID.self, forKey: .paneID)
+        paneName = try container.decode(String.self, forKey: .paneName)
+        tabID = try container.decode(UUID.self, forKey: .tabID)
+        tabName = try container.decode(String.self, forKey: .tabName)
+        isPriority = try container.decode(Bool.self, forKey: .isPriority)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        kind = try container.decodeIfPresent(NotificationKind.self, forKey: .kind) ?? .terminalBell
+        prNumber = try container.decodeIfPresent(Int.self, forKey: .prNumber)
+        prTitle = try container.decodeIfPresent(String.self, forKey: .prTitle)
     }
 
     func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(notificationID, forKey: .notificationID)
-        try c.encode(paneID, forKey: .paneID)
-        try c.encode(paneName, forKey: .paneName)
-        try c.encode(tabID, forKey: .tabID)
-        try c.encode(tabName, forKey: .tabName)
-        try c.encode(isPriority, forKey: .isPriority)
-        try c.encode(timestamp, forKey: .timestamp)
-        try c.encode(kind, forKey: .kind)
-        try c.encodeIfPresent(prNumber, forKey: .prNumber)
-        try c.encodeIfPresent(prTitle, forKey: .prTitle)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(notificationID, forKey: .notificationID)
+        try container.encode(paneID, forKey: .paneID)
+        try container.encode(paneName, forKey: .paneName)
+        try container.encode(tabID, forKey: .tabID)
+        try container.encode(tabName, forKey: .tabName)
+        try container.encode(isPriority, forKey: .isPriority)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(kind, forKey: .kind)
+        try container.encodeIfPresent(prNumber, forKey: .prNumber)
+        try container.encodeIfPresent(prTitle, forKey: .prTitle)
     }
 }
 

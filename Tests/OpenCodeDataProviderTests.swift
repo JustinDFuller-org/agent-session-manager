@@ -1,13 +1,13 @@
-import Testing
 import Foundation
 import SQLite3
+import Testing
+
 @testable import AgentSessionManager
 
-private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 @Suite("OpenCodeDataProvider")
 struct OpenCodeDataProviderTests {
-
     // MARK: - Database path discovery
 
     @Test func testDatabasePathDefaultsToHomeLocalShare() {
@@ -46,11 +46,13 @@ struct OpenCodeDataProviderTests {
         defer { try? FileManager.default.removeItem(atPath: db) }
 
         let dir = "/test/project"
-        try seedDatabase(path: db, directory: dir, messages: [
-            .init(role: "user",      cost: nil,     input: nil,  output: nil, mode: nil,  completed: true),
-            .init(role: "assistant", cost: 0.01,    input: 100,  output: 50,  mode: "plan", completed: true),
-            .init(role: "assistant", cost: 0.02,    input: 200,  output: 80,  mode: "code", completed: true),
-        ])
+        try seedDatabase(
+            path: db, directory: dir,
+            messages: [
+                .init(role: "user", cost: nil, input: nil, output: nil, mode: nil, completed: true),
+                .init(role: "assistant", cost: 0.01, input: 100, output: 50, mode: "plan", completed: true),
+                .init(role: "assistant", cost: 0.02, input: 200, output: 80, mode: "code", completed: true),
+            ])
 
         let result = OpenCodeDataProvider.queryDatabase(path: db, directory: dir)
         #expect(result != nil)
@@ -68,9 +70,11 @@ struct OpenCodeDataProviderTests {
         defer { try? FileManager.default.removeItem(atPath: db) }
 
         let dir = "/test/busy"
-        try seedDatabase(path: db, directory: dir, messages: [
-            .init(role: "assistant", cost: 0.01, input: 100, output: 50, mode: "code", completed: false),
-        ])
+        try seedDatabase(
+            path: db, directory: dir,
+            messages: [
+                .init(role: "assistant", cost: 0.01, input: 100, output: 50, mode: "code", completed: false)
+            ])
 
         let result = OpenCodeDataProvider.queryDatabase(path: db, directory: dir)
         #expect(result?.isBusy == true)
@@ -82,12 +86,16 @@ struct OpenCodeDataProviderTests {
 
         // Insert two sessions for the same directory; the newer one should be used.
         let dir = "/test/multi"
-        try seedDatabase(path: db, directory: dir, sessionID: "old-session", timeUpdated: 1000, messages: [
-            .init(role: "assistant", cost: 9.99, input: 9999, output: 9999, mode: "old", completed: true),
-        ])
-        try seedDatabase(path: db, directory: dir, sessionID: "new-session", timeUpdated: 2000, messages: [
-            .init(role: "assistant", cost: 0.01, input: 100, output: 50, mode: "new", completed: true),
-        ])
+        try seedDatabase(
+            path: db, directory: dir, sessionID: "old-session", timeUpdated: 1000,
+            messages: [
+                .init(role: "assistant", cost: 9.99, input: 9999, output: 9999, mode: "old", completed: true)
+            ])
+        try seedDatabase(
+            path: db, directory: dir, sessionID: "new-session", timeUpdated: 2000,
+            messages: [
+                .init(role: "assistant", cost: 0.01, input: 100, output: 50, mode: "new", completed: true)
+            ])
 
         let result = OpenCodeDataProvider.queryDatabase(path: db, directory: dir)
         #expect(result?.mode == "new")
@@ -104,19 +112,19 @@ struct OpenCodeDataProviderTests {
     }
 
     @Test func testOpenCodeModeDecodesFromJSON() throws {
-        let json = #"{"open_code_mode":"architect"}"#.data(using: .utf8)!
+        let json = Data(#"{"open_code_mode":"architect"}"#.utf8)
         let decoded = try JSONDecoder().decode(StatusLineData.self, from: json)
         #expect(decoded.openCodeMode == "architect")
     }
 
     @Test func testSessionStatusDecodesFromJSON() throws {
-        let json = #"{"session_status":{"state":"retry"}}"#.data(using: .utf8)!
+        let json = Data(#"{"session_status":{"state":"retry"}}"#.utf8)
         let decoded = try JSONDecoder().decode(StatusLineData.self, from: json)
         #expect(decoded.sessionStatus?.state == "retry")
     }
 
     @Test func testNewFieldsAreNilWhenAbsentFromJSON() throws {
-        let json = #"{"version":"1.0"}"#.data(using: .utf8)!
+        let json = Data(#"{"version":"1.0"}"#.utf8)
         let decoded = try JSONDecoder().decode(StatusLineData.self, from: json)
         #expect(decoded.sessionStatus == nil)
         #expect(decoded.openCodeMode == nil)
@@ -173,8 +181,8 @@ private func seedDatabase(
     let insertSession = "INSERT OR REPLACE INTO session (id, directory, time_updated) VALUES (?, ?, ?)"
     var stmt: OpaquePointer?
     if sqlite3_prepare_v2(db, insertSession, -1, &stmt, nil) == SQLITE_OK {
-        sqlite3_bind_text(stmt, 1, sessionID, -1, SQLITE_TRANSIENT)
-        sqlite3_bind_text(stmt, 2, directory, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 1, sessionID, -1, sqliteTransient)
+        sqlite3_bind_text(stmt, 2, directory, -1, sqliteTransient)
         sqlite3_bind_int(stmt, 3, Int32(timeUpdated))
         sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -187,7 +195,7 @@ private func seedDatabase(
             dataDict["tokens"] = ["input": input, "output": output]
         }
         if let mode = msg.mode { dataDict["mode"] = mode }
-        dataDict["modelID"]    = "test-model"
+        dataDict["modelID"] = "test-model"
         dataDict["providerID"] = "test-provider"
         var timeDict: [String: Any] = ["created": (timeUpdated + i) * 1000]
         if msg.completed { timeDict["completed"] = (timeUpdated + i + 1) * 1000 }
@@ -197,10 +205,10 @@ private func seedDatabase(
         let insertMsg = "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)"
         if sqlite3_prepare_v2(db, insertMsg, -1, &stmt, nil) == SQLITE_OK {
             let msgID = "msg-\(sessionID)-\(i)"
-            sqlite3_bind_text(stmt, 1, msgID, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 2, sessionID, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 1, msgID, -1, sqliteTransient)
+            sqlite3_bind_text(stmt, 2, sessionID, -1, sqliteTransient)
             sqlite3_bind_int64(stmt, 3, Int64((timeUpdated + i) * 1000))
-            sqlite3_bind_text(stmt, 4, json, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 4, json, -1, sqliteTransient)
             sqlite3_step(stmt)
             sqlite3_finalize(stmt)
         }

@@ -148,14 +148,16 @@ struct ContentView: View {
         .alert("PR Merged", isPresented: $showPRMergedAlert) {
             Button("Close Pane") {
                 guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
-                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                pendingPRMergedPane = nil
+                pendingPRMergedTab = nil
                 appState.clearNotification(paneID: pane.id)
                 tab.closePane(pane)
                 SessionPersistence.save(appState: appState)
             }
             Button("Close Pane and Clean Up Worktree", role: .destructive) {
                 guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
-                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                pendingPRMergedPane = nil
+                pendingPRMergedTab = nil
                 appState.clearNotification(paneID: pane.id)
                 Task {
                     try? await tab.cleanupWorktree(for: pane)
@@ -170,13 +172,16 @@ struct ContentView: View {
                     appState.focusPane(tabID: tab.id, paneID: pane.id)
                     appState.clearNotification(paneID: pane.id)
                 }
-                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                pendingPRMergedPane = nil
+                pendingPRMergedTab = nil
             }
         } message: {
             if let pane = pendingPRMergedPane {
                 let prInfo = pane.statusLineMonitor?.currentData?.pr
                 if let pr = prInfo {
-                    Text("PR #\(pr.number) \"\(pr.title)\" for pane \"\(pane.name)\" has been merged. What would you like to do?")
+                    let msg =
+                        "PR #\(pr.number) \"\(pr.title)\" for pane \"\(pane.name)\" has been merged. What would you like to do?"
+                    Text(msg)
                 } else {
                     Text("The PR for pane \"\(pane.name)\" has been merged. What would you like to do?")
                 }

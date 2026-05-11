@@ -660,7 +660,7 @@ private struct StatusLineContent: View {
         Form {
             Section {
                 Text(
-                    “Configure the info panel shown at the bottom of each pane. Items marked “Claude only” require Claude Code’s statusLine hook. Items marked “OpenCode only” are populated via the OpenCode HTTP API. All other items work with any tool via git and process data.”
+                    "Configure the info panel shown at the bottom of each pane. Items marked \"Claude only\" require Claude Code's statusLine hook. Items marked \"OpenCode only\" are populated via the OpenCode HTTP API. All other items work with any tool via git and process data."
                 )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -718,6 +718,40 @@ private struct StatusLineContent: View {
     }
 
     @ViewBuilder
+    private func availabilityBadge(for availability: ToolAvailability) -> some View {
+        switch availability {
+        case .claudeOnly:
+            Text("Claude only")
+                .font(.caption2)
+                .foregroundStyle(.blue)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.blue.opacity(0.1)))
+        case .opencodeOnly:
+            Text("OpenCode only")
+                .font(.caption2)
+                .foregroundStyle(.purple)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.purple.opacity(0.1)))
+        case .claudeOrOpencode:
+            Text("Claude + OpenCode")
+                .font(.caption2)
+                .foregroundStyle(.indigo)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.indigo.opacity(0.1)))
+        case .all:
+            Text("All tools")
+                .font(.caption2)
+                .foregroundStyle(.green)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.green.opacity(0.1)))
+        }
+    }
+
+    @ViewBuilder
     private func rowSection(rowIndex: Int, appSettings: AppSettings) -> some View {
         @Bindable var appSettings = appSettings
         let rowCount = appSettings.statusLineConfig.rows.count
@@ -742,36 +776,7 @@ private struct StatusLineContent: View {
                         }
                     }
                     Spacer()
-                    switch item.availability {
-                    case .claudeOnly:
-                        Text("Claude only")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.blue.opacity(0.1)))
-                    case .opencodeOnly:
-                        Text("OpenCode only")
-                            .font(.caption2)
-                            .foregroundStyle(.purple)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.purple.opacity(0.1)))
-                    case .claudeOrOpencode:
-                        Text("Claude + OpenCode")
-                            .font(.caption2)
-                            .foregroundStyle(.indigo)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.indigo.opacity(0.1)))
-                    case .all:
-                        Text("All tools")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.green.opacity(0.1)))
-                    }
+                    availabilityBadge(for: item.availability)
                     Button(role: .destructive) {
                         appSettings.statusLineConfig.rows[rowIndex].items.removeAll { $0.id == item.id }
                         SettingsPersistence.saveStatusLine(appSettings: appSettings)

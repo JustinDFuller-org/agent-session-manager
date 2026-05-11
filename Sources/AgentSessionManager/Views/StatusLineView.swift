@@ -92,8 +92,8 @@ struct StatusLineView: View {
         }
         if itemID == "sessionStatus", let state = data.sessionStatus?.state {
             switch state {
-            case "idle":  return AnyShapeStyle(.green)
-            case "busy":  return AnyShapeStyle(.yellow)
+            case "idle": return AnyShapeStyle(.green)
+            case "busy": return AnyShapeStyle(.yellow)
             case "retry": return AnyShapeStyle(.orange)
             default: break
             }
