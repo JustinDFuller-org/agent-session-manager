@@ -248,7 +248,11 @@ final class Tab: Identifiable {
 
     /// Resolves user input (branch, remote ref, plain name, or managed worktree name) when attaching or creating Git worktrees in-app.
     /// If the ref does not exist but is a valid worktree name and `defaultBranch` is provided, creates a worktree from that branch.
-    func resolveOrAttachWorktree(userRef raw: String, defaultBranch: String? = nil) async throws -> ResolvedWorktree {
+    func resolveOrAttachWorktree(
+        userRef raw: String,
+        defaultBranch: String? = nil,
+        baseRef: WorktreeBaseRef = .fresh
+    ) async throws -> ResolvedWorktree {
         let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
 
@@ -307,8 +311,13 @@ final class Tab: Identifiable {
         let appConfigRoot = directory.appending(path: ".agent-session-manager", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: appConfigRoot, withIntermediateDirectories: true)
 
-        if !(await refExists(branch)) {
+        let startingRef: String
+        switch baseRef {
+        case .fresh:
             try await runGit(["fetch", "origin", branch])
+            startingRef = "origin/\(branch)"
+        case .head:
+            startingRef = "HEAD"
         }
 
         let rel = Tab.gitWorktreeAddPath(name: targetName)
@@ -316,7 +325,7 @@ final class Tab: Identifiable {
         if await refExists(targetName) {
             args = ["worktree", "add", rel, targetName]
         } else {
-            args = ["worktree", "add", "-b", targetName, rel, branch]
+            args = ["worktree", "add", "-b", targetName, rel, startingRef]
         }
         do {
             try await runGit(args)

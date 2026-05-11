@@ -56,7 +56,8 @@ final class WorktreeResolutionTests: XCTestCase {
 
         let tab = Tab(name: "T", directory: repo)
         let slug = "fresh-session-\(UUID().uuidString.prefix(8))"
-        let resolved = try await tab.resolveOrAttachWorktree(userRef: slug, defaultBranch: "novel-base")
+        let resolved = try await tab.resolveOrAttachWorktree(
+            userRef: slug, defaultBranch: "novel-base", baseRef: .head)
         XCTAssertEqual(resolved.paneTitle, slug)
         XCTAssertFalse(resolved.isExternalTakeover)
         XCTAssertTrue(resolved.processDirectory.path.hasSuffix(Tab.gitWorktreeAddPath(name: slug)))

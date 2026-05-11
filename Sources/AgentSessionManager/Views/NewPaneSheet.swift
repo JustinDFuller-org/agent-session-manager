@@ -246,7 +246,11 @@ struct NewPaneSheet: View {
         Task {
             do {
                 let defaultBranch: String? = appSettings.isDefaultBranchEnabled ? appSettings.defaultBranch : nil
-                let resolved = try await tab.resolveOrAttachWorktree(userRef: trimmed, defaultBranch: defaultBranch)
+                let resolved = try await tab.resolveOrAttachWorktree(
+                    userRef: trimmed,
+                    defaultBranch: defaultBranch,
+                    baseRef: appSettings.worktreeBaseRef
+                )
                 await MainActor.run {
                     if appState.isCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL) {
                         isCreating = false

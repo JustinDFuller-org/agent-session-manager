@@ -297,6 +297,31 @@ private struct WorktreesContent: View {
                     }
                 }
                 .padding(.vertical, 2)
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Base Ref")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text(appSettings.worktreeBaseRef.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker("Base Ref", selection: $appSettings.worktreeBaseRef) {
+                        ForEach(WorktreeBaseRef.allCases, id: \.self) { option in
+                            Text(option.displayName).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 160)
+                    .accessibilityIdentifier("settings-worktree-base-ref-picker")
+                    .onChange(of: appSettings.worktreeBaseRef) {
+                        SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
+                    }
+                }
+                .padding(.vertical, 2)
             }
 
             Section("Existing Worktrees") {

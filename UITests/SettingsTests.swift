@@ -150,6 +150,45 @@ final class SettingsTests: BaseTestCase {
         XCTAssertEqual(toggle.value as? Int, 1)
     }
 
+    func testWorktreesTabShowsBaseRefPicker() {
+        openSettings()
+        let worktreesTab = app.buttons["Worktrees"]
+        waitFor(worktreesTab)
+        worktreesTab.click()
+
+        let picker = app.segmentedControls["settings-worktree-base-ref-picker"]
+        waitFor(picker)
+        XCTAssertTrue(picker.exists)
+    }
+
+    func testBaseRefPickerDefaultsToFresh() {
+        openSettings()
+        let worktreesTab = app.buttons["Worktrees"]
+        waitFor(worktreesTab)
+        worktreesTab.click()
+
+        let picker = app.segmentedControls["settings-worktree-base-ref-picker"]
+        waitFor(picker)
+        let freshButton = picker.buttons["Fresh"]
+        XCTAssertEqual(freshButton.value as? Int, 1)
+    }
+
+    func testBaseRefPickerCanBeChangedToHEAD() {
+        openSettings()
+        let worktreesTab = app.buttons["Worktrees"]
+        waitFor(worktreesTab)
+        worktreesTab.click()
+
+        let picker = app.segmentedControls["settings-worktree-base-ref-picker"]
+        waitFor(picker)
+        picker.buttons["HEAD"].click()
+
+        let freshButton = picker.buttons["Fresh"]
+        let headButton = picker.buttons["HEAD"]
+        XCTAssertEqual(freshButton.value as? Int, 0)
+        XCTAssertEqual(headButton.value as? Int, 1)
+    }
+
     private func openSettings() {
         app.typeKey(",", modifierFlags: .command)
     }
