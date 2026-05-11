@@ -97,6 +97,7 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(settings.notificationSidebarSide, .right)
         XCTAssertTrue(settings.isPriorityNotificationsEnabled)
         XCTAssertTrue(settings.isMacOSBannerNotificationsEnabled)
+        XCTAssertTrue(settings.alwaysShowNotificationsSidebar)
     }
 
     func testNotificationSettingsPersistRoundTrip() {
@@ -109,6 +110,7 @@ final class NotificationTests: XCTestCase {
         settings.notificationSidebarSide = .left
         settings.isPriorityNotificationsEnabled = false
         settings.isMacOSBannerNotificationsEnabled = false
+        settings.alwaysShowNotificationsSidebar = false
         SettingsPersistence.saveNotificationSettings(appSettings: settings)
 
         let restored = AppSettings()
@@ -116,6 +118,43 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(restored.notificationSidebarSide, .left)
         XCTAssertFalse(restored.isPriorityNotificationsEnabled)
         XCTAssertFalse(restored.isMacOSBannerNotificationsEnabled)
+        XCTAssertFalse(restored.alwaysShowNotificationsSidebar)
+    }
+
+    func testAlwaysShowNotificationsSidebarRoundTrip() {
+        let notificationURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager/notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: notificationURL) }
+
+        let settings = AppSettings()
+        settings.alwaysShowNotificationsSidebar = true
+        SettingsPersistence.saveNotificationSettings(appSettings: settings)
+
+        let restored = AppSettings()
+        restored.alwaysShowNotificationsSidebar = false
+        SettingsPersistence.restoreNotificationSettings(into: restored)
+        XCTAssertTrue(restored.alwaysShowNotificationsSidebar)
+    }
+
+    func testAlwaysShowNotificationsSidebarLegacyJSONDefaultsTrue() throws {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appending(path: "notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let legacy = Data(
+            """
+            {"sidebarSide":"right","isPriorityEnabled":true,"isMacOSBannerEnabled":true,"isClaudeHookAttentionEnabled":true,"isPRMergedNotificationsEnabled":true}
+            """.utf8)
+        try legacy.write(to: url)
+
+        let restored = AppSettings()
+        restored.alwaysShowNotificationsSidebar = false
+        SettingsPersistence.restoreNotificationSettings(into: restored)
+        XCTAssertTrue(restored.alwaysShowNotificationsSidebar)
     }
 
     /// Older `notification-settings.json` files did not encode the macOS banner flag; it should default on.

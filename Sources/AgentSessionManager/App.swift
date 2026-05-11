@@ -29,7 +29,10 @@ struct ContentView: View {
             Divider()
 
             HStack(spacing: 0) {
-                if appSettings.notificationSidebarSide == .left && hasNotifications {
+                if appSettings.notificationSidebarSide == .left
+                    && (hasNotifications
+                        || appSettings.alwaysShowNotificationsSidebar)
+                {
                     NotificationSidebarView()
                         .environment(appState)
                         .environment(appSettings)
@@ -46,7 +49,10 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if appSettings.notificationSidebarSide == .right && hasNotifications {
+                if appSettings.notificationSidebarSide == .right
+                    && (hasNotifications
+                        || appSettings.alwaysShowNotificationsSidebar)
+                {
                     Divider()
                     NotificationSidebarView()
                         .environment(appState)

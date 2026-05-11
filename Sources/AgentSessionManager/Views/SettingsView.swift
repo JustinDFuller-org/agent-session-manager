@@ -1110,6 +1110,25 @@ private struct NotificationsContent: View {
                     }
                 }
                 .padding(.vertical, 2)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Always Show Notifications Bar")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text("Keep the notifications sidebar visible even when there are no notifications.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Always Show Notifications Bar", isOn: $appSettings.alwaysShowNotificationsSidebar)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-always-show-notifications-bar-toggle")
+                        .onChange(of: appSettings.alwaysShowNotificationsSidebar) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
             }
             Section("Priority") {
                 HStack {
