@@ -1,6 +1,6 @@
+import AppKit
 import Foundation
 import Observation
-import AppKit
 import UserNotifications
 
 // MARK: - File sink
@@ -50,13 +50,13 @@ final class DebugFileTraceSink: @unchecked Sendable {
     /// Drops the oldest log bytes so the file stays at or below `maxBytes`, cutting on a newline boundary when possible.
     private static func trimStartOfFileIfNeeded(at url: URL, maxBytes: Int) {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let sizeNum = attrs[.size] as? NSNumber
+            let sizeNum = attrs[.size] as? NSNumber
         else { return }
         let size = sizeNum.intValue
         guard size > maxBytes else { return }
         guard let data = try? Data(contentsOf: url), !data.isEmpty else { return }
 
-        let targetKeep = maxBytes - 512 // leave room for truncation banner
+        let targetKeep = maxBytes - 512  // leave room for truncation banner
         let dropCount = max(0, data.count - targetKeep)
         var cut = dropCount
         while cut < data.count, data[cut] != UInt8(ascii: "\n") {
@@ -200,7 +200,8 @@ final class DebugLogger {
         guard !segments.isEmpty else { return }
 
         for (index, segment) in segments.enumerated() {
-            let capped = segment.count > maxMessageLineLength
+            let capped =
+                segment.count > maxMessageLineLength
                 ? String(segment.prefix(maxMessageLineLength)) + "…"
                 : segment
             let ts = timestampFormatter.string(from: Date())
@@ -240,18 +241,22 @@ final class DebugLogger {
             lines.append("cwd: \(cwd)")
         }
         if let env = environment {
-            lines.append("environment (\(env.count) vars, showing first \(min(env.count, Self.processStartEnvSampleLineCap))):")
+            lines.append(
+                "environment (\(env.count) vars, showing first \(min(env.count, Self.processStartEnvSampleLineCap))):")
             for (index, pair) in env.enumerated() where index < Self.processStartEnvSampleLineCap {
                 let parts = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
                 let key = parts.first.map(String.init) ?? ""
                 let value = parts.count > 1 ? String(parts[1]) : ""
-                let truncated = value.count > processStartEnvValueCap
+                let truncated =
+                    value.count > processStartEnvValueCap
                     ? String(value.prefix(processStartEnvValueCap)) + "…"
                     : value
                 lines.append("  \(key)=\(truncated)")
             }
             if env.count > Self.processStartEnvSampleLineCap {
-                lines.append("  … \(env.count - Self.processStartEnvSampleLineCap) more vars omitted (reduce trace verbosity in Settings if needed)")
+                lines.append(
+                    "  … \(env.count - Self.processStartEnvSampleLineCap) more vars omitted (reduce trace verbosity in Settings if needed)"
+                )
             }
         }
         recordMessage(lines.joined(separator: "\n"), paneID: paneID, tabName: tabName, paneName: paneName)
@@ -273,7 +278,8 @@ final class DebugLogger {
 
     func logWorktreeResolution(userRef: String, result: String) {
         guard isEnabled else { return }
-        recordMessage("── Worktree Resolution ──\nref: \(userRef)\nresult: \(result)", paneID: nil, tabName: nil, paneName: nil)
+        recordMessage(
+            "── Worktree Resolution ──\nref: \(userRef)\nresult: \(result)", paneID: nil, tabName: nil, paneName: nil)
     }
 
     func logTerminalContent(
@@ -311,7 +317,8 @@ final class DebugLogger {
             var lines: [String] = []
             lines.append("── Notification Environment ──")
             lines.append("settings.isMacOSBannerNotificationsEnabled: \(macOSBannerNotificationsEnabled)")
-            lines.append("UNUserNotificationCenter.authorizationStatus: \(String(describing: settings.authorizationStatus))")
+            lines.append(
+                "UNUserNotificationCenter.authorizationStatus: \(String(describing: settings.authorizationStatus))")
             lines.append("alertSetting: \(String(describing: settings.alertSetting))")
             lines.append("soundSetting: \(String(describing: settings.soundSetting))")
             lines.append("notificationCenterSetting: \(String(describing: settings.notificationCenterSetting))")
@@ -377,10 +384,8 @@ final class DebugLogger {
         guard valueStart < line.endIndex else { return line }
 
         let keyUpper = String(keyPart).uppercased()
-        for token in sensitiveEnvKeySubstrings {
-            if keyUpper.contains(token) {
-                return "\(keyPart)=<redacted>"
-            }
+        for token in sensitiveEnvKeySubstrings where keyUpper.contains(token) {
+            return "\(keyPart)=<redacted>"
         }
         return line
     }
@@ -415,7 +420,9 @@ final class DebugLogger {
         lines.append(traceFilePath)
         lines.append("```")
         lines.append("")
-        lines.append("Open that file in a text editor, or use **Reveal in Finder** from the debug tracing sheet. Review for secrets before sharing.")
+        lines.append(
+            "Open that file in a text editor, or use **Reveal in Finder** from the debug tracing sheet. Review for secrets before sharing."
+        )
         return lines.joined(separator: "\n")
     }
 
@@ -439,7 +446,7 @@ final class DebugLogger {
                 NSWorkspace.shared.open(url)
                 return
             }
-            maxRawBody = maxRawBody / 2
+            maxRawBody /= 2
         }
     }
 }
@@ -448,11 +455,12 @@ extension Notification.Name {
     /// Posted when per-pane debug tracing membership changes (ladybug visibility).
     static let agentSessionManagerDebugTracingChanged = Notification.Name("agentSessionManagerDebugTracingChanged")
     /// Posted when Claude `Notification` hook integration is toggled (refresh per-pane `--settings` files).
-    static let agentSessionManagerClaudeHookAttentionSettingChanged = Notification.Name("agentSessionManagerClaudeHookAttentionSettingChanged")
+    static let agentSessionManagerClaudeHookAttentionSettingChanged = Notification.Name(
+        "agentSessionManagerClaudeHookAttentionSettingChanged")
 }
 
-private extension utsname {
-    static var machineName: String {
+extension utsname {
+    fileprivate static var machineName: String {
         var sys = utsname()
         uname(&sys)
         return withUnsafePointer(to: &sys.machine) { ptr in

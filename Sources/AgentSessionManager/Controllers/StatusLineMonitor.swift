@@ -1,6 +1,6 @@
+import AppKit
 import Foundation
 import Observation
-import AppKit
 
 enum SidebarSide: String, Codable, CaseIterable {
     case left, right
@@ -52,14 +52,17 @@ final class StatusLineMonitor {
         self.isClaude = cliType == .claude
         filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
-        attentionSignalFilePath = NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
+        attentionSignalFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
 
         if !isClaude, let cwd = workingDirectory {
             let provider: any StatusLineDataProvider
             if cliType == .opencode {
                 provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
             } else {
-                provider = ToolAgnosticDataProvider(workingDirectory: cwd, toolCommand: cliType.cliCommandDescription, processStartTime: processStartTime)
+                let toolCmd = cliType.cliCommandDescription
+                provider = ToolAgnosticDataProvider(
+                    workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
             }
             agnosticProvider = provider
             agnosticProvider?.onUpdate = { [weak self] data in
@@ -88,7 +91,7 @@ final class StatusLineMonitor {
             )
             src.setEventHandler { [weak self, filePath] in
                 guard let data = try? Data(contentsOf: URL(filePath: filePath)),
-                      let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
+                    let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
                 else { return }
                 Task { @MainActor [weak self] in
                     var merged = parsed
@@ -145,7 +148,7 @@ final class StatusLineMonitor {
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
-                "command": "cat > '\(filePath)'"
+                "command": "cat > '\(filePath)'",
             ]
         ]
         if attentionEnabled {
@@ -156,9 +159,9 @@ final class StatusLineMonitor {
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": "cat > '\(attentionSignalFilePath)'"
+                                "command": "cat > '\(attentionSignalFilePath)'",
                             ]
-                        ]
+                        ],
                     ]
                 ]
             ]
@@ -201,7 +204,9 @@ final class StatusLineMonitor {
         attentionDebounceWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else { return }
+            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else {
+                return
+            }
             var hasher = Hasher()
             hasher.combine(data)
             let fingerprint = hasher.finalize()
@@ -239,7 +244,10 @@ final class StatusLineMonitor {
         let outPipe = Pipe()
         let errPipe = Pipe()
         task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,commits,statusCheckRollup 2>/dev/null || true"]
+        task.arguments = [
+            "-c",
+            "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,commits,statusCheckRollup 2>/dev/null || true",
+        ]
         task.standardOutput = outPipe
         task.standardError = errPipe
 
@@ -268,15 +276,18 @@ final class StatusLineMonitor {
     private func fetchBuildStatus(for pr: PullRequest, workingDirectory: String, outData: Data) {
         guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else { return }
         guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
-              let commits = json["commits"] as? [[String: Any]],
-              let headSHA = commits.first?["oid"] as? String
+            let commits = json["commits"] as? [[String: Any]],
+            let headSHA = commits.first?["oid"] as? String
         else { return }
 
         let task = Process()
         let outPipe = Pipe()
         let errPipe = Pipe()
         task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "cd '\(workingDirectory)' && gh api 'repos/\(owner)/\(repo)/commits/\(headSHA)/status' --jq '.state' 2>/dev/null || true"]
+        task.arguments = [
+            "-c",
+            "cd '\(workingDirectory)' && gh api 'repos/\(owner)/\(repo)/commits/\(headSHA)/status' --jq '.state' 2>/dev/null || true",
+        ]
         task.standardOutput = outPipe
         task.standardError = errPipe
 
@@ -285,7 +296,9 @@ final class StatusLineMonitor {
             _ = errPipe.fileHandleForReading.readDataToEndOfFile()
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if let state = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !state.isEmpty {
+                if let state = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    !state.isEmpty
+                {
                     self.currentData?.pr?.commitStatusState = state
                 }
             }
@@ -302,13 +315,17 @@ final class StatusLineMonitor {
     private func fetchUnresolvedComments(for pr: PullRequest, workingDirectory: String) {
         guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else { return }
 
-        let query = "query($owner: String!, $repo: String!, $pr: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $pr) { reviewThreads(first: 100) { totalCount } } } }"
+        let query =
+            "query($owner: String!, $repo: String!, $pr: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $pr) { reviewThreads(first: 100) { totalCount } } } }"
 
         let task = Process()
         let outPipe = Pipe()
         let errPipe = Pipe()
         task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "cd '\(workingDirectory)' && gh api graphql -f owner='\(owner)' -f repo='\(repo)' -f pr=\(pr.number) -f query='\(query)' 2>/dev/null || true"]
+        task.arguments = [
+            "-c",
+            "cd '\(workingDirectory)' && gh api graphql -f owner='\(owner)' -f repo='\(repo)' -f pr=\(pr.number) -f query='\(query)' 2>/dev/null || true",
+        ]
         task.standardOutput = outPipe
         task.standardError = errPipe
 
@@ -318,11 +335,11 @@ final class StatusLineMonitor {
             Task { @MainActor [weak self] in
                 guard let self, !outData.isEmpty else { return }
                 guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
-                      let data = json["data"] as? [String: Any],
-                      let repository = data["repository"] as? [String: Any],
-                      let pullRequest = repository["pullRequest"] as? [String: Any],
-                      let threads = pullRequest["reviewThreads"] as? [String: Any],
-                      let total = threads["totalCount"] as? Int
+                    let data = json["data"] as? [String: Any],
+                    let repository = data["repository"] as? [String: Any],
+                    let pullRequest = repository["pullRequest"] as? [String: Any],
+                    let threads = pullRequest["reviewThreads"] as? [String: Any],
+                    let total = threads["totalCount"] as? Int
                 else { return }
                 self.currentData?.pr?.unresolvedCommentCount = total
             }
@@ -352,7 +369,9 @@ final class StatusLineMonitor {
 
         guard task.terminationStatus == 0 else { return nil }
         let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-        guard let raw = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        guard let raw = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !raw.isEmpty
+        else { return nil }
 
         var cleaned = raw
         if cleaned.hasSuffix(".git") {
@@ -429,7 +448,7 @@ final class StatusLineMonitor {
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
-                "command": "cat > '\(statusOutputPath)'"
+                "command": "cat > '\(statusOutputPath)'",
             ]
         ]
         if includeNotificationHook {
@@ -440,9 +459,9 @@ final class StatusLineMonitor {
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": "cat > '\(attentionOutputPath)'"
+                                "command": "cat > '\(attentionOutputPath)'",
                             ]
-                        ]
+                        ],
                     ]
                 ]
             ]

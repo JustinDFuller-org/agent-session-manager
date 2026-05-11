@@ -36,178 +36,182 @@ private struct GeneralContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         ScrollView {
-        Form {
-            Section {
-                Text("Configure general app behavior.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Git") {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Default Branch")
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        Text("Automatically fetch and create worktrees from a default branch.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-default-branch-toggle")
-                        .onChange(of: appSettings.isDefaultBranchEnabled) {
-                            SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
-                        }
+            Form {
+                Section {
+                    Text("Configure general app behavior.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 2)
-
-                if appSettings.isDefaultBranchEnabled {
+                Section("Git") {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Branch Name")
+                            Text("Default Branch")
                                 .font(.system(.body, design: .monospaced))
                                 .fontWeight(.medium)
-                            Text("Branch used as the base when creating new worktrees.")
+                            Text("Automatically fetch and create worktrees from a default branch.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        TextField("e.g. main", text: $appSettings.defaultBranch)
+                        Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .accessibilityIdentifier("settings-default-branch-toggle")
+                            .onChange(of: appSettings.isDefaultBranchEnabled) {
+                                SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                            }
+                    }
+                    .padding(.vertical, 2)
+
+                    if appSettings.isDefaultBranchEnabled {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Branch Name")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("Branch used as the base when creating new worktrees.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            TextField("e.g. main", text: $appSettings.defaultBranch)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                                .frame(width: 120)
+                                .accessibilityIdentifier("settings-default-branch-field")
+                                .onChange(of: appSettings.defaultBranch) {
+                                    SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                                }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+                Section("Sessions") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Continue on Restart")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text("Resume the last conversation when Claude panes reopen after a restart.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .accessibilityIdentifier("settings-continue-on-restart-toggle")
+                            .onChange(of: appSettings.continueOnRestart) {
+                                SettingsPersistence.saveRestartSettings(appSettings: appSettings)
+                            }
+                    }
+                    .padding(.vertical, 2)
+                }
+                Section("Debug") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Debug Logging")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text(
+                                "Append diagnostics to a trace file (see path below) instead of keeping them in memory."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("Debug Logging", isOn: $appSettings.debugLoggingEnabled)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .accessibilityIdentifier("settings-debug-logging-toggle")
+                            .onChange(of: appSettings.debugLoggingEnabled) {
+                                DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
+                                DebugLogger.shared.syncFromAppSettings(appSettings)
+                                if !appSettings.debugLoggingEnabled {
+                                    DebugLogger.shared.removeAllTracedPanes()
+                                }
+                                SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                                if appSettings.debugLoggingEnabled {
+                                    DebugLogger.shared.logSystemInfo()
+                                    DebugLogger.shared.logNotificationEnvironment(
+                                        macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                                    )
+                                }
+                            }
+                    }
+                    .padding(.vertical, 2)
+
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Trace file path")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text("Leave empty for the default file under Application Support. ~ is expanded.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        TextField("Default if empty", text: $appSettings.debugLogFilePath)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
-                            .frame(width: 120)
-                            .accessibilityIdentifier("settings-default-branch-field")
-                            .onChange(of: appSettings.defaultBranch) {
-                                SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                            .frame(minWidth: 220)
+                            .accessibilityIdentifier("settings-debug-log-file-path")
+                            .onChange(of: appSettings.debugLogFilePath) {
+                                DebugLogger.shared.syncFromAppSettings(appSettings)
+                                SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                            }
+                    }
+                    .padding(.vertical, 2)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Max trace file size")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text("When exceeded, older bytes are removed from the start of the file.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Stepper(value: $appSettings.debugLogMaxSizeMegabytes, in: 1...512) {
+                            Text("\(appSettings.debugLogMaxSizeMegabytes) MB")
+                                .font(.system(.body, design: .monospaced))
+                                .frame(minWidth: 72, alignment: .trailing)
+                        }
+                        .accessibilityIdentifier("settings-debug-log-max-mb-stepper")
+                        .onChange(of: appSettings.debugLogMaxSizeMegabytes) {
+                            DebugLogger.shared.syncFromAppSettings(appSettings)
+                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                        }
+                    }
+                    .padding(.vertical, 2)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Include terminal snapshots")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text(
+                                "When debug logging is on, allow capturing all panes’ terminal text into the trace file from the debug sheet. You can also enable capture per pane from its context menu without this."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("Include terminal snapshots", isOn: $appSettings.debugLogIncludeTerminalContents)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .accessibilityIdentifier("settings-debug-include-terminal-toggle")
+                            .disabled(!appSettings.debugLoggingEnabled)
+                            .onChange(of: appSettings.debugLogIncludeTerminalContents) {
+                                DebugLogger.shared.syncFromAppSettings(appSettings)
+                                SettingsPersistence.saveDebugSettings(appSettings: appSettings)
                             }
                     }
                     .padding(.vertical, 2)
                 }
             }
-            Section("Sessions") {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Continue on Restart")
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        Text("Resume the last conversation when Claude panes reopen after a restart.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-continue-on-restart-toggle")
-                        .onChange(of: appSettings.continueOnRestart) {
-                            SettingsPersistence.saveRestartSettings(appSettings: appSettings)
-                        }
-                }
-                .padding(.vertical, 2)
-            }
-            Section("Debug") {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Debug Logging")
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        Text("Append diagnostics to a trace file (see path below) instead of keeping them in memory.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("Debug Logging", isOn: $appSettings.debugLoggingEnabled)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-debug-logging-toggle")
-                        .onChange(of: appSettings.debugLoggingEnabled) {
-                            DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
-                            DebugLogger.shared.syncFromAppSettings(appSettings)
-                            if !appSettings.debugLoggingEnabled {
-                                DebugLogger.shared.removeAllTracedPanes()
-                            }
-                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                            if appSettings.debugLoggingEnabled {
-                                DebugLogger.shared.logSystemInfo()
-                                DebugLogger.shared.logNotificationEnvironment(
-                                    macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
-                                )
-                            }
-                        }
-                }
-                .padding(.vertical, 2)
-
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Trace file path")
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        Text("Leave empty for the default file under Application Support. ~ is expanded.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    TextField("Default if empty", text: $appSettings.debugLogFilePath)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(minWidth: 220)
-                        .accessibilityIdentifier("settings-debug-log-file-path")
-                        .onChange(of: appSettings.debugLogFilePath) {
-                            DebugLogger.shared.syncFromAppSettings(appSettings)
-                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                        }
-                }
-                .padding(.vertical, 2)
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Max trace file size")
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        Text("When exceeded, older bytes are removed from the start of the file.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Stepper(value: $appSettings.debugLogMaxSizeMegabytes, in: 1...512) {
-                        Text("\(appSettings.debugLogMaxSizeMegabytes) MB")
-                            .font(.system(.body, design: .monospaced))
-                            .frame(minWidth: 72, alignment: .trailing)
-                    }
-                    .accessibilityIdentifier("settings-debug-log-max-mb-stepper")
-                    .onChange(of: appSettings.debugLogMaxSizeMegabytes) {
-                        DebugLogger.shared.syncFromAppSettings(appSettings)
-                        SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                    }
-                }
-                .padding(.vertical, 2)
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Include terminal snapshots")
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        Text("When debug logging is on, allow capturing all panes’ terminal text into the trace file from the debug sheet. You can also enable capture per pane from its context menu without this.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("Include terminal snapshots", isOn: $appSettings.debugLogIncludeTerminalContents)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-debug-include-terminal-toggle")
-                        .disabled(!appSettings.debugLoggingEnabled)
-                        .onChange(of: appSettings.debugLogIncludeTerminalContents) {
-                            DebugLogger.shared.syncFromAppSettings(appSettings)
-                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                        }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .formStyle(.grouped)
+            .formStyle(.grouped)
         }
     }
 }
@@ -218,9 +222,11 @@ private struct ToolsContent: View {
     var body: some View {
         Form {
             Section {
-                Text("Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
             Section("Available Tools") {
                 ForEach(CLIType.allCases, id: \.self) { tool in
@@ -233,13 +239,16 @@ private struct ToolsContent: View {
                                 .fontDesign(.monospaced)
                         }
                         Spacer()
-                        Toggle(tool.displayName, isOn: Binding(
-                            get: { appSettings.isActive(tool) },
-                            set: { active in
-                                appSettings.setActive(tool, active)
-                                SettingsPersistence.saveActiveTools(appSettings: appSettings)
-                            }
-                        ))
+                        Toggle(
+                            tool.displayName,
+                            isOn: Binding(
+                                get: { appSettings.isActive(tool) },
+                                set: { active in
+                                    appSettings.setActive(tool, active)
+                                    SettingsPersistence.saveActiveTools(appSettings: appSettings)
+                                }
+                            )
+                        )
                         .toggleStyle(.checkbox)
                         .labelsHidden()
                     }
@@ -401,9 +410,11 @@ private struct CLIOptionsContent: View {
     var body: some View {
         Form {
             Section {
-                Text("Configure which CLI options appear when creating a new pane. Options marked as default will be pre-checked in the New Pane dialog.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Configure which CLI options appear when creating a new pane. Options marked as default will be pre-checked in the New Pane dialog."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
             if !enabledOptions.isEmpty {
                 Section("Enabled") {
@@ -464,15 +475,22 @@ private struct KeyboardShortcutsContent: View {
     var body: some View {
         Form {
             Section {
-                Text("Customize keyboard shortcuts. Each shortcut uses ⌘ plus the key you specify. Changes take effect immediately.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Customize keyboard shortcuts. Each shortcut uses ⌘ plus the key you specify. Changes take effect immediately."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
             Section("Shortcuts") {
                 KeyBindingRow(label: "New Tab", description: "Open the New Tab sheet", modifier: "⌘", key: $newTabKey)
-                KeyBindingRow(label: "New Pane in Current Tab", description: "Open the New Pane sheet", modifier: "⌘", key: $newPaneKey)
-                KeyBindingRow(label: "Close Active Pane", description: "Close the focused pane", modifier: "⌘", key: $closePaneKey)
-                KeyBindingRow(label: "Close Active Tab", description: "Close the current tab", modifier: "⌘", key: $closeTabKey)
+                KeyBindingRow(
+                    label: "New Pane in Current Tab", description: "Open the New Pane sheet", modifier: "⌘",
+                    key: $newPaneKey)
+                KeyBindingRow(
+                    label: "Close Active Pane", description: "Close the focused pane", modifier: "⌘", key: $closePaneKey
+                )
+                KeyBindingRow(
+                    label: "Close Active Tab", description: "Close the current tab", modifier: "⌘", key: $closeTabKey)
             }
             Section {
                 HStack {
@@ -641,12 +659,12 @@ private struct StatusLineContent: View {
         @Bindable var appSettings = appSettings
         Form {
             Section {
-                Text("Configure the info panel shown at the bottom of each pane. Items marked “Claude only” require Claude Code’s statusLine hook. Items marked “OpenCode only” are populated via the OpenCode HTTP API. All other items work with any tool via git and process data.")
-
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("settings-status-line-description")
-
+                Text(
+                    "Configure the info panel shown at the bottom of each pane. Items marked \"Claude only\" require Claude Code's statusLine hook. Items marked \"OpenCode only\" are populated via the OpenCode HTTP API. All other items work with any tool via git and process data."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("settings-status-line-description")
             }
             Section("Display") {
                 Picker("Chip style", selection: $appSettings.statusLineConfig.chipLabelStyle) {
@@ -670,9 +688,11 @@ private struct StatusLineContent: View {
                 Toggle(isOn: $appSettings.githubPRTrackingEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Track pull requests")
-                        Text("Detects the PR for the current git branch and shows its status in the status line. Requires the GitHub CLI (gh) installed and authenticated.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "Detects the PR for the current git branch and shows its status in the status line. Requires the GitHub CLI (gh) installed and authenticated."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 }
                 .toggleStyle(.checkbox)
@@ -695,6 +715,40 @@ private struct StatusLineContent: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func availabilityBadge(for availability: ToolAvailability) -> some View {
+        switch availability {
+        case .claudeOnly:
+            Text("Claude only")
+                .font(.caption2)
+                .foregroundStyle(.blue)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.blue.opacity(0.1)))
+        case .opencodeOnly:
+            Text("OpenCode only")
+                .font(.caption2)
+                .foregroundStyle(.purple)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.purple.opacity(0.1)))
+        case .claudeOrOpencode:
+            Text("Claude + OpenCode")
+                .font(.caption2)
+                .foregroundStyle(.indigo)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.indigo.opacity(0.1)))
+        case .all:
+            Text("All tools")
+                .font(.caption2)
+                .foregroundStyle(.green)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.green.opacity(0.1)))
+        }
     }
 
     @ViewBuilder
@@ -722,36 +776,7 @@ private struct StatusLineContent: View {
                         }
                     }
                     Spacer()
-                    switch item.availability {
-                    case .claudeOnly:
-                        Text("Claude only")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.blue.opacity(0.1)))
-                    case .opencodeOnly:
-                        Text("OpenCode only")
-                            .font(.caption2)
-                            .foregroundStyle(.purple)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.purple.opacity(0.1)))
-                    case .claudeOrOpencode:
-                        Text("Claude + OpenCode")
-                            .font(.caption2)
-                            .foregroundStyle(.indigo)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.indigo.opacity(0.1)))
-                    case .all:
-                        Text("All tools")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.green.opacity(0.1)))
-                    }
+                    availabilityBadge(for: item.availability)
                     Button(role: .destructive) {
                         appSettings.statusLineConfig.rows[rowIndex].items.removeAll { $0.id == item.id }
                         SettingsPersistence.saveStatusLine(appSettings: appSettings)
@@ -880,9 +905,7 @@ private struct AddCustomFlagSheet: View {
     @State private var isString = false
 
     private var isValid: Bool {
-        !flagName.isEmpty &&
-        flagName.hasPrefix("--") &&
-        !existingIDs.contains(flagName)
+        !flagName.isEmpty && flagName.hasPrefix("--") && !existingIDs.contains(flagName)
     }
 
     var body: some View {
@@ -958,9 +981,11 @@ private struct NotificationsContent: View {
                         Text("Banner Notifications")
                             .font(.system(.body, design: .default))
                             .fontWeight(.medium)
-                        Text("Show a system notification when a background pane rings the bell. Requires permission in System Settings.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "Show a system notification when a background pane rings the bell. Requires permission in System Settings."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
@@ -991,14 +1016,17 @@ private struct NotificationsContent: View {
                         .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Toggle("Notification hook for attention", isOn: $appSettings.isClaudeNotificationHookAttentionEnabled)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-claude-notification-hook-toggle")
-                        .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
-                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                            NotificationCenter.default.post(name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
-                        }
+                    Toggle(
+                        "Notification hook for attention", isOn: $appSettings.isClaudeNotificationHookAttentionEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-claude-notification-hook-toggle")
+                    .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        NotificationCenter.default.post(
+                            name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
+                    }
                 }
                 .padding(.vertical, 2)
             }
@@ -1034,9 +1062,11 @@ private struct NotificationsContent: View {
                         Text("Priority Notifications")
                             .font(.system(.body, design: .default))
                             .fontWeight(.medium)
-                        Text("Allow panes to be marked as priority. Priority notifications appear at the top of the sidebar.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(
+                            "Allow panes to be marked as priority. Priority notifications appear at the top of the sidebar."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Toggle("Priority Notifications", isOn: $appSettings.isPriorityNotificationsEnabled)

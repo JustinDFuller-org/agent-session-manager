@@ -1,9 +1,9 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
 final class TerminalBellNotificationTests: XCTestCase {
-
     func testWireTerminalBellForNotificationsAddsWhenPaneIsNotActive() async {
         let appState = AppState()
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp", directoryHint: .isDirectory))

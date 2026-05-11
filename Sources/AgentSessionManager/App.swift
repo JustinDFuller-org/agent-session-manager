@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct ContentView: View {
     @Environment(AppState.self) private var appState
@@ -17,7 +17,8 @@ struct ContentView: View {
     var body: some View {
         @Bindable var appState = appState
         let _ = debugLadybugRefreshTick
-        let showDebugLadybug = appSettings.debugLoggingEnabled
+        let showDebugLadybug =
+            appSettings.debugLoggingEnabled
             || !DebugLogger.shared.tracedPaneIDs.isEmpty
             || !DebugLogger.shared.tracedPaneTerminalCaptureIDs.isEmpty
         let hasNotifications = !appState.notifications.isEmpty
@@ -99,12 +100,14 @@ struct ContentView: View {
             pendingPRMergedTab = tab
             showPRMergedAlert = true
         }
-        .background(KeyboardShortcutView(
-            appState: appState,
-            onClosePane: closeActivePane,
-            onCloseTab: closeActiveTab,
-            onSwitchTab: switchTab
-        ))
+        .background(
+            KeyboardShortcutView(
+                appState: appState,
+                onClosePane: closeActivePane,
+                onCloseTab: closeActiveTab,
+                onSwitchTab: switchTab
+            )
+        )
         .sheet(isPresented: $showingNewTab) {
             NewTabSheet()
         }
@@ -116,13 +119,15 @@ struct ContentView: View {
         .alert("Close Worktree Pane", isPresented: $showCleanupAlert) {
             Button("Keep Worktree") {
                 guard let pane = pendingCleanupPane, let tab = pendingCleanupTab else { return }
-                pendingCleanupPane = nil; pendingCleanupTab = nil
+                pendingCleanupPane = nil
+                pendingCleanupTab = nil
                 tab.closePane(pane)
                 SessionPersistence.save(appState: appState)
             }
             Button("Delete Worktree", role: .destructive) {
                 guard let pane = pendingCleanupPane, let tab = pendingCleanupTab else { return }
-                pendingCleanupPane = nil; pendingCleanupTab = nil
+                pendingCleanupPane = nil
+                pendingCleanupTab = nil
                 Task {
                     try? await tab.cleanupWorktree(for: pane)
                     await MainActor.run {
@@ -132,7 +137,8 @@ struct ContentView: View {
                 }
             }
             Button("Cancel", role: .cancel) {
-                pendingCleanupPane = nil; pendingCleanupTab = nil
+                pendingCleanupPane = nil
+                pendingCleanupTab = nil
             }
         } message: {
             if let pane = pendingCleanupPane {
@@ -142,14 +148,16 @@ struct ContentView: View {
         .alert("PR Merged", isPresented: $showPRMergedAlert) {
             Button("Close Pane") {
                 guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
-                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                pendingPRMergedPane = nil
+                pendingPRMergedTab = nil
                 appState.clearNotification(paneID: pane.id)
                 tab.closePane(pane)
                 SessionPersistence.save(appState: appState)
             }
             Button("Close Pane and Clean Up Worktree", role: .destructive) {
                 guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
-                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                pendingPRMergedPane = nil
+                pendingPRMergedTab = nil
                 appState.clearNotification(paneID: pane.id)
                 Task {
                     try? await tab.cleanupWorktree(for: pane)
@@ -164,13 +172,16 @@ struct ContentView: View {
                     appState.focusPane(tabID: tab.id, paneID: pane.id)
                     appState.clearNotification(paneID: pane.id)
                 }
-                pendingPRMergedPane = nil; pendingPRMergedTab = nil
+                pendingPRMergedPane = nil
+                pendingPRMergedTab = nil
             }
         } message: {
             if let pane = pendingPRMergedPane {
                 let prInfo = pane.statusLineMonitor?.currentData?.pr
                 if let pr = prInfo {
-                    Text("PR #\(pr.number) \"\(pr.title)\" for pane \"\(pane.name)\" has been merged. What would you like to do?")
+                    let msg =
+                        "PR #\(pr.number) \"\(pr.title)\" for pane \"\(pane.name)\" has been merged. What would you like to do?"
+                    Text(msg)
                 } else {
                     Text("The PR for pane \"\(pane.name)\" has been merged. What would you like to do?")
                 }
@@ -254,53 +265,54 @@ private struct KeyboardShortcutView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { NSView() }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        let c = context.coordinator
-        c.onClosePane = onClosePane
-        c.onCloseTab = onCloseTab
-        c.onSwitchTab = onSwitchTab
-        c.appState = appState
-        guard c.keyMonitor == nil else { return }
+        let coordinator = context.coordinator
+        coordinator.onClosePane = onClosePane
+        coordinator.onCloseTab = onCloseTab
+        coordinator.onSwitchTab = onSwitchTab
+        coordinator.appState = appState
+        guard coordinator.keyMonitor == nil else { return }
 
-        c.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        coordinator.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             // Intercept Shift+Return so Claude CLI receives the Kitty keyboard protocol
             // Shift+Enter sequence (ESC [ 13 ; 2 u) instead of plain carriage return.
             // SwiftTerm's doCommand(by:) discards the shift modifier for insertNewline,
             // so we must send the correct sequence before the event reaches the terminal.
             let flags = event.modifierFlags.intersection([.shift, .command, .control, .option])
             if event.keyCode == 36 && flags == .shift,
-               let termView = c.appState?.activePane?.terminalController?.terminalView,
-               !termView.terminal.keyboardEnhancementFlags.isEmpty {
+                let termView = coordinator.appState?.activePane?.terminalController?.terminalView,
+                !termView.terminal.keyboardEnhancementFlags.isEmpty
+            {
                 termView.send([0x1b, 0x5b, 0x31, 0x33, 0x3b, 0x32, 0x75])
                 return nil
             }
             guard event.modifierFlags.contains(.command) else { return event }
             let closePaneKey = UserDefaults.standard.string(forKey: "keyBinding.closePaneKey") ?? "w"
             if let chars = event.characters, chars == closePaneKey {
-                c.onClosePane()
+                coordinator.onClosePane()
                 return nil
             }
             let closeTabKey = UserDefaults.standard.string(forKey: "keyBinding.closeTabKey") ?? "k"
             if let chars = event.characters, chars == closeTabKey {
-                c.onCloseTab()
+                coordinator.onCloseTab()
                 return nil
             }
             if let chars = event.characters, let digit = Int(chars), (1...9).contains(digit) {
-                c.onSwitchTab(digit - 1)
+                coordinator.onSwitchTab(digit - 1)
                 return nil
             }
             return event
         }
 
-        c.mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+        coordinator.mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
             if let window = event.window {
                 let loc = event.locationInWindow
-                c.updateActivePaneFromClick(at: loc, in: window)
+                coordinator.updateActivePaneFromClick(at: loc, in: window)
             }
             return event
         }
 
-        c.scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-            c.handleScrollWheel(event: event)
+        coordinator.scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            coordinator.handleScrollWheel(event: event)
         }
     }
 
@@ -334,8 +346,8 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             let point = event.locationInWindow
             guard let hitView = window.contentView?.hitTest(point) else { return event }
             var view: NSView? = hitView
-            while let v = view, !(v is BellCapturingTerminalView) {
-                view = v.superview
+            while let current = view, !(current is BellCapturingTerminalView) {
+                view = current.superview
             }
             guard let termView = view as? BellCapturingTerminalView else { return event }
             let terminal = termView.getTerminal()
@@ -365,9 +377,9 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         }
 
         deinit {
-            if let m = keyMonitor { NSEvent.removeMonitor(m) }
-            if let m = mouseMonitor { NSEvent.removeMonitor(m) }
-            if let m = scrollWheelMonitor { NSEvent.removeMonitor(m) }
+            if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }
+            if let monitor = mouseMonitor { NSEvent.removeMonitor(monitor) }
+            if let monitor = scrollWheelMonitor { NSEvent.removeMonitor(monitor) }
         }
     }
 }

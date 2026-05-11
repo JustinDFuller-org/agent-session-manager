@@ -1,9 +1,9 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
 final class TerminalContentTests: XCTestCase {
-
     func testTerminalContentFiltersNullCharacters() {
         let controller = TerminalController()
         controller.terminalView.frame = CGRect(x: 0, y: 0, width: 640, height: 480)

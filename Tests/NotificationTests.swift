@@ -1,9 +1,9 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
 final class NotificationTests: XCTestCase {
-
     override func setUp() {
         super.setUp()
         PersistenceHelpers.overrideAppSupportSubdirectory = "agent-session-manager"
@@ -127,9 +127,10 @@ final class NotificationTests: XCTestCase {
         let url = support.appending(path: "notification-settings.json")
         defer { try? FileManager.default.removeItem(at: url) }
 
-        let legacy = """
-        {"sidebarSide":"left","isPriorityEnabled":true}
-        """.data(using: .utf8)!
+        let legacy = Data(
+            """
+            {"sidebarSide":"left","isPriorityEnabled":true}
+            """.utf8)
         try legacy.write(to: url)
 
         let restored = AppSettings()
@@ -150,9 +151,10 @@ final class NotificationTests: XCTestCase {
     }
 
     func testPersistedPaneIsPriorityDefaultsFalse() throws {
-        let json = """
-        {"id":"00000000-0000-0000-0000-000000000001","name":"test","cliType":"claude"}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"id":"00000000-0000-0000-0000-000000000001","name":"test","cliType":"claude"}
+            """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertFalse(decoded.isPriority)
     }

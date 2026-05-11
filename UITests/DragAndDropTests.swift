@@ -1,7 +1,6 @@
 import XCTest
 
 final class DragAndDropTests: BaseTestCase {
-
     // MARK: - Tab Reordering
 
     func testDragTabForward() {

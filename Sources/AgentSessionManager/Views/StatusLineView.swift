@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct StatusLineView: View {
     let monitor: StatusLineMonitor
@@ -73,6 +73,8 @@ struct StatusLineView: View {
                 content
             }
             .buttonStyle(.plain)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
             .popover(isPresented: $showPRPopover, arrowEdge: .bottom) {
                 if let pr = data.pr {
                     PRPopoverContent(pr: pr)
@@ -90,8 +92,8 @@ struct StatusLineView: View {
         }
         if itemID == "sessionStatus", let state = data.sessionStatus?.state {
             switch state {
-            case "idle":  return AnyShapeStyle(.green)
-            case "busy":  return AnyShapeStyle(.yellow)
+            case "idle": return AnyShapeStyle(.green)
+            case "busy": return AnyShapeStyle(.yellow)
             case "retry": return AnyShapeStyle(.orange)
             default: break
             }
@@ -267,7 +269,6 @@ struct StatusLineView: View {
 private struct PRPopoverContent: View {
     let pr: PullRequest
 
-    private static let maxCheckNameLen = 60
     private static let maxVisibleChecks = 5
 
     var body: some View {
@@ -331,6 +332,7 @@ private struct PRPopoverContent: View {
             }
         }
         .frame(width: 320)
+        .textSelection(.enabled)
     }
 
     private var circleColor: Color {
@@ -356,11 +358,6 @@ private struct PRPopoverContent: View {
         max(0, pr.failingChecks.count - Self.maxVisibleChecks)
     }
 
-    private func truncate(_ name: String) -> String {
-        if name.count <= Self.maxCheckNameLen { return name }
-        return String(name.prefix(Self.maxCheckNameLen - 3)) + "..."
-    }
-
     private struct CheckRow: View {
         let check: StatusCheck
 
@@ -369,28 +366,26 @@ private struct PRPopoverContent: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 9))
                     .foregroundStyle(.red)
-                Text(truncatedName)
+                Text(check.name)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .textSelection(.enabled)
                 Spacer(minLength: 0)
                 if let url = URL(string: check.detailsUrl ?? "") {
                     Button {
                         NSWorkspace.shared.open(url)
                     } label: {
-                        Image(systemName: "arrow.up.forward.square")
+                        Label("Open", systemImage: "arrow.up.forward.square")
                             .font(.system(size: 9))
+                            .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+                    .frame(minWidth: 20, minHeight: 20)
+                    .contentShape(Rectangle())
                 }
             }
-        }
-
-        private var truncatedName: String {
-            let maxLen = 60
-            if check.name.count <= maxLen { return check.name }
-            return String(check.name.prefix(maxLen - 3)) + "..."
         }
     }
 }

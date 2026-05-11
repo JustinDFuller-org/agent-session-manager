@@ -1,14 +1,14 @@
 import Foundation
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
 final class SessionPersistenceNotificationTests: XCTestCase {
-
     func testDecodesLegacySessionWithoutPendingNotifications() throws {
         let json = """
-        {"tabs":[],"activeTabIndex":null}
-        """
+            {"tabs":[],"activeTabIndex":null}
+            """
         let data = Data(json.utf8)
         let session = try JSONDecoder().decode(PersistedSession.self, from: data)
         XCTAssertTrue(session.pendingNotifications.isEmpty)

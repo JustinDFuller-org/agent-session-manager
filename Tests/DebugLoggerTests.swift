@@ -1,9 +1,9 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
 final class DebugLoggerTests: XCTestCase {
-
     private var testTraceDir: URL!
 
     override func setUp() {
@@ -42,18 +42,18 @@ final class DebugLoggerTests: XCTestCase {
     func testGlobalLineWritesFile() throws {
         DebugLogger.shared.isEnabled = true
         DebugLogger.shared.log("hello world")
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("[global]"))
-        XCTAssertTrue(s.contains("hello world"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("[global]"))
+        XCTAssertTrue(trace.contains("hello world"))
     }
 
     func testPaneAttributionInFile() throws {
         let id = UUID()
         DebugLogger.shared.setPaneTraceEnabled(id, true)
         DebugLogger.shared.log("pane-event", paneID: id, tabName: "My Tab", paneName: "my-pane")
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("[tab: My Tab] [pane: my-pane]"))
-        XCTAssertTrue(s.contains("pane-event"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("[tab: My Tab] [pane: my-pane]"))
+        XCTAssertTrue(trace.contains("pane-event"))
     }
 
     func testClearTruncatesFile() throws {
@@ -66,15 +66,16 @@ final class DebugLoggerTests: XCTestCase {
     }
 
     func testTrimRemovesOldestBytesWhenOverMax() throws {
-        DebugLogger.shared.adoptTraceFileForTesting(url: testTraceDir.appendingPathComponent("small.log"), maxBytes: 3000)
+        DebugLogger.shared.adoptTraceFileForTesting(
+            url: testTraceDir.appendingPathComponent("small.log"), maxBytes: 3000)
         DebugLogger.shared.isEnabled = true
         let filler = String(repeating: "x", count: 400)
         for i in 0..<20 {
             DebugLogger.shared.log("line-\(i)-\(filler)")
         }
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("--- [truncated older log entries] ---"))
-        XCTAssertFalse(s.contains("line-0-"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("--- [truncated older log entries] ---"))
+        XCTAssertFalse(trace.contains("line-0-"))
     }
 
     func testRedactSensitiveEnvStyleLineRedactsTokenLikeKeys() {
@@ -117,9 +118,9 @@ final class DebugLoggerTests: XCTestCase {
         app.debugLogIncludeTerminalContents = true
         DebugLogger.shared.syncFromAppSettings(app)
         DebugLogger.shared.logTerminalContent(paneName: "p", content: "visible", tabName: "T", paneID: id)
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("Terminal Content"))
-        XCTAssertTrue(s.contains("visible"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("Terminal Content"))
+        XCTAssertTrue(trace.contains("visible"))
     }
 
     func testLogTerminalContentPerPaneWithoutGlobal() throws {
@@ -131,8 +132,8 @@ final class DebugLoggerTests: XCTestCase {
         DebugLogger.shared.setPaneTerminalCaptureEnabled(id, true)
 
         DebugLogger.shared.logTerminalContent(paneName: "p", content: "from-pane", tabName: "T", paneID: id)
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("from-pane"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("from-pane"))
     }
 
     func testIsTerminalCaptureEnabledReflectsGlobalAndPerPane() {
@@ -178,9 +179,9 @@ final class DebugLoggerTests: XCTestCase {
         controller.terminalView.dataReceived(slice: bytes[...])
 
         try await Task.sleep(nanoseconds: 500_000_000)
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("Terminal stream"), s)
-        XCTAssertTrue(s.contains(marker), s)
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("Terminal stream"), trace)
+        XCTAssertTrue(trace.contains(marker), trace)
     }
 
     func testPaneTaggedLogWhenOnlyTerminalCaptureEnabled() throws {
@@ -194,8 +195,8 @@ final class DebugLoggerTests: XCTestCase {
         DebugLogger.shared.setPaneTerminalCaptureEnabled(id, true)
 
         DebugLogger.shared.log("[notify] terminal-capture-only marker", paneID: id, tabName: "T", paneName: "P")
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("terminal-capture-only marker"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("terminal-capture-only marker"))
     }
 
     func testAcceptsPaneDiagnosticsMatchesExpectedOrCombination() {
@@ -227,16 +228,16 @@ final class DebugLoggerTests: XCTestCase {
     func testLogGitCommandWhenEnabled() throws {
         DebugLogger.shared.isEnabled = true
         DebugLogger.shared.logGitCommand(["status"], cwd: "/tmp")
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("Git Command"))
-        XCTAssertTrue(s.contains("git status"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("Git Command"))
+        XCTAssertTrue(trace.contains("git status"))
     }
 
     func testLogWorktreeResolutionWhenEnabled() throws {
         DebugLogger.shared.isEnabled = true
         DebugLogger.shared.logWorktreeResolution(userRef: "feat/x", result: "ok")
-        let s = try traceContents()
-        XCTAssertTrue(s.contains("feat/x"))
-        XCTAssertTrue(s.contains("ok"))
+        let trace = try traceContents()
+        XCTAssertTrue(trace.contains("feat/x"))
+        XCTAssertTrue(trace.contains("ok"))
     }
 }

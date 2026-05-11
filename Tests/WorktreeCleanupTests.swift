@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
@@ -88,19 +89,19 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
     }
 
     private func runGit(_ args: [String], cwd: URL) throws {
-        let p = Process()
-        p.executableURL = URL(filePath: "/usr/bin/git")
-        p.arguments = args
-        p.currentDirectoryURL = cwd
+        let proc = Process()
+        proc.executableURL = URL(filePath: "/usr/bin/git")
+        proc.arguments = args
+        proc.currentDirectoryURL = cwd
         let err = Pipe()
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = err
-        try p.run()
-        p.waitUntilExit()
-        if p.terminationStatus != 0 {
-            let msg = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        proc.standardOutput = FileHandle.nullDevice
+        proc.standardError = err
+        try proc.run()
+        proc.waitUntilExit()
+        if proc.terminationStatus != 0 {
+            let msg = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             XCTFail("git \(args.joined(separator: " ")): \(msg)")
-            throw NSError(domain: "tests", code: Int(p.terminationStatus))
+            throw NSError(domain: "tests", code: Int(proc.terminationStatus))
         }
     }
 
@@ -111,7 +112,8 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         try runGit(["worktree", "add", rel, "-b", "cleanup-target", "cleanup-test"], cwd: repo)
 
         let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: "test-wt")
-        let pane = Pane(name: "test-wt", tab: tab, cliType: .claude, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
+        let pane = Pane(
+            name: "test-wt", tab: tab, cliType: .claude, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: worktreeURL.path))
@@ -129,7 +131,8 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
             .appending(path: "asm-external-wt-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: externalPath, withIntermediateDirectories: true)
 
-        let pane = Pane(name: "external", tab: tab, cliType: .claude, worktreeDirectory: externalPath, worktreeIsManaged: false)
+        let pane = Pane(
+            name: "external", tab: tab, cliType: .claude, worktreeDirectory: externalPath, worktreeIsManaged: false)
         XCTAssertFalse(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)
@@ -146,7 +149,8 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         try runGit(["worktree", "add", rel, "-b", wtName, "cleanup-test"], cwd: repo)
 
         let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: wtName)
-        let pane = Pane(name: "takeover", tab: tab, cliType: .codex, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
+        let pane = Pane(
+            name: "takeover", tab: tab, cliType: .codex, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)
@@ -157,7 +161,8 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         let repo = try makeGitRepo()
         let tab = Tab(name: "CleanupTab", directory: repo)
         let nonexistent = URL(filePath: "/tmp/nonexistent-worktree-\(UUID().uuidString)")
-        let pane = Pane(name: "nonexistent", tab: tab, cliType: .claude, worktreeDirectory: nonexistent, worktreeIsManaged: true)
+        let pane = Pane(
+            name: "nonexistent", tab: tab, cliType: .claude, worktreeDirectory: nonexistent, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)

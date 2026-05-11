@@ -36,21 +36,23 @@ private struct NotificationConfig: Codable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        sidebarSide = try c.decodeIfPresent(SidebarSide.self, forKey: .sidebarSide) ?? .right
-        isPriorityEnabled = try c.decodeIfPresent(Bool.self, forKey: .isPriorityEnabled) ?? true
-        isMacOSBannerEnabled = try c.decodeIfPresent(Bool.self, forKey: .isMacOSBannerEnabled) ?? true
-        isClaudeHookAttentionEnabled = try c.decodeIfPresent(Bool.self, forKey: .isClaudeHookAttentionEnabled) ?? true
-        isPRMergedNotificationsEnabled = try c.decodeIfPresent(Bool.self, forKey: .isPRMergedNotificationsEnabled) ?? true
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sidebarSide = try container.decodeIfPresent(SidebarSide.self, forKey: .sidebarSide) ?? .right
+        isPriorityEnabled = try container.decodeIfPresent(Bool.self, forKey: .isPriorityEnabled) ?? true
+        isMacOSBannerEnabled = try container.decodeIfPresent(Bool.self, forKey: .isMacOSBannerEnabled) ?? true
+        isClaudeHookAttentionEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isClaudeHookAttentionEnabled) ?? true
+        isPRMergedNotificationsEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isPRMergedNotificationsEnabled) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(sidebarSide, forKey: .sidebarSide)
-        try c.encode(isPriorityEnabled, forKey: .isPriorityEnabled)
-        try c.encode(isMacOSBannerEnabled, forKey: .isMacOSBannerEnabled)
-        try c.encode(isClaudeHookAttentionEnabled, forKey: .isClaudeHookAttentionEnabled)
-        try c.encode(isPRMergedNotificationsEnabled, forKey: .isPRMergedNotificationsEnabled)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(sidebarSide, forKey: .sidebarSide)
+        try container.encode(isPriorityEnabled, forKey: .isPriorityEnabled)
+        try container.encode(isMacOSBannerEnabled, forKey: .isMacOSBannerEnabled)
+        try container.encode(isClaudeHookAttentionEnabled, forKey: .isClaudeHookAttentionEnabled)
+        try container.encode(isPRMergedNotificationsEnabled, forKey: .isPRMergedNotificationsEnabled)
     }
 }
 
@@ -77,7 +79,9 @@ struct SettingsPersistence {
     private static var notificationSettingsURL: URL { appSupportDir.appending(path: "notification-settings.json") }
     private static var restartSettingsURL: URL { appSupportDir.appending(path: "restart-settings.json") }
     private static var worktreeCleanupURL: URL { appSupportDir.appending(path: "worktree-cleanup.json") }
-    private static var existingWorktreeManagementURL: URL { appSupportDir.appending(path: "existing-worktree-management.json") }
+    private static var existingWorktreeManagementURL: URL {
+        appSupportDir.appending(path: "existing-worktree-management.json")
+    }
     private static var debugSettingsURL: URL { appSupportDir.appending(path: "debug-settings.json") }
     private static var prTrackingSettingsURL: URL { appSupportDir.appending(path: "pr-tracking-settings.json") }
 
@@ -206,7 +210,8 @@ struct SettingsPersistence {
     }
 
     static func saveDefaultBranch(appSettings: AppSettings) {
-        let config = DefaultBranchConfig(isEnabled: appSettings.isDefaultBranchEnabled, branchName: appSettings.defaultBranch)
+        let config = DefaultBranchConfig(
+            isEnabled: appSettings.isDefaultBranchEnabled, branchName: appSettings.defaultBranch)
         guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: defaultBranchURL)
     }

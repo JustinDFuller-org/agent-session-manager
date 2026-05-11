@@ -32,14 +32,15 @@ enum WorktreeResolutionError: Error, LocalizedError, Equatable {
         switch self {
         case .emptyRef:
             return "Enter a branch name, ref, or existing worktree name."
-        case let .invalidWorktreeDirectory(path):
+        case .invalidWorktreeDirectory(let path):
             return "The directory exists but is not a git worktree: \(path)"
-        case let .pathExistsButNotWorktree(path):
+        case .pathExistsButNotWorktree(let path):
             return "There is already a non-worktree path at: \(path)"
-        case let .refNotFound(ref):
+        case .refNotFound(let ref):
             return "Could not find a git ref named “\(ref)”. Fetch the branch or check the spelling."
-        case let .invalidDerivedName(name):
-            return "Could not derive a valid worktree folder name from that ref (got “\(name)”). Use only letters, digits, dots, underscores, and dashes in branch names."
+        case .invalidDerivedName(let name):
+            return
+                "Could not derive a valid worktree folder name from that ref (got “\(name)”). Use only letters, digits, dots, underscores, and dashes in branch names."
         }
     }
 }
@@ -92,7 +93,8 @@ final class Tab: Identifiable {
 
     nonisolated static func sanitizeBranchName(_ branch: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        return branch
+        return
+            branch
             .replacingOccurrences(of: "/", with: "-")
             .unicodeScalars
             .filter { allowed.contains($0) }
@@ -118,8 +120,8 @@ final class Tab: Identifiable {
         var currentBranch: String?
 
         func flush() {
-            if let p = currentPath {
-                entries.append(GitWorktreeListEntry(path: p, branch: currentBranch))
+            if let path = currentPath {
+                entries.append(GitWorktreeListEntry(path: path, branch: currentBranch))
             }
             currentPath = nil
             currentBranch = nil
@@ -142,55 +144,55 @@ final class Tab: Identifiable {
     }
 
     nonisolated static func refExpansionCandidates(for raw: String) -> Set<String> {
-        var s = Set<String>()
-        let r = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !r.isEmpty else { return s }
-        s.insert(r)
-        if r.hasPrefix("refs/") { return s }
-        s.insert("refs/heads/\(r)")
-        if r.contains("/") {
-            s.insert("refs/remotes/\(r)")
+        var refs = Set<String>()
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return refs }
+        refs.insert(trimmed)
+        if trimmed.hasPrefix("refs/") { return refs }
+        refs.insert("refs/heads/\(trimmed)")
+        if trimmed.contains("/") {
+            refs.insert("refs/remotes/\(trimmed)")
         } else {
-            s.insert("refs/remotes/origin/\(r)")
+            refs.insert("refs/remotes/origin/\(trimmed)")
         }
-        return s
+        return refs
     }
 
     nonisolated static func refMatches(userRef: String, branchRef: String) -> Bool {
-        let u = userRef.trimmingCharacters(in: .whitespacesAndNewlines)
-        if branchRef == u { return true }
-        if refExpansionCandidates(for: u).contains(branchRef) { return true }
+        let trimmedUserRef = userRef.trimmingCharacters(in: .whitespacesAndNewlines)
+        if branchRef == trimmedUserRef { return true }
+        if refExpansionCandidates(for: trimmedUserRef).contains(branchRef) { return true }
         if branchRef.hasPrefix("refs/heads/") {
             let short = String(branchRef.dropFirst("refs/heads/".count))
-            if short == u { return true }
+            if short == trimmedUserRef { return true }
         }
         if branchRef.hasPrefix("refs/remotes/") {
             let rest = String(branchRef.dropFirst("refs/remotes/".count))
-            if rest == u { return true }
-            if rest.hasSuffix("/\(u)") { return true }
+            if rest == trimmedUserRef { return true }
+            if rest.hasSuffix("/\(trimmedUserRef)") { return true }
         }
         return false
     }
 
     nonisolated static func derivedWorktreeName(fromRef ref: String) -> String {
-        var s = ref.trimmingCharacters(in: .whitespacesAndNewlines)
-        for prefix in ["refs/heads/", "refs/remotes/origin/", "refs/remotes/"] {
-            if s.hasPrefix(prefix) {
-                s = String(s.dropFirst(prefix.count))
-                break
-            }
+        var name = ref.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in ["refs/heads/", "refs/remotes/origin/", "refs/remotes/"] where name.hasPrefix(prefix) {
+            name = String(name.dropFirst(prefix.count))
+            break
         }
-        if let idx = s.lastIndex(of: "/") {
-            s = String(s[s.index(after: idx)...])
+        if let idx = name.lastIndex(of: "/") {
+            name = String(name[name.index(after: idx)...])
         }
-        let out = sanitizeBranchName(s)
+        let out = sanitizeBranchName(name)
         return out.isEmpty ? "worktree" : out
     }
 
     /// Picks a `git worktree list --porcelain` entry for user input: **directory name** under the repo wins first,
     /// then branch/ref match. Avoids opening the wrong tree when several listings share similar branch names
     /// (e.g. `.claude/worktrees/foo` on branch `worktree-foo` vs `.claude/worktrees/worktree-foo`).
-    nonisolated static func preferWorktreeEntry(matchingUserRef ref: String, entries: [GitWorktreeListEntry]) -> GitWorktreeListEntry? {
+    nonisolated static func preferWorktreeEntry(
+        matchingUserRef ref: String, entries: [GitWorktreeListEntry]
+    ) -> GitWorktreeListEntry? {
         let trimmed = ref.trimmingCharacters(in: .whitespacesAndNewlines)
         if let byDirectoryName = entries.first(where: {
             URL(fileURLWithPath: $0.path).lastPathComponent == trimmed
@@ -198,8 +200,8 @@ final class Tab: Identifiable {
             return byDirectoryName
         }
         return entries.first(where: { entry in
-            guard let b = entry.branch else { return false }
-            return Tab.refMatches(userRef: trimmed, branchRef: b)
+            guard let branch = entry.branch else { return false }
+            return Tab.refMatches(userRef: trimmed, branchRef: branch)
         })
     }
 
@@ -335,7 +337,8 @@ final class Tab: Identifiable {
 
     private func resolvedManaged(shortName: String) -> ResolvedWorktree {
         let checkout = Tab.worktreeDirectoryURL(repoRoot: directory, name: shortName).standardizedFileURL
-        return ResolvedWorktree(paneTitle: shortName, processDirectory: checkout, checkoutURL: checkout, isExternalTakeover: false)
+        return ResolvedWorktree(
+            paneTitle: shortName, processDirectory: checkout, checkoutURL: checkout, isExternalTakeover: false)
     }
 
     /// Paths from `git worktree list` are authoritative (includes main checkout with a `.git` directory).
@@ -348,11 +351,12 @@ final class Tab: Identifiable {
 
     private func managedWorktreeName(forAbsoluteWorktreePath path: String) -> String? {
         let workURL = URL(fileURLWithPath: path).standardizedFileURL
-        let managedWorktreesBase = Tab.worktreeDirectoryURL(repoRoot: directory, name: "dummy").deletingLastPathComponent().standardizedFileURL
+        let managedWorktreesBase = Tab.worktreeDirectoryURL(repoRoot: directory, name: "dummy")
+            .deletingLastPathComponent().standardizedFileURL
         let basePath = managedWorktreesBase.path
-        let p = workURL.path
-        guard p.hasPrefix(basePath + "/") else { return nil }
-        let relative = String(p.dropFirst(basePath.count + 1))
+        let worktreePath = workURL.path
+        guard worktreePath.hasPrefix(basePath + "/") else { return nil }
+        let relative = String(worktreePath.dropFirst(basePath.count + 1))
         guard !relative.isEmpty, !relative.contains("/") else { return nil }
         return relative
     }
@@ -372,8 +376,8 @@ final class Tab: Identifiable {
         guard FileManager.default.fileExists(atPath: gitFile.path, isDirectory: &isDir) else { return false }
         if isDir.boolValue { return false }
         guard let data = try? Data(contentsOf: gitFile),
-              let s = String(data: data, encoding: .utf8),
-              s.contains("gitdir:")
+            let gitFileContent = String(data: data, encoding: .utf8),
+            gitFileContent.contains("gitdir:")
         else { return false }
         return true
     }
@@ -389,14 +393,15 @@ final class Tab: Identifiable {
             process.currentDirectoryURL = directory
             process.standardOutput = outPipe
             process.standardError = errPipe
-            process.terminationHandler = { p in
+            process.terminationHandler = { proc in
                 let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
                 let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                if p.terminationStatus == 0 {
+                if proc.terminationStatus == 0 {
                     continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
                 } else {
                     let stderr = String(data: errData, encoding: .utf8) ?? ""
-                    continuation.resume(throwing: GitCommandError(arguments: args, exitCode: p.terminationStatus, stderr: stderr))
+                    continuation.resume(
+                        throwing: GitCommandError(arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
                 }
             }
             do {
@@ -417,13 +422,14 @@ final class Tab: Identifiable {
             process.currentDirectoryURL = directory
             process.standardOutput = FileHandle.nullDevice
             process.standardError = errPipe
-            process.terminationHandler = { p in
+            process.terminationHandler = { proc in
                 let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
                 let stderr = String(data: errData, encoding: .utf8) ?? ""
-                if p.terminationStatus == 0 {
+                if proc.terminationStatus == 0 {
                     continuation.resume()
                 } else {
-                    continuation.resume(throwing: GitCommandError(arguments: args, exitCode: p.terminationStatus, stderr: stderr))
+                    continuation.resume(
+                        throwing: GitCommandError(arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
                 }
             }
             do {
@@ -444,7 +450,8 @@ final class Tab: Identifiable {
         id: UUID? = nil
     ) -> Pane {
         if let wd = worktreeDirectory {
-            DebugLogger.shared.logWorktreeResolution(userRef: name, result: "dir: \(wd.path), managed: \(worktreeIsManaged)")
+            DebugLogger.shared.logWorktreeResolution(
+                userRef: name, result: "dir: \(wd.path), managed: \(worktreeIsManaged)")
         } else {
             DebugLogger.shared.logWorktreeResolution(userRef: name, result: "cwd: \(directory.path)")
         }
@@ -463,7 +470,8 @@ final class Tab: Identifiable {
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
 
-            let monitor = StatusLineMonitor(paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
             monitor.start()
             pane.statusLineMonitor = monitor
 

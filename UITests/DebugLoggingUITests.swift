@@ -1,7 +1,6 @@
 import XCTest
 
 final class DebugLoggingUITests: BaseTestCase {
-
     func testDebugToggleExistsInGeneralTab() {
         openSettings()
         let generalTab = app.buttons["General"]
@@ -83,7 +82,9 @@ final class DebugLoggingUITests: BaseTestCase {
         waitFor(debugButton)
         debugButton.click()
 
-        let explanation = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Telemetry is written only")).element
+        let explanation = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS %@", "Telemetry is written only")
+        ).element
         waitFor(explanation)
         XCTAssertTrue(explanation.exists)
 
