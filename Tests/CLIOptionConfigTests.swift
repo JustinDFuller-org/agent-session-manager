@@ -798,7 +798,8 @@ final class TabCommandTests: XCTestCase {
     }
 
     func testBuildClaudeCommandWithAllowDangerouslySkipPermissions() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --allow-dangerously-skip-permissions")
+        let extraArgs = " --allow-dangerously-skip-permissions"
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: extraArgs)
         XCTAssertTrue(cmd.hasPrefix("claude --settings '/tmp/s.json'"))
         XCTAssertTrue(cmd.contains("--allow-dangerously-skip-permissions"))
         XCTAssertFalse(cmd.contains("--worktree"))
