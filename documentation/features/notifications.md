@@ -42,7 +42,7 @@ Attention events are surfaced even when the pane is the active (focused) pane, t
 
 ## Notification Sidebar
 
-The sidebar appears on the right side by default (configurable in Settings → Notifications). It opens automatically when there are pending notifications and closes when all notifications are cleared.
+The sidebar appears on the right side by default (configurable in Settings → Notifications). By default it is **always visible** — even when there are no pending notifications — so you have a consistent, predictable layout. Toggle **Always Show Notifications Bar** off in Settings → Notifications if you prefer the sidebar to appear only when there are queued notifications.
 
 **Sidebar sections** (when priority notifications are enabled):
 1. **Priority** — Notifications from panes marked as priority, at the top.
@@ -71,6 +71,7 @@ Settings → Notifications exposes these controls:
 | Banner Notifications | Show macOS Notification Center banners for background pane bells (permission required) | On |
 | Notification hook for attention | Merge Claude Code `Notification` hook into each pane’s `--settings` (see above) | On |
 | Sidebar Position | Which side the notification sidebar opens on (Left / Right) | Right |
+| Always Show Notifications Bar | Keep the sidebar visible even when there are no pending notifications | On |
 | Priority Notifications | Enable the priority pane toggle and priority sidebar section | On |
 
 These settings are persisted to `~/Library/Application Support/agent-session-manager/notification-settings.json` (alongside other app settings such as [debug-settings.json](debug-logging.md) under the same support directory).

@@ -73,6 +73,36 @@ final class NotificationUITests: BaseTestCase {
         XCTAssertEqual(nonPanelWindows.count, 1, "Expected exactly one app window after launch")
     }
 
+    func testAlwaysShowNotificationsBarToggleExistsAndIsOnByDefault() {
+        app.typeKey(",", modifierFlags: .command)
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+        notificationsTab.click()
+
+        let toggle = app.checkBoxes["settings-always-show-notifications-bar-toggle"]
+        waitFor(toggle, timeout: 3)
+        XCTAssertTrue(toggle.exists)
+        XCTAssertEqual(toggle.value as? Int, 1)
+    }
+
+    func testAlwaysShowNotificationsBarToggleCanBeToggledOffAndOn() {
+        app.typeKey(",", modifierFlags: .command)
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+        notificationsTab.click()
+
+        let toggle = app.checkBoxes["settings-always-show-notifications-bar-toggle"]
+        waitFor(toggle, timeout: 3)
+
+        if toggle.value as? Int == 1 {
+            toggle.click()
+        }
+        XCTAssertEqual(toggle.value as? Int, 0)
+
+        toggle.click()
+        XCTAssertEqual(toggle.value as? Int, 1)
+    }
+
     func testPriorityToggleHiddenInNewPaneSheetWhenDisabled() {
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.buttons["Notifications"]

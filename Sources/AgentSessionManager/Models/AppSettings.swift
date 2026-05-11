@@ -76,6 +76,7 @@ final class AppSettings {
     var defaultBranch: String = "main"
     var isDefaultBranchEnabled: Bool = true
     var notificationSidebarSide: SidebarSide = .right
+    var alwaysShowNotificationsSidebar: Bool = true
     var isPriorityNotificationsEnabled: Bool = true
     var isMacOSBannerNotificationsEnabled: Bool = true
     /// Merges Claude Code `Notification` hook into per-pane `--settings` for attention when the terminal does not ring the bell (default on).
