@@ -238,29 +238,34 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         }
     }
 
-    func handleNotificationResponse(_ response: UNNotificationResponse) {
-        let userInfo = response.notification.request.content.userInfo
+    /// Navigates to the pane identified by `paneIDStr`/`tabIDStr` and, for PR merged
+    /// notifications, additionally posts `prMergedActionRequested` so the alert appears.
+    /// Extracted for testability — does not call `NSApp.activate`.
+    func handleNotificationNavigation(paneIDStr: String, tabIDStr: String, kind: String?) {
         guard
-            let paneIDStr = userInfo[MacNotificationUserInfoKey.paneID] as? String,
-            let tabIDStr = userInfo[MacNotificationUserInfoKey.tabID] as? String,
+            let paneID = UUID(uuidString: paneIDStr),
+            let tabID = UUID(uuidString: tabIDStr),
             let state = appState
         else { return }
-        let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
+        state.focusPane(tabID: tabID, paneID: paneID)
         if kind == NotificationKind.prMerged.rawValue {
             NotificationCenter.default.post(
                 name: .prMergedActionRequested,
                 object: nil,
                 userInfo: ["paneID": paneIDStr, "tabID": tabIDStr]
             )
-            NSApp.activate(ignoringOtherApps: true)
-        } else {
-            guard
-                let paneID = UUID(uuidString: paneIDStr),
-                let tabID = UUID(uuidString: tabIDStr)
-            else { return }
-            state.focusPane(tabID: tabID, paneID: paneID)
-            NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    func handleNotificationResponse(_ response: UNNotificationResponse) {
+        let userInfo = response.notification.request.content.userInfo
+        guard
+            let paneIDStr = userInfo[MacNotificationUserInfoKey.paneID] as? String,
+            let tabIDStr = userInfo[MacNotificationUserInfoKey.tabID] as? String
+        else { return }
+        let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
+        handleNotificationNavigation(paneIDStr: paneIDStr, tabIDStr: tabIDStr, kind: kind)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.

@@ -149,6 +149,51 @@ final class AppStateTabFocusTests: XCTestCase {
         XCTAssertEqual(state.activeTabID, state.tabs[0].id)
     }
 
+    func testNavigateToTerminalBellNotificationSwitchesTabAndPane() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"]),
+            (name: "tab2", paneNames: ["b"]),
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][0].id
+
+        let notification = PaneNotification(
+            paneID: panes[1][0].id,
+            paneName: "b",
+            tabID: state.tabs[1].id,
+            tabName: "tab2",
+            isPriority: false
+        )
+        state.navigateTo(notification: notification)
+
+        XCTAssertEqual(state.activeTabID, state.tabs[1].id)
+        XCTAssertEqual(state.activePaneID, panes[1][0].id)
+    }
+
+    func testNavigateToPRMergedNotificationSwitchesTabAndPane() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"]),
+            (name: "tab2", paneNames: ["b"]),
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][0].id
+
+        let notification = PaneNotification(
+            paneID: panes[1][0].id,
+            paneName: "b",
+            tabID: state.tabs[1].id,
+            tabName: "tab2",
+            isPriority: false,
+            kind: .prMerged,
+            prNumber: 42,
+            prTitle: "My PR"
+        )
+        state.navigateTo(notification: notification)
+
+        XCTAssertEqual(state.activeTabID, state.tabs[1].id)
+        XCTAssertEqual(state.activePaneID, panes[1][0].id)
+    }
+
     func testCloseLastTabLeavesEmptyState() {
         let (state, _) = makeState(tabs: [
             (name: "tab1", paneNames: ["a"])

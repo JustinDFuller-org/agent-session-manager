@@ -80,6 +80,24 @@ final class PRMergedNotificationUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [exp], timeout: 3), .completed, "Alert should dismiss on Cancel")
     }
 
+    // MARK: - Navigation
+
+    func testClickingNotificationRowNavigatesToCorrectTab() {
+        let row = app.buttons["notification-row-test-pane"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.click()
+
+        // Dismiss the PR Merged alert so we can inspect the tab bar
+        let cancelButton = app.buttons["Cancel"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 5))
+        cancelButton.click()
+
+        // The tab associated with the notification ("TestTab") must now be active
+        let tabButton = app.buttons["tab-button-TestTab"]
+        XCTAssertTrue(tabButton.waitForExistence(timeout: 3))
+        XCTAssertEqual(tabButton.value as? String, "active", "TestTab should be the active tab after clicking its notification")
+    }
+
     // MARK: - Settings toggle
 
     func testPRMergedNotificationsToggleExistsInSettings() {
