@@ -98,41 +98,41 @@ final class PRMergedNotificationUITests: XCTestCase {
     private func injectSessionWithPRMergedNotification() {
         let workspaceDir = GitUITestWorkspace.directoryURL.path
         let json = """
-        {
-          "tabs": [
             {
-              "id": "\(Self.tabID)",
-              "name": "TestTab",
-              "directory": "\(workspaceDir)",
-              "panes": [
+              "tabs": [
                 {
-                  "id": "\(Self.paneID)",
-                  "name": "test-pane",
-                  "cliType": "claude",
+                  "id": "\(Self.tabID)",
+                  "name": "TestTab",
+                  "directory": "\(workspaceDir)",
+                  "panes": [
+                    {
+                      "id": "\(Self.paneID)",
+                      "name": "test-pane",
+                      "cliType": "claude",
+                      "isPriority": false,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    }
+                  ]
+                }
+              ],
+              "activeTabIndex": 0,
+              "pendingNotifications": [
+                {
+                  "notificationID": "\(Self.notifID)",
+                  "paneID": "\(Self.paneID)",
+                  "paneName": "test-pane",
+                  "tabID": "\(Self.tabID)",
+                  "tabName": "TestTab",
                   "isPriority": false,
-                  "worktreeDirectory": "\(workspaceDir)",
-                  "worktreeIsManaged": false
+                  "timestamp": 0,
+                  "kind": "prMerged",
+                  "prNumber": 1,
+                  "prTitle": "Test PR"
                 }
               ]
             }
-          ],
-          "activeTabIndex": 0,
-          "pendingNotifications": [
-            {
-              "notificationID": "\(Self.notifID)",
-              "paneID": "\(Self.paneID)",
-              "paneName": "test-pane",
-              "tabID": "\(Self.tabID)",
-              "tabName": "TestTab",
-              "isPriority": false,
-              "timestamp": 0,
-              "kind": "prMerged",
-              "prNumber": 1,
-              "prTitle": "Test PR"
-            }
-          ]
-        }
-        """
+            """
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appending(path: "agent-session-manager")
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
