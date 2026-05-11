@@ -190,17 +190,17 @@ final class TerminalController: NSObject {
         Self.renderedScreenText(from: terminalView.terminal)
     }
 
-    /// On-screen terminal text for the current viewport (`Terminal.getCharacter`), excluding NULs and trailing blank lines.
+    /// On-screen terminal text for the current viewport (`Terminal.getCharacter`), replacing null cells
+    /// with spaces (matching `buildAttributedString`'s visual rendering) and trimming trailing whitespace.
     static func renderedScreenText(from terminal: Terminal?) -> String {
         guard let terminal, terminal.rows > 0, terminal.cols > 0 else { return "" }
         var lines: [String] = []
         for row in 0..<terminal.rows {
             var chars: [Character] = []
             for col in 0..<terminal.cols {
-                if let ch = terminal.getCharacter(col: col, row: row),
-                    ch.unicodeScalars.first?.value != 0
-                {
-                    chars.append(ch)
+                if let ch = terminal.getCharacter(col: col, row: row) {
+                    let safeChar: Character = ch.unicodeScalars.first?.value == 0 ? " " : ch
+                    chars.append(safeChar)
                 }
             }
             let line = String(chars).replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
