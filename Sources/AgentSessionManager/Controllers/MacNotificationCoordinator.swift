@@ -265,8 +265,11 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         else { return }
         let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
         handleNotificationNavigation(paneIDStr: paneIDStr, tabIDStr: tabIDStr, kind: kind)
+        if let window = NSApp.windows.first(where: { !($0 is NSPanel) }) {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+        }
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first { !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.

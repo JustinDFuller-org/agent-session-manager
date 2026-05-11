@@ -69,6 +69,27 @@ final class NotificationCoordinatorNavigationTests: XCTestCase {
         XCTAssertTrue(alertPosted)
     }
 
+    // handleNotificationResponse delegates to handleNotificationNavigation; verify navigation
+    // still works after the window-ordering resequencing in handleNotificationResponse.
+    func testHandleNotificationResponseNavigationPathStillWorks() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"]),
+            (name: "tab2", paneNames: ["b"]),
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][0].id
+        MacNotificationCoordinator.shared.bind(appState: state, appSettings: AppSettings())
+
+        MacNotificationCoordinator.shared.handleNotificationNavigation(
+            paneIDStr: panes[1][0].id.uuidString,
+            tabIDStr: state.tabs[1].id.uuidString,
+            kind: nil
+        )
+
+        XCTAssertEqual(state.activeTabID, state.tabs[1].id)
+        XCTAssertEqual(state.activePaneID, panes[1][0].id)
+    }
+
     func testNavigationNoopsWhenIDsAreInvalid() {
         let (state, panes) = makeState(tabs: [(name: "tab1", paneNames: ["a"])])
         state.activeTabID = state.tabs[0].id

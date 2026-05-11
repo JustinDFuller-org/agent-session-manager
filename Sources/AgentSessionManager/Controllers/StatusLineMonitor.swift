@@ -232,13 +232,19 @@ final class StatusLineMonitor {
     @MainActor
     private func queryPR() {
         guard SettingsPersistence.isPRTrackingEnabled() else {
+            DebugLogger.shared.log("[pr] queryPR skipped: PR tracking disabled", paneID: paneID)
             currentData?.pr = nil
             return
         }
-        guard let workingDirectory else { return }
+        guard let workingDirectory else {
+            DebugLogger.shared.log("[pr] queryPR skipped: no working directory", paneID: paneID)
+            return
+        }
         prQueryTask?.terminate()
         prQueryToken += 1
         let token = prQueryToken
+
+        DebugLogger.shared.log("[pr] queryPR running for workingDirectory=\(workingDirectory)", paneID: paneID)
 
         let task = Process()
         let outPipe = Pipe()
@@ -253,9 +259,21 @@ final class StatusLineMonitor {
 
         task.terminationHandler = { _ in
             let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
             Task { @MainActor [weak self] in
                 guard let self, token == self.prQueryToken else { return }
+                if !errData.isEmpty,
+                    let errText = String(data: errData, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                    !errText.isEmpty
+                {
+                    DebugLogger.shared.log("[pr] queryPR stderr: \(errText)", paneID: self.paneID)
+                }
+                if outData.isEmpty {
+                    DebugLogger.shared.log("[pr] queryPR output empty — gh returned nothing", paneID: self.paneID)
+                } else {
+                    DebugLogger.shared.log("[pr] queryPR stdout bytes=\(outData.count)", paneID: self.paneID)
+                }
                 self.applyPROutputIfValid(outData)
                 if let pr = self.currentData?.pr, let cwd = self.workingDirectory {
                     self.fetchBuildStatus(for: pr, workingDirectory: cwd, outData: outData)
@@ -274,11 +292,19 @@ final class StatusLineMonitor {
 
     @MainActor
     private func fetchBuildStatus(for pr: PullRequest, workingDirectory: String, outData: Data) {
-        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else { return }
+        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else {
+            DebugLogger.shared.log("[pr] fetchBuildStatus skipped: could not extract owner/repo", paneID: paneID)
+            return
+        }
         guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
             let commits = json["commits"] as? [[String: Any]],
             let headSHA = commits.first?["oid"] as? String
-        else { return }
+        else {
+            DebugLogger.shared.log("[pr] fetchBuildStatus skipped: could not extract head SHA", paneID: paneID)
+            return
+        }
+
+        DebugLogger.shared.log("[pr] fetchBuildStatus running owner=\(owner) repo=\(repo)", paneID: paneID)
 
         let task = Process()
         let outPipe = Pipe()
@@ -293,13 +319,23 @@ final class StatusLineMonitor {
 
         task.terminationHandler = { _ in
             let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                if !errData.isEmpty,
+                    let errText = String(data: errData, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                    !errText.isEmpty
+                {
+                    DebugLogger.shared.log("[pr] fetchBuildStatus stderr: \(errText)", paneID: self.paneID)
+                }
                 if let state = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
                     !state.isEmpty
                 {
+                    DebugLogger.shared.log("[pr] fetchBuildStatus state=\(state)", paneID: self.paneID)
                     self.currentData?.pr?.commitStatusState = state
+                } else {
+                    DebugLogger.shared.log("[pr] fetchBuildStatus result empty", paneID: self.paneID)
                 }
             }
         }
@@ -313,7 +349,15 @@ final class StatusLineMonitor {
 
     @MainActor
     private func fetchUnresolvedComments(for pr: PullRequest, workingDirectory: String) {
-        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else { return }
+        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else {
+            DebugLogger.shared.log("[pr] fetchUnresolvedComments skipped: could not extract owner/repo", paneID: paneID)
+            return
+        }
+
+        DebugLogger.shared.log(
+            "[pr] fetchUnresolvedComments running owner=\(owner) repo=\(repo) pr=#\(pr.number)",
+            paneID: paneID
+        )
 
         let query =
             "query($owner: String!, $repo: String!, $pr: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $pr) { reviewThreads(first: 100) { totalCount } } } }"
@@ -331,16 +375,28 @@ final class StatusLineMonitor {
 
         task.terminationHandler = { _ in
             let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
             Task { @MainActor [weak self] in
                 guard let self, !outData.isEmpty else { return }
+                if !errData.isEmpty,
+                    let errText = String(data: errData, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                    !errText.isEmpty
+                {
+                    DebugLogger.shared.log(
+                        "[pr] fetchUnresolvedComments stderr: \(errText)", paneID: self.paneID)
+                }
                 guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
                     let data = json["data"] as? [String: Any],
                     let repository = data["repository"] as? [String: Any],
                     let pullRequest = repository["pullRequest"] as? [String: Any],
                     let threads = pullRequest["reviewThreads"] as? [String: Any],
                     let total = threads["totalCount"] as? Int
-                else { return }
+                else {
+                    DebugLogger.shared.log("[pr] fetchUnresolvedComments parse failed", paneID: self.paneID)
+                    return
+                }
+                DebugLogger.shared.log("[pr] fetchUnresolvedComments totalCount=\(total)", paneID: self.paneID)
                 self.currentData?.pr?.unresolvedCommentCount = total
             }
         }
@@ -364,14 +420,21 @@ final class StatusLineMonitor {
             try task.run()
             task.waitUntilExit()
         } catch {
+            DebugLogger.shared.log("[pr] extractOwnerRepo failed: process error")
             return nil
         }
 
-        guard task.terminationStatus == 0 else { return nil }
+        guard task.terminationStatus == 0 else {
+            DebugLogger.shared.log("[pr] extractOwnerRepo failed: non-zero exit status \(task.terminationStatus)")
+            return nil
+        }
         let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
         guard let raw = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
             !raw.isEmpty
-        else { return nil }
+        else {
+            DebugLogger.shared.log("[pr] extractOwnerRepo failed: empty output")
+            return nil
+        }
 
         var cleaned = raw
         if cleaned.hasSuffix(".git") {
@@ -379,32 +442,57 @@ final class StatusLineMonitor {
         }
 
         if cleaned.hasPrefix("https://") || cleaned.hasPrefix("http://") {
-            guard let url = URL(string: cleaned) else { return nil }
+            guard let url = URL(string: cleaned) else {
+                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
+                return nil
+            }
             let parts = url.pathComponents.filter { $0 != "/" }
-            guard parts.count >= 2 else { return nil }
+            guard parts.count >= 2 else {
+                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
+                return nil
+            }
             let owner = parts[parts.count - 2]
             let repo = parts[parts.count - 1]
+            DebugLogger.shared.log("[pr] extractOwnerRepo owner=\(owner) repo=\(repo)")
             return (owner, repo)
         }
 
         if cleaned.contains("@") && cleaned.contains(":") {
             let parts = cleaned.split(separator: ":", maxSplits: 1)
-            guard parts.count == 2 else { return nil }
+            guard parts.count == 2 else {
+                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
+                return nil
+            }
             let path = parts[1]
             let pathParts = path.split(separator: "/")
-            guard pathParts.count >= 2 else { return nil }
+            guard pathParts.count >= 2 else {
+                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
+                return nil
+            }
             let owner = String(pathParts[pathParts.count - 2])
             let repo = String(pathParts[pathParts.count - 1])
+            DebugLogger.shared.log("[pr] extractOwnerRepo owner=\(owner) repo=\(repo)")
             return (owner, repo)
         }
 
+        DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
         return nil
     }
 
     @MainActor
     private func applyPROutputIfValid(_ outData: Data) {
-        guard !outData.isEmpty else { return }
-        guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else { return }
+        guard !outData.isEmpty else {
+            DebugLogger.shared.log("[pr] applyPROutput skipped: empty data", paneID: paneID)
+            return
+        }
+        guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else {
+            DebugLogger.shared.log("[pr] applyPROutput decode failed", paneID: paneID)
+            return
+        }
+        DebugLogger.shared.log(
+            "[pr] applyPROutput decoded pr=#\(pr.number) state=\(pr.state) isDraft=\(pr.isDraft ?? false)",
+            paneID: paneID
+        )
         if currentData == nil {
             currentData = StatusLineData(
                 model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
@@ -423,6 +511,10 @@ final class StatusLineMonitor {
     @MainActor
     private func checkForMergedTransition(_ pr: PullRequest) {
         let newState = pr.state.lowercased()
+        DebugLogger.shared.log(
+            "[pr] checkMergedTransition state=\(newState) lastKnown=\(lastKnownPRState ?? "nil") hasFired=\(hasFiredMergedNotification)",
+            paneID: paneID
+        )
         defer { lastKnownPRState = newState }
         guard !hasFiredMergedNotification else { return }
         guard newState == "merged" else { return }

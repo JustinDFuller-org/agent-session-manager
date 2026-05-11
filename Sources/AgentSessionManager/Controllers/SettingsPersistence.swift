@@ -84,6 +84,7 @@ struct SettingsPersistence {
     }
     private static var debugSettingsURL: URL { appSupportDir.appending(path: "debug-settings.json") }
     private static var prTrackingSettingsURL: URL { appSupportDir.appending(path: "pr-tracking-settings.json") }
+    private static var terminalSettingsURL: URL { appSupportDir.appending(path: "terminal-settings.json") }
     private static var worktreeBaseRefURL: URL { appSupportDir.appending(path: "worktree-base-ref.json") }
 
     static func save(appSettings: AppSettings) {
@@ -359,6 +360,24 @@ struct SettingsPersistence {
             let enabled = try? JSONDecoder().decode(Bool.self, from: data)
         else { return true }
         return enabled
+    }
+
+    private struct TerminalSettings: Codable {
+        var scrollbackLines: Int = 500
+    }
+
+    static func saveTerminalSettings(appSettings: AppSettings) {
+        let payload = TerminalSettings(scrollbackLines: appSettings.scrollbackLines)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: terminalSettingsURL)
+    }
+
+    static func restoreTerminalSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: terminalSettingsURL),
+            let settings = try? JSONDecoder().decode(TerminalSettings.self, from: data)
+        else { return }
+        appSettings.scrollbackLines = settings.scrollbackLines
     }
 
     static func saveWorktreeBaseRef(appSettings: AppSettings) {

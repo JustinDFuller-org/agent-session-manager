@@ -174,9 +174,13 @@ struct PaneView: View {
     @ViewBuilder
     private func terminalBody(isActive: Bool) -> some View {
         if let controller = pane.terminalController {
-            TerminalRepresentable(controller: controller, isActive: isActive)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .layoutPriority(1)
+            TerminalRepresentable(
+                controller: controller,
+                isActive: isActive,
+                scrollbackLines: appSettings.scrollbackLines
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .layoutPriority(1)
         } else {
             Color(nsColor: .textBackgroundColor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -107,6 +107,36 @@ private struct GeneralContent: View {
                     }
                     .padding(.vertical, 2)
                 }
+                Section("Terminal") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Scrollback Lines")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text("Number of lines kept in the terminal scroll buffer (100–1,000,000).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        TextField(
+                            "500",
+                            text: Binding(
+                                get: { String(appSettings.scrollbackLines) },
+                                set: { newValue in
+                                    if let parsed = Int(newValue) {
+                                        appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
+                                        SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
+                                    }
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 120)
+                        .accessibilityIdentifier("settings-scrollback-lines-field")
+                    }
+                    .padding(.vertical, 2)
+                }
                 Section("Debug") {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
