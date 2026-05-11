@@ -189,12 +189,12 @@ struct NewPaneSheet: View {
         ) {
             Button("Manage") {
                 guard let resolved = pendingResolution else { return }
-                finishCreate(resolved: resolved, managed: true)
+                finishCreate(resolved: resolved, managed: true, extraArgs: pendingExtraArgs)
             }
             .accessibilityIdentifier("takeover-manage-button")
             Button("Don't Manage") {
                 guard let resolved = pendingResolution else { return }
-                finishCreate(resolved: resolved, managed: false)
+                finishCreate(resolved: resolved, managed: false, extraArgs: pendingExtraArgs)
             }
             .accessibilityIdentifier("takeover-dont-manage-button")
             Button("Cancel", role: .cancel) {
@@ -257,17 +257,17 @@ struct NewPaneSheet: View {
                     if resolved.isExternalTakeover {
                         switch appSettings.existingWorktreeManagement {
                         case .always:
-                            finishCreate(resolved: resolved, managed: true)
+                            finishCreate(resolved: resolved, managed: true, extraArgs: extraArgs)
                         case .ask:
                             isCreating = false
                             pendingResolution = resolved
                             pendingExtraArgs = extraArgs
                             showTakeoverDialog = true
                         case .never:
-                            finishCreate(resolved: resolved, managed: false)
+                            finishCreate(resolved: resolved, managed: false, extraArgs: extraArgs)
                         }
                     } else {
-                        finishCreate(resolved: resolved, managed: true)
+                        finishCreate(resolved: resolved, managed: true, extraArgs: extraArgs)
                     }
                 }
             } catch {
@@ -279,8 +279,7 @@ struct NewPaneSheet: View {
         }
     }
 
-    private func finishCreate(resolved: ResolvedWorktree, managed: Bool) {
-        let extraArgs = pendingExtraArgs
+    private func finishCreate(resolved: ResolvedWorktree, managed: Bool, extraArgs: [String]) {
         pendingResolution = nil
         pendingExtraArgs = []
         resetForm()
