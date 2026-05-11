@@ -66,6 +66,19 @@ So old sessions can still restore if only the legacy path exists; reused externa
 
 `buildClaudeCommand` only emits the final `claude …` invocation (with `--worktree` when starting from the repo root into a managed name, or without it when the process `cwd` is already the checkout). Any `git worktree`, `fetch`, or `rev-parse` work is done in the app layer; users should not see Agent Session Manager prepending git commands to Claude in the terminal.
 
+## Base ref for new worktrees
+
+When Agent Session Manager creates a new worktree from the default branch (the path under step 4 in *Resolution order* above), you can control what commit that worktree starts from via **Settings → Worktrees → Base Ref**:
+
+| Option | Starting point | When to use |
+|--------|---------------|-------------|
+| **Fresh** (default) | `origin/<default-branch>` — fetched fresh from the remote | You want a clean tree that matches the remote, regardless of local `main` state |
+| **HEAD** | Local `HEAD` — whatever is currently checked out in the tab's directory | You want the worktree to include unpushed commits or feature-branch work |
+
+This setting maps directly to Claude Code's `worktree.baseRef` concept (`fresh` vs `head`). The value persists across launches and is stored under `Application Support/agent-session-manager/worktree-base-ref.json`.
+
+**Note:** Base ref only applies when creating a *new* worktree from the default branch. Attaching to an existing ref (step 3 in the resolution order) always checks out that specific ref regardless of this setting.
+
 ## Developer map
 
 | Area | File(s) |

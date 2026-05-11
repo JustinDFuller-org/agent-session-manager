@@ -23,6 +23,25 @@ enum WorktreeCleanupBehavior: String, Codable, CaseIterable {
     }
 }
 
+enum WorktreeBaseRef: String, Codable, CaseIterable {
+    case fresh
+    case head
+
+    var displayName: String {
+        switch self {
+        case .fresh: return "Fresh"
+        case .head: return "HEAD"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .fresh: return "Branch from origin/<default-branch> for a clean tree matching the remote."
+        case .head: return "Branch from local HEAD, including unpushed commits and current branch state."
+        }
+    }
+}
+
 enum ExistingWorktreeManagement: String, Codable, CaseIterable {
     case ask
     case always
@@ -64,6 +83,7 @@ final class AppSettings {
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
+    var worktreeBaseRef: WorktreeBaseRef = .fresh
     var debugLoggingEnabled: Bool = false
     /// Empty string means the default file under Application Support.
     var debugLogFilePath: String = ""

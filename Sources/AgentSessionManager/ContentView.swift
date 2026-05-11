@@ -26,6 +26,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreRestartSettings(into: appSettings)
                         SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
                         SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
+                        SettingsPersistence.restoreWorktreeBaseRef(into: appSettings)
                         SettingsPersistence.restoreDebugSettings(into: appSettings)
                         SettingsPersistence.restorePRTracking(into: appSettings)
                         SettingsPersistence.restoreTerminalSettings(into: appSettings)
