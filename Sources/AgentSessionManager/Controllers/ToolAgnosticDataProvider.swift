@@ -1,6 +1,12 @@
 import Foundation
 
-final class ToolAgnosticDataProvider {
+protocol StatusLineDataProvider: AnyObject {
+    var onUpdate: ((StatusLineData) -> Void)? { get set }
+    func start()
+    func stop()
+}
+
+final class ToolAgnosticDataProvider: StatusLineDataProvider {
     let workingDirectory: String
     let toolCommand: String
     let processStartTime: Date
@@ -35,7 +41,8 @@ final class ToolAgnosticDataProvider {
     private func refreshNow() {
         Task { [weak self] in
             guard let self else { return }
-            let branch = await self.runShell("git branch --show-current 2>/dev/null")?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let branch = await self.runShell("git branch --show-current 2>/dev/null")?.trimmingCharacters(
+                in: .whitespacesAndNewlines)
             let wd = self.workingDirectory
 
             let data = StatusLineData(
@@ -63,6 +70,8 @@ final class ToolAgnosticDataProvider {
                 sessionName: nil,
                 version: self.versionFetchedVersion,
                 exceeds200kTokens: nil,
+                sessionStatus: nil,
+                openCodeMode: nil,
                 pr: nil
             )
 
@@ -75,7 +84,8 @@ final class ToolAgnosticDataProvider {
     private func fetchVersion() {
         Task { [weak self] in
             guard let self else { return }
-            let version = await self.runShell("PATH=/opt/homebrew/bin:/usr/local/bin:$PATH \(self.toolCommand) --version 2>/dev/null | head -1")?
+            let version = await self.runShell(
+                "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH \(self.toolCommand) --version 2>/dev/null | head -1")?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             await MainActor.run { [weak self] in
                 self?.versionFetchedVersion = version

@@ -4,7 +4,6 @@ import XCTest
 ///
 /// Depends on **`GitUITestWorkspace`** preparing a repo in `BaseTestCase.setUp`.
 final class NewPaneWorktreeRoutingTests: BaseTestCase {
-
     /// Primary checkout resolves to pane title **`UITestWorkspace`** (folder name), not branch `ui-root`.
     private let primaryCheckoutPaneIdentifier = "UITestWorkspace"
 

@@ -1,7 +1,6 @@
 import XCTest
 
 final class TabSwitchingTests: BaseTestCase {
-
     override func setUp() {
         super.setUp()
         createTab(named: "Tab1")

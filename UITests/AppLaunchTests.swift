@@ -1,7 +1,6 @@
 import XCTest
 
 final class AppLaunchTests: BaseTestCase {
-
     func testLaunchShowsEmptyState() {
         waitFor(emptyStateHint)
         screenshot("01-empty-state")

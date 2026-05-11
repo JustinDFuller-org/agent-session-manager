@@ -1,15 +1,15 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 final class WorktreeListParserTests: XCTestCase {
-
     func testParseSingleWorktreeWithBranch() {
         let out = """
-        worktree /Users/me/project
-        HEAD abc123def456789
-        branch refs/heads/main
+            worktree /Users/me/project
+            HEAD abc123def456789
+            branch refs/heads/main
 
-        """
+            """
         let entries = Tab.parseWorktreeListPorcelain(out)
         XCTAssertEqual(entries.count, 1)
         XCTAssertEqual(entries[0].path, "/Users/me/project")
@@ -18,15 +18,15 @@ final class WorktreeListParserTests: XCTestCase {
 
     func testParseTwoWorktrees() {
         let out = """
-        worktree /repo
-        HEAD aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        branch refs/heads/main
+            worktree /repo
+            HEAD aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            branch refs/heads/main
 
-        worktree /repo/.agent-session-manager/worktrees/feat
-        HEAD bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-        branch refs/heads/feature
+            worktree /repo/.agent-session-manager/worktrees/feat
+            HEAD bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+            branch refs/heads/feature
 
-        """
+            """
         let entries = Tab.parseWorktreeListPorcelain(out)
         XCTAssertEqual(entries.count, 2)
         XCTAssertEqual(entries[1].path, "/repo/.agent-session-manager/worktrees/feat")
@@ -35,11 +35,11 @@ final class WorktreeListParserTests: XCTestCase {
 
     func testParseDetached() {
         let out = """
-        worktree /tmp/detached
-        HEAD cccccccccccccccccccccccccccccccccccccccc
-        detached
+            worktree /tmp/detached
+            HEAD cccccccccccccccccccccccccccccccccccccccc
+            detached
 
-        """
+            """
         let entries = Tab.parseWorktreeListPorcelain(out)
         XCTAssertEqual(entries.count, 1)
         XCTAssertNil(entries[0].branch)

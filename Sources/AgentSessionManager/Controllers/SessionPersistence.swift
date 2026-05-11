@@ -8,6 +8,66 @@ struct PersistedPaneNotification: Codable, Equatable {
     var tabName: String
     var isPriority: Bool
     var timestamp: Date
+    var kind: NotificationKind
+    var prNumber: Int?
+    var prTitle: String?
+
+    enum CodingKeys: String, CodingKey {
+        case notificationID, paneID, paneName, tabID, tabName, isPriority, timestamp
+        case kind, prNumber, prTitle
+    }
+
+    init(
+        notificationID: UUID,
+        paneID: UUID,
+        paneName: String,
+        tabID: UUID,
+        tabName: String,
+        isPriority: Bool,
+        timestamp: Date,
+        kind: NotificationKind = .terminalBell,
+        prNumber: Int? = nil,
+        prTitle: String? = nil
+    ) {
+        self.notificationID = notificationID
+        self.paneID = paneID
+        self.paneName = paneName
+        self.tabID = tabID
+        self.tabName = tabName
+        self.isPriority = isPriority
+        self.timestamp = timestamp
+        self.kind = kind
+        self.prNumber = prNumber
+        self.prTitle = prTitle
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        notificationID = try container.decode(UUID.self, forKey: .notificationID)
+        paneID = try container.decode(UUID.self, forKey: .paneID)
+        paneName = try container.decode(String.self, forKey: .paneName)
+        tabID = try container.decode(UUID.self, forKey: .tabID)
+        tabName = try container.decode(String.self, forKey: .tabName)
+        isPriority = try container.decode(Bool.self, forKey: .isPriority)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        kind = try container.decodeIfPresent(NotificationKind.self, forKey: .kind) ?? .terminalBell
+        prNumber = try container.decodeIfPresent(Int.self, forKey: .prNumber)
+        prTitle = try container.decodeIfPresent(String.self, forKey: .prTitle)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(notificationID, forKey: .notificationID)
+        try container.encode(paneID, forKey: .paneID)
+        try container.encode(paneName, forKey: .paneName)
+        try container.encode(tabID, forKey: .tabID)
+        try container.encode(tabName, forKey: .tabName)
+        try container.encode(isPriority, forKey: .isPriority)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(kind, forKey: .kind)
+        try container.encodeIfPresent(prNumber, forKey: .prNumber)
+        try container.encodeIfPresent(prTitle, forKey: .prTitle)
+    }
 }
 
 struct PersistedSession: Codable {
@@ -28,17 +88,18 @@ struct PersistedSession: Codable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        tabs = try c.decode([PersistedTab].self, forKey: .tabs)
-        activeTabIndex = try c.decodeIfPresent(Int.self, forKey: .activeTabIndex)
-        pendingNotifications = try c.decodeIfPresent([PersistedPaneNotification].self, forKey: .pendingNotifications) ?? []
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tabs = try container.decode([PersistedTab].self, forKey: .tabs)
+        activeTabIndex = try container.decodeIfPresent(Int.self, forKey: .activeTabIndex)
+        pendingNotifications =
+            try container.decodeIfPresent([PersistedPaneNotification].self, forKey: .pendingNotifications) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(tabs, forKey: .tabs)
-        try c.encodeIfPresent(activeTabIndex, forKey: .activeTabIndex)
-        try c.encode(pendingNotifications, forKey: .pendingNotifications)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(tabs, forKey: .tabs)
+        try container.encodeIfPresent(activeTabIndex, forKey: .activeTabIndex)
+        try container.encode(pendingNotifications, forKey: .pendingNotifications)
     }
 }
 
@@ -62,7 +123,10 @@ struct PersistedPane: Codable {
         case claudeProcessDirectory
     }
 
-    init(id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false) {
+    init(
+        id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, worktreeDirectory: String? = nil,
+        worktreeIsManaged: Bool = false
+    ) {
         self.id = id
         self.name = name
         self.cliType = cliType
@@ -77,7 +141,8 @@ struct PersistedPane: Codable {
         name = try container.decode(String.self, forKey: .name)
         cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
         isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
-        worktreeDirectory = try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
+        worktreeDirectory =
+            try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
             ?? container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
         worktreeIsManaged = (try? container.decodeIfPresent(Bool.self, forKey: .worktreeIsManaged)) ?? false
     }
@@ -129,10 +194,14 @@ struct SessionPersistence {
                 tabID: $0.tabID,
                 tabName: $0.tabName,
                 isPriority: $0.isPriority,
-                timestamp: $0.timestamp
+                timestamp: $0.timestamp,
+                kind: $0.kind,
+                prNumber: $0.prNumber,
+                prTitle: $0.prTitle
             )
         }
-        let session = PersistedSession(tabs: tabs, activeTabIndex: activeTabIndex, pendingNotifications: pendingNotifications)
+        let session = PersistedSession(
+            tabs: tabs, activeTabIndex: activeTabIndex, pendingNotifications: pendingNotifications)
         guard let data = try? JSONEncoder().encode(session) else { return }
         try? data.write(to: sessionURL)
     }
@@ -146,7 +215,8 @@ struct SessionPersistence {
         var lines: [String] = []
         lines.append("Restoring \(session.tabs.count) tab(s) from \(sessionURL.path)")
         for persistedTab in session.tabs {
-            lines.append("  tab: \(persistedTab.name), directory: \(persistedTab.directory), panes: \(persistedTab.panes.count)")
+            lines.append(
+                "  tab: \(persistedTab.name), directory: \(persistedTab.directory), panes: \(persistedTab.panes.count)")
         }
         DebugLogger.shared.logSessionRestore(summary: lines.joined(separator: "\n"))
 
@@ -200,7 +270,7 @@ struct SessionPersistence {
         for pending in session.pendingNotifications {
             guard !seenPaneIDs.contains(pending.paneID) else { continue }
             guard let tab = appState.tabs.first(where: { $0.id == pending.tabID }),
-                  let pane = tab.panes.first(where: { $0.id == pending.paneID })
+                let pane = tab.panes.first(where: { $0.id == pending.paneID })
             else { continue }
             seenPaneIDs.insert(pending.paneID)
             restored.append(
@@ -211,7 +281,10 @@ struct SessionPersistence {
                     tabID: pending.tabID,
                     tabName: tab.name,
                     isPriority: pending.isPriority,
-                    timestamp: pending.timestamp
+                    timestamp: pending.timestamp,
+                    kind: pending.kind,
+                    prNumber: pending.prNumber,
+                    prTitle: pending.prTitle
                 )
             )
         }

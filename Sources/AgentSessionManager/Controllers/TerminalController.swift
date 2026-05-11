@@ -108,10 +108,10 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 final class TerminalController: NSObject {
     let terminalView: BellCapturingTerminalView
     private(set) var processState: ProcessState = .idle
-    var pendingCommand: String? = nil
-    var pendingDirectory: String? = nil
-    var pendingEnvironment: [String]? = nil
-    var onBell: (() -> Void)? = nil
+    var pendingCommand: String?
+    var pendingDirectory: String?
+    var pendingEnvironment: [String]?
+    var onBell: (() -> Void)?
 
     enum ProcessState: Equatable {
         case idle
@@ -198,7 +198,8 @@ final class TerminalController: NSObject {
             var chars: [Character] = []
             for col in 0..<terminal.cols {
                 if let ch = terminal.getCharacter(col: col, row: row),
-                   ch.unicodeScalars.first?.value != 0 {
+                    ch.unicodeScalars.first?.value != 0
+                {
                     chars.append(ch)
                 }
             }

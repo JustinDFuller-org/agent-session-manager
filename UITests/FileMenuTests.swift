@@ -1,7 +1,6 @@
 import XCTest
 
 final class FileMenuTests: BaseTestCase {
-
     func testNewPaneMenuItemEnabledAfterCreatingTab() {
         createTab(named: "MenuTestTab")
 

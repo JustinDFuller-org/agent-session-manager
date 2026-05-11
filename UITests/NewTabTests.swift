@@ -1,7 +1,6 @@
 import XCTest
 
 final class NewTabTests: BaseTestCase {
-
     func testCreateTabViaKeyboardShortcut() {
         app.typeKey("t", modifierFlags: .command)
 

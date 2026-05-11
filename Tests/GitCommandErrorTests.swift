@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 final class GitCommandErrorTests: XCTestCase {

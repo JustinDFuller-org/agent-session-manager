@@ -1,9 +1,9 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 @MainActor
 final class WorktreeResolutionTests: XCTestCase {
-
     private func makeGitRepo() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appending(path: "asm-resolve-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -18,33 +18,33 @@ final class WorktreeResolutionTests: XCTestCase {
     }
 
     private func runGit(_ args: [String], cwd: URL) throws {
-        let p = Process()
-        p.executableURL = URL(filePath: "/usr/bin/git")
-        p.arguments = args
-        p.currentDirectoryURL = cwd
+        let proc = Process()
+        proc.executableURL = URL(filePath: "/usr/bin/git")
+        proc.arguments = args
+        proc.currentDirectoryURL = cwd
         let err = Pipe()
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = err
-        try p.run()
-        p.waitUntilExit()
-        if p.terminationStatus != 0 {
-            let msg = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        proc.standardOutput = FileHandle.nullDevice
+        proc.standardError = err
+        try proc.run()
+        proc.waitUntilExit()
+        if proc.terminationStatus != 0 {
+            let msg = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             XCTFail("git \(args.joined(separator: " ")): \(msg)")
-            throw NSError(domain: "tests", code: Int(p.terminationStatus))
+            throw NSError(domain: "tests", code: Int(proc.terminationStatus))
         }
     }
 
     private func currentBranch(cwd: URL) throws -> String {
-        let p = Process()
-        p.executableURL = URL(filePath: "/usr/bin/git")
-        p.arguments = ["branch", "--show-current"]
-        p.currentDirectoryURL = cwd
+        let proc = Process()
+        proc.executableURL = URL(filePath: "/usr/bin/git")
+        proc.arguments = ["branch", "--show-current"]
+        proc.currentDirectoryURL = cwd
         let out = Pipe()
-        p.standardOutput = out
-        p.standardError = FileHandle.nullDevice
-        try p.run()
-        p.waitUntilExit()
-        XCTAssertEqual(p.terminationStatus, 0)
+        proc.standardOutput = out
+        proc.standardError = FileHandle.nullDevice
+        try proc.run()
+        proc.waitUntilExit()
+        XCTAssertEqual(proc.terminationStatus, 0)
         let data = out.fileHandleForReading.readDataToEndOfFile()
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -61,13 +61,14 @@ final class WorktreeResolutionTests: XCTestCase {
         XCTAssertFalse(resolved.isExternalTakeover)
         XCTAssertTrue(resolved.processDirectory.path.hasSuffix(Tab.gitWorktreeAddPath(name: slug)))
 
-        try await tab.cleanupWorktree(for: Pane(
-            name: slug,
-            tab: tab,
-            cliType: .claude,
-            worktreeDirectory: resolved.processDirectory,
-            worktreeIsManaged: true
-        ))
+        try await tab.cleanupWorktree(
+            for: Pane(
+                name: slug,
+                tab: tab,
+                cliType: .claude,
+                worktreeDirectory: resolved.processDirectory,
+                worktreeIsManaged: true
+            ))
     }
 
     func testNovelSimpleNameWithoutDefaultBranchThrows() async throws {
@@ -91,13 +92,14 @@ final class WorktreeResolutionTests: XCTestCase {
         XCTAssertEqual(resolved.paneTitle, "loose-branch")
         XCTAssertFalse(resolved.isExternalTakeover)
 
-        try await tab.cleanupWorktree(for: Pane(
-            name: "loose-branch",
-            tab: tab,
-            cliType: .claude,
-            worktreeDirectory: resolved.processDirectory,
-            worktreeIsManaged: true
-        ))
+        try await tab.cleanupWorktree(
+            for: Pane(
+                name: "loose-branch",
+                tab: tab,
+                cliType: .claude,
+                worktreeDirectory: resolved.processDirectory,
+                worktreeIsManaged: true
+            ))
     }
 
     func testPrimaryCheckoutBranchReturnsExternalTakeover() async throws {
@@ -123,13 +125,14 @@ final class WorktreeResolutionTests: XCTestCase {
         XCTAssertFalse(resolved.isExternalTakeover)
         XCTAssertTrue(resolved.processDirectory.path.hasSuffix(rel))
 
-        try await tab.cleanupWorktree(for: Pane(
-            name: "wt-sidecar",
-            tab: tab,
-            cliType: .claude,
-            worktreeDirectory: resolved.processDirectory,
-            worktreeIsManaged: true
-        ))
+        try await tab.cleanupWorktree(
+            for: Pane(
+                name: "wt-sidecar",
+                tab: tab,
+                cliType: .claude,
+                worktreeDirectory: resolved.processDirectory,
+                worktreeIsManaged: true
+            ))
     }
 
     func testRemoteStyleRefFetchesAndCreatesWorktree() async throws {
@@ -137,7 +140,8 @@ final class WorktreeResolutionTests: XCTestCase {
         let tab = Tab(name: "T", directory: repo)
 
         do {
-            let resolved = try await tab.resolveOrAttachWorktree(userRef: "origin/nonexistent-branch-xyz", defaultBranch: nil)
+            let resolved = try await tab.resolveOrAttachWorktree(
+                userRef: "origin/nonexistent-branch-xyz", defaultBranch: nil)
             XCTFail("Expected error for non-existent remote ref, got \(resolved)")
         } catch let error as WorktreeResolutionError {
             XCTAssertEqual(error, .refNotFound("origin/nonexistent-branch-xyz"))
@@ -145,26 +149,26 @@ final class WorktreeResolutionTests: XCTestCase {
     }
 
     func testResolvedWorktreeEquatable() {
-        let a = ResolvedWorktree(
+        let first = ResolvedWorktree(
             paneTitle: "test",
             processDirectory: URL(filePath: "/tmp/a"),
             checkoutURL: URL(filePath: "/tmp/a"),
             isExternalTakeover: false
         )
-        let b = ResolvedWorktree(
+        let second = ResolvedWorktree(
             paneTitle: "test",
             processDirectory: URL(filePath: "/tmp/a"),
             checkoutURL: URL(filePath: "/tmp/a"),
             isExternalTakeover: false
         )
-        let c = ResolvedWorktree(
+        let third = ResolvedWorktree(
             paneTitle: "other",
             processDirectory: URL(filePath: "/tmp/b"),
             checkoutURL: URL(filePath: "/tmp/b"),
             isExternalTakeover: true
         )
-        XCTAssertEqual(a, b)
-        XCTAssertNotEqual(a, c)
-        XCTAssertTrue(c.isExternalTakeover)
+        XCTAssertEqual(first, second)
+        XCTAssertNotEqual(first, third)
+        XCTAssertTrue(third.isExternalTakeover)
     }
 }

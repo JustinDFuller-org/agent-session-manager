@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 /// Sheet reached from the ladybug: trace file path, snapshot capture, and bug-report shortcuts.
 struct DebugLogView: View {
@@ -51,7 +51,7 @@ struct DebugLogView: View {
                     for tab in appState.tabs {
                         for pane in tab.panes {
                             guard let content = pane.terminalController?.terminalContent,
-                                  !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             else { continue }
                             DebugLogger.shared.logTerminalContent(
                                 paneName: pane.name,
@@ -105,7 +105,9 @@ struct DebugLogView: View {
         parts.append("terminal snapshots global: \(appSettings.debugLogIncludeTerminalContents ? "on" : "off")")
         parts.append("per-pane capture panes: \(DebugLogger.shared.tracedPaneTerminalCaptureIDs.count)")
         parts.append("traced panes (events): \(DebugLogger.shared.tracedPaneIDs.count)")
-        parts.append("max file: \(ByteCountFormatter.string(fromByteCount: Int64(appSettings.debugLogMaxFileBytes), countStyle: .file))")
+        parts.append(
+            "max file: \(ByteCountFormatter.string(fromByteCount: Int64(appSettings.debugLogMaxFileBytes), countStyle: .file))"
+        )
         return parts.joined(separator: " · ")
     }
 }

@@ -1,6 +1,6 @@
+import AppKit
 import Foundation
 import Observation
-import AppKit
 
 enum SidebarSide: String, Codable, CaseIterable {
     case left, right
@@ -35,10 +35,15 @@ final class StatusLineMonitor {
     private var prQueryTask: Process?
     /// Bumped when starting a new query or in `stop()` so older `terminationHandler` callbacks cannot mutate `currentData`.
     private var prQueryToken: UInt64 = 0
-    private var agnosticProvider: ToolAgnosticDataProvider?
+    private var agnosticProvider: (any StatusLineDataProvider)?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: (() -> Void)?
+    /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
+    var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
+
+    private var lastKnownPRState: String?
+    private var hasFiredMergedNotification = false
 
     init(paneID: UUID, workingDirectory: String? = nil, cliType: CLIType, processStartTime: Date = Date()) {
         self.paneID = paneID
@@ -47,11 +52,19 @@ final class StatusLineMonitor {
         self.isClaude = cliType == .claude
         filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
-        attentionSignalFilePath = NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
+        attentionSignalFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
 
         if !isClaude, let cwd = workingDirectory {
-            let toolCmd = cliType.cliCommandDescription
-            agnosticProvider = ToolAgnosticDataProvider(workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            let provider: any StatusLineDataProvider
+            if cliType == .opencode {
+                provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
+            } else {
+                let toolCmd = cliType.cliCommandDescription
+                provider = ToolAgnosticDataProvider(
+                    workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            }
+            agnosticProvider = provider
             agnosticProvider?.onUpdate = { [weak self] data in
                 guard let self else { return }
                 var merged = data
@@ -78,7 +91,7 @@ final class StatusLineMonitor {
             )
             src.setEventHandler { [weak self, filePath] in
                 guard let data = try? Data(contentsOf: URL(filePath: filePath)),
-                      let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
+                    let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
                 else { return }
                 Task { @MainActor [weak self] in
                     var merged = parsed
@@ -123,6 +136,8 @@ final class StatusLineMonitor {
         prQueryToken += 1
         prQueryTask?.terminate()
         prQueryTask = nil
+        lastKnownPRState = nil
+        hasFiredMergedNotification = false
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
@@ -133,7 +148,7 @@ final class StatusLineMonitor {
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
-                "command": "cat > '\(filePath)'"
+                "command": "cat > '\(filePath)'",
             ]
         ]
         if attentionEnabled {
@@ -144,9 +159,9 @@ final class StatusLineMonitor {
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": "cat > '\(attentionSignalFilePath)'"
+                                "command": "cat > '\(attentionSignalFilePath)'",
                             ]
-                        ]
+                        ],
                     ]
                 ]
             ]
@@ -189,7 +204,9 @@ final class StatusLineMonitor {
         attentionDebounceWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else { return }
+            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else {
+                return
+            }
             var hasher = Hasher()
             hasher.combine(data)
             let fingerprint = hasher.finalize()
@@ -227,7 +244,10 @@ final class StatusLineMonitor {
         let outPipe = Pipe()
         let errPipe = Pipe()
         task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url 2>/dev/null || true"]
+        task.arguments = [
+            "-c",
+            "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,commits,statusCheckRollup 2>/dev/null || true",
+        ]
         task.standardOutput = outPipe
         task.standardError = errPipe
 
@@ -237,6 +257,10 @@ final class StatusLineMonitor {
             Task { @MainActor [weak self] in
                 guard let self, token == self.prQueryToken else { return }
                 self.applyPROutputIfValid(outData)
+                if let pr = self.currentData?.pr, let cwd = self.workingDirectory {
+                    self.fetchBuildStatus(for: pr, workingDirectory: cwd, outData: outData)
+                    self.fetchUnresolvedComments(for: pr, workingDirectory: cwd)
+                }
             }
         }
 
@@ -249,6 +273,135 @@ final class StatusLineMonitor {
     }
 
     @MainActor
+    private func fetchBuildStatus(for pr: PullRequest, workingDirectory: String, outData: Data) {
+        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else { return }
+        guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
+            let commits = json["commits"] as? [[String: Any]],
+            let headSHA = commits.first?["oid"] as? String
+        else { return }
+
+        let task = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.executableURL = URL(filePath: "/bin/zsh")
+        task.arguments = [
+            "-c",
+            "cd '\(workingDirectory)' && gh api 'repos/\(owner)/\(repo)/commits/\(headSHA)/status' --jq '.state' 2>/dev/null || true",
+        ]
+        task.standardOutput = outPipe
+        task.standardError = errPipe
+
+        task.terminationHandler = { _ in
+            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+            _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let state = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    !state.isEmpty
+                {
+                    self.currentData?.pr?.commitStatusState = state
+                }
+            }
+        }
+
+        do {
+            try task.run()
+        } catch {
+            return
+        }
+    }
+
+    @MainActor
+    private func fetchUnresolvedComments(for pr: PullRequest, workingDirectory: String) {
+        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else { return }
+
+        let query =
+            "query($owner: String!, $repo: String!, $pr: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $pr) { reviewThreads(first: 100) { totalCount } } } }"
+
+        let task = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.executableURL = URL(filePath: "/bin/zsh")
+        task.arguments = [
+            "-c",
+            "cd '\(workingDirectory)' && gh api graphql -f owner='\(owner)' -f repo='\(repo)' -f pr=\(pr.number) -f query='\(query)' 2>/dev/null || true",
+        ]
+        task.standardOutput = outPipe
+        task.standardError = errPipe
+
+        task.terminationHandler = { _ in
+            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+            _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+            Task { @MainActor [weak self] in
+                guard let self, !outData.isEmpty else { return }
+                guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
+                    let data = json["data"] as? [String: Any],
+                    let repository = data["repository"] as? [String: Any],
+                    let pullRequest = repository["pullRequest"] as? [String: Any],
+                    let threads = pullRequest["reviewThreads"] as? [String: Any],
+                    let total = threads["totalCount"] as? Int
+                else { return }
+                self.currentData?.pr?.unresolvedCommentCount = total
+            }
+        }
+
+        do {
+            try task.run()
+        } catch {
+            return
+        }
+    }
+
+    private func extractOwnerRepo(workingDirectory: String) -> (owner: String, repo: String)? {
+        let task = Process()
+        let outPipe = Pipe()
+        task.executableURL = URL(filePath: "/usr/bin/git")
+        task.arguments = ["-C", workingDirectory, "remote", "get-url", "origin"]
+        task.standardOutput = outPipe
+        task.standardError = FileHandle.nullDevice
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            return nil
+        }
+
+        guard task.terminationStatus == 0 else { return nil }
+        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+        guard let raw = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !raw.isEmpty
+        else { return nil }
+
+        var cleaned = raw
+        if cleaned.hasSuffix(".git") {
+            cleaned = String(cleaned.dropLast(4))
+        }
+
+        if cleaned.hasPrefix("https://") || cleaned.hasPrefix("http://") {
+            guard let url = URL(string: cleaned) else { return nil }
+            let parts = url.pathComponents.filter { $0 != "/" }
+            guard parts.count >= 2 else { return nil }
+            let owner = parts[parts.count - 2]
+            let repo = parts[parts.count - 1]
+            return (owner, repo)
+        }
+
+        if cleaned.contains("@") && cleaned.contains(":") {
+            let parts = cleaned.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2 else { return nil }
+            let path = parts[1]
+            let pathParts = path.split(separator: "/")
+            guard pathParts.count >= 2 else { return nil }
+            let owner = String(pathParts[pathParts.count - 2])
+            let repo = String(pathParts[pathParts.count - 1])
+            return (owner, repo)
+        }
+
+        return nil
+    }
+
+    @MainActor
     private func applyPROutputIfValid(_ outData: Data) {
         guard !outData.isEmpty else { return }
         guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else { return }
@@ -258,11 +411,32 @@ final class StatusLineMonitor {
                 worktree: nil, workspace: nil, effort: nil, thinking: nil,
                 agent: nil, outputStyle: nil, vim: nil,
                 sessionName: nil, version: nil, exceeds200kTokens: nil,
+                sessionStatus: nil, openCodeMode: nil,
                 pr: pr
             )
         } else {
             currentData?.pr = pr
         }
+        checkForMergedTransition(pr)
+    }
+
+    @MainActor
+    private func checkForMergedTransition(_ pr: PullRequest) {
+        let newState = pr.state.lowercased()
+        defer { lastKnownPRState = newState }
+        guard !hasFiredMergedNotification else { return }
+        guard newState == "merged" else { return }
+        // Suppress on first observation (app launch/restart) — only fire on a live transition.
+        guard lastKnownPRState != nil else { return }
+        guard lastKnownPRState != "merged" else { return }
+        hasFiredMergedNotification = true
+        onPRMerged?(pr.number, pr.title)
+    }
+
+    /// For testing only: simulates a PR data update as if received from `gh pr view`.
+    @MainActor
+    func simulatePRUpdateForTesting(_ data: Data) {
+        applyPROutputIfValid(data)
     }
 
     /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus optional `hooks`) for tests and tooling.
@@ -274,7 +448,7 @@ final class StatusLineMonitor {
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
-                "command": "cat > '\(statusOutputPath)'"
+                "command": "cat > '\(statusOutputPath)'",
             ]
         ]
         if includeNotificationHook {
@@ -285,9 +459,9 @@ final class StatusLineMonitor {
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": "cat > '\(attentionOutputPath)'"
+                                "command": "cat > '\(attentionOutputPath)'",
                             ]
-                        ]
+                        ],
                     ]
                 ]
             ]

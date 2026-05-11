@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftTerm
+import SwiftUI
 
 struct TerminalRepresentable: NSViewRepresentable {
     let controller: TerminalController
@@ -51,7 +51,8 @@ struct TerminalRepresentable: NSViewRepresentable {
                 if currentSize == lastSize || attempt >= 10 {
                     controller.startProcess()
                 } else {
-                    self?.waitForStableFrame(view: view, controller: controller, lastSize: currentSize, attempt: attempt + 1)
+                    self?.waitForStableFrame(
+                        view: view, controller: controller, lastSize: currentSize, attempt: attempt + 1)
                 }
             }
         }

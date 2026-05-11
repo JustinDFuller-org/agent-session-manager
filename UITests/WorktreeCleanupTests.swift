@@ -1,7 +1,6 @@
 import XCTest
 
 final class WorktreeCleanupUITests: BaseTestCase {
-
     private func createManagedWorktreePane(folder: String) {
         GitUITestWorkspace.addManagedSecondaryWorktree(
             folder: folder,

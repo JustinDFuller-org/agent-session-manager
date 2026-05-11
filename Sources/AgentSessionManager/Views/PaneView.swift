@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct PaneView: View {
     @Environment(AppState.self) private var appState
@@ -40,31 +40,41 @@ struct PaneView: View {
                 }
             }
             if appSettings.debugLoggingEnabled {
-                Text("Global debug logging is on: every pane writes events to the trace file. Turn it off in Settings → General to limit tracing to selected panes.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Global debug logging is on: every pane writes events to the trace file. Turn it off in Settings → General to limit tracing to selected panes."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             } else {
-                Toggle("Trace this pane (events to trace file)", isOn: Binding(
-                    get: { DebugLogger.shared.tracedPaneIDs.contains(pane.id) },
-                    set: { DebugLogger.shared.setPaneTraceEnabled(pane.id, $0) }
-                ))
+                Toggle(
+                    "Trace this pane (events to trace file)",
+                    isOn: Binding(
+                        get: { DebugLogger.shared.tracedPaneIDs.contains(pane.id) },
+                        set: { DebugLogger.shared.setPaneTraceEnabled(pane.id, $0) }
+                    ))
             }
 
             if appSettings.debugLoggingEnabled && appSettings.debugLogIncludeTerminalContents {
-                Text("Global “include terminal snapshots” is on: Capture Terminal from the debug sheet includes every pane.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Global “include terminal snapshots” is on: Capture Terminal from the debug sheet includes every pane."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             } else {
-                Toggle("Include this pane’s terminal in trace captures", isOn: Binding(
-                    get: { DebugLogger.shared.tracedPaneTerminalCaptureIDs.contains(pane.id) },
-                    set: { DebugLogger.shared.setPaneTerminalCaptureEnabled(pane.id, $0) }
-                ))
+                Toggle(
+                    "Include this pane’s terminal in trace captures",
+                    isOn: Binding(
+                        get: { DebugLogger.shared.tracedPaneTerminalCaptureIDs.contains(pane.id) },
+                        set: { DebugLogger.shared.setPaneTerminalCaptureEnabled(pane.id, $0) }
+                    )
+                )
                 .disabled(appSettings.debugLoggingEnabled && appSettings.debugLogIncludeTerminalContents)
             }
 
             if appSettings.debugLoggingEnabled
                 || !DebugLogger.shared.tracedPaneIDs.isEmpty
-                || !DebugLogger.shared.tracedPaneTerminalCaptureIDs.isEmpty {
+                || !DebugLogger.shared.tracedPaneTerminalCaptureIDs.isEmpty
+            {
                 Button("Report a Bug…") {
                     DebugLogger.openBugReport(traceFilePath: appSettings.resolvedDebugLogFileURL.path)
                 }
@@ -73,7 +83,8 @@ struct PaneView: View {
         .onTapGesture {
             appState.setActivePane(id: pane.id)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerClaudeHookAttentionSettingChanged)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerClaudeHookAttentionSettingChanged)) {
+            _ in
             pane.statusLineMonitor?.refreshClaudeIntegrationFromSettings()
         }
         .accessibilityElement(children: .contain)

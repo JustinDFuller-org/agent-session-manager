@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import AgentSessionManager
 
 final class StatusLineConfigTests: XCTestCase {
@@ -18,7 +19,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 25)
+        XCTAssertEqual(StatusLineConfig.allItems.count, 27)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -49,17 +50,18 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testMigrationFromLegacyFormat() throws {
-        let legacyJSON = """
-        {
-            "items": [
-                {"id": "model", "label": "Model", "sfSymbol": "cpu", "isVisible": true},
-                {"id": "cost", "label": "Cost", "sfSymbol": "dollarsign.circle", "isVisible": false},
-                {"id": "worktree", "label": "Worktree", "sfSymbol": "folder.badge.gearshape", "isVisible": true}
-            ],
-            "chipLabelStyle": "symbolOnly",
-            "rowAlignment": "leading"
-        }
-        """.data(using: .utf8)!
+        let legacyJSON = Data(
+            """
+            {
+                "items": [
+                    {"id": "model", "label": "Model", "sfSymbol": "cpu", "isVisible": true},
+                    {"id": "cost", "label": "Cost", "sfSymbol": "dollarsign.circle", "isVisible": false},
+                    {"id": "worktree", "label": "Worktree", "sfSymbol": "folder.badge.gearshape", "isVisible": true}
+                ],
+                "chipLabelStyle": "symbolOnly",
+                "rowAlignment": "leading"
+            }
+            """.utf8)
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: legacyJSON)
         XCTAssertEqual(config.rows.count, 1)
         XCTAssertEqual(config.rows[0].items.map(\.id), ["model", "worktree"])
@@ -67,27 +69,28 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testStatusLineDataFullParse() throws {
-        let json = """
-        {
-            "model": {"id": "claude-opus-4-7", "display_name": "Opus"},
-            "cost": {"total_cost_usd": 0.01234, "total_duration_ms": 45000, "total_lines_added": 156, "total_lines_removed": 23},
-            "context_window": {"used_percentage": 8, "remaining_percentage": 92, "total_input_tokens": 15234, "total_output_tokens": 4521},
-            "rate_limits": {
-                "five_hour": {"used_percentage": 23.5, "resets_at": 1738425600},
-                "seven_day": {"used_percentage": 41.2, "resets_at": 1738857600}
-            },
-            "worktree": {"name": "my-feature", "branch": "worktree-my-feature"},
-            "workspace": {"git_worktree": "feature-xyz"},
-            "effort": {"level": "high"},
-            "thinking": {"enabled": true},
-            "agent": {"name": "security-reviewer"},
-            "output_style": {"name": "default"},
-            "vim": {"mode": "NORMAL"},
-            "session_name": "my-session",
-            "version": "2.1.90",
-            "exceeds_200k_tokens": false
-        }
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {
+                "model": {"id": "claude-opus-4-7", "display_name": "Opus"},
+                "cost": {"total_cost_usd": 0.01234, "total_duration_ms": 45000, "total_lines_added": 156, "total_lines_removed": 23},
+                "context_window": {"used_percentage": 8, "remaining_percentage": 92, "total_input_tokens": 15234, "total_output_tokens": 4521},
+                "rate_limits": {
+                    "five_hour": {"used_percentage": 23.5, "resets_at": 1738425600},
+                    "seven_day": {"used_percentage": 41.2, "resets_at": 1738857600}
+                },
+                "worktree": {"name": "my-feature", "branch": "worktree-my-feature"},
+                "workspace": {"git_worktree": "feature-xyz"},
+                "effort": {"level": "high"},
+                "thinking": {"enabled": true},
+                "agent": {"name": "security-reviewer"},
+                "output_style": {"name": "default"},
+                "vim": {"mode": "NORMAL"},
+                "session_name": "my-session",
+                "version": "2.1.90",
+                "exceeds_200k_tokens": false
+            }
+            """.utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertEqual(data.model?.id, "claude-opus-4-7")
         XCTAssertEqual(data.model?.displayName, "Opus")
@@ -100,7 +103,7 @@ final class StatusLineConfigTests: XCTestCase {
         XCTAssertEqual(data.contextWindow?.totalInputTokens, 15234)
         XCTAssertEqual(data.contextWindow?.totalOutputTokens, 4521)
         XCTAssertEqual(data.rateLimits?.fiveHour?.usedPercentage, 23.5)
-        XCTAssertEqual(data.rateLimits?.fiveHour?.resetsAt, 1738425600)
+        XCTAssertEqual(data.rateLimits?.fiveHour?.resetsAt, 1_738_425_600)
         XCTAssertEqual(data.rateLimits?.sevenDay?.usedPercentage, 41.2)
         XCTAssertEqual(data.worktree?.name, "my-feature")
         XCTAssertEqual(data.worktree?.branch, "worktree-my-feature")
@@ -116,9 +119,10 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testStatusLineDataPartialParse() throws {
-        let json = """
-        {"model": {"id": "claude-sonnet-4-6"}}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"model": {"id": "claude-sonnet-4-6"}}
+            """.utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertEqual(data.model?.id, "claude-sonnet-4-6")
         XCTAssertNil(data.model?.displayName)
@@ -129,7 +133,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testStatusLineDataEmptyJsonDoesNotCrash() throws {
-        let json = "{}".data(using: .utf8)!
+        let json = Data("{}".utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertNil(data.model)
         XCTAssertNil(data.cost)
@@ -154,26 +158,50 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testClaudeOnlyItemsAreAllOtherItems() {
         let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
-        for id in StatusLineConfig.itemMetadata.keys where !agnosticIds.contains(id) {
+        let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
+        let claudeOrOpencodeIds: Set<String> = ["model", "cost", "inputTokens", "outputTokens"]
+        for id in StatusLineConfig.itemMetadata.keys
+        where !agnosticIds.contains(id) && !opencodeOnlyIds.contains(id) && !claudeOrOpencodeIds.contains(id) {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
+        }
+        for id in opencodeOnlyIds {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .opencodeOnly, "\(id) should be .opencodeOnly")
+        }
+        for id in claudeOrOpencodeIds {
+            XCTAssertEqual(
+                StatusLineConfig.itemAvailability[id], .claudeOrOpencode, "\(id) should be .claudeOrOpencode")
         }
     }
 
     func testSupportedByClaudeReturnsTrueForAll() {
-        for id in StatusLineConfig.itemMetadata.keys {
+        let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
+        for id in StatusLineConfig.itemMetadata.keys where !opencodeOnlyIds.contains(id) {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
             XCTAssertTrue(item.supportedBy(.claude), "\(id) should be supported by Claude")
+        }
+        for id in opencodeOnlyIds {
+            let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
+            XCTAssertFalse(item.supportedBy(.claude), "\(id) should not be supported by Claude")
         }
     }
 
     func testSupportedByNonClaudeReturnsOnlyAgnostic() {
         let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        let opencodeIds: Set<String> = [
+            "sessionStatus", "openCodeMode", "model", "cost", "inputTokens", "outputTokens",
+        ]
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
-            let expected = agnosticIds.contains(id)
-            for cliType: CLIType in [.codex, .cursor, .opencode] {
-                XCTAssertEqual(item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
+            for cliType: CLIType in [.codex, .cursor] {
+                let expected = agnosticIds.contains(id)
+                XCTAssertEqual(
+                    item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
             }
+            // OpenCode supports agnostic items, its own specific items, and shared Claude+OpenCode items
+            let expectedForOpencode = agnosticIds.contains(id) || opencodeIds.contains(id)
+            XCTAssertEqual(
+                item.supportedBy(.opencode), expectedForOpencode,
+                "\(id) supportedBy opencode should be \(expectedForOpencode)")
         }
     }
 
@@ -186,9 +214,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 }
 
-
 final class CLIOptionConfigTests: XCTestCase {
-
     // All 62 flags from https://code.claude.com/docs/en/cli-reference#cli-flags
     private let expectedFlagIDs: Set<String> = [
         "--add-dir",
@@ -303,7 +329,8 @@ final class CLIOptionConfigTests: XCTestCase {
         XCTAssertTrue(flag.isUserAdded)
         XCTAssertFalse(flag.customIsStringType)
         XCTAssertEqual(flag.id, "--my-flag")
-        if case .boolean = flag.optionType {} else {
+        if case .boolean = flag.optionType {
+        } else {
             XCTFail("Expected boolean optionType for user-added boolean flag")
         }
     }
@@ -333,7 +360,8 @@ final class CLIOptionConfigTests: XCTestCase {
         XCTAssertTrue(decoded.customIsStringType)
         XCTAssertTrue(decoded.isAvailable)
         XCTAssertTrue(decoded.isDefaultEnabled)
-        if case .string = decoded.optionType {} else {
+        if case .string = decoded.optionType {
+        } else {
             XCTFail("Expected string optionType after decoding")
         }
     }
@@ -496,7 +524,8 @@ final class OpenCodeCLIOptionConfigTests: XCTestCase {
     func testOpenCodeBooleanFlags() {
         let booleanIDs: Set<String> = ["--continue", "--fork", "--mdns"]
         for flag in opencodeOptions where booleanIDs.contains(flag.id) {
-            if case .boolean = flag.optionType {} else {
+            if case .boolean = flag.optionType {
+            } else {
                 XCTFail("\(flag.id) should be boolean type")
             }
         }
@@ -508,7 +537,8 @@ final class OpenCodeCLIOptionConfigTests: XCTestCase {
             "--port", "--hostname", "--mdns-domain", "--cors",
         ]
         for flag in opencodeOptions where stringIDs.contains(flag.id) {
-            if case .string = flag.optionType {} else {
+            if case .string = flag.optionType {
+            } else {
                 XCTFail("\(flag.id) should be string type")
             }
         }
@@ -547,9 +577,10 @@ final class CLITypeTests: XCTestCase {
 
 final class PersistedPaneBackwardCompatTests: XCTestCase {
     func testDecodesWithoutCLITypeDefaultsToClaude() throws {
-        let json = """
-        {"id":"A78E5B1C-0000-0000-0000-000000000001","name":"my-pane"}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"id":"A78E5B1C-0000-0000-0000-000000000001","name":"my-pane"}
+            """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertEqual(decoded.name, "my-pane")
         XCTAssertEqual(decoded.cliType, .claude)
@@ -558,9 +589,10 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
     }
 
     func testDecodesCodexCLIType() throws {
-        let json = """
-        {"id":"A78E5B1C-0000-0000-0000-000000000002","name":"codex-pane","cliType":"codex"}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"id":"A78E5B1C-0000-0000-0000-000000000002","name":"codex-pane","cliType":"codex"}
+            """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertEqual(decoded.name, "codex-pane")
         XCTAssertEqual(decoded.cliType, .codex)
@@ -593,9 +625,10 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
     }
 
     func testDecodesOldClaudeProcessDirectoryFormat() throws {
-        let json = """
-        {"id":"A78E5B1C-0000-0000-0000-000000000010","name":"legacy-pane","claudeProcessDirectory":"/tmp/old-checkout"}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"id":"A78E5B1C-0000-0000-0000-000000000010","name":"legacy-pane","claudeProcessDirectory":"/tmp/old-checkout"}
+            """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertEqual(decoded.worktreeDirectory, "/tmp/old-checkout")
     }
@@ -796,7 +829,6 @@ final class BranchSanitizationTests: XCTestCase {
     }
 }
 
-
 final class ContinueOnRestartCommandTests: XCTestCase {
     func testBuildClaudeCommandWithContinueFlag() {
         let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --continue")
@@ -815,9 +847,10 @@ final class ContinueOnRestartCommandTests: XCTestCase {
 @MainActor
 final class PRTrackingTests: XCTestCase {
     func testPullRequestDecode() throws {
-        let json = """
-        {"number": 42, "title": "Fix login bug", "state": "OPEN", "url": "https://github.com/owner/repo/pull/42"}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"number": 42, "title": "Fix login bug", "state": "OPEN", "url": "https://github.com/owner/repo/pull/42"}
+            """.utf8)
         let pr = try JSONDecoder().decode(PullRequest.self, from: json)
         XCTAssertEqual(pr.number, 42)
         XCTAssertEqual(pr.title, "Fix login bug")
@@ -828,17 +861,218 @@ final class PRTrackingTests: XCTestCase {
 
     func testPullRequestStateDisplayName() {
         let openPR = PullRequest(number: 1, title: "t", state: "OPEN", url: "https://example.com")
-        XCTAssertEqual(openPR.stateDisplayName, "open")
+        XCTAssertEqual(openPR.displayState, "open")
         let mergedPR = PullRequest(number: 2, title: "t", state: "MERGED", url: "https://example.com")
-        XCTAssertEqual(mergedPR.stateDisplayName, "merged")
+        XCTAssertEqual(mergedPR.displayState, "merged")
         let closedPR = PullRequest(number: 3, title: "t", state: "CLOSED", url: "https://example.com")
-        XCTAssertEqual(closedPR.stateDisplayName, "closed")
+        XCTAssertEqual(closedPR.displayState, "closed")
+    }
+
+    func testPullRequestDraftDisplayState() {
+        let pr = PullRequest(number: 5, title: "draft pr", state: "OPEN", url: "https://example.com", isDraft: true)
+        XCTAssertEqual(pr.displayState, "draft")
+    }
+
+    func testPullRequestStateIconNameDraft() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", isDraft: true)
+        XCTAssertEqual(pr.stateIconName, "pencil.line")
+    }
+
+    func testPullRequestStateIconNameOpen() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        XCTAssertEqual(pr.stateIconName, "arrow.triangle.pull")
+    }
+
+    func testPullRequestStateIconNameMerged() {
+        let pr = PullRequest(number: 1, title: "t", state: "MERGED", url: "u")
+        XCTAssertEqual(pr.stateIconName, "arrow.triangle.merge")
+    }
+
+    func testPullRequestStateIconNameClosed() {
+        let pr = PullRequest(number: 1, title: "t", state: "CLOSED", url: "u")
+        XCTAssertEqual(pr.stateIconName, "xmark.circle")
+    }
+
+    func testPullRequestDecodeWithStatusChecks() throws {
+        let json = Data(
+            """
+            {"number":42,"title":"Fix bug","state":"OPEN","url":"https://example.com","isDraft":true,"statusCheckRollup":[{"name":"CI","status":"COMPLETED","conclusion":"SUCCESS","detailsUrl":"https://ci.example.com"}]}
+            """.utf8)
+        let pr = try JSONDecoder().decode(PullRequest.self, from: json)
+        XCTAssertEqual(pr.number, 42)
+        XCTAssertEqual(pr.isDraft, true)
+        XCTAssertEqual(pr.statusCheckRollup?.count, 1)
+        XCTAssertEqual(pr.statusCheckRollup?.first?.name, "CI")
+        XCTAssertEqual(pr.statusCheckRollup?.first?.conclusion, "SUCCESS")
+    }
+
+    func testPullRequestDecodeWithoutStatusChecks() throws {
+        let json = Data(
+            """
+            {"number":42,"title":"Fix bug","state":"OPEN","url":"https://example.com","isDraft":false,"statusCheckRollup":[]}
+            """.utf8)
+        let pr = try JSONDecoder().decode(PullRequest.self, from: json)
+        XCTAssertEqual(pr.isDraft, false)
+        XCTAssertEqual(pr.statusCheckRollup?.isEmpty, true)
+    }
+
+    func testPullRequestDecodeWithCommitsField() throws {
+        let json = Data(
+            """
+            {"number":42,"title":"Fix bug","state":"OPEN","url":"https://example.com","isDraft":false,"commits":[{"oid":"abc123"}]}
+            """.utf8)
+        let pr = try JSONDecoder().decode(PullRequest.self, from: json)
+        XCTAssertEqual(pr.number, 42)
+        XCTAssertEqual(pr.title, "Fix bug")
+        XCTAssertEqual(pr.state, "OPEN")
+        XCTAssertNil(pr.commitStatusState)
+    }
+
+    func testPullRequestDefaultCommitStatusStateIsNil() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        XCTAssertNil(pr.commitStatusState)
+        XCTAssertEqual(pr.buildStatus, .unknown)
+    }
+
+    func testBuildStatusSuccess() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        pr.commitStatusState = "SUCCESS"
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testBuildStatusRunning() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        pr.commitStatusState = "PENDING"
+        XCTAssertEqual(pr.buildStatus, .running)
+    }
+
+    func testBuildStatusFailed() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        pr.commitStatusState = "FAILURE"
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusFailedFromError() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        pr.commitStatusState = "ERROR"
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusUnknownWhenNil() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        XCTAssertNil(pr.commitStatusState)
+        XCTAssertEqual(pr.buildStatus, .unknown)
+    }
+
+    func testBuildStatusUnknownWhenUnexpectedValue() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        pr.commitStatusState = "EXPECTED"
+        XCTAssertEqual(pr.buildStatus, .unknown)
+    }
+
+    func testFailingChecks() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil),
+            StatusCheck(name: "Test", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.failingChecks.count, 2)
+        XCTAssertEqual(pr.failingChecks.first?.name, "Lint")
+    }
+
+    func testFailingChecksEmpty() {
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        XCTAssertEqual(pr.failingChecks.count, 0)
+    }
+
+    func testCommitStatusStateCaseInsensitive() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u")
+        pr.commitStatusState = "success"
+        XCTAssertEqual(pr.buildStatus, .success)
+        pr.commitStatusState = "pending"
+        XCTAssertEqual(pr.buildStatus, .running)
+        pr.commitStatusState = "failure"
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusFromStatusCheckRollupFailed() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusFromStatusCheckRollupRunning() {
+        let checks = [
+            StatusCheck(name: "CI", status: "IN_PROGRESS", conclusion: nil, detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "QUEUED", conclusion: nil, detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .running)
+    }
+
+    func testBuildStatusFromStatusCheckRollupSuccess() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Lint", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testBuildStatusFromStatusCheckRollupCancelled() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "CANCELLED", detailsUrl: nil)
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .cancelled)
+    }
+
+    func testBuildStatusFromStatusCheckRollupTimedOut() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "TIMED_OUT", detailsUrl: nil)
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusRollupTakesPriorityOverCommitStatusState() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: nil)
+        ]
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        pr.commitStatusState = "SUCCESS"
+        XCTAssertEqual(pr.buildStatus, .failed)
+    }
+
+    func testBuildStatusFallsBackToCommitStatusWhenRollupEmpty() {
+        var pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: [])
+        pr.commitStatusState = "SUCCESS"
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testBuildStatusSkippedChecksCountAsSuccess() {
+        let checks = [
+            StatusCheck(name: "CI", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil),
+            StatusCheck(name: "Optional", status: "COMPLETED", conclusion: "SKIPPED", detailsUrl: nil),
+        ]
+        let pr = PullRequest(number: 1, title: "t", state: "OPEN", url: "u", statusCheckRollup: checks)
+        XCTAssertEqual(pr.buildStatus, .success)
+    }
+
+    func testIsFailingCoversTimedOut() {
+        let check = StatusCheck(name: "CI", status: "COMPLETED", conclusion: "TIMED_OUT", detailsUrl: nil)
+        XCTAssertTrue(check.isFailing)
     }
 
     func testStatusLineDataDecodeWithPR() throws {
-        let json = """
-        {"pr": {"number": 7, "title": "Add feature X", "state": "OPEN", "url": "https://github.com/o/r/pull/7"}}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"pr": {"number": 7, "title": "Add feature X", "state": "OPEN", "url": "https://github.com/o/r/pull/7"}}
+            """.utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertEqual(data.pr?.number, 7)
         XCTAssertEqual(data.pr?.title, "Add feature X")
@@ -846,9 +1080,10 @@ final class PRTrackingTests: XCTestCase {
     }
 
     func testStatusLineDataDecodeWithoutPR() throws {
-        let json = """
-        {"model": {"id": "opus", "display_name": "Claude Opus"}}
-        """.data(using: .utf8)!
+        let json = Data(
+            """
+            {"model": {"id": "opus", "display_name": "Claude Opus"}}
+            """.utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertNil(data.pr)
         XCTAssertEqual(data.model?.id, "opus")

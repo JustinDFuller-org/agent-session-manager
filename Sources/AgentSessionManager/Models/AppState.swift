@@ -61,12 +61,12 @@ final class AppState {
             }
         }
     }
-        
+
     func closeTab(_ tab: Tab) {
         let paneIDs = Set(tab.panes.map(\.id))
-        tab.panes.forEach {
-            DebugLogger.shared.removeTracedPane($0.id)
-            $0.terminalController?.terminate()
+        for pane in tab.panes {
+            DebugLogger.shared.removeTracedPane(pane.id)
+            pane.terminalController?.terminate()
         }
         notifications.removeAll { paneIDs.contains($0.paneID) }
         tabs.removeAll { $0.id == tab.id }
@@ -91,13 +91,14 @@ final class AppState {
             )
             return
         }
-        notifications.append(PaneNotification(
-            paneID: paneID,
-            paneName: paneName,
-            tabID: tabID,
-            tabName: tabName,
-            isPriority: isPriority
-        ))
+        notifications.append(
+            PaneNotification(
+                paneID: paneID,
+                paneName: paneName,
+                tabID: tabID,
+                tabName: tabName,
+                isPriority: isPriority
+            ))
         DebugLogger.shared.log(
             "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)",
             paneID: paneID,
@@ -109,6 +110,38 @@ final class AppState {
             paneName: paneName,
             tabID: tabID,
             tabName: tabName
+        )
+        SessionPersistence.save(appState: self)
+    }
+
+    func addPRMergedNotification(
+        paneID: UUID,
+        paneName: String,
+        tabID: UUID,
+        tabName: String,
+        prNumber: Int,
+        prTitle: String
+    ) {
+        guard SettingsPersistence.isPRMergedNotificationsEnabled() else { return }
+        if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prMerged }) { return }
+        notifications.append(
+            PaneNotification(
+                paneID: paneID,
+                paneName: paneName,
+                tabID: tabID,
+                tabName: tabName,
+                isPriority: false,
+                kind: .prMerged,
+                prNumber: prNumber,
+                prTitle: prTitle
+            ))
+        MacNotificationCoordinator.shared.postPRMergedBannerIfNeeded(
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
+            prNumber: prNumber,
+            prTitle: prTitle
         )
         SessionPersistence.save(appState: self)
     }
@@ -125,13 +158,24 @@ final class AppState {
 
     func navigateTo(notification: PaneNotification) {
         DebugLogger.shared.log(
-            "[notify] navigateToNotification sidebar pane=\(notification.paneName) tab=\(notification.tabName)",
+            "[notify] navigateToNotification sidebar pane=\(notification.paneName) tab=\(notification.tabName) kind=\(notification.kind.rawValue)",
             paneID: notification.paneID,
             tabName: notification.tabName,
             paneName: notification.paneName
         )
-        switchToTab(id: notification.tabID)
-        setActivePane(id: notification.paneID)
+        if notification.kind == .prMerged {
+            NotificationCenter.default.post(
+                name: .prMergedActionRequested,
+                object: nil,
+                userInfo: [
+                    "paneID": notification.paneID.uuidString,
+                    "tabID": notification.tabID.uuidString,
+                ]
+            )
+        } else {
+            switchToTab(id: notification.tabID)
+            setActivePane(id: notification.paneID)
+        }
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {

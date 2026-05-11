@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 @main
 struct AgentSessionManagerApp: App {
@@ -88,6 +88,7 @@ extension Notification.Name {
     static let newTab = Notification.Name("newTab")
     static let newPane = Notification.Name("newPane")
     static let closeTab = Notification.Name("closeTab")
+    static let prMergedActionRequested = Notification.Name("prMergedActionRequested")
 }
 
 extension AgentSessionManagerApp {
@@ -96,10 +97,10 @@ extension AgentSessionManagerApp {
     }
 
     private var appWindowTitle: String {
-#if DEV_BUILD
+        #if DEV_BUILD
         "Agent Session Manager (Dev)"
-#else
+        #else
         "Agent Session Manager"
-#endif
+        #endif
     }
 }

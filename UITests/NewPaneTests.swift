@@ -1,7 +1,6 @@
 import XCTest
 
 final class NewPaneTests: BaseTestCase {
-
     override func setUp() {
         super.setUp()
         createTab(named: "PaneTestTab")
@@ -256,4 +255,3 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertEqual(nameField.value as? String, "hello-focus")
     }
 }
-

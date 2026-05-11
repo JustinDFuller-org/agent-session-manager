@@ -41,15 +41,16 @@ struct NewPaneSheet: View {
     }
 
     private var validationError: String? {
-        let t = trimmedInput
-        guard !t.isEmpty else { return nil }
-        if t.contains("/") || t.hasPrefix("refs/") {
+        let trimmed = trimmedInput
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.contains("/") || trimmed.hasPrefix("refs/") {
             return nil
         }
-        if !Tab.isValidWorktreeName(t) {
-            return "Name may only contain letters, digits, dots, underscores, and dashes. For a branch, use a ref such as origin/feature."
+        if !Tab.isValidWorktreeName(trimmed) {
+            return
+                "Name may only contain letters, digits, dots, underscores, and dashes. For a branch, use a ref such as origin/feature."
         }
-        if appState.isWorktreeDuplicate(directory: tab.directory, name: t) {
+        if appState.isWorktreeDuplicate(directory: tab.directory, name: trimmed) {
             return "A pane with this worktree is already open."
         }
         return nil
@@ -81,7 +82,7 @@ struct NewPaneSheet: View {
                         (Text("No tools are active. Enable a tool in ")
                             .foregroundStyle(.secondary)
                             + Text("Settings \u{2192} Tools")
-                                .foregroundColor(.accentColor))
+                            .foregroundColor(.accentColor))
                     }
                     .font(.subheadline)
                 } else {
@@ -203,7 +204,9 @@ struct NewPaneSheet: View {
             .accessibilityIdentifier("takeover-cancel-button")
         } message: {
             if let resolved = pendingResolution {
-                Text("A checkout for this repo already exists:\n\(resolved.processDirectory.path)\n\nTake over management so the worktree can be cleaned up later?")
+                Text(
+                    "A checkout for this repo already exists:\n\(resolved.processDirectory.path)\n\nTake over management so the worktree can be cleaned up later?"
+                )
             }
         }
         .onAppear {
@@ -349,7 +352,7 @@ private struct CLIOptionToggleRow: View {
                     .font(.system(.body, design: .monospaced))
                     .font(.caption)
             }
-            if case let .string(placeholder) = option.optionType {
+            if case .string(let placeholder) = option.optionType {
                 TextField(placeholder, text: $state.value)
                     .textFieldStyle(.roundedBorder)
                     .disabled(!state.enabled)

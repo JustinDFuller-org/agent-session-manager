@@ -39,7 +39,8 @@ enum GitUITestWorkspace {
         line: UInt = #line
     ) {
         let rel = ".agent-session-manager/worktrees/\(folder)"
-        runGitOrFail(["worktree", "add", rel, "-b", newTrackingBranch, baseBranch], cwd: directoryURL, file: file, line: line)
+        runGitOrFail(
+            ["worktree", "add", rel, "-b", newTrackingBranch, baseBranch], cwd: directoryURL, file: file, line: line)
     }
 
     private static func runGitOrFail(_ args: [String], cwd: URL, file: StaticString = #file, line: UInt = #line) {
@@ -63,6 +64,8 @@ enum GitUITestWorkspace {
         let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
         let errText = String(data: errData, encoding: .utf8) ?? ""
 
-        XCTAssertEqual(process.terminationStatus, 0, "git \(args.joined(separator: " ")) failed: \(errText)", file: file, line: line)
+        XCTAssertEqual(
+            process.terminationStatus, 0, "git \(args.joined(separator: " ")) failed: \(errText)", file: file,
+            line: line)
     }
 }

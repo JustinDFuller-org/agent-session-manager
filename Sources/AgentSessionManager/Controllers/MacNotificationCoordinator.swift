@@ -4,6 +4,7 @@ import UserNotifications
 enum MacNotificationUserInfoKey {
     static let paneID = "paneID"
     static let tabID = "tabID"
+    static let notificationKind = "notificationKind"
 }
 
 enum MacNotificationFailureSite: String {
@@ -37,7 +38,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 suffix = " unError=raw(\(ns.code))"
             }
         }
-        return "domain=\(ns.domain) code=\(ns.code)\(suffix) description=\(ns.localizedDescription) userInfo=\(ns.userInfo as NSDictionary)"
+        return
+            "domain=\(ns.domain) code=\(ns.code)\(suffix) description=\(ns.localizedDescription) userInfo=\(ns.userInfo as NSDictionary)"
     }
 
     func bind(appState: AppState, appSettings: AppSettings) {
@@ -67,7 +69,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         guard appSettings.isMacOSBannerNotificationsEnabled else {
             await MainActor.run {
                 if DebugLogger.shared.isEnabled {
-                    DebugLogger.shared.log("[banner] requestAuthorization skipped (macOS banner notifications off in settings)")
+                    DebugLogger.shared.log(
+                        "[banner] requestAuthorization skipped (macOS banner notifications off in settings)")
                 }
             }
             return
@@ -79,7 +82,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 "[banner] notification settings snapshot authorization=\(String(describing: settings.authorizationStatus)) macOSBannersEnabled=\(appSettings.isMacOSBannerNotificationsEnabled) willRequest=\(settings.authorizationStatus == .notDetermined)"
             )
             if settings.authorizationStatus == .denied, DebugLogger.shared.isEnabled,
-               !Self.hasLoggedDeniedBannerHint {
+                !Self.hasLoggedDeniedBannerHint
+            {
                 Self.hasLoggedDeniedBannerHint = true
                 DebugLogger.shared.log(
                     "[banner] authorization denied for banners — enable Agent Session Manager in System Settings → Notifications (in-app sidebar still works without this)"
@@ -188,17 +192,75 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         }
     }
 
+    func postPRMergedBannerIfNeeded(
+        paneID: UUID,
+        paneName: String,
+        tabID: UUID,
+        tabName: String,
+        prNumber: Int,
+        prTitle: String
+    ) {
+        guard let appSettings = self.appSettings, appSettings.isMacOSBannerNotificationsEnabled else { return }
+        guard !AgentSessionManagerApp.isUITesting else { return }
+        Task { @MainActor in
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            guard settings.authorizationStatus == .authorized else { return }
+            guard settings.alertSetting == .enabled else { return }
+            let content = UNMutableNotificationContent()
+            content.title = "PR Merged"
+            content.subtitle = paneName
+            content.body = "PR #\(prNumber): \(prTitle)"
+            content.sound = .default
+            content.userInfo = [
+                MacNotificationUserInfoKey.paneID: paneID.uuidString,
+                MacNotificationUserInfoKey.tabID: tabID.uuidString,
+                MacNotificationUserInfoKey.notificationKind: NotificationKind.prMerged.rawValue,
+            ]
+            let identifier = "pr-merged-\(paneID.uuidString)"
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+            do {
+                try await center.add(request)
+                DebugLogger.shared.log(
+                    "[banner] postPRMergedBanner succeeded identifier=\(identifier)",
+                    paneID: paneID,
+                    tabName: tabName,
+                    paneName: paneName
+                )
+            } catch {
+                DebugLogger.shared.log(
+                    "[banner] postPRMergedBanner failed \(Self.describeUserNotificationsNSError(error))",
+                    paneID: paneID,
+                    tabName: tabName,
+                    paneName: paneName
+                )
+            }
+        }
+    }
+
     func handleNotificationResponse(_ response: UNNotificationResponse) {
         let userInfo = response.notification.request.content.userInfo
         guard
             let paneIDStr = userInfo[MacNotificationUserInfoKey.paneID] as? String,
             let tabIDStr = userInfo[MacNotificationUserInfoKey.tabID] as? String,
-            let paneID = UUID(uuidString: paneIDStr),
-            let tabID = UUID(uuidString: tabIDStr),
             let state = appState
         else { return }
-        state.focusPane(tabID: tabID, paneID: paneID)
-        NSApp.activate(ignoringOtherApps: true)
+        let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
+        if kind == NotificationKind.prMerged.rawValue {
+            NotificationCenter.default.post(
+                name: .prMergedActionRequested,
+                object: nil,
+                userInfo: ["paneID": paneIDStr, "tabID": tabIDStr]
+            )
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            guard
+                let paneID = UUID(uuidString: paneIDStr),
+                let tabID = UUID(uuidString: tabIDStr)
+            else { return }
+            state.focusPane(tabID: tabID, paneID: paneID)
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.

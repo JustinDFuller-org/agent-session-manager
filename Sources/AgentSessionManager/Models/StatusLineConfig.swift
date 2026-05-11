@@ -3,6 +3,8 @@ import Foundation
 enum ToolAvailability: Codable {
     case all
     case claudeOnly
+    case opencodeOnly
+    case claudeOrOpencode
 }
 
 enum ChipLabelStyle: String, Codable, CaseIterable {
@@ -46,7 +48,8 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         label = try container.decode(String.self, forKey: .label)
-        sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol)
+        sfSymbol =
+            try container.decodeIfPresent(String.self, forKey: .sfSymbol)
             ?? StatusLineConfig.itemMetadata[id]?.symbol ?? "circle"
     }
 
@@ -58,6 +61,8 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         switch availability {
         case .all: return true
         case .claudeOnly: return cliType == .claude
+        case .opencodeOnly: return cliType == .opencode
+        case .claudeOrOpencode: return cliType == .claude || cliType == .opencode
         }
     }
 
@@ -93,31 +98,33 @@ struct StatusLineConfig: Codable {
     var rowAlignment: RowAlignment
 
     static let itemMetadata: [String: (label: String, symbol: String)] = [
-        "model":            ("Model",             "cpu"),
-        "worktree":         ("Worktree",          "folder.badge.gearshape"),
-        "cost":             ("Cost",              "dollarsign.circle"),
-        "context":          ("Context %",         "gauge.with.needle"),
-        "effort":           ("Effort",            "dial.high"),
-        "thinking":         ("Thinking",          "brain"),
-        "vimMode":          ("Vim Mode",          "keyboard"),
-        "agentName":        ("Agent",             "person.crop.circle"),
-        "sessionName":      ("Session Name",      "tag"),
-        "worktreeBranch":   ("Worktree Branch",   "arrow.branch"),
-        "gitWorktree":      ("Git Worktree",      "internaldrive"),
-        "linesAdded":       ("Lines Added",       "plus.square"),
-        "linesRemoved":     ("Lines Removed",     "minus.square"),
-        "duration":         ("Duration",          "clock"),
+        "model": ("Model", "cpu"),
+        "worktree": ("Worktree", "folder.badge.gearshape"),
+        "cost": ("Cost", "dollarsign.circle"),
+        "context": ("Context %", "gauge.with.needle"),
+        "effort": ("Effort", "dial.high"),
+        "thinking": ("Thinking", "brain"),
+        "vimMode": ("Vim Mode", "keyboard"),
+        "agentName": ("Agent", "person.crop.circle"),
+        "sessionName": ("Session Name", "tag"),
+        "worktreeBranch": ("Worktree Branch", "arrow.branch"),
+        "gitWorktree": ("Git Worktree", "internaldrive"),
+        "linesAdded": ("Lines Added", "plus.square"),
+        "linesRemoved": ("Lines Removed", "minus.square"),
+        "duration": ("Duration", "clock"),
         "contextRemaining": ("Context Remaining", "gauge.with.needle.fill"),
-        "inputTokens":      ("Input Tokens",      "arrow.down.circle"),
-        "outputTokens":     ("Output Tokens",     "arrow.up.circle"),
-        "rate5h":           ("5h Rate",           "timer"),
-        "rate7d":           ("7d Rate",           "calendar.badge.clock"),
-        "rate5hReset":      ("5h Resets At",      "arrow.clockwise.circle"),
-        "rate7dReset":      ("7d Resets At",      "arrow.clockwise.circle.fill"),
-        "version":          ("Version",           "info.circle"),
-        "outputStyle":      ("Output Style",      "text.alignleft"),
-        "exceeds200k":      ("Exceeds 200k",      "exclamationmark.triangle"),
-        "pr":               ("PR",                "arrow.triangle.pull"),
+        "inputTokens": ("Input Tokens", "arrow.down.circle"),
+        "outputTokens": ("Output Tokens", "arrow.up.circle"),
+        "rate5h": ("5h Rate", "timer"),
+        "rate7d": ("7d Rate", "calendar.badge.clock"),
+        "rate5hReset": ("5h Resets At", "arrow.clockwise.circle"),
+        "rate7dReset": ("7d Resets At", "arrow.clockwise.circle.fill"),
+        "version": ("Version", "info.circle"),
+        "outputStyle": ("Output Style", "text.alignleft"),
+        "exceeds200k": ("Exceeds 200k", "exclamationmark.triangle"),
+        "sessionStatus": ("Status", "circle.fill"),
+        "openCodeMode": ("Mode", "text.alignleft"),
+        "pr": ("PR", "arrow.triangle.pull"),
     ]
 
     static let itemAvailability: [String: ToolAvailability] = [
@@ -128,9 +135,12 @@ struct StatusLineConfig: Codable {
         "duration": .all,
         "version": .all,
         "pr": .all,
+        // Claude + OpenCode — populated by both via their respective APIs
+        "model": .claudeOrOpencode,
+        "cost": .claudeOrOpencode,
+        "inputTokens": .claudeOrOpencode,
+        "outputTokens": .claudeOrOpencode,
         // Claude-only — requires the Claude statusLine hook
-        "model": .claudeOnly,
-        "cost": .claudeOnly,
         "context": .claudeOnly,
         "effort": .claudeOnly,
         "thinking": .claudeOnly,
@@ -140,14 +150,15 @@ struct StatusLineConfig: Codable {
         "linesAdded": .claudeOnly,
         "linesRemoved": .claudeOnly,
         "contextRemaining": .claudeOnly,
-        "inputTokens": .claudeOnly,
-        "outputTokens": .claudeOnly,
         "rate5h": .claudeOnly,
         "rate7d": .claudeOnly,
         "rate5hReset": .claudeOnly,
         "rate7dReset": .claudeOnly,
         "outputStyle": .claudeOnly,
         "exceeds200k": .claudeOnly,
+        // OpenCode-only — populated by OpenCode HTTP API
+        "sessionStatus": .opencodeOnly,
+        "openCodeMode": .opencodeOnly,
     ]
 
     static let itemOrder: [String] = [
@@ -155,6 +166,7 @@ struct StatusLineConfig: Codable {
         "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
+        "sessionStatus", "openCodeMode",
         "pr",
     ]
 
@@ -191,7 +203,8 @@ struct StatusLineConfig: Codable {
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows
         } else if let legacyItems = try container.decodeIfPresent([LegacyStatusLineItem].self, forKey: .items) {
-            let visibleItems = legacyItems
+            let visibleItems =
+                legacyItems
                 .filter(\.isVisible)
                 .compactMap { legacy -> StatusLineItem? in
                     guard let meta = StatusLineConfig.itemMetadata[legacy.id] else { return nil }
@@ -221,15 +234,49 @@ struct StatusLineConfig: Codable {
     }
 }
 
+struct StatusCheck: Codable, Identifiable {
+    let name: String
+    let status: String
+    let conclusion: String?
+    let detailsUrl: String?
+
+    var id: String { name }
+
+    var isFailing: Bool {
+        let failedConclusions: Set<String> = ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"]
+        return failedConclusions.contains(conclusion?.uppercased() ?? "")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case status
+        case conclusion
+        case detailsUrl
+    }
+}
+
+enum BuildStatus: Equatable {
+    case success
+    case running
+    case failed
+    case cancelled
+    case unknown
+}
+
 struct PullRequest: Codable, Identifiable {
     let number: Int
     let title: String
     let state: String
     let url: String
+    var isDraft: Bool?
+    var statusCheckRollup: [StatusCheck]?
+    var unresolvedCommentCount: Int?
+    var commitStatusState: String?
 
     var id: Int { number }
 
-    var stateDisplayName: String {
+    var displayState: String {
+        if isDraft == true { return "draft" }
         switch state.lowercased() {
         case "open": return "open"
         case "merged": return "merged"
@@ -238,8 +285,54 @@ struct PullRequest: Codable, Identifiable {
         }
     }
 
+    var buildStatus: BuildStatus {
+        if let checks = statusCheckRollup, !checks.isEmpty {
+            let failedConclusions: Set<String> = ["FAILURE", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"]
+            if checks.contains(where: { failedConclusions.contains($0.conclusion?.uppercased() ?? "") }) {
+                return .failed
+            }
+            if checks.contains(where: { $0.conclusion?.uppercased() == "CANCELLED" }) {
+                return .cancelled
+            }
+            let runningStatuses: Set<String> = ["IN_PROGRESS", "QUEUED", "WAITING", "REQUESTED", "PENDING"]
+            if checks.contains(where: { runningStatuses.contains($0.status.uppercased()) }) {
+                return .running
+            }
+            let passConclusions: Set<String> = ["SUCCESS", "NEUTRAL", "SKIPPED"]
+            if checks.allSatisfy({ passConclusions.contains($0.conclusion?.uppercased() ?? "") }) {
+                return .success
+            }
+        }
+        guard let apiState = commitStatusState else { return .unknown }
+        switch apiState.uppercased() {
+        case "SUCCESS": return .success
+        case "FAILURE", "ERROR": return .failed
+        case "PENDING": return .running
+        default: return .unknown
+        }
+    }
+
+    var stateIconName: String {
+        if isDraft == true { return "pencil.line" }
+        switch state.lowercased() {
+        case "open": return "arrow.triangle.pull"
+        case "merged": return "arrow.triangle.merge"
+        case "closed": return "xmark.circle"
+        default: return "arrow.triangle.pull"
+        }
+    }
+
+    var failingChecks: [StatusCheck] {
+        statusCheckRollup?.filter { $0.isFailing } ?? []
+    }
+
     enum CodingKeys: String, CodingKey {
-        case number, title, state, url
+        case number
+        case title
+        case state
+        case url
+        case isDraft
+        case statusCheckRollup
     }
 }
 
@@ -330,6 +423,11 @@ struct StatusLineData: Codable {
         let mode: String?
     }
 
+    struct SessionStatus: Codable {
+        let state: String?
+        enum CodingKeys: String, CodingKey { case state }
+    }
+
     let model: Model?
     let cost: Cost?
     let contextWindow: ContextWindow?
@@ -344,6 +442,8 @@ struct StatusLineData: Codable {
     let sessionName: String?
     let version: String?
     let exceeds200kTokens: Bool?
+    let sessionStatus: SessionStatus?
+    let openCodeMode: String?
     var pr: PullRequest?
 
     enum CodingKeys: String, CodingKey {
@@ -361,6 +461,8 @@ struct StatusLineData: Codable {
         case sessionName = "session_name"
         case version
         case exceeds200kTokens = "exceeds_200k_tokens"
+        case sessionStatus = "session_status"
+        case openCodeMode = "open_code_mode"
         case pr
     }
 }
