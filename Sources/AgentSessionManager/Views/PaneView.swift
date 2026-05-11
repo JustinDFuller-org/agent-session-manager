@@ -92,9 +92,9 @@ struct PaneView: View {
 
     private func paneHeader(pendingNotification: PaneNotification?) -> some View {
         HStack(spacing: 6) {
-            statusDot
+            statusDot(pendingNotification: pendingNotification)
 
-            if let notification = pendingNotification {
+            if let notification = pendingNotification, notification.kind == .terminalBell {
                 Circle()
                     .fill(notification.isPriority ? Color.orange : Color.accentColor)
                     .frame(width: 7, height: 7)
@@ -140,19 +140,26 @@ struct PaneView: View {
     }
 
     @ViewBuilder
-    private var statusDot: some View {
-        switch pane.terminalController?.processState {
-        case .running:
+    private func statusDot(pendingNotification: PaneNotification?) -> some View {
+        if pendingNotification?.kind == .prMerged {
             Circle()
-                .fill(Color.green)
+                .fill(Color.purple)
                 .frame(width: 7, height: 7)
-                .opacity(pulse ? 0.5 : 1.0)
-                .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
-                .onAppear { pulse = true }
-        case .exited:
-            Circle().fill(Color.gray.opacity(0.4)).frame(width: 7, height: 7)
-        default:
-            Circle().fill(Color.gray).frame(width: 7, height: 7)
+                .accessibilityIdentifier("pane-status-dot-merged-\(pane.name)")
+        } else {
+            switch pane.terminalController?.processState {
+            case .running:
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 7, height: 7)
+                    .opacity(pulse ? 0.5 : 1.0)
+                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+                    .onAppear { pulse = true }
+            case .exited:
+                Circle().fill(Color.gray.opacity(0.4)).frame(width: 7, height: 7)
+            default:
+                Circle().fill(Color.gray).frame(width: 7, height: 7)
+            }
         }
     }
 
