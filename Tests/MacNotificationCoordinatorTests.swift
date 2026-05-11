@@ -4,7 +4,7 @@ import XCTest
 @testable import AgentSessionManager
 
 @MainActor
-final class MacNotificationCoordinatorNavigationTests: XCTestCase {
+final class NotificationCoordinatorNavigationTests: XCTestCase {
     private func makeState(tabs: [(name: String, paneNames: [String])]) -> (AppState, [[Pane]]) {
         let state = AppState()
         let url = URL(filePath: "/tmp")

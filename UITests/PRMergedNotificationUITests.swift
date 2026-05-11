@@ -95,7 +95,10 @@ final class PRMergedNotificationUITests: XCTestCase {
         // The tab associated with the notification ("TestTab") must now be active
         let tabButton = app.buttons["tab-button-TestTab"]
         XCTAssertTrue(tabButton.waitForExistence(timeout: 3))
-        XCTAssertEqual(tabButton.value as? String, "active", "TestTab should be the active tab after clicking its notification")
+        XCTAssertEqual(
+            tabButton.value as? String, "active",
+            "TestTab should be active after clicking its notification"
+        )
     }
 
     // MARK: - Settings toggle
