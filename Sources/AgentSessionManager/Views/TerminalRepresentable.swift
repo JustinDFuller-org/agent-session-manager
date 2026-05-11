@@ -4,6 +4,7 @@ import SwiftUI
 struct TerminalRepresentable: NSViewRepresentable {
     let controller: TerminalController
     let isActive: Bool
+    let scrollbackLines: Int
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         controller.terminalView
@@ -12,6 +13,7 @@ struct TerminalRepresentable: NSViewRepresentable {
     func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
         context.coordinator.startIfNeeded(view: nsView, controller: controller)
         context.coordinator.focusIfNeeded(view: nsView, isActive: isActive)
+        nsView.changeScrollback(scrollbackLines)
     }
 
     func makeCoordinator() -> Coordinator {
