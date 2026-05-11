@@ -212,6 +212,10 @@ final class TerminalController: NSObject {
         return lines.joined(separator: "\n")
     }
 
+    func focusTerminal() {
+        terminalView.window?.makeFirstResponder(terminalView)
+    }
+
     func terminate() {
         terminalView.terminate()
     }

@@ -62,6 +62,9 @@ struct ContentView: View {
             MacNotificationCoordinator.shared.bind(appState: appState, appSettings: appSettings)
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            appState.activePane?.terminalController?.focusTerminal()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerDebugTracingChanged)) { _ in
             debugLadybugRefreshTick &+= 1
         }

@@ -163,6 +163,8 @@ final class AppState {
             tabName: notification.tabName,
             paneName: notification.paneName
         )
+        switchToTab(id: notification.tabID)
+        setActivePane(id: notification.paneID)
         if notification.kind == .prMerged {
             NotificationCenter.default.post(
                 name: .prMergedActionRequested,
@@ -172,9 +174,6 @@ final class AppState {
                     "tabID": notification.tabID.uuidString,
                 ]
             )
-        } else {
-            switchToTab(id: notification.tabID)
-            setActivePane(id: notification.paneID)
         }
     }
 
