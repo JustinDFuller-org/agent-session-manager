@@ -65,6 +65,14 @@ final class NotificationUITests: BaseTestCase {
         XCTAssertTrue(newPanePriorityToggle.waitForExistence(timeout: 3))
     }
 
+    // Regression: notification click (and any other activation path) must not open a second window.
+    func testOnlyOneWindowExistsAfterLaunch() {
+        let nonPanelWindows = app.windows.allElementsBoundByIndex.filter {
+            $0.title != "Notification Center"
+        }
+        XCTAssertEqual(nonPanelWindows.count, 1, "Expected exactly one app window after launch")
+    }
+
     func testPriorityToggleHiddenInNewPaneSheetWhenDisabled() {
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.buttons["Notifications"]
