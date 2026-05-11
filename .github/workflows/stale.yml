@@ -10,7 +10,7 @@ jobs:
     name: Mark stale issues and PRs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@v10
         with:
           stale-pr-label: "stale"
           stale-issue-label: "stale"
