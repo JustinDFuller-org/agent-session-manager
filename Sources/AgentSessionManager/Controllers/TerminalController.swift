@@ -4,11 +4,33 @@ import SwiftTerm
 
 final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onBell: (() -> Void)?
+    var onUserInput: (() -> Void)?
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryTabName: String = ""
     var telemetryPaneName: String = ""
     var telemetryPaneUUID: UUID?
     private var osc777HookInstalled = false
+    private var keyEventMonitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil, keyEventMonitor == nil {
+            keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, self.window?.firstResponder === self else { return event }
+                self.onUserInput?()
+                return event
+            }
+        } else if window == nil, let monitor = keyEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyEventMonitor = nil
+        }
+    }
+
+    deinit {
+        if let monitor = keyEventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+    }
 
     private let terminalStreamDebounceLock = NSLock()
     private var terminalStreamDebounceWork: DispatchWorkItem?

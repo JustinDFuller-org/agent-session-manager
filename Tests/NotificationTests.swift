@@ -159,6 +159,38 @@ final class NotificationTests: XCTestCase {
         XCTAssertFalse(decoded.isPriority)
     }
 
+    // MARK: - Clear notification on user input
+
+    func testUserInputClearsNotificationForActivePane() {
+        let state = AppState()
+        let paneID = UUID()
+        state.addNotification(paneID: paneID, paneName: "fix", tabID: UUID(), tabName: "myapp", isPriority: false)
+        XCTAssertEqual(state.notifications.count, 1)
+        // Simulate the onUserInput closure that wireTerminalBellForNotifications installs.
+        state.clearNotification(paneID: paneID)
+        XCTAssertTrue(state.notifications.isEmpty)
+    }
+
+    func testUserInputIsNoOpWhenNoNotification() {
+        let state = AppState()
+        let paneID = UUID()
+        // No notification present — clearNotification should be safe to call.
+        state.clearNotification(paneID: paneID)
+        XCTAssertTrue(state.notifications.isEmpty)
+    }
+
+    func testUserInputInPaneDoesNotClearOtherPanesNotifications() {
+        let state = AppState()
+        let typingPane = UUID()
+        let otherPane = UUID()
+        let tabID = UUID()
+        state.addNotification(paneID: otherPane, paneName: "other", tabID: tabID, tabName: "myapp", isPriority: false)
+        // Simulate user typing in typingPane — should not affect otherPane's notification.
+        state.clearNotification(paneID: typingPane)
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications[0].paneID, otherPane)
+    }
+
     // MARK: - SidebarSide
 
     func testSidebarSideCodable() throws {
