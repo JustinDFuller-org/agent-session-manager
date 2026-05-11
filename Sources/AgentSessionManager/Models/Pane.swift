@@ -38,6 +38,7 @@ final class Pane: Identifiable {
     var terminalController: TerminalController?
     var statusLineMonitor: StatusLineMonitor?
     var isPriority: Bool = false
+    var isMerged: Bool = false
 
     init(
         id: UUID = UUID(),
