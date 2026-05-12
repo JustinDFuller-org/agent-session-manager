@@ -240,6 +240,41 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.subscribers[paneID]?.isActive, false)
     }
 
+    // MARK: - pause / resume
+
+    func testPauseStopsTimer() {
+        let coordinator = PRTrackingCoordinator()
+        let paneID = UUID()
+        coordinator.subscribers[paneID] = makeRecord(owner: "o", repo: "r", branch: "main")
+        coordinator.pause()
+        XCTAssertTrue(coordinator.isPaused)
+        XCTAssertNil(coordinator.cycleTimer)
+    }
+
+    func testPausePreservesSubscribers() {
+        let coordinator = PRTrackingCoordinator()
+        let paneID = UUID()
+        coordinator.subscribers[paneID] = makeRecord(owner: "o", repo: "r", branch: "main")
+        coordinator.pause()
+        XCTAssertNotNil(coordinator.subscribers[paneID])
+    }
+
+    func testResumeWhileNotPausedIsNoop() {
+        let coordinator = PRTrackingCoordinator()
+        XCTAssertFalse(coordinator.isPaused)
+        coordinator.resume()
+        XCTAssertFalse(coordinator.isPaused)
+    }
+
+    func testResumeWithNoSubscribersLeavesTimerNil() {
+        let coordinator = PRTrackingCoordinator()
+        coordinator.pause()
+        XCTAssertTrue(coordinator.isPaused)
+        coordinator.resume()
+        XCTAssertFalse(coordinator.isPaused)
+        XCTAssertNil(coordinator.cycleTimer)
+    }
+
     // MARK: - Helpers
 
     private func makeRecord(owner: String?, repo: String?, branch: String?) -> PRTrackingCoordinator.SubscriberRecord {
