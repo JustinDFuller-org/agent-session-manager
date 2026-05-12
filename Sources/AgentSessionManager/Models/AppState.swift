@@ -36,6 +36,7 @@ final class AppState {
         if let id {
             let hadNotification = notifications.contains { $0.paneID == id }
             clearNotification(paneID: id)
+            MacNotificationCoordinator.shared.removeDeliveredNotifications(forPaneID: id)
             if hadNotification {
                 DebugLogger.shared.log(
                     "[notify] clearNotification reason=activatedPane paneID=\(id.uuidString)",

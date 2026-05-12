@@ -1057,6 +1057,26 @@ private struct NotificationsContent: View {
                         }
                 }
                 .padding(.vertical, 2)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sticky Notifications").font(.system(.body, design: .default)).fontWeight(.medium)
+                        Text(
+                            "Clear all macOS notifications when Agent Session Manager is focused. For banners to stay on screen until dismissed, set the notification style to \"Alerts\" in System Settings → Notifications."
+                        ).font(.caption).foregroundStyle(.secondary)
+                        Button("Open Notification Settings") {
+                            let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!
+                            NSWorkspace.shared.open(url)
+                        }.font(.caption).buttonStyle(.link)
+                    }
+                    Spacer()
+                    Toggle("Sticky Notifications", isOn: $appSettings.isStickyNotificationsEnabled)
+                        .toggleStyle(.checkbox).labelsHidden()
+                        .accessibilityIdentifier("settings-sticky-notifications-toggle")
+                        .onChange(of: appSettings.isStickyNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+                .padding(.vertical, 2)
             }
             Section("Claude Code") {
                 HStack {

@@ -94,6 +94,7 @@ final class AppSettings {
     var debugLogIncludeTerminalContents: Bool = false
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
+    var isStickyNotificationsEnabled: Bool = false
     var scrollbackLines: Int = 500
 
     static let defaultDebugLogMaxFileBytes = 15 * 1024 * 1024

@@ -100,6 +100,25 @@ final class NotificationTests: XCTestCase {
         XCTAssertTrue(settings.alwaysShowNotificationsSidebar)
     }
 
+    func testStickyNotificationsDefaultIsFalse() {
+        XCTAssertFalse(AppSettings().isStickyNotificationsEnabled)
+    }
+
+    func testStickyNotificationsPersists() {
+        let notificationURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager/notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: notificationURL) }
+
+        let settings = AppSettings()
+        settings.isStickyNotificationsEnabled = true
+        SettingsPersistence.saveNotificationSettings(appSettings: settings)
+
+        let restored = AppSettings()
+        SettingsPersistence.restoreNotificationSettings(into: restored)
+        XCTAssertTrue(restored.isStickyNotificationsEnabled)
+    }
+
     func testNotificationSettingsPersistRoundTrip() {
         let notificationURL = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
