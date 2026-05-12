@@ -171,21 +171,22 @@ struct SessionPersistence {
         return dir.appending(path: "sessions.json")
     }
 
-    static func save(appState: AppState) {
+    static func makePersistedSession(appState: AppState) -> PersistedSession {
         let tabs = appState.tabs.map { tab in
             PersistedTab(
                 id: tab.id,
                 name: tab.name,
                 directory: tab.directory.path,
-                panes: tab.panes.map {
-                    PersistedPane(
-                        id: $0.id,
-                        name: $0.name,
-                        cliType: $0.cliType,
-                        isPriority: $0.isPriority,
-                        isMerged: $0.isMerged,
-                        worktreeDirectory: $0.worktreeDirectory?.path,
-                        worktreeIsManaged: $0.worktreeIsManaged
+                panes: tab.panes.compactMap { pane -> PersistedPane? in
+                    guard pane.cliType != .shell else { return nil }
+                    return PersistedPane(
+                        id: pane.id,
+                        name: pane.name,
+                        cliType: pane.cliType,
+                        isPriority: pane.isPriority,
+                        isMerged: pane.isMerged,
+                        worktreeDirectory: pane.worktreeDirectory?.path,
+                        worktreeIsManaged: pane.worktreeIsManaged
                     )
                 }
             )
@@ -205,8 +206,12 @@ struct SessionPersistence {
                 prTitle: $0.prTitle
             )
         }
-        let session = PersistedSession(
+        return PersistedSession(
             tabs: tabs, activeTabIndex: activeTabIndex, pendingNotifications: pendingNotifications)
+    }
+
+    static func save(appState: AppState) {
+        let session = makePersistedSession(appState: appState)
         guard let data = try? JSONEncoder().encode(session) else { return }
         try? data.write(to: sessionURL)
     }

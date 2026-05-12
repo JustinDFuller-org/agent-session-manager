@@ -6,6 +6,10 @@ enum CLIType: String, Codable, CaseIterable {
     case codex
     case cursor
     case opencode
+    case shell
+
+    /// User-facing tool types — excludes `.shell` which is an internal session type.
+    static var allCases: [CLIType] { [.claude, .codex, .cursor, .opencode] }
 
     var displayName: String {
         switch self {
@@ -13,6 +17,7 @@ enum CLIType: String, Codable, CaseIterable {
         case .codex: return "Codex"
         case .cursor: return "Cursor"
         case .opencode: return "OpenCode"
+        case .shell: return "Shell"
         }
     }
 
@@ -22,6 +27,7 @@ enum CLIType: String, Codable, CaseIterable {
         case .codex: return "codex"
         case .cursor: return "agent"
         case .opencode: return "opencode"
+        case .shell: return "$SHELL"
         }
     }
 }
@@ -39,6 +45,7 @@ final class Pane: Identifiable {
     var statusLineMonitor: StatusLineMonitor?
     var isPriority: Bool = false
     var isMerged: Bool = false
+    var restartToken: UUID = UUID()
 
     init(
         id: UUID = UUID(),

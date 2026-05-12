@@ -1,6 +1,28 @@
 import Foundation
 import Observation
 
+enum ExitBehavior: String, Codable, CaseIterable {
+    case prompt
+    case autoShell
+    case close
+
+    var displayName: String {
+        switch self {
+        case .prompt: return "Show Prompt"
+        case .autoShell: return "Open Shell"
+        case .close: return "Close Pane"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .prompt: return "Show a prompt offering Restart, Open Shell, and Close when a process exits."
+        case .autoShell: return "Automatically replace the pane with a live shell when a process exits."
+        case .close: return "Automatically close the pane when a process exits."
+        }
+    }
+}
+
 enum WorktreeCleanupBehavior: String, Codable, CaseIterable {
     case ask
     case keep
@@ -95,6 +117,7 @@ final class AppSettings {
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
     var scrollbackLines: Int = 500
+    var exitBehavior: ExitBehavior = .prompt
 
     static let defaultDebugLogMaxFileBytes = 15 * 1024 * 1024
 

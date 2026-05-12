@@ -12,11 +12,19 @@ struct PaneView: View {
         @Bindable var appState = appState
         let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
         let isActive = appState.activePaneID == pane.id
-        VStack(spacing: 0) {
-            paneHeader(pendingNotification: pendingNotification)
-            Divider()
-            terminalBody(isActive: isActive)
-            statusLine
+        ZStack {
+            VStack(spacing: 0) {
+                paneHeader(pendingNotification: pendingNotification)
+                Divider()
+                terminalBody(isActive: isActive)
+                statusLine
+            }
+
+            if case .exited(let code) = pane.terminalController?.processState,
+                appSettings.exitBehavior == .prompt
+            {
+                exitPromptView(exitCode: code)
+            }
         }
         .background(Color(nsColor: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -27,12 +35,26 @@ struct PaneView: View {
                     lineWidth: isActive ? 1.5 : 1
                 )
         )
+        .onChange(of: pane.terminalController?.processState) { _, newState in
+            guard case .exited = newState else { return }
+            switch appSettings.exitBehavior {
+            case .prompt:
+                break
+            case .autoShell:
+                pane.tab?.openShellInPane(pane)
+            case .close:
+                onClosePane(pane)
+            }
+        }
         .contextMenu {
             Button("Close This Pane") {
                 onClosePane(pane)
             }
             Button("Create Pane") {
                 NotificationCenter.default.post(name: .newPane, object: nil)
+            }
+            Button("Open Shell Here") {
+                pane.tab?.openShellPane(activePane: pane)
             }
             if let pr = pane.statusLineMonitor?.currentData?.pr, let url = URL(string: pr.url) {
                 Button("Go to Pull Request") {
@@ -181,10 +203,31 @@ struct PaneView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .layoutPriority(1)
+            .id(pane.restartToken)
         } else {
             Color(nsColor: .textBackgroundColor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
         }
+    }
+
+    @ViewBuilder
+    private func exitPromptView(exitCode: Int32?) -> some View {
+        VStack(spacing: 12) {
+            Text("Process exited\(exitCode.map { " (code \($0))" } ?? "")")
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+            HStack(spacing: 8) {
+                Button("Restart") { pane.tab?.restartPane(pane) }
+                Button("Open Shell") { pane.tab?.openShellInPane(pane) }
+                Button("Close") { onClosePane(pane) }
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(16)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+        .accessibilityIdentifier("pane-exit-prompt-\(pane.name)")
     }
 }

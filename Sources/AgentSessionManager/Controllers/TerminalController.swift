@@ -126,6 +126,7 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     }
 }
 
+@Observable
 @MainActor
 final class TerminalController: NSObject {
     let terminalView: BellCapturingTerminalView
@@ -133,7 +134,7 @@ final class TerminalController: NSObject {
     var pendingCommand: String?
     var pendingDirectory: String?
     var pendingEnvironment: [String]?
-    var onBell: (() -> Void)?
+    @ObservationIgnored var onBell: (() -> Void)?
 
     enum ProcessState: Equatable {
         case idle
