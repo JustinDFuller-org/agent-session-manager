@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -19,14 +20,38 @@ final class PRTrackingCoordinator {
     }
 
     var subscribers: [UUID: SubscriberRecord] = [:]
-    private var cycleTimer: Timer?
+    private(set) var cycleTimer: Timer?
     var effectiveInterval: TimeInterval = 30
     private var activeBatchProcess: Process?
     private var timeoutWorkItem: DispatchWorkItem?
     /// Incremented each time a new cycle starts; guards against stale async Tasks delivering results.
     private var cycleToken: UInt64 = 0
+    private(set) var isPaused = false
+    @ObservationIgnored nonisolated(unsafe) private var appStateObservers: [Any] = []
 
-    init() {}
+    init() {
+        let center = NotificationCenter.default
+        appStateObservers.append(
+            center.addObserver(
+                forName: NSApplication.willResignActiveNotification,
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.pause() }
+            }
+        )
+        appStateObservers.append(
+            center.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.resume() }
+            }
+        )
+    }
+
+    deinit {
+        appStateObservers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
 
     func subscribe(
         paneID: UUID,
@@ -60,7 +85,27 @@ final class PRTrackingCoordinator {
     }
 
     private func ensureCycleTimerRunning() {
-        guard cycleTimer == nil else { return }
+        guard !isPaused, cycleTimer == nil else { return }
+        runCycle()
+        scheduleCycleTimer()
+    }
+
+    func pause() {
+        isPaused = true
+        cycleTimer?.invalidate()
+        cycleTimer = nil
+        timeoutWorkItem?.cancel()
+        timeoutWorkItem = nil
+        activeBatchProcess?.terminate()
+        activeBatchProcess = nil
+        DebugLogger.shared.log("[pr] coordinator paused (app backgrounded)")
+    }
+
+    func resume() {
+        guard isPaused else { return }
+        isPaused = false
+        guard !subscribers.isEmpty else { return }
+        DebugLogger.shared.log("[pr] coordinator resumed (app foregrounded)")
         runCycle()
         scheduleCycleTimer()
     }
