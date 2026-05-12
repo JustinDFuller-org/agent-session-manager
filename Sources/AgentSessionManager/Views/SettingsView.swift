@@ -789,6 +789,78 @@ private struct StatusLineContent: View {
                     SettingsPersistence.savePRTracking(appSettings: appSettings)
                 }
                 .accessibilityIdentifier("settings-pr-tracking-toggle")
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("PR Polling Interval")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text(
+                            "How often to check for PR updates across all panes (min 15s). Uses a single batched GraphQL request per cycle — the rate limit auto-adjusts at high pane counts."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    HStack(spacing: 4) {
+                        TextField(
+                            "30",
+                            text: Binding(
+                                get: { String(appSettings.prPollingIntervalSeconds) },
+                                set: { newValue in
+                                    if let parsed = Int(newValue) {
+                                        appSettings.prPollingIntervalSeconds = max(15, parsed)
+                                        SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                    }
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 72)
+                        .accessibilityIdentifier("settings-pr-polling-interval-field")
+                        Text("seconds")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 2)
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Request Timeout")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text(
+                            "Cancel the in-flight request and wait for the next cycle if it takes longer than this (min 5s)."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    HStack(spacing: 4) {
+                        TextField(
+                            "15",
+                            text: Binding(
+                                get: { String(appSettings.prRequestTimeoutSeconds) },
+                                set: { newValue in
+                                    if let parsed = Int(newValue) {
+                                        appSettings.prRequestTimeoutSeconds = max(5, parsed)
+                                        SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                    }
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 72)
+                        .accessibilityIdentifier("settings-pr-request-timeout-field")
+                        Text("seconds")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 2)
             }
             ForEach(appSettings.statusLineConfig.rows.indices, id: \.self) { rowIndex in
                 rowSection(rowIndex: rowIndex, appSettings: appSettings)

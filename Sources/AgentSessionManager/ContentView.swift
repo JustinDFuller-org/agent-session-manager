@@ -29,6 +29,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreWorktreeBaseRef(into: appSettings)
                         SettingsPersistence.restoreDebugSettings(into: appSettings)
                         SettingsPersistence.restorePRTracking(into: appSettings)
+                        SettingsPersistence.restorePRPollingSettings(into: appSettings)
                         SettingsPersistence.restoreTerminalSettings(into: appSettings)
                         SettingsPersistence.restoreExitBehavior(into: appSettings)
                         DebugLogger.shared.syncFromAppSettings(appSettings)

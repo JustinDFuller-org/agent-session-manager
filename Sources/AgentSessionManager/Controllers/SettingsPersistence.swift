@@ -99,6 +99,7 @@ struct SettingsPersistence {
     private static var debugSettingsURL: URL { appSupportDir.appending(path: "debug-settings.json") }
     private static var prTrackingSettingsURL: URL { appSupportDir.appending(path: "pr-tracking-settings.json") }
     private static var terminalSettingsURL: URL { appSupportDir.appending(path: "terminal-settings.json") }
+    private static var prPollingSettingsURL: URL { appSupportDir.appending(path: "pr-polling-settings.json") }
     private static var worktreeBaseRefURL: URL { appSupportDir.appending(path: "worktree-base-ref.json") }
     private static var exitBehaviorURL: URL { appSupportDir.appending(path: "exit-behavior.json") }
 
@@ -423,5 +424,36 @@ struct SettingsPersistence {
             let value = try? JSONDecoder().decode(ExitBehavior.self, from: data)
         else { return }
         appSettings.exitBehavior = value
+    }
+
+    private struct PRPollingSettings: Codable {
+        var intervalSeconds: Int = 30
+        var timeoutSeconds: Int = 15
+    }
+
+    static func savePRPollingSettings(appSettings: AppSettings) {
+        let payload = PRPollingSettings(
+            intervalSeconds: appSettings.prPollingIntervalSeconds,
+            timeoutSeconds: appSettings.prRequestTimeoutSeconds
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: prPollingSettingsURL)
+    }
+
+    static func restorePRPollingSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: prPollingSettingsURL),
+            let settings = try? JSONDecoder().decode(PRPollingSettings.self, from: data)
+        else { return }
+        appSettings.prPollingIntervalSeconds = max(15, settings.intervalSeconds)
+        appSettings.prRequestTimeoutSeconds = max(5, settings.timeoutSeconds)
+    }
+
+    static func prPollingSettings() -> (intervalSeconds: Int, timeoutSeconds: Int) {
+        guard
+            let data = try? Data(contentsOf: prPollingSettingsURL),
+            let settings = try? JSONDecoder().decode(PRPollingSettings.self, from: data)
+        else { return (30, 15) }
+        return (max(15, settings.intervalSeconds), max(5, settings.timeoutSeconds))
     }
 }
