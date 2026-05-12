@@ -31,10 +31,6 @@ final class StatusLineMonitor {
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
-    private var prTimer: Timer?
-    private var prQueryTask: Process?
-    /// Bumped when starting a new query or in `stop()` so older `terminationHandler` callbacks cannot mutate `currentData`.
-    private var prQueryToken: UInt64 = 0
     private var agnosticProvider: (any StatusLineDataProvider)?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
@@ -110,10 +106,26 @@ final class StatusLineMonitor {
             agnosticProvider?.start()
         }
 
-        queryPR()
-        prTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.queryPR()
+        if let cwd = workingDirectory {
+            PRTrackingCoordinator.shared.subscribe(
+                paneID: paneID,
+                workingDirectory: cwd,
+                isActive: true
+            ) { [weak self] pr in
+                guard let self else { return }
+                if self.currentData == nil {
+                    self.currentData = StatusLineData(
+                        model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
+                        worktree: nil, workspace: nil, effort: nil, thinking: nil,
+                        agent: nil, outputStyle: nil, vim: nil,
+                        sessionName: nil, version: nil, exceeds200kTokens: nil,
+                        sessionStatus: nil, openCodeMode: nil,
+                        pr: pr
+                    )
+                } else {
+                    self.currentData?.pr = pr
+                }
+                self.checkForMergedTransition(pr)
             }
         }
     }
@@ -131,11 +143,7 @@ final class StatusLineMonitor {
         stopAttentionWatcher()
         agnosticProvider?.stop()
         agnosticProvider = nil
-        prTimer?.invalidate()
-        prTimer = nil
-        prQueryToken += 1
-        prQueryTask?.terminate()
-        prQueryTask = nil
+        PRTrackingCoordinator.shared.unsubscribe(paneID: paneID)
         lastKnownPRState = nil
         hasFiredMergedNotification = false
         try? FileManager.default.removeItem(atPath: filePath)
@@ -230,256 +238,6 @@ final class StatusLineMonitor {
     }
 
     @MainActor
-    private func queryPR() {
-        guard SettingsPersistence.isPRTrackingEnabled() else {
-            DebugLogger.shared.log("[pr] queryPR skipped: PR tracking disabled", paneID: paneID)
-            currentData?.pr = nil
-            return
-        }
-        guard let workingDirectory else {
-            DebugLogger.shared.log("[pr] queryPR skipped: no working directory", paneID: paneID)
-            return
-        }
-        prQueryTask?.terminate()
-        prQueryToken += 1
-        let token = prQueryToken
-
-        DebugLogger.shared.log("[pr] queryPR running for workingDirectory=\(workingDirectory)", paneID: paneID)
-
-        let task = Process()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = [
-            "-c",
-            "cd '\(workingDirectory)' && branch=$(git branch --show-current 2>/dev/null) && [ -n \"$branch\" ] && gh pr view \"$branch\" --json number,title,state,url,isDraft,commits,statusCheckRollup,mergeable 2>/dev/null || true",
-        ]
-        task.standardOutput = outPipe
-        task.standardError = errPipe
-
-        task.terminationHandler = { _ in
-            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-            Task { @MainActor [weak self] in
-                guard let self, token == self.prQueryToken else { return }
-                if !errData.isEmpty,
-                    let errText = String(data: errData, encoding: .utf8)?
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
-                    !errText.isEmpty
-                {
-                    DebugLogger.shared.log("[pr] queryPR stderr: \(errText)", paneID: self.paneID)
-                }
-                if outData.isEmpty {
-                    DebugLogger.shared.log("[pr] queryPR output empty — gh returned nothing", paneID: self.paneID)
-                } else {
-                    DebugLogger.shared.log("[pr] queryPR stdout bytes=\(outData.count)", paneID: self.paneID)
-                }
-                self.applyPROutputIfValid(outData)
-                if let pr = self.currentData?.pr, let cwd = self.workingDirectory {
-                    self.fetchBuildStatus(for: pr, workingDirectory: cwd, outData: outData)
-                    self.fetchUnresolvedComments(for: pr, workingDirectory: cwd)
-                }
-            }
-        }
-
-        prQueryTask = task
-        do {
-            try task.run()
-        } catch {
-            return
-        }
-    }
-
-    @MainActor
-    private func fetchBuildStatus(for pr: PullRequest, workingDirectory: String, outData: Data) {
-        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else {
-            DebugLogger.shared.log("[pr] fetchBuildStatus skipped: could not extract owner/repo", paneID: paneID)
-            return
-        }
-        guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
-            let commits = json["commits"] as? [[String: Any]],
-            let headSHA = commits.first?["oid"] as? String
-        else {
-            DebugLogger.shared.log("[pr] fetchBuildStatus skipped: could not extract head SHA", paneID: paneID)
-            return
-        }
-
-        DebugLogger.shared.log("[pr] fetchBuildStatus running owner=\(owner) repo=\(repo)", paneID: paneID)
-
-        let task = Process()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = [
-            "-c",
-            "cd '\(workingDirectory)' && gh api 'repos/\(owner)/\(repo)/commits/\(headSHA)/status' --jq '.state' 2>/dev/null || true",
-        ]
-        task.standardOutput = outPipe
-        task.standardError = errPipe
-
-        task.terminationHandler = { _ in
-            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                if !errData.isEmpty,
-                    let errText = String(data: errData, encoding: .utf8)?
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
-                    !errText.isEmpty
-                {
-                    DebugLogger.shared.log("[pr] fetchBuildStatus stderr: \(errText)", paneID: self.paneID)
-                }
-                if let state = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                    !state.isEmpty
-                {
-                    DebugLogger.shared.log("[pr] fetchBuildStatus state=\(state)", paneID: self.paneID)
-                    self.currentData?.pr?.commitStatusState = state
-                } else {
-                    DebugLogger.shared.log("[pr] fetchBuildStatus result empty", paneID: self.paneID)
-                }
-            }
-        }
-
-        do {
-            try task.run()
-        } catch {
-            return
-        }
-    }
-
-    @MainActor
-    private func fetchUnresolvedComments(for pr: PullRequest, workingDirectory: String) {
-        guard let (owner, repo) = extractOwnerRepo(workingDirectory: workingDirectory) else {
-            DebugLogger.shared.log("[pr] fetchUnresolvedComments skipped: could not extract owner/repo", paneID: paneID)
-            return
-        }
-
-        DebugLogger.shared.log(
-            "[pr] fetchUnresolvedComments running owner=\(owner) repo=\(repo) pr=#\(pr.number)",
-            paneID: paneID
-        )
-
-        let query =
-            "query($owner: String!, $repo: String!, $pr: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $pr) { reviewThreads(first: 100) { totalCount } } } }"
-
-        let task = Process()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = [
-            "-c",
-            "cd '\(workingDirectory)' && gh api graphql -f owner='\(owner)' -f repo='\(repo)' -f pr=\(pr.number) -f query='\(query)' 2>/dev/null || true",
-        ]
-        task.standardOutput = outPipe
-        task.standardError = errPipe
-
-        task.terminationHandler = { _ in
-            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-            Task { @MainActor [weak self] in
-                guard let self, !outData.isEmpty else { return }
-                if !errData.isEmpty,
-                    let errText = String(data: errData, encoding: .utf8)?
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
-                    !errText.isEmpty
-                {
-                    DebugLogger.shared.log(
-                        "[pr] fetchUnresolvedComments stderr: \(errText)", paneID: self.paneID)
-                }
-                guard let json = try? JSONSerialization.jsonObject(with: outData) as? [String: Any],
-                    let data = json["data"] as? [String: Any],
-                    let repository = data["repository"] as? [String: Any],
-                    let pullRequest = repository["pullRequest"] as? [String: Any],
-                    let threads = pullRequest["reviewThreads"] as? [String: Any],
-                    let total = threads["totalCount"] as? Int
-                else {
-                    DebugLogger.shared.log("[pr] fetchUnresolvedComments parse failed", paneID: self.paneID)
-                    return
-                }
-                DebugLogger.shared.log("[pr] fetchUnresolvedComments totalCount=\(total)", paneID: self.paneID)
-                self.currentData?.pr?.unresolvedCommentCount = total
-            }
-        }
-
-        do {
-            try task.run()
-        } catch {
-            return
-        }
-    }
-
-    private func extractOwnerRepo(workingDirectory: String) -> (owner: String, repo: String)? {
-        let task = Process()
-        let outPipe = Pipe()
-        task.executableURL = URL(filePath: "/usr/bin/git")
-        task.arguments = ["-C", workingDirectory, "remote", "get-url", "origin"]
-        task.standardOutput = outPipe
-        task.standardError = FileHandle.nullDevice
-
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            DebugLogger.shared.log("[pr] extractOwnerRepo failed: process error")
-            return nil
-        }
-
-        guard task.terminationStatus == 0 else {
-            DebugLogger.shared.log("[pr] extractOwnerRepo failed: non-zero exit status \(task.terminationStatus)")
-            return nil
-        }
-        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-        guard let raw = String(data: outData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-            !raw.isEmpty
-        else {
-            DebugLogger.shared.log("[pr] extractOwnerRepo failed: empty output")
-            return nil
-        }
-
-        var cleaned = raw
-        if cleaned.hasSuffix(".git") {
-            cleaned = String(cleaned.dropLast(4))
-        }
-
-        if cleaned.hasPrefix("https://") || cleaned.hasPrefix("http://") {
-            guard let url = URL(string: cleaned) else {
-                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
-                return nil
-            }
-            let parts = url.pathComponents.filter { $0 != "/" }
-            guard parts.count >= 2 else {
-                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
-                return nil
-            }
-            let owner = parts[parts.count - 2]
-            let repo = parts[parts.count - 1]
-            DebugLogger.shared.log("[pr] extractOwnerRepo owner=\(owner) repo=\(repo)")
-            return (owner, repo)
-        }
-
-        if cleaned.contains("@") && cleaned.contains(":") {
-            let parts = cleaned.split(separator: ":", maxSplits: 1)
-            guard parts.count == 2 else {
-                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
-                return nil
-            }
-            let path = parts[1]
-            let pathParts = path.split(separator: "/")
-            guard pathParts.count >= 2 else {
-                DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
-                return nil
-            }
-            let owner = String(pathParts[pathParts.count - 2])
-            let repo = String(pathParts[pathParts.count - 1])
-            DebugLogger.shared.log("[pr] extractOwnerRepo owner=\(owner) repo=\(repo)")
-            return (owner, repo)
-        }
-
-        DebugLogger.shared.log("[pr] extractOwnerRepo failed: unrecognized URL format")
-        return nil
-    }
-
-    @MainActor
     private func applyPROutputIfValid(_ outData: Data) {
         guard !outData.isEmpty else {
             DebugLogger.shared.log("[pr] applyPROutput skipped: empty data", paneID: paneID)
@@ -509,7 +267,8 @@ final class StatusLineMonitor {
     }
 
     @MainActor
-    private func checkForMergedTransition(_ pr: PullRequest) {
+    private func checkForMergedTransition(_ pr: PullRequest?) {
+        guard let pr else { return }
         let newState = pr.state.lowercased()
         DebugLogger.shared.log(
             "[pr] checkMergedTransition state=\(newState) lastKnown=\(lastKnownPRState ?? "nil") hasFired=\(hasFiredMergedNotification)",

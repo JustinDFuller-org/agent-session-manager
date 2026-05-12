@@ -268,11 +268,11 @@ struct PullRequest: Codable, Identifiable {
     let title: String
     let state: String
     let url: String
-    var isDraft: Bool?
-    var statusCheckRollup: [StatusCheck]?
-    var unresolvedCommentCount: Int?
-    var commitStatusState: String?
-    var mergeable: String?
+    var isDraft: Bool? = nil
+    var statusCheckRollup: [StatusCheck]? = nil
+    var unresolvedCommentCount: Int? = nil
+    var commitStatusState: String? = nil
+    var mergeable: String? = nil
 
     var id: Int { number }
 
