@@ -70,6 +70,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             appState.activePane?.terminalController?.focusTerminal()
+            MacNotificationCoordinator.shared.removeAllDeliveredNotificationsIfStickyEnabled()
         }
         .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerDebugTracingChanged)) { _ in
             debugLadybugRefreshTick &+= 1
