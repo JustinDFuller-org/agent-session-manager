@@ -93,6 +93,10 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .newTab)) { _ in
             showingNewTab = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openShellHere)) { _ in
+            guard let tab = appState.activeTab else { return }
+            tab.openShellPane(activePane: appState.activePane)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
             closeActiveTab()
         }

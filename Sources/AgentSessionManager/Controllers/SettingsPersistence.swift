@@ -93,6 +93,7 @@ struct SettingsPersistence {
     private static var prTrackingSettingsURL: URL { appSupportDir.appending(path: "pr-tracking-settings.json") }
     private static var terminalSettingsURL: URL { appSupportDir.appending(path: "terminal-settings.json") }
     private static var worktreeBaseRefURL: URL { appSupportDir.appending(path: "worktree-base-ref.json") }
+    private static var exitBehaviorURL: URL { appSupportDir.appending(path: "exit-behavior.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -400,5 +401,18 @@ struct SettingsPersistence {
             let value = try? JSONDecoder().decode(WorktreeBaseRef.self, from: data)
         else { return }
         appSettings.worktreeBaseRef = value
+    }
+
+    static func saveExitBehavior(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.exitBehavior) else { return }
+        try? data.write(to: exitBehaviorURL)
+    }
+
+    static func restoreExitBehavior(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: exitBehaviorURL),
+            let value = try? JSONDecoder().decode(ExitBehavior.self, from: data)
+        else { return }
+        appSettings.exitBehavior = value
     }
 }

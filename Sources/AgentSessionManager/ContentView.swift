@@ -30,6 +30,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreDebugSettings(into: appSettings)
                         SettingsPersistence.restorePRTracking(into: appSettings)
                         SettingsPersistence.restoreTerminalSettings(into: appSettings)
+                        SettingsPersistence.restoreExitBehavior(into: appSettings)
                         DebugLogger.shared.syncFromAppSettings(appSettings)
                         DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
                         if !appSettings.debugLoggingEnabled {
@@ -60,6 +61,7 @@ private struct AppCommands: Commands {
     @AppStorage("keyBinding.newTabKey") var newTabKey = "t"
     @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
     @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
+    @AppStorage("keyBinding.openShellHereKey") var openShellHereKey = "s"
     @FocusedValue(\.hasActiveTab) var hasActiveTab
 
     var body: some Commands {
@@ -73,6 +75,12 @@ private struct AppCommands: Commands {
                 NotificationCenter.default.post(name: .newPane, object: nil)
             }
             .keyboardShortcut(KeyEquivalent(Character(newPaneKey)), modifiers: .command)
+            .disabled(!(hasActiveTab ?? false))
+
+            Button("Open Shell Here") {
+                NotificationCenter.default.post(name: .openShellHere, object: nil)
+            }
+            .keyboardShortcut(KeyEquivalent(Character(openShellHereKey)), modifiers: [.command, .shift])
             .disabled(!(hasActiveTab ?? false))
 
             Divider()
@@ -91,6 +99,7 @@ extension Notification.Name {
     static let newPane = Notification.Name("newPane")
     static let closeTab = Notification.Name("closeTab")
     static let prMergedActionRequested = Notification.Name("prMergedActionRequested")
+    static let openShellHere = Notification.Name("openShellHere")
 }
 
 extension AgentSessionManagerApp {

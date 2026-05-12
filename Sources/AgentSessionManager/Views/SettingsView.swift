@@ -110,6 +110,31 @@ private struct GeneralContent: View {
                 Section("Terminal") {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
+                            Text("When Process Exits")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text(appSettings.exitBehavior.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Picker("When Process Exits", selection: $appSettings.exitBehavior) {
+                            ForEach(ExitBehavior.allCases, id: \.self) { behavior in
+                                Text(behavior.displayName).tag(behavior)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: 240)
+                        .accessibilityIdentifier("settings-exit-behavior-picker")
+                        .onChange(of: appSettings.exitBehavior) {
+                            SettingsPersistence.saveExitBehavior(appSettings: appSettings)
+                        }
+                    }
+                    .padding(.vertical, 2)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("Scrollback Lines")
                                 .font(.system(.body, design: .monospaced))
                                 .fontWeight(.medium)
@@ -439,6 +464,8 @@ private struct UnifiedCLIOptionsContent: View {
                     onSave: { SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings) },
                     customFlagFooter: "Custom flags may not be recognized by all OpenCode CLI versions."
                 )
+            case .shell:
+                EmptyView()
             }
         }
     }
@@ -526,6 +553,7 @@ private struct KeyboardShortcutsContent: View {
     @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
     @AppStorage("keyBinding.closePaneKey") var closePaneKey = "w"
     @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
+    @AppStorage("keyBinding.openShellHereKey") var openShellHereKey = "s"
 
     var body: some View {
         Form {
@@ -546,6 +574,12 @@ private struct KeyboardShortcutsContent: View {
                 )
                 KeyBindingRow(
                     label: "Close Active Tab", description: "Close the current tab", modifier: "⌘", key: $closeTabKey)
+                KeyBindingRow(
+                    label: "Open Shell Here",
+                    description: "Open a new plain shell pane in the same working directory",
+                    modifier: "⌘⇧",
+                    key: $openShellHereKey
+                )
             }
             Section {
                 HStack {

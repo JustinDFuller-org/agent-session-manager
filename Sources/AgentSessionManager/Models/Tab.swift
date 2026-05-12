@@ -479,22 +479,35 @@ final class Tab: Identifiable {
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
 
-            let monitor = StatusLineMonitor(
-                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
-            monitor.start()
-            pane.statusLineMonitor = monitor
-
             switch cliType {
+            case .shell:
+                controller.pendingCommand = nil
             case .claude:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
                 controller.pendingCommand = Tab.buildClaudeCommand(
                     settingsPath: monitor.settingsFilePath,
                     extraArgs: extra
                 )
             case .codex:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
                 controller.pendingCommand = "codex\(extra)"
             case .cursor:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
                 controller.pendingCommand = "opencode\(extra)"
             }
             pane.terminalController = controller
@@ -504,6 +517,43 @@ final class Tab: Identifiable {
         }
         panes.append(pane)
         return pane
+    }
+
+    /// Restarts a pane by replacing its terminal controller with a new one running the same command.
+    func restartPane(_ pane: Pane) {
+        guard let old = pane.terminalController else { return }
+        let new = TerminalController()
+        new.pendingCommand = old.pendingCommand
+        new.pendingDirectory = old.pendingDirectory
+        new.pendingEnvironment = old.pendingEnvironment
+        old.terminate()
+        pane.terminalController = new
+        pane.restartToken = UUID()
+    }
+
+    /// Replaces a pane's terminal with a plain shell session in the same working directory.
+    func openShellInPane(_ pane: Pane) {
+        guard let old = pane.terminalController else { return }
+        let new = TerminalController()
+        new.pendingCommand = nil
+        new.pendingDirectory = old.pendingDirectory
+        new.pendingEnvironment = old.pendingEnvironment
+        old.terminate()
+        pane.statusLineMonitor?.stop()
+        pane.statusLineMonitor = nil
+        pane.cliType = .shell
+        pane.terminalController = new
+        pane.restartToken = UUID()
+    }
+
+    /// Opens a new plain shell pane in this tab, in the same working directory as the active pane.
+    func openShellPane(activePane: Pane?) {
+        let cwd = activePane?.terminalController?.pendingDirectory
+        addPane(
+            name: "shell",
+            cliType: .shell,
+            worktreeDirectory: cwd.map { URL(filePath: $0) }
+        )
     }
 
     func closePane(_ pane: Pane) {
