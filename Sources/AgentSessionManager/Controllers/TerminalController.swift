@@ -12,6 +12,28 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     private var osc777HookInstalled = false
     private var keyEventMonitor: Any?
 
+    /// Reject transient tiny frames from SwiftUI layout passes that would corrupt
+    /// scrollback by resizing the terminal to 1 column. SwiftUI's LazyVGrid can
+    /// produce intermediate non-zero but tiny frames when panes are added/removed.
+    override func setFrameSize(_ newSize: NSSize) {
+        let currentCols = terminal?.cols ?? 0
+        guard currentCols >= 2 else {
+            super.setFrameSize(newSize)
+            return
+        }
+        let currentWidth = frame.width
+        guard currentWidth > 0 else {
+            super.setFrameSize(newSize)
+            return
+        }
+        let cellWidth = currentWidth / CGFloat(currentCols)
+        let proposedCols = Int(newSize.width / cellWidth)
+        if proposedCols < 2 {
+            return
+        }
+        super.setFrameSize(newSize)
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil, keyEventMonitor == nil {
