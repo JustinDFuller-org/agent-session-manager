@@ -8,7 +8,7 @@ struct AgentSessionManagerApp: App {
     @State private var appSettings = AppSettings()
 
     var body: some Scene {
-        WindowGroup(appWindowTitle) {
+        Window(appWindowTitle, id: "main") {
             ContentView()
                 .environment(appState)
                 .environment(appSettings)
