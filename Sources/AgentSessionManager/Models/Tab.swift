@@ -502,6 +502,9 @@ final class Tab: Identifiable {
                     paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
                 monitor.start()
                 pane.statusLineMonitor = monitor
+                controller.pendingEnvironment =
+                    (controller.pendingEnvironment ?? [])
+                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 let monitor = StatusLineMonitor(

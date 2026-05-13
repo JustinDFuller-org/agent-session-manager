@@ -135,8 +135,9 @@ struct StatusLineConfig: Codable {
         "duration": .all,
         "version": .all,
         "pr": .all,
+        // Model — Claude, OpenCode, and Cursor (via afterAgentResponse hook)
+        "model": .all,
         // Claude + OpenCode — populated by both via their respective APIs
-        "model": .claudeOrOpencode,
         "cost": .claudeOrOpencode,
         "inputTokens": .claudeOrOpencode,
         "outputTokens": .claudeOrOpencode,
