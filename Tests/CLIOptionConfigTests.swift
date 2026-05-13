@@ -157,9 +157,11 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testClaudeOnlyItemsAreAllOtherItems() {
-        let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        let agnosticIds: Set<String> = [
+            "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "model",
+        ]
         let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
-        let claudeOrOpencodeIds: Set<String> = ["model", "cost", "inputTokens", "outputTokens"]
+        let claudeOrOpencodeIds: Set<String> = ["cost", "inputTokens", "outputTokens"]
         for id in StatusLineConfig.itemMetadata.keys
         where !agnosticIds.contains(id) && !opencodeOnlyIds.contains(id) && !claudeOrOpencodeIds.contains(id) {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
@@ -186,9 +188,11 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testSupportedByNonClaudeReturnsOnlyAgnostic() {
-        let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        let agnosticIds: Set<String> = [
+            "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "model",
+        ]
         let opencodeIds: Set<String> = [
-            "sessionStatus", "openCodeMode", "model", "cost", "inputTokens", "outputTokens",
+            "sessionStatus", "openCodeMode", "cost", "inputTokens", "outputTokens",
         ]
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")

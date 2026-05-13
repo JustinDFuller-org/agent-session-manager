@@ -55,6 +55,9 @@ final class StatusLineMonitor {
             let provider: any StatusLineDataProvider
             if cliType == .opencode {
                 provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
+            } else if cliType == .cursor {
+                provider = CursorDataProvider(
+                    workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
             } else {
                 let toolCmd = cliType.cliCommandDescription
                 provider = ToolAgnosticDataProvider(
