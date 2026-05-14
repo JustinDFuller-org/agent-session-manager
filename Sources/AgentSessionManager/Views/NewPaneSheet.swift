@@ -5,6 +5,7 @@ struct NewPaneSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     let tab: Tab
+    var refreshingPane: Pane? = nil
 
     @State private var sessionInput = ""
     @State private var selectedCLIType: CLIType = .claude
@@ -41,6 +42,8 @@ struct NewPaneSheet: View {
         isCreating
     }
 
+    private var isRefreshing: Bool { refreshingPane != nil }
+
     private var validationError: String? {
         let trimmed = trimmedInput
         guard !trimmed.isEmpty else { return nil }
@@ -51,7 +54,7 @@ struct NewPaneSheet: View {
             return
                 "Name may only contain letters, digits, dots, underscores, and dashes. For a branch, use a ref such as origin/feature."
         }
-        if appState.isWorktreeDuplicate(directory: tab.directory, name: trimmed) {
+        if !isRefreshing && appState.isWorktreeDuplicate(directory: tab.directory, name: trimmed) {
             return "A pane with this worktree is already open."
         }
         return nil
@@ -69,7 +72,7 @@ struct NewPaneSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("New Pane")
+            Text(isRefreshing ? "Refresh Pane" : "New Pane")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -113,7 +116,7 @@ struct NewPaneSheet: View {
                     .focused($isSessionInputFocused)
                     .onSubmit { create() }
                     .accessibilityIdentifier("new-pane-name-field")
-                    .disabled(isBusy)
+                    .disabled(isBusy || isRefreshing)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Session name, branch ref, or worktree.")
                         .font(.caption)
@@ -175,7 +178,7 @@ struct NewPaneSheet: View {
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                     .accessibilityIdentifier("new-pane-cancel-button")
-                Button("Open") { create() }
+                Button(isRefreshing ? "Refresh" : "Open") { create() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSubmit)
                     .accessibilityIdentifier("new-pane-open-button")
@@ -211,13 +214,19 @@ struct NewPaneSheet: View {
             }
         }
         .onAppear {
+            if let pane = refreshingPane {
+                sessionInput = pane.name
+                selectedCLIType = pane.cliType
+            }
             if !activeToolList.contains(selectedCLIType) {
                 selectedCLIType = activeToolList.first ?? .claude
             }
             initializeOptionStates()
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                isSessionInputFocused = true
+            if !isRefreshing {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    isSessionInputFocused = true
+                }
             }
         }
     }
@@ -232,7 +241,8 @@ struct NewPaneSheet: View {
     private func initializeOptionStates() {
         optionStates = [:]
         for option in activeOptions where option.isAvailable {
-            optionStates[option.id] = OptionState(enabled: option.isDefaultEnabled, value: "")
+            let enabled = option.isDefaultEnabled || (isRefreshing && option.id == "--continue")
+            optionStates[option.id] = OptionState(enabled: enabled, value: "")
         }
     }
 
@@ -243,6 +253,13 @@ struct NewPaneSheet: View {
         isCreating = true
         worktreeSetupError = nil
         let extraArgs = buildExtraArgs()
+
+        if let pane = refreshingPane {
+            tab.refreshPaneWithArgs(pane, extraArgs: extraArgs, cliType: selectedCLIType)
+            resetForm()
+            dismiss()
+            return
+        }
 
         Task {
             do {
