@@ -309,4 +309,69 @@ struct SessionPersistence {
             }
         }
     }
+
+    /// Queries GitHub for all restored panes that aren't already marked merged,
+    /// and creates notifications for any whose PR has been merged since last run.
+    static func checkForMergedPRsAfterRestore(appState: AppState) async {
+        guard SettingsPersistence.isPRTrackingEnabled() else { return }
+        guard SettingsPersistence.isPRMergedNotificationsEnabled() else { return }
+
+        let candidates: [(pane: Pane, tab: Tab)] = appState.tabs.flatMap { tab in
+            tab.panes.compactMap { pane in
+                guard !pane.isMerged else { return nil }
+                guard pane.worktreeDirectory != nil else { return nil }
+                return (pane: pane, tab: tab)
+            }
+        }
+        guard !candidates.isEmpty else { return }
+
+        DebugLogger.shared.log(
+            "[pr] startup check: \(candidates.count) candidate pane(s) to check for merged PRs")
+
+        var branchInfos: [PRTrackingCoordinator.BranchInfo] = []
+        await withTaskGroup(of: PRTrackingCoordinator.BranchInfo?.self) { group in
+            for (pane, _) in candidates {
+                guard let cwd = pane.worktreeDirectory?.path else { continue }
+                let paneID = pane.id
+                group.addTask {
+                    async let branchResult = PRTrackingCoordinator.fetchBranch(workingDirectory: cwd)
+                    async let ownerRepoResult = PRTrackingCoordinator.fetchOwnerRepo(workingDirectory: cwd)
+                    guard let branch = await branchResult,
+                        let (owner, repo) = await ownerRepoResult
+                    else { return nil }
+                    return PRTrackingCoordinator.BranchInfo(
+                        paneID: paneID, owner: owner, repo: repo, branch: branch)
+                }
+            }
+            for await info in group {
+                if let info { branchInfos.append(info) }
+            }
+        }
+
+        guard !branchInfos.isEmpty else {
+            DebugLogger.shared.log("[pr] startup check: no panes with resolvable branches")
+            return
+        }
+
+        DebugLogger.shared.log(
+            "[pr] startup check: querying GitHub for \(branchInfos.count) branch(es)")
+
+        let results = await PRTrackingCoordinator.checkBranchesForMergedPRs(branches: branchInfos)
+        var mergedCount = 0
+        for (paneID, pr) in results where pr.state == "merged" {
+            guard let (pane, tab) = candidates.first(where: { $0.pane.id == paneID }) else { continue }
+            appState.addPRMergedNotification(
+                paneID: pane.id,
+                paneName: pane.name,
+                tabID: tab.id,
+                tabName: tab.name,
+                prNumber: pr.number,
+                prTitle: pr.title
+            )
+            mergedCount += 1
+        }
+
+        DebugLogger.shared.log(
+            "[pr] startup check complete: \(mergedCount) merged PR(s) detected")
+    }
 }

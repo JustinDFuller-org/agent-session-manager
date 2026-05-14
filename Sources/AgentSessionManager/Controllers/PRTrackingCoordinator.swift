@@ -337,6 +337,118 @@ final class PRTrackingCoordinator {
         }
     }
 
+    // MARK: - One-shot merged-PR check (used at startup)
+
+    struct BranchInfo {
+        var paneID: UUID
+        var owner: String
+        var repo: String
+        var branch: String
+    }
+
+    /// Runs a single batched GraphQL query for the given branches and returns merged PR info.
+    /// Does not require a running coordinator or active subscriptions.
+    static func checkBranchesForMergedPRs(
+        branches: [BranchInfo]
+    ) async -> [(paneID: UUID, pr: PullRequest)] {
+        guard !branches.isEmpty else { return [] }
+
+        let query = buildStaticBatchQuery(branches: branches)
+        guard !query.isEmpty else { return [] }
+
+        guard let jsonText = await executeGraphQLQuery(query) else { return [] }
+        return parseStaticBatchResponse(jsonText, branches: branches)
+    }
+
+    static func buildStaticBatchQuery(branches: [BranchInfo]) -> String {
+        var fragments: [String] = []
+        for info in branches {
+            guard !info.branch.isEmpty, info.branch != "HEAD" else { continue }
+            let alias = "pane_" + info.paneID.uuidString.replacingOccurrences(of: "-", with: "")
+            fragments.append(
+                """
+                \(alias): repository(owner: "\(info.owner)", name: "\(info.repo)") {
+                  pullRequests(headRefName: "\(info.branch)", first: 1, states: [OPEN, MERGED, CLOSED]) {
+                    nodes {
+                      number title state url isDraft mergeable
+                      commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+                      reviewThreads(first: 1) { totalCount }
+                    }
+                  }
+                }
+                """
+            )
+        }
+        guard !fragments.isEmpty else { return "" }
+        return "query BatchedPRStatus { \(fragments.joined(separator: " ")) }"
+    }
+
+    /// Executes a GraphQL query via `gh api graphql` and returns the JSON body (minus HTTP headers).
+    nonisolated static func executeGraphQLQuery(_ query: String) async -> String? {
+        let tempPath = NSTemporaryDirectory() + "agent-session-manager-graphql-\(UUID().uuidString).json"
+        let jsonBody = ["query": query]
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: jsonBody),
+            (try? jsonData.write(to: URL(filePath: tempPath))) != nil
+        else { return nil }
+
+        return await withCheckedContinuation { continuation in
+            let task = Process()
+            let outPipe = Pipe()
+            let errPipe = Pipe()
+            task.executableURL = URL(filePath: "/bin/zsh")
+            task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
+            task.standardOutput = outPipe
+            task.standardError = errPipe
+            task.terminationHandler = { _ in
+                try? FileManager.default.removeItem(atPath: tempPath)
+                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                guard let text = String(data: outData, encoding: .utf8), !text.isEmpty else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let separators = ["\r\n\r\n", "\n\n"]
+                var jsonText = text
+                for sep in separators {
+                    let parts = text.components(separatedBy: sep)
+                    if parts.count >= 2 {
+                        jsonText = parts.dropFirst().joined(separator: sep)
+                        break
+                    }
+                }
+                continuation.resume(returning: jsonText)
+            }
+            do {
+                try task.run()
+            } catch {
+                try? FileManager.default.removeItem(atPath: tempPath)
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+
+    nonisolated static func parseStaticBatchResponse(
+        _ jsonText: String,
+        branches: [BranchInfo]
+    ) -> [(paneID: UUID, pr: PullRequest)] {
+        guard let jsonData = jsonText.data(using: .utf8),
+            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+            let dataDict = json["data"] as? [String: Any]
+        else { return [] }
+
+        var results: [(paneID: UUID, pr: PullRequest)] = []
+        for info in branches {
+            let alias = "pane_" + info.paneID.uuidString.replacingOccurrences(of: "-", with: "")
+            guard let repoData = dataDict[alias] as? [String: Any],
+                let pullRequests = repoData["pullRequests"] as? [String: Any],
+                let nodes = pullRequests["nodes"] as? [[String: Any]],
+                let node = nodes.first,
+                let pr = parsePRFromGraphQLNode(node)
+            else { continue }
+            results.append((paneID: info.paneID, pr: pr))
+        }
+        return results
+    }
+
     // MARK: - Git helpers
 
     private func resolveOwnerRepo(paneID: UUID, workingDirectory: String) {
@@ -364,7 +476,34 @@ final class PRTrackingCoordinator {
         try? task.run()
     }
 
-    private static func fetchBranch(workingDirectory: String) async -> String? {
+    static func fetchOwnerRepo(workingDirectory: String) async -> (owner: String, repo: String)? {
+        await withCheckedContinuation { continuation in
+            let task = Process()
+            let outPipe = Pipe()
+            task.executableURL = URL(filePath: "/usr/bin/git")
+            task.arguments = ["-C", workingDirectory, "remote", "get-url", "origin"]
+            task.standardOutput = outPipe
+            task.standardError = FileHandle.nullDevice
+            task.terminationHandler = { _ in
+                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                guard
+                    let raw = String(data: outData, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty
+                else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: parseOwnerRepo(from: raw))
+            }
+            do {
+                try task.run()
+            } catch {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+
+    static func fetchBranch(workingDirectory: String) async -> String? {
         await withCheckedContinuation { continuation in
             let task = Process()
             let outPipe = Pipe()

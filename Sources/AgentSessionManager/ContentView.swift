@@ -44,6 +44,7 @@ struct AgentSessionManagerApp: App {
                             )
                         }
                         SessionPersistence.restore(into: appState, appSettings: appSettings)
+                        await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
                     }
                 }
                 .onChange(of: appState.tabs.count) { SessionPersistence.save(appState: appState) }
