@@ -6,6 +6,7 @@ private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self
 
 final class OpenCodeDataProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
+    var onAttention: (() -> Void)?
 
     private let workingDirectory: String
     private let processStartTime: Date

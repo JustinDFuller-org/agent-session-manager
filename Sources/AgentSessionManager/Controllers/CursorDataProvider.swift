@@ -9,16 +9,22 @@ import Foundation
 /// environment variable. `CursorHookSetup` handles creating/updating this file.
 final class CursorDataProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
+    var onAttention: (() -> Void)?
 
     let workingDirectory: String
     let processStartTime: Date
     let paneID: UUID
     let hookOutputFilePath: String
+    let attentionFilePath: String
 
     private var refreshTimer: Timer?
     private var versionFetchedVersion: String?
     private var hookSource: DispatchSourceFileSystemObject?
+    private var attentionSource: DispatchSourceFileSystemObject?
     private var lastHookModel: StatusLineData.Model?
+    private let attentionDebounceLock = NSLock()
+    private var attentionDebounceWork: DispatchWorkItem?
+    private var lastAttentionPayloadFingerprint: Int?
 
     init(workingDirectory: String, paneID: UUID, processStartTime: Date) {
         self.workingDirectory = workingDirectory
@@ -26,11 +32,14 @@ final class CursorDataProvider: StatusLineDataProvider {
         self.processStartTime = processStartTime
         self.hookOutputFilePath =
             NSTemporaryDirectory() + "agent-session-manager-cursor-hook-\(paneID.uuidString).json"
+        self.attentionFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-cursor-attention-\(paneID.uuidString).json"
     }
 
     func start() {
         CursorHookSetup.ensureHooksConfigured()
         startHookFileWatcher()
+        startAttentionFileWatcher()
         fetchVersion()
         refreshNow()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
@@ -43,7 +52,9 @@ final class CursorDataProvider: StatusLineDataProvider {
         refreshTimer = nil
         hookSource?.cancel()
         hookSource = nil
+        stopAttentionWatcher()
         try? FileManager.default.removeItem(atPath: hookOutputFilePath)
+        try? FileManager.default.removeItem(atPath: attentionFilePath)
     }
 
     var currentDurationMs: Double {
@@ -83,6 +94,58 @@ final class CursorDataProvider: StatusLineDataProvider {
             self.lastHookModel = model
             self.refreshNow()
         }
+    }
+
+    // MARK: - Attention File Watching
+
+    private func startAttentionFileWatcher() {
+        guard SettingsPersistence.isCursorHookAttentionEnabled() else { return }
+        FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
+        let fd = open(attentionFilePath, O_EVTONLY)
+        guard fd >= 0 else { return }
+
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        src.setEventHandler { [weak self] in
+            self?.scheduleAttentionSignalProcessing()
+        }
+        src.setCancelHandler { close(fd) }
+        src.resume()
+        attentionSource = src
+    }
+
+    private func stopAttentionWatcher() {
+        attentionDebounceLock.lock()
+        attentionDebounceWork?.cancel()
+        attentionDebounceWork = nil
+        attentionDebounceLock.unlock()
+        attentionSource?.cancel()
+        attentionSource = nil
+        lastAttentionPayloadFingerprint = nil
+    }
+
+    private func scheduleAttentionSignalProcessing() {
+        attentionDebounceLock.lock()
+        attentionDebounceWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)), !data.isEmpty
+            else { return }
+            var hasher = Hasher()
+            hasher.combine(data)
+            let fingerprint = hasher.finalize()
+            Task { @MainActor in
+                guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                self.lastAttentionPayloadFingerprint = fingerprint
+                self.onAttention?()
+            }
+        }
+        attentionDebounceWork = work
+        attentionDebounceLock.unlock()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
     // MARK: - Periodic Refresh
@@ -189,10 +252,11 @@ struct CursorHookPayload {
 // MARK: - Hook Setup
 
 /// Manages the user-level `~/.cursor/hooks.json` to include an `afterAgentResponse` hook
-/// that writes the hook payload to a per-pane temp file identified by the
-/// `AGENT_SESSION_MANAGER_PANE_ID` environment variable.
+/// (for model detection) and a `stop` hook (for notifications) that write their payloads
+/// to per-pane temp files identified by the `AGENT_SESSION_MANAGER_PANE_ID` environment variable.
 enum CursorHookSetup {
     private static let hookScriptName = "agent-session-manager-cursor-hook.sh"
+    private static let stopHookScriptName = "agent-session-manager-cursor-stop-hook.sh"
 
     static var hooksDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -201,6 +265,10 @@ enum CursorHookSetup {
 
     static var hookScriptPath: URL {
         hooksDirectory.appending(path: hookScriptName)
+    }
+
+    static var stopHookScriptPath: URL {
+        hooksDirectory.appending(path: stopHookScriptName)
     }
 
     static var hooksConfigPath: URL {
@@ -221,30 +289,45 @@ enum CursorHookSetup {
 
         """
 
+    /// The stop hook writes its payload to the per-pane attention file, triggering a notification.
+    static let stopHookScriptContent = """
+        #!/bin/bash
+        if [ -n "$AGENT_SESSION_MANAGER_PANE_ID" ]; then
+          cat > "/tmp/agent-session-manager-cursor-attention-${AGENT_SESSION_MANAGER_PANE_ID}.json"
+        else
+          cat > /dev/null
+        fi
+        exit 0
+
+        """
+
     static let hookEntry: [String: Any] = [
         "command": "./hooks/\(hookScriptName)"
     ]
 
-    /// Ensures `~/.cursor/hooks.json` contains our `afterAgentResponse` hook and the
-    /// helper script exists. Merges with any existing hooks config non-destructively.
+    static let stopHookEntry: [String: Any] = [
+        "command": "./hooks/\(stopHookScriptName)"
+    ]
+
+    /// Ensures `~/.cursor/hooks.json` contains our `afterAgentResponse` and `stop` hooks
+    /// and the helper scripts exist. Merges with any existing hooks config non-destructively.
     static func ensureHooksConfigured() {
         do {
             try FileManager.default.createDirectory(at: hooksDirectory, withIntermediateDirectories: true)
-            try writeHookScript()
+            try writeScript(at: hookScriptPath, content: hookScriptContent)
+            try writeScript(at: stopHookScriptPath, content: stopHookScriptContent)
             try mergeHooksConfig()
         } catch {
-            // Best-effort; model detection gracefully degrades if hooks aren't set up.
+            // Best-effort; model detection and notifications gracefully degrade if hooks aren't set up.
         }
     }
 
-    private static func writeHookScript() throws {
-        let scriptPath = hookScriptPath
-        let currentContent = try? String(contentsOf: scriptPath, encoding: .utf8)
-        if currentContent == hookScriptContent { return }
-        try hookScriptContent.write(to: scriptPath, atomically: true, encoding: .utf8)
-        // chmod +x
+    private static func writeScript(at path: URL, content: String) throws {
+        let currentContent = try? String(contentsOf: path, encoding: .utf8)
+        if currentContent == content { return }
+        try content.write(to: path, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes(
-            [.posixPermissions: 0o755], ofItemAtPath: scriptPath.path)
+            [.posixPermissions: 0o755], ofItemAtPath: path.path)
     }
 
     private static func mergeHooksConfig() throws {
@@ -258,19 +341,45 @@ enum CursorHookSetup {
         }
 
         var hooks = config["hooks"] as? [String: Any] ?? [:]
-        var afterAgentResponseEntries = hooks["afterAgentResponse"] as? [[String: Any]] ?? []
+        var needsWrite = false
 
-        let alreadyInstalled = afterAgentResponseEntries.contains {
-            ($0["command"] as? String)?.contains(hookScriptName) == true
-        }
+        needsWrite = installHookEntry(
+            into: &hooks,
+            eventName: "afterAgentResponse",
+            entry: hookEntry,
+            scriptName: hookScriptName
+        ) || needsWrite
 
-        if !alreadyInstalled {
-            afterAgentResponseEntries.append(hookEntry)
-            hooks["afterAgentResponse"] = afterAgentResponseEntries
+        needsWrite = installHookEntry(
+            into: &hooks,
+            eventName: "stop",
+            entry: stopHookEntry,
+            scriptName: stopHookScriptName
+        ) || needsWrite
+
+        if needsWrite {
             config["hooks"] = hooks
             if config["version"] == nil { config["version"] = 1 }
             let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: configPath, options: .atomic)
         }
+    }
+
+    /// Returns `true` if the entry was added (config needs writing).
+    @discardableResult
+    private static func installHookEntry(
+        into hooks: inout [String: Any],
+        eventName: String,
+        entry: [String: Any],
+        scriptName: String
+    ) -> Bool {
+        var entries = hooks[eventName] as? [[String: Any]] ?? []
+        let alreadyInstalled = entries.contains {
+            ($0["command"] as? String)?.contains(scriptName) == true
+        }
+        guard !alreadyInstalled else { return false }
+        entries.append(entry)
+        hooks[eventName] = entries
+        return true
     }
 }

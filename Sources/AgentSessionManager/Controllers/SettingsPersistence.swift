@@ -11,6 +11,8 @@ private struct NotificationConfig: Codable {
     var isMacOSBannerEnabled: Bool
     /// When true, merge Claude Code `Notification` hook into per-pane `--settings` so permission-style notifies reach the app without a terminal bell.
     var isClaudeHookAttentionEnabled: Bool
+    /// When true, install a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
+    var isCursorHookAttentionEnabled: Bool
     var isPRMergedNotificationsEnabled: Bool
     var alwaysShowNotificationsSidebar: Bool
     var isStickyNotificationsEnabled: Bool
@@ -20,6 +22,7 @@ private struct NotificationConfig: Codable {
         case isPriorityEnabled
         case isMacOSBannerEnabled
         case isClaudeHookAttentionEnabled
+        case isCursorHookAttentionEnabled
         case isPRMergedNotificationsEnabled
         case alwaysShowNotificationsSidebar
         case isStickyNotificationsEnabled
@@ -30,6 +33,7 @@ private struct NotificationConfig: Codable {
         isPriorityEnabled: Bool,
         isMacOSBannerEnabled: Bool,
         isClaudeHookAttentionEnabled: Bool,
+        isCursorHookAttentionEnabled: Bool,
         isPRMergedNotificationsEnabled: Bool,
         alwaysShowNotificationsSidebar: Bool,
         isStickyNotificationsEnabled: Bool = false
@@ -38,6 +42,7 @@ private struct NotificationConfig: Codable {
         self.isPriorityEnabled = isPriorityEnabled
         self.isMacOSBannerEnabled = isMacOSBannerEnabled
         self.isClaudeHookAttentionEnabled = isClaudeHookAttentionEnabled
+        self.isCursorHookAttentionEnabled = isCursorHookAttentionEnabled
         self.isPRMergedNotificationsEnabled = isPRMergedNotificationsEnabled
         self.alwaysShowNotificationsSidebar = alwaysShowNotificationsSidebar
         self.isStickyNotificationsEnabled = isStickyNotificationsEnabled
@@ -50,6 +55,8 @@ private struct NotificationConfig: Codable {
         isMacOSBannerEnabled = try container.decodeIfPresent(Bool.self, forKey: .isMacOSBannerEnabled) ?? true
         isClaudeHookAttentionEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isClaudeHookAttentionEnabled) ?? true
+        isCursorHookAttentionEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isCursorHookAttentionEnabled) ?? true
         isPRMergedNotificationsEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isPRMergedNotificationsEnabled) ?? true
         alwaysShowNotificationsSidebar =
@@ -64,6 +71,7 @@ private struct NotificationConfig: Codable {
         try container.encode(isPriorityEnabled, forKey: .isPriorityEnabled)
         try container.encode(isMacOSBannerEnabled, forKey: .isMacOSBannerEnabled)
         try container.encode(isClaudeHookAttentionEnabled, forKey: .isClaudeHookAttentionEnabled)
+        try container.encode(isCursorHookAttentionEnabled, forKey: .isCursorHookAttentionEnabled)
         try container.encode(isPRMergedNotificationsEnabled, forKey: .isPRMergedNotificationsEnabled)
         try container.encode(alwaysShowNotificationsSidebar, forKey: .alwaysShowNotificationsSidebar)
         try container.encode(isStickyNotificationsEnabled, forKey: .isStickyNotificationsEnabled)
@@ -251,6 +259,7 @@ struct SettingsPersistence {
             isPriorityEnabled: appSettings.isPriorityNotificationsEnabled,
             isMacOSBannerEnabled: appSettings.isMacOSBannerNotificationsEnabled,
             isClaudeHookAttentionEnabled: appSettings.isClaudeNotificationHookAttentionEnabled,
+            isCursorHookAttentionEnabled: appSettings.isCursorNotificationHookAttentionEnabled,
             isPRMergedNotificationsEnabled: appSettings.isPRMergedNotificationsEnabled,
             alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar,
             isStickyNotificationsEnabled: appSettings.isStickyNotificationsEnabled
@@ -268,6 +277,7 @@ struct SettingsPersistence {
         appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
         appSettings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
         appSettings.isClaudeNotificationHookAttentionEnabled = config.isClaudeHookAttentionEnabled
+        appSettings.isCursorNotificationHookAttentionEnabled = config.isCursorHookAttentionEnabled
         appSettings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
         appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
         appSettings.isStickyNotificationsEnabled = config.isStickyNotificationsEnabled
@@ -279,6 +289,17 @@ struct SettingsPersistence {
             let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
         else { return true }
         return config.isClaudeHookAttentionEnabled
+    }
+
+    nonisolated static func isCursorHookAttentionEnabled() -> Bool {
+        let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let url = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
+            .appending(path: "notification-settings.json")
+        guard
+            let data = try? Data(contentsOf: url),
+            let decoded = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return true }
+        return decoded.isCursorHookAttentionEnabled
     }
 
     static func isPRMergedNotificationsEnabled() -> Bool {

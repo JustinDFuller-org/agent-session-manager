@@ -1211,6 +1211,32 @@ private struct NotificationsContent: View {
                 }
                 .padding(.vertical, 2)
             }
+            Section("Cursor") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Stop hook for attention")
+                            .font(.system(.body, design: .default))
+                            .fontWeight(.medium)
+                        Text(
+                            "Install a Cursor stop hook so the app is notified when the agent finishes a turn (plan ready, task complete, etc.)."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle(
+                        "Stop hook for attention",
+                        isOn: $appSettings.isCursorNotificationHookAttentionEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-cursor-notification-hook-toggle")
+                    .onChange(of: appSettings.isCursorNotificationHookAttentionEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
             Section("Sidebar") {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
