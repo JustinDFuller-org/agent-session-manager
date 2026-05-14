@@ -72,6 +72,11 @@ final class StatusLineMonitor {
                 }
                 self.currentData = merged
             }
+            agnosticProvider?.onAttention = { [weak self] in
+                Task { @MainActor in
+                    self?.onClaudeHookAttention?()
+                }
+            }
         }
     }
 

@@ -103,6 +103,8 @@ final class AppSettings {
     var isMacOSBannerNotificationsEnabled: Bool = true
     /// Merges Claude Code `Notification` hook into per-pane `--settings` for attention when the terminal does not ring the bell (default on).
     var isClaudeNotificationHookAttentionEnabled: Bool = true
+    /// Installs a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
+    var isCursorNotificationHookAttentionEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
