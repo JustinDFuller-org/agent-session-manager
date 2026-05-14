@@ -51,6 +51,28 @@ final class TerminalBellNotificationTests: XCTestCase {
         XCTAssertTrue(fired.value, "BEL (0x07) should reach bell() and invoke onBell")
     }
 
+    func testTogglingPriorityAtRuntimeAffectsSubsequentNotifications() async {
+        let appState = AppState()
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp", directoryHint: .isDirectory))
+        let pane = tab.addPane(name: "p1")
+        appState.activePaneID = UUID()
+
+        pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: false)
+        pane.terminalController?.onBell?()
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(appState.notifications.count, 1)
+        XCTAssertFalse(appState.notifications[0].isPriority, "Initial notification should not be priority")
+
+        appState.clearNotification(paneID: pane.id)
+        pane.isPriority = true
+        pane.terminalController?.onBell?()
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(appState.notifications.count, 1)
+        XCTAssertTrue(appState.notifications[0].isPriority, "After toggling isPriority, notification should be priority")
+    }
+
     func testOsc777NotifyInvokesOnBell() async {
         let controller = TerminalController()
         let fired = LockedFlag()
