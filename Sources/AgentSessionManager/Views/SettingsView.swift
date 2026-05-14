@@ -554,6 +554,7 @@ private struct KeyboardShortcutsContent: View {
     @AppStorage("keyBinding.closePaneKey") var closePaneKey = "w"
     @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
     @AppStorage("keyBinding.openShellHereKey") var openShellHereKey = "s"
+    @AppStorage("keyBinding.refreshPaneKey") var refreshPaneKey = "r"
 
     var body: some View {
         Form {
@@ -579,6 +580,12 @@ private struct KeyboardShortcutsContent: View {
                     description: "Open a new plain shell pane in the same working directory",
                     modifier: "⌘⇧",
                     key: $openShellHereKey
+                )
+                KeyBindingRow(
+                    label: "Refresh Active Pane",
+                    description: "Restart pane with fresh environment",
+                    modifier: "⌘",
+                    key: $refreshPaneKey
                 )
             }
             Section {

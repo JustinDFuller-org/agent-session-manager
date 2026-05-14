@@ -534,6 +534,121 @@ final class Tab: Identifiable {
         pane.restartToken = UUID()
     }
 
+    /// Refreshes a pane with a fresh environment snapshot, injecting `--continue` into the existing command.
+    func refreshPane(_ pane: Pane) {
+        guard let old = pane.terminalController else { return }
+        let new = TerminalController()
+        new.pendingCommand = Tab.injectContinueFlag(into: old.pendingCommand ?? "")
+        new.pendingDirectory = old.pendingDirectory
+        new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        old.terminate()
+        pane.statusLineMonitor?.stop()
+        let cwd = new.pendingDirectory ?? directory.path
+        let monitor = StatusLineMonitor(
+            paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+        monitor.start()
+        pane.statusLineMonitor = monitor
+        if pane.cliType == .claude {
+            let extra = Tab.extractExtraArgs(from: old.pendingCommand ?? "")
+            let continued = Tab.injectContinueFlagIntoArgs(extra)
+            new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
+        }
+        pane.terminalController = new
+        pane.restartToken = UUID()
+    }
+
+    /// Refreshes a pane with a fresh environment and new CLI args (from the settings sheet).
+    func refreshPaneWithArgs(_ pane: Pane, extraArgs: [String], cliType: CLIType) {
+        guard let old = pane.terminalController else { return }
+        old.terminate()
+        pane.statusLineMonitor?.stop()
+
+        let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
+        let cwd = pane.worktreeDirectory?.path ?? directory.path
+        let controller = TerminalController()
+        controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        controller.pendingDirectory = cwd
+
+        switch cliType {
+        case .shell:
+            controller.pendingCommand = nil
+            pane.statusLineMonitor = nil
+        case .claude:
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+            monitor.start()
+            pane.statusLineMonitor = monitor
+            controller.pendingCommand = Tab.buildClaudeCommand(
+                settingsPath: monitor.settingsFilePath, extraArgs: extra)
+        case .codex:
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+            monitor.start()
+            pane.statusLineMonitor = monitor
+            controller.pendingCommand = "codex\(extra)"
+        case .cursor:
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+            monitor.start()
+            pane.statusLineMonitor = monitor
+            controller.pendingEnvironment =
+                (controller.pendingEnvironment ?? [])
+                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+            controller.pendingCommand = "agent\(extra)"
+        case .opencode:
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+            monitor.start()
+            pane.statusLineMonitor = monitor
+            controller.pendingCommand = "opencode\(extra)"
+        }
+
+        pane.cliType = cliType
+        pane.terminalController = controller
+        pane.restartToken = UUID()
+    }
+
+    /// Appends `--continue` to a command string if not already present.
+    nonisolated static func injectContinueFlag(into command: String) -> String {
+        if command.contains("--continue") { return command }
+        return command + " --continue"
+    }
+
+    /// Extracts the extra args portion from a Claude command string (everything after `--settings '...'`).
+    nonisolated static func extractExtraArgs(from command: String) -> String {
+        guard let settingsRange = command.range(of: "--settings ") else {
+            let parts = command.split(separator: " ", maxSplits: 1)
+            return parts.count > 1 ? " " + parts[1] : ""
+        }
+        var idx = settingsRange.upperBound
+        if idx < command.endIndex && command[idx] == "'" {
+            idx = command.index(after: idx)
+            while idx < command.endIndex {
+                if command[idx] == "'" {
+                    if command.index(after: idx) < command.endIndex
+                        && command[command.index(after: idx)] == "\\"
+                    {
+                        idx = command.index(idx, offsetBy: 4, limitedBy: command.endIndex) ?? command.endIndex
+                        continue
+                    }
+                    idx = command.index(after: idx)
+                    break
+                }
+                idx = command.index(after: idx)
+            }
+        }
+        if idx < command.endIndex {
+            return String(command[idx...])
+        }
+        return ""
+    }
+
+    /// Injects `--continue` into an extra-args string if not already present.
+    nonisolated static func injectContinueFlagIntoArgs(_ args: String) -> String {
+        if args.contains("--continue") { return args }
+        return args + " --continue"
+    }
+
     /// Replaces a pane's terminal with a plain shell session in the same working directory.
     func openShellInPane(_ pane: Pane) {
         guard let old = pane.terminalController else { return }

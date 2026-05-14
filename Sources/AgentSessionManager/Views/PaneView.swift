@@ -6,6 +6,7 @@ struct PaneView: View {
     @Environment(AppSettings.self) private var appSettings
     let pane: Pane
     let onClosePane: (Pane) -> Void
+    let onRefreshPane: (Pane) -> Void
     @State private var pulse = false
 
     var body: some View {
@@ -49,6 +50,11 @@ struct PaneView: View {
         .contextMenu {
             Button("Close This Pane") {
                 onClosePane(pane)
+            }
+            if pane.cliType != .shell {
+                Button("Refresh Pane\u{2026}") {
+                    onRefreshPane(pane)
+                }
             }
             Button("Create Pane") {
                 NotificationCenter.default.post(name: .newPane, object: nil)

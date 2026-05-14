@@ -13,6 +13,9 @@ struct ContentView: View {
     @State private var pendingPRMergedTab: Tab?
     @State private var showDebugLog = false
     @State private var debugLadybugRefreshTick = 0
+    @State private var showRefreshSheet = false
+    @State private var paneToRefresh: Pane?
+    @State private var showRefreshSettingsSheet = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -43,7 +46,7 @@ struct ContentView: View {
                     if appState.tabs.isEmpty {
                         EmptyStateView()
                     } else if let tab = appState.activeTab {
-                        PaneGridView(tab: tab, onClosePane: handleClosePane)
+                        PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
@@ -119,7 +122,8 @@ struct ContentView: View {
                 appState: appState,
                 onClosePane: closeActivePane,
                 onCloseTab: closeActiveTab,
-                onSwitchTab: switchTab
+                onSwitchTab: switchTab,
+                onRefreshPane: refreshActivePane
             )
         )
         .sheet(isPresented: $showingNewTab) {
@@ -129,6 +133,25 @@ struct ContentView: View {
             DebugLogView()
                 .environment(appState)
                 .environment(appSettings)
+        }
+        .sheet(isPresented: $showRefreshSheet) {
+            if let pane = paneToRefresh {
+                RefreshPaneSheet(
+                    pane: pane,
+                    onQuickRefresh: { p in
+                        p.tab?.refreshPane(p)
+                    },
+                    onRefreshWithSettings: { p in
+                        paneToRefresh = p
+                        showRefreshSettingsSheet = true
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showRefreshSettingsSheet) {
+            if let pane = paneToRefresh, let tab = pane.tab {
+                NewPaneSheet(tab: tab, refreshingPane: pane)
+            }
         }
         .alert("Close Worktree Pane", isPresented: $showCleanupAlert) {
             Button("Keep Worktree") {
@@ -210,6 +233,18 @@ struct ContentView: View {
         handleClosePane(pane)
     }
 
+    private func refreshActivePane() {
+        guard let tab = appState.activeTab else { return }
+        let pane = appState.activePane ?? tab.panes.last
+        guard let pane, pane.cliType != .shell else { return }
+        handleRefreshPane(pane)
+    }
+
+    private func handleRefreshPane(_ pane: Pane) {
+        paneToRefresh = pane
+        showRefreshSheet = true
+    }
+
     private func handleClosePane(_ pane: Pane) {
         guard let tab = pane.tab else { return }
         switch appSettings.worktreeCleanupBehavior {
@@ -275,6 +310,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
     let onClosePane: () -> Void
     let onCloseTab: () -> Void
     let onSwitchTab: (Int) -> Void
+    let onRefreshPane: () -> Void
 
     func makeNSView(context: Context) -> NSView { NSView() }
 
@@ -283,6 +319,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         coordinator.onClosePane = onClosePane
         coordinator.onCloseTab = onCloseTab
         coordinator.onSwitchTab = onSwitchTab
+        coordinator.onRefreshPane = onRefreshPane
         coordinator.appState = appState
         guard coordinator.keyMonitor == nil else { return }
 
@@ -308,6 +345,11 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             let closeTabKey = UserDefaults.standard.string(forKey: "keyBinding.closeTabKey") ?? "k"
             if let chars = event.characters, chars == closeTabKey {
                 coordinator.onCloseTab()
+                return nil
+            }
+            let refreshPaneKey = UserDefaults.standard.string(forKey: "keyBinding.refreshPaneKey") ?? "r"
+            if let chars = event.characters, chars == refreshPaneKey {
+                coordinator.onRefreshPane()
                 return nil
             }
             if let chars = event.characters, let digit = Int(chars), (1...9).contains(digit) {
@@ -337,6 +379,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         var onClosePane: () -> Void = {}
         var onCloseTab: () -> Void = {}
         var onSwitchTab: (Int) -> Void = { _ in }
+        var onRefreshPane: () -> Void = {}
         var appState: AppState?
         var keyMonitor: Any?
         var mouseMonitor: Any?

@@ -6,6 +6,7 @@ struct PaneGridView: View {
     @State private var dragTargetPaneID: UUID?
     let tab: Tab
     let onClosePane: (Pane) -> Void
+    let onRefreshPane: (Pane) -> Void
 
     private var layout: GridLayout {
         GridLayout.layout(for: tab.panes.count)
@@ -38,7 +39,7 @@ struct PaneGridView: View {
 
             LazyVGrid(columns: cols, spacing: spacing) {
                 ForEach(tab.panes) { pane in
-                    PaneView(pane: pane, onClosePane: onClosePane)
+                    PaneView(pane: pane, onClosePane: onClosePane, onRefreshPane: onRefreshPane)
                         .accessibilityIdentifier("pane-\(pane.name)")
                         .frame(height: cellHeight)
                         .id(pane.id)
