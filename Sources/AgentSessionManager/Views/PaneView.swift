@@ -61,6 +61,15 @@ struct PaneView: View {
                     NSWorkspace.shared.open(url)
                 }
             }
+            if appSettings.isPriorityNotificationsEnabled {
+                Toggle("Priority Pane", isOn: Binding(
+                    get: { pane.isPriority },
+                    set: { newValue in
+                        pane.isPriority = newValue
+                        SessionPersistence.save(appState: appState)
+                    }
+                ))
+            }
             if appSettings.debugLoggingEnabled {
                 Text(
                     "Global debug logging is on: every pane writes events to the trace file. Turn it off in Settings → General to limit tracing to selected panes."
