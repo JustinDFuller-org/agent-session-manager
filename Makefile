@@ -26,7 +26,6 @@ app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Info.plist $(APP_BUNDLE)/Contents/
-	cp AppIcons/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/
 	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE)/Contents/Resources \
 		--app-icon AppIcon --output-partial-info-plist /dev/null \
 		--platform macosx --minimum-deployment-target 14.0
@@ -35,6 +34,8 @@ app-prd: build
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" $(APP_BUNDLE)/Contents/Info.plist
 	codesign --force --deep --sign - $(APP_BUNDLE)
+	touch $(APP_BUNDLE)
+	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f $(APP_BUNDLE)
 
 run: run-prd
 
@@ -69,7 +70,6 @@ app-dev: build-dev
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
 	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
-	cp AppIcons/AppIcon.icns $(APP_BUNDLE_DEV)/Contents/Resources/
 	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE_DEV)/Contents/Resources \
 		--app-icon AppIcon --output-partial-info-plist /dev/null \
 		--platform macosx --minimum-deployment-target 14.0
@@ -78,6 +78,8 @@ app-dev: build-dev
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	codesign --force --deep --sign - $(APP_BUNDLE_DEV)
+	touch $(APP_BUNDLE_DEV)
+	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f $(APP_BUNDLE_DEV)
 
 run-dev: app-dev
 	open $(APP_BUNDLE_DEV)
