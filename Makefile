@@ -23,8 +23,10 @@ app: app-prd
 
 app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Info.plist $(APP_BUNDLE)/Contents/
+	cp AppIcons/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
@@ -61,8 +63,10 @@ build-dev:
 
 app-dev: build-dev
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE_DEV)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
 	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
+	cp AppIcons/AppIcon.icns $(APP_BUNDLE_DEV)/Contents/Resources/
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist

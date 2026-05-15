@@ -21,6 +21,8 @@ targets:
     platform: macOS
     sources:
       - Sources/AgentSessionManager
+      - path: AppIcons/Assets.xcassets
+        type: folder
     info:
       path: Info.plist
     settings:
