@@ -435,7 +435,12 @@ private struct UnifiedCLIOptionsContent: View {
                         set: { appSettings.cliOptions = $0 }
                     ),
                     onSave: { SettingsPersistence.save(appSettings: appSettings) },
-                    customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions."
+                    customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions.",
+                    envVarOptions: Binding(
+                        get: { appSettings.envVarOptions },
+                        set: { appSettings.envVarOptions = $0 }
+                    ),
+                    onEnvVarSave: { SettingsPersistence.saveEnvVarOptions(appSettings: appSettings) }
                 )
             case .codex:
                 CLIOptionsContent(
@@ -475,7 +480,10 @@ private struct CLIOptionsContent: View {
     @Binding var options: [CLIOptionConfig]
     let onSave: () -> Void
     let customFlagFooter: String
+    var envVarOptions: Binding<[EnvVarConfig]>?
+    var onEnvVarSave: (() -> Void)?
     @State private var showAddCustomFlagSheet = false
+    @State private var showAddCustomEnvVarSheet = false
 
     private var enabledOptions: [CLIOptionConfig] {
         options.filter { $0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
@@ -537,6 +545,14 @@ private struct CLIOptionsContent: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            if let envBinding = envVarOptions, let envSave = onEnvVarSave {
+                EnvVarSections(
+                    options: envBinding,
+                    onSave: envSave,
+                    showAddSheet: $showAddCustomEnvVarSheet
+                )
+            }
         }
         .formStyle(.grouped)
         .sheet(isPresented: $showAddCustomFlagSheet) {
@@ -544,6 +560,84 @@ private struct CLIOptionsContent: View {
                 options.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
                 onSave()
             }
+        }
+        .sheet(isPresented: $showAddCustomEnvVarSheet) {
+            if let envBinding = envVarOptions, let envSave = onEnvVarSave {
+                AddCustomEnvVarSheet(existingIDs: envBinding.wrappedValue.map(\.id)) { id in
+                    envBinding.wrappedValue.append(EnvVarConfig.makeUserAdded(id: id))
+                    envSave()
+                }
+            }
+        }
+    }
+}
+
+private struct EnvVarSections: View {
+    @Binding var options: [EnvVarConfig]
+    let onSave: () -> Void
+    @Binding var showAddSheet: Bool
+
+    private var enabledOptions: [EnvVarConfig] {
+        options.filter { $0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
+    }
+
+    private var disabledOptions: [EnvVarConfig] {
+        options.filter { !$0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
+    }
+
+    private var customOptions: [EnvVarConfig] {
+        options.filter(\.isUserAdded).sorted { $0.id < $1.id }
+    }
+
+    var body: some View {
+        Section {
+            Text(
+                "Configure which environment variables are set when launching Claude Code. Variables marked as default will be pre-enabled with their default value in the New Pane dialog."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        } header: {
+            Text("Environment Variables")
+        }
+
+        if !enabledOptions.isEmpty {
+            Section("Enabled Env Vars") {
+                ForEach(enabledOptions, id: \.id) { option in
+                    let index = options.firstIndex(where: { $0.id == option.id })!
+                    EnvVarOptionRow(option: $options[index], onChange: onSave)
+                }
+            }
+        }
+        Section("Not Enabled Env Vars") {
+            ForEach(disabledOptions, id: \.id) { option in
+                let index = options.firstIndex(where: { $0.id == option.id })!
+                EnvVarOptionRow(option: $options[index], onChange: onSave)
+            }
+        }
+        Section {
+            ForEach(customOptions, id: \.id) { option in
+                let index = options.firstIndex(where: { $0.id == option.id })!
+                CustomEnvVarOptionRow(
+                    option: $options[index],
+                    onChange: onSave,
+                    onDelete: {
+                        options.removeAll { $0.id == option.id }
+                        onSave()
+                    }
+                )
+            }
+            Button {
+                showAddSheet = true
+            } label: {
+                Label("Add Custom Env Var", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+        } header: {
+            Text("Custom Env Vars")
+        } footer: {
+            Text("Custom environment variables are passed to the Claude Code process.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -1060,6 +1154,162 @@ private struct StatusLineContent: View {
         case "pr": return "GitHub pull request status for the current branch"
         default: return ""
         }
+    }
+}
+
+private struct EnvVarOptionRow: View {
+    @Binding var option: EnvVarConfig
+    let onChange: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(option.id)
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                    Text(option.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Toggle("Show", isOn: $option.isAvailable)
+                        .toggleStyle(.checkbox)
+                        .onChange(of: option.isAvailable) {
+                            if !option.isAvailable {
+                                option.isDefaultEnabled = false
+                            }
+                            onChange()
+                        }
+                    Toggle("Default on", isOn: $option.isDefaultEnabled)
+                        .toggleStyle(.checkbox)
+                        .disabled(!option.isAvailable)
+                        .onChange(of: option.isDefaultEnabled) { onChange() }
+                }
+            }
+            if option.isAvailable {
+                HStack(spacing: 8) {
+                    Text("Default value")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Value", text: $option.defaultValue)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(maxWidth: .infinity)
+                        .onChange(of: option.defaultValue) { onChange() }
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+private struct CustomEnvVarOptionRow: View {
+    @Binding var option: EnvVarConfig
+    let onChange: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(option.id)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.medium)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Toggle("Show", isOn: $option.isAvailable)
+                        .toggleStyle(.checkbox)
+                        .onChange(of: option.isAvailable) {
+                            if !option.isAvailable {
+                                option.isDefaultEnabled = false
+                            }
+                            onChange()
+                        }
+                    Toggle("Default on", isOn: $option.isDefaultEnabled)
+                        .toggleStyle(.checkbox)
+                        .disabled(!option.isAvailable)
+                        .onChange(of: option.isDefaultEnabled) { onChange() }
+                }
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.borderless)
+                .padding(.leading, 8)
+            }
+            if option.isAvailable {
+                HStack(spacing: 8) {
+                    Text("Default value")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Value", text: $option.defaultValue)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(maxWidth: .infinity)
+                        .onChange(of: option.defaultValue) { onChange() }
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+private struct AddCustomEnvVarSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let existingIDs: [String]
+    let onAdd: (String) -> Void
+
+    @State private var varName = ""
+
+    private var isValid: Bool {
+        let trimmed = varName.trimmingCharacters(in: .whitespaces)
+        return !trimmed.isEmpty && !existingIDs.contains(trimmed)
+            && trimmed.range(of: "^[A-Za-z_][A-Za-z0-9_]*$", options: .regularExpression) != nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Add Custom Env Var")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Variable Name")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("MY_CUSTOM_VAR", text: $varName)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onSubmit { if isValid { submit() } }
+                if !varName.isEmpty && existingIDs.contains(varName) {
+                    Text("An environment variable with this name already exists.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                } else if !varName.isEmpty && !isValid {
+                    Text("Variable name must start with a letter or underscore and contain only letters, digits, or underscores.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Add") { submit() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!isValid)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+    }
+
+    private func submit() {
+        guard isValid else { return }
+        onAdd(varName.trimmingCharacters(in: .whitespaces))
+        dismiss()
     }
 }
 

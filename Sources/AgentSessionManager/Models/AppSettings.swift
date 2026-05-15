@@ -93,6 +93,7 @@ final class AppSettings {
     var codexCliOptions: [CLIOptionConfig] = CLIOptionConfig.codexAll
     var cursorCliOptions: [CLIOptionConfig] = CLIOptionConfig.cursorAll
     var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
+    var envVarOptions: [EnvVarConfig] = EnvVarConfig.all
     var statusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [CLIType.claude.rawValue]
     var defaultBranch: String = "main"

@@ -456,7 +456,8 @@ final class Tab: Identifiable {
         cliType: CLIType = .claude,
         worktreeDirectory: URL? = nil,
         worktreeIsManaged: Bool = false,
-        id: UUID? = nil
+        id: UUID? = nil,
+        extraEnvVars: [String: String] = [:]
     ) -> Pane {
         if let wd = worktreeDirectory {
             DebugLogger.shared.logWorktreeResolution(
@@ -487,6 +488,11 @@ final class Tab: Identifiable {
                     paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
                 monitor.start()
                 pane.statusLineMonitor = monitor
+                if !extraEnvVars.isEmpty {
+                    controller.pendingEnvironment =
+                        (controller.pendingEnvironment ?? [])
+                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
+                }
                 controller.pendingCommand = Tab.buildClaudeCommand(
                     settingsPath: monitor.settingsFilePath,
                     extraArgs: extra
@@ -558,7 +564,9 @@ final class Tab: Identifiable {
     }
 
     /// Refreshes a pane with a fresh environment and new CLI args (from the settings sheet).
-    func refreshPaneWithArgs(_ pane: Pane, extraArgs: [String], cliType: CLIType) {
+    func refreshPaneWithArgs(
+        _ pane: Pane, extraArgs: [String], cliType: CLIType, extraEnvVars: [String: String] = [:]
+    ) {
         guard let old = pane.terminalController else { return }
         old.terminate()
         pane.statusLineMonitor?.stop()
@@ -578,6 +586,11 @@ final class Tab: Identifiable {
                 paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
             monitor.start()
             pane.statusLineMonitor = monitor
+            if !extraEnvVars.isEmpty {
+                controller.pendingEnvironment =
+                    (controller.pendingEnvironment ?? [])
+                    + extraEnvVars.map { "\($0.key)=\($0.value)" }
+            }
             controller.pendingCommand = Tab.buildClaudeCommand(
                 settingsPath: monitor.settingsFilePath, extraArgs: extra)
         case .codex:

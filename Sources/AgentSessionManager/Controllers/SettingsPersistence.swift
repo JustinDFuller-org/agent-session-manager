@@ -110,6 +110,7 @@ struct SettingsPersistence {
     private static var prPollingSettingsURL: URL { appSupportDir.appending(path: "pr-polling-settings.json") }
     private static var worktreeBaseRefURL: URL { appSupportDir.appending(path: "worktree-base-ref.json") }
     private static var exitBehaviorURL: URL { appSupportDir.appending(path: "exit-behavior.json") }
+    private static var envVarSettingsURL: URL { appSupportDir.appending(path: "env-var-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -476,5 +477,30 @@ struct SettingsPersistence {
             let settings = try? JSONDecoder().decode(PRPollingSettings.self, from: data)
         else { return (30, 15) }
         return (max(15, settings.intervalSeconds), max(5, settings.timeoutSeconds))
+    }
+
+    static func saveEnvVarOptions(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.envVarOptions) else { return }
+        try? data.write(to: envVarSettingsURL)
+    }
+
+    static func restoreEnvVarOptions(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: envVarSettingsURL),
+            let saved = try? JSONDecoder().decode([EnvVarConfig].self, from: data)
+        else { return }
+
+        var updated = EnvVarConfig.all
+        var userAdded: [EnvVarConfig] = []
+        for savedOption in saved {
+            if savedOption.isUserAdded {
+                userAdded.append(savedOption)
+            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
+                updated[index].isAvailable = savedOption.isAvailable
+                updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
+                updated[index].defaultValue = savedOption.defaultValue
+            }
+        }
+        appSettings.envVarOptions = updated + userAdded
     }
 }
