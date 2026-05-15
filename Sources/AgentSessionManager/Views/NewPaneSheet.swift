@@ -10,6 +10,7 @@ struct NewPaneSheet: View {
     @State private var sessionInput = ""
     @State private var selectedCLIType: CLIType = .claude
     @State private var optionStates: [String: OptionState] = [:]
+    @State private var envVarStates: [String: OptionState] = [:]
     @State private var isCreating = false
     @State private var worktreeSetupError: String?
     @State private var isPriority = false
@@ -17,6 +18,7 @@ struct NewPaneSheet: View {
     @State private var showTakeoverDialog = false
     @State private var pendingResolution: ResolvedWorktree?
     @State private var pendingExtraArgs: [String] = []
+    @State private var pendingExtraEnvVars: [String: String] = [:]
 
     @FocusState private var isSessionInputFocused: Bool
 
@@ -173,6 +175,22 @@ struct NewPaneSheet: View {
                 }
             }
 
+            if selectedCLIType == .claude {
+                let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
+                if !availableEnvVars.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Environment Variables")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(availableEnvVars) { envVar in
+                                EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
+                            }
+                        }
+                    }
+                }
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
@@ -193,17 +211,22 @@ struct NewPaneSheet: View {
         ) {
             Button("Manage") {
                 guard let resolved = pendingResolution else { return }
-                finishCreate(resolved: resolved, managed: true, extraArgs: pendingExtraArgs)
+                finishCreate(
+                    resolved: resolved, managed: true, extraArgs: pendingExtraArgs,
+                    extraEnvVars: pendingExtraEnvVars)
             }
             .accessibilityIdentifier("takeover-manage-button")
             Button("Don't Manage") {
                 guard let resolved = pendingResolution else { return }
-                finishCreate(resolved: resolved, managed: false, extraArgs: pendingExtraArgs)
+                finishCreate(
+                    resolved: resolved, managed: false, extraArgs: pendingExtraArgs,
+                    extraEnvVars: pendingExtraEnvVars)
             }
             .accessibilityIdentifier("takeover-dont-manage-button")
             Button("Cancel", role: .cancel) {
                 pendingResolution = nil
                 pendingExtraArgs = []
+                pendingExtraEnvVars = [:]
             }
             .accessibilityIdentifier("takeover-cancel-button")
         } message: {
@@ -238,11 +261,28 @@ struct NewPaneSheet: View {
         )
     }
 
+    private func envVarStateBinding(for envVar: EnvVarConfig) -> Binding<OptionState> {
+        Binding(
+            get: {
+                envVarStates[envVar.id]
+                    ?? OptionState(enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
+            },
+            set: { envVarStates[envVar.id] = $0 }
+        )
+    }
+
     private func initializeOptionStates() {
         optionStates = [:]
         for option in activeOptions where option.isAvailable {
             let enabled = option.isDefaultEnabled || (isRefreshing && option.id == "--continue")
             optionStates[option.id] = OptionState(enabled: enabled, value: "")
+        }
+        envVarStates = [:]
+        if selectedCLIType == .claude {
+            for envVar in appSettings.envVarOptions where envVar.isAvailable {
+                let value = envVar.isDefaultEnabled ? envVar.defaultValue : ""
+                envVarStates[envVar.id] = OptionState(enabled: envVar.isDefaultEnabled, value: value)
+            }
         }
     }
 
@@ -253,9 +293,11 @@ struct NewPaneSheet: View {
         isCreating = true
         worktreeSetupError = nil
         let extraArgs = buildExtraArgs()
+        let extraEnvVars = buildExtraEnvVars()
 
         if let pane = refreshingPane {
-            tab.refreshPaneWithArgs(pane, extraArgs: extraArgs, cliType: selectedCLIType)
+            tab.refreshPaneWithArgs(
+                pane, extraArgs: extraArgs, cliType: selectedCLIType, extraEnvVars: extraEnvVars)
             resetForm()
             dismiss()
             return
@@ -279,17 +321,24 @@ struct NewPaneSheet: View {
                     if resolved.isExternalTakeover {
                         switch appSettings.existingWorktreeManagement {
                         case .always:
-                            finishCreate(resolved: resolved, managed: true, extraArgs: extraArgs)
+                            finishCreate(
+                                resolved: resolved, managed: true, extraArgs: extraArgs,
+                                extraEnvVars: extraEnvVars)
                         case .ask:
                             isCreating = false
                             pendingResolution = resolved
                             pendingExtraArgs = extraArgs
+                            pendingExtraEnvVars = extraEnvVars
                             showTakeoverDialog = true
                         case .never:
-                            finishCreate(resolved: resolved, managed: false, extraArgs: extraArgs)
+                            finishCreate(
+                                resolved: resolved, managed: false, extraArgs: extraArgs,
+                                extraEnvVars: extraEnvVars)
                         }
                     } else {
-                        finishCreate(resolved: resolved, managed: true, extraArgs: extraArgs)
+                        finishCreate(
+                            resolved: resolved, managed: true, extraArgs: extraArgs,
+                            extraEnvVars: extraEnvVars)
                     }
                 }
             } catch {
@@ -301,16 +350,21 @@ struct NewPaneSheet: View {
         }
     }
 
-    private func finishCreate(resolved: ResolvedWorktree, managed: Bool, extraArgs: [String]) {
+    private func finishCreate(
+        resolved: ResolvedWorktree, managed: Bool, extraArgs: [String],
+        extraEnvVars: [String: String] = [:]
+    ) {
         pendingResolution = nil
         pendingExtraArgs = []
+        pendingExtraEnvVars = [:]
         resetForm()
         tab.addPane(
             name: resolved.paneTitle,
             extraArgs: extraArgs,
             cliType: selectedCLIType,
             worktreeDirectory: resolved.processDirectory,
-            worktreeIsManaged: managed
+            worktreeIsManaged: managed,
+            extraEnvVars: extraEnvVars
         )
         if let pane = tab.panes.last {
             pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: isPriority)
@@ -356,6 +410,19 @@ struct NewPaneSheet: View {
         }
         return args
     }
+
+    private func buildExtraEnvVars() -> [String: String] {
+        guard selectedCLIType == .claude else { return [:] }
+        var envVars: [String: String] = [:]
+        for envVar in appSettings.envVarOptions where envVar.isAvailable {
+            guard let state = envVarStates[envVar.id], state.enabled else { continue }
+            let value = state.value.trimmingCharacters(in: .whitespaces)
+            if !value.isEmpty {
+                envVars[envVar.id] = value
+            }
+        }
+        return envVars
+    }
 }
 
 private struct OptionState {
@@ -380,6 +447,25 @@ private struct CLIOptionToggleRow: View {
                     .disabled(!state.enabled)
                     .frame(maxWidth: .infinity)
             }
+        }
+    }
+}
+
+private struct EnvVarToggleRow: View {
+    let envVar: EnvVarConfig
+    @Binding var state: OptionState
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Toggle(isOn: $state.enabled) {
+                Text(envVar.id)
+                    .font(.system(.body, design: .monospaced))
+                    .font(.caption)
+            }
+            TextField("Value", text: $state.value)
+                .textFieldStyle(.roundedBorder)
+                .disabled(!state.enabled)
+                .frame(maxWidth: .infinity)
         }
     }
 }
