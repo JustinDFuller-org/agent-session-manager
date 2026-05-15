@@ -8,6 +8,9 @@ struct SettingsView: View {
             GeneralContent()
                 .environment(appSettings)
                 .tabItem { Label("General", systemImage: "gear") }
+            ProfilesContent()
+                .environment(appSettings)
+                .tabItem { Label("Profiles", systemImage: "person.crop.rectangle.stack") }
             ToolsContent()
                 .environment(appSettings)
                 .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
@@ -267,6 +270,429 @@ private struct GeneralContent: View {
                 }
             }
             .formStyle(.grouped)
+        }
+    }
+}
+
+private struct ProfilesContent: View {
+    @Environment(AppSettings.self) private var appSettings
+    @State private var showEditor = false
+    @State private var editingProfile: Profile?
+
+    var body: some View {
+        @Bindable var appSettings = appSettings
+        Form {
+            Section {
+                Text(
+                    "Create named profiles to quickly configure panes. Each profile saves the CLI tool, flags, environment variables, and optionally a custom status line. Global CLI Options settings seed new profiles but do not change saved ones."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            if appSettings.profiles.isEmpty {
+                Section {
+                    VStack(spacing: 8) {
+                        Image(systemName: "person.crop.rectangle.stack")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.quaternary)
+                        Text("No profiles yet")
+                            .foregroundStyle(.secondary)
+                        Text("Create a profile to save your preferred CLI configuration for quick reuse.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+            } else {
+                Section("Profiles") {
+                    ForEach(Array(appSettings.profiles.enumerated()), id: \.element.id) { index, profile in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(profile.name)
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.medium)
+                                    Text(profile.cliType.displayName)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 2)
+                                        .background(.quaternary)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        .foregroundStyle(.secondary)
+                                    if profile.statusLineConfig != nil {
+                                        Text("Custom status line")
+                                            .font(.caption2)
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 2)
+                                            .background(.quaternary)
+                                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Text(profileSummary(profile))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if appSettings.defaultProfileID == profile.id {
+                                Image(systemName: "star.fill")
+                                    .foregroundStyle(Color.accentColor)
+                                    .font(.caption)
+                            }
+                            Menu {
+                                Button("Edit") {
+                                    editingProfile = profile
+                                    showEditor = true
+                                }
+                                Button("Duplicate") {
+                                    var copy = profile
+                                    copy.id = UUID()
+                                    copy.name = "\(profile.name) Copy"
+                                    appSettings.profiles.append(copy)
+                                    SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                }
+                                if appSettings.defaultProfileID == profile.id {
+                                    Button("Unset as Default") {
+                                        appSettings.defaultProfileID = nil
+                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                    }
+                                } else {
+                                    Button("Set as Default") {
+                                        appSettings.defaultProfileID = profile.id
+                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                    }
+                                }
+                                Divider()
+                                if index > 0 {
+                                    Button("Move Up") {
+                                        appSettings.profiles.swapAt(index, index - 1)
+                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                    }
+                                }
+                                if index < appSettings.profiles.count - 1 {
+                                    Button("Move Down") {
+                                        appSettings.profiles.swapAt(index, index + 1)
+                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                    }
+                                }
+                                Divider()
+                                Button("Delete", role: .destructive) {
+                                    appSettings.profiles.removeAll { $0.id == profile.id }
+                                    if appSettings.defaultProfileID == profile.id {
+                                        appSettings.defaultProfileID = nil
+                                    }
+                                    SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .menuStyle(.borderlessButton)
+                            .frame(width: 24)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+            Section {
+                Button {
+                    editingProfile = nil
+                    showEditor = true
+                } label: {
+                    Label("New Profile", systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .formStyle(.grouped)
+        .sheet(isPresented: $showEditor) {
+            ProfileEditorSheet(
+                profile: editingProfile,
+                appSettings: appSettings,
+                onSave: { saved in
+                    if let index = appSettings.profiles.firstIndex(where: { $0.id == saved.id }) {
+                        appSettings.profiles[index] = saved
+                    } else {
+                        appSettings.profiles.append(saved)
+                    }
+                    SettingsPersistence.saveProfiles(appSettings: appSettings)
+                }
+            )
+        }
+    }
+
+    private func profileSummary(_ profile: Profile) -> String {
+        let flagCount = profile.cliOptions.filter(\.isEnabled).count
+        let envCount = profile.envVars.filter(\.isEnabled).count
+        var parts: [String] = []
+        if flagCount > 0 {
+            parts.append("\(flagCount) flag\(flagCount == 1 ? "" : "s")")
+        }
+        if envCount > 0 {
+            parts.append("\(envCount) env var\(envCount == 1 ? "" : "s")")
+        }
+        return parts.joined(separator: ", ")
+    }
+}
+
+private struct ProfileEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let profile: Profile?
+    let appSettings: AppSettings
+    let onSave: (Profile) -> Void
+
+    @State private var name: String = ""
+    @State private var cliType: CLIType = .claude
+    @State private var optionStates: [String: ProfileEditorOptionState] = [:]
+    @State private var envVarStates: [String: ProfileEditorOptionState] = [:]
+    @State private var useCustomStatusLine = false
+    @State private var statusLineConfig = StatusLineConfig()
+
+    @FocusState private var isNameFocused: Bool
+
+    private var activeToolList: [CLIType] {
+        CLIType.allCases.filter { appSettings.isActive($0) }
+    }
+
+    private var activeOptions: [CLIOptionConfig] {
+        switch cliType {
+        case .claude: return appSettings.cliOptions
+        case .codex: return appSettings.codexCliOptions
+        case .cursor: return appSettings.cursorCliOptions
+        case .opencode: return appSettings.opencodeCliOptions
+        case .shell: return []
+        }
+    }
+
+    private var isValid: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(profile == nil ? "New Profile" : "Edit Profile")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Profile Name")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("Complex Task, Quick Side Quest, …", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isNameFocused)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("CLI")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Picker("CLI", selection: $cliType) {
+                    ForEach(activeToolList, id: \.self) { type in
+                        Text(type.displayName).tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .onChange(of: cliType) { _, _ in
+                    initializeFromGlobal()
+                }
+            }
+
+            let available = activeOptions.filter(\.isAvailable)
+            if !available.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("CLI Options")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(available) { option in
+                                ProfileEditorOptionRow(
+                                    option: option,
+                                    state: editorStateBinding(for: option.id)
+                                )
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 160)
+                }
+            }
+
+            if cliType == .claude {
+                let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
+                if !availableEnvVars.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Environment Variables")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(availableEnvVars) { envVar in
+                                    ProfileEditorEnvVarRow(
+                                        envVar: envVar,
+                                        state: editorEnvVarStateBinding(for: envVar.id)
+                                    )
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 120)
+                    }
+                }
+            }
+
+            Toggle(isOn: $useCustomStatusLine) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Custom Status Line")
+                        .font(.subheadline)
+                    Text("Override the global status line for panes using this profile.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.checkbox)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Save") { save() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!isValid)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+        .onAppear {
+            if let existing = profile {
+                name = existing.name
+                cliType = existing.cliType
+                for opt in existing.cliOptions {
+                    optionStates[opt.id] = ProfileEditorOptionState(
+                        enabled: opt.isEnabled, value: opt.value ?? "")
+                }
+                for ev in existing.envVars {
+                    envVarStates[ev.id] = ProfileEditorOptionState(enabled: ev.isEnabled, value: ev.value)
+                }
+                if let slc = existing.statusLineConfig {
+                    useCustomStatusLine = true
+                    statusLineConfig = slc
+                }
+            } else {
+                if !activeToolList.contains(cliType) {
+                    cliType = activeToolList.first ?? .claude
+                }
+                initializeFromGlobal()
+            }
+            isNameFocused = true
+        }
+    }
+
+    private func initializeFromGlobal() {
+        optionStates = [:]
+        for option in activeOptions where option.isAvailable {
+            optionStates[option.id] = ProfileEditorOptionState(
+                enabled: option.isDefaultEnabled, value: "")
+        }
+        envVarStates = [:]
+        if cliType == .claude {
+            for envVar in appSettings.envVarOptions where envVar.isAvailable {
+                envVarStates[envVar.id] = ProfileEditorOptionState(
+                    enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
+            }
+        }
+    }
+
+    private func editorStateBinding(for id: String) -> Binding<ProfileEditorOptionState> {
+        Binding(
+            get: { optionStates[id] ?? ProfileEditorOptionState(enabled: false, value: "") },
+            set: { optionStates[id] = $0 }
+        )
+    }
+
+    private func editorEnvVarStateBinding(for id: String) -> Binding<ProfileEditorOptionState> {
+        Binding(
+            get: { envVarStates[id] ?? ProfileEditorOptionState(enabled: false, value: "") },
+            set: { envVarStates[id] = $0 }
+        )
+    }
+
+    private func save() {
+        guard isValid else { return }
+        let cliOptions = activeOptions.filter(\.isAvailable).map { opt in
+            let state = optionStates[opt.id] ?? ProfileEditorOptionState(enabled: false, value: "")
+            return ProfileCLIOption(
+                id: opt.id,
+                isEnabled: state.enabled,
+                value: state.value.isEmpty ? nil : state.value
+            )
+        }
+
+        let envVars: [ProfileEnvVar]
+        if cliType == .claude {
+            envVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
+                let state = envVarStates[ev.id] ?? ProfileEditorOptionState(enabled: false, value: "")
+                return ProfileEnvVar(id: ev.id, isEnabled: state.enabled, value: state.value)
+            }
+        } else {
+            envVars = []
+        }
+
+        let saved = Profile(
+            id: profile?.id ?? UUID(),
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            cliType: cliType,
+            cliOptions: cliOptions,
+            envVars: envVars,
+            statusLineConfig: useCustomStatusLine ? statusLineConfig : nil
+        )
+        onSave(saved)
+        dismiss()
+    }
+}
+
+private struct ProfileEditorOptionState {
+    var enabled: Bool
+    var value: String
+}
+
+private struct ProfileEditorOptionRow: View {
+    let option: CLIOptionConfig
+    @Binding var state: ProfileEditorOptionState
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Toggle(isOn: $state.enabled) {
+                Text(option.id)
+                    .font(.system(.body, design: .monospaced))
+                    .font(.caption)
+            }
+            if case .string(let placeholder) = option.optionType {
+                TextField(placeholder, text: $state.value)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(!state.enabled)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+}
+
+private struct ProfileEditorEnvVarRow: View {
+    let envVar: EnvVarConfig
+    @Binding var state: ProfileEditorOptionState
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Toggle(isOn: $state.enabled) {
+                Text(envVar.id)
+                    .font(.system(.body, design: .monospaced))
+                    .font(.caption)
+            }
+            TextField("Value", text: $state.value)
+                .textFieldStyle(.roundedBorder)
+                .disabled(!state.enabled)
+                .frame(maxWidth: .infinity)
         }
     }
 }

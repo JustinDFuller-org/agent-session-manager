@@ -46,6 +46,7 @@ final class Pane: Identifiable {
     var isPriority: Bool = false
     var isMerged: Bool = false
     var restartToken: UUID = UUID()
+    var profileID: UUID?
 
     init(
         id: UUID = UUID(),
@@ -53,7 +54,8 @@ final class Pane: Identifiable {
         tab: Tab,
         cliType: CLIType = .claude,
         worktreeDirectory: URL? = nil,
-        worktreeIsManaged: Bool = false
+        worktreeIsManaged: Bool = false,
+        profileID: UUID? = nil
     ) {
         self.id = id
         self.name = name
@@ -61,6 +63,7 @@ final class Pane: Identifiable {
         self.worktreeDirectory = worktreeDirectory
         self.worktreeIsManaged = worktreeIsManaged
         self.tab = tab
+        self.profileID = profileID
     }
 
     var worktreePath: URL? {

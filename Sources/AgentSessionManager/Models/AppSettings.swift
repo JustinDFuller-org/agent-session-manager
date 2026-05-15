@@ -124,6 +124,8 @@ final class AppSettings {
     var isStickyNotificationsEnabled: Bool = false
     var scrollbackLines: Int = 500
     var exitBehavior: ExitBehavior = .prompt
+    var profiles: [Profile] = []
+    var defaultProfileID: UUID?
 
     static let defaultDebugLogMaxFileBytes = 15 * 1024 * 1024
 

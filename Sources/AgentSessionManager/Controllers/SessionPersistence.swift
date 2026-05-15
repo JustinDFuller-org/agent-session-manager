@@ -118,15 +118,17 @@ struct PersistedPane: Codable {
     var isMerged: Bool
     var worktreeDirectory: String?
     var worktreeIsManaged: Bool
+    var profileID: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id, name, cliType, isPriority, isMerged, worktreeDirectory, worktreeIsManaged
         case claudeProcessDirectory
+        case profileID
     }
 
     init(
         id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, isMerged: Bool = false,
-        worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false
+        worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil
     ) {
         self.id = id
         self.name = name
@@ -135,6 +137,7 @@ struct PersistedPane: Codable {
         self.isMerged = isMerged
         self.worktreeDirectory = worktreeDirectory
         self.worktreeIsManaged = worktreeIsManaged
+        self.profileID = profileID
     }
 
     init(from decoder: Decoder) throws {
@@ -148,6 +151,7 @@ struct PersistedPane: Codable {
             try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
             ?? container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
         worktreeIsManaged = (try? container.decodeIfPresent(Bool.self, forKey: .worktreeIsManaged)) ?? false
+        profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -159,6 +163,7 @@ struct PersistedPane: Codable {
         try container.encode(isMerged, forKey: .isMerged)
         try container.encode(worktreeDirectory, forKey: .worktreeDirectory)
         try container.encode(worktreeIsManaged, forKey: .worktreeIsManaged)
+        try container.encodeIfPresent(profileID, forKey: .profileID)
     }
 }
 
@@ -186,7 +191,8 @@ struct SessionPersistence {
                         isPriority: pane.isPriority,
                         isMerged: pane.isMerged,
                         worktreeDirectory: pane.worktreeDirectory?.path,
-                        worktreeIsManaged: pane.worktreeIsManaged
+                        worktreeIsManaged: pane.worktreeIsManaged,
+                        profileID: pane.profileID
                     )
                 }
             )
