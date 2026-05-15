@@ -111,6 +111,7 @@ struct SettingsPersistence {
     private static var worktreeBaseRefURL: URL { appSupportDir.appending(path: "worktree-base-ref.json") }
     private static var exitBehaviorURL: URL { appSupportDir.appending(path: "exit-behavior.json") }
     private static var envVarSettingsURL: URL { appSupportDir.appending(path: "env-var-settings.json") }
+    private static var profilesURL: URL { appSupportDir.appending(path: "profiles.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -502,5 +503,32 @@ struct SettingsPersistence {
             }
         }
         appSettings.envVarOptions = updated + userAdded
+    }
+
+    private struct ProfilesContainer: Codable {
+        var profiles: [Profile]
+        var defaultProfileID: UUID?
+    }
+
+    static func saveProfiles(appSettings: AppSettings) {
+        let container = ProfilesContainer(
+            profiles: appSettings.profiles,
+            defaultProfileID: appSettings.defaultProfileID
+        )
+        guard let data = try? JSONEncoder().encode(container) else { return }
+        try? data.write(to: profilesURL)
+    }
+
+    static func restoreProfiles(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: profilesURL),
+            let container = try? JSONDecoder().decode(ProfilesContainer.self, from: data)
+        else { return }
+        appSettings.profiles = container.profiles
+        if let defaultID = container.defaultProfileID,
+            container.profiles.contains(where: { $0.id == defaultID })
+        {
+            appSettings.defaultProfileID = defaultID
+        }
     }
 }

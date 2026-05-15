@@ -71,7 +71,7 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
     }
 }
 
-struct StatusLineRow: Codable, Identifiable {
+struct StatusLineRow: Codable, Identifiable, Equatable {
     var id: UUID
     var items: [StatusLineItem]
 
@@ -92,7 +92,7 @@ private struct LegacyStatusLineItem: Decodable {
     }
 }
 
-struct StatusLineConfig: Codable {
+struct StatusLineConfig: Codable, Equatable {
     var rows: [StatusLineRow]
     var chipLabelStyle: ChipLabelStyle
     var rowAlignment: RowAlignment

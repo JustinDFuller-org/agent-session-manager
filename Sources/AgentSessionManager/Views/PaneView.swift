@@ -207,8 +207,19 @@ struct PaneView: View {
     private var statusLine: some View {
         if let monitor = pane.statusLineMonitor, monitor.currentData != nil {
             Divider()
-            StatusLineView(monitor: monitor, config: appSettings.statusLineConfig)
+            let config = resolvedStatusLineConfig
+            StatusLineView(monitor: monitor, config: config)
         }
+    }
+
+    private var resolvedStatusLineConfig: StatusLineConfig {
+        if let profileID = pane.profileID,
+            let profile = appSettings.profiles.first(where: { $0.id == profileID }),
+            let override = profile.statusLineConfig
+        {
+            return override
+        }
+        return appSettings.statusLineConfig
     }
 
     @ViewBuilder

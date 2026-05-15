@@ -457,7 +457,9 @@ final class Tab: Identifiable {
         worktreeDirectory: URL? = nil,
         worktreeIsManaged: Bool = false,
         id: UUID? = nil,
-        extraEnvVars: [String: String] = [:]
+        extraEnvVars: [String: String] = [:],
+        profileID: UUID? = nil,
+        statusLineConfigOverride: StatusLineConfig? = nil
     ) -> Pane {
         if let wd = worktreeDirectory {
             DebugLogger.shared.logWorktreeResolution(
@@ -471,7 +473,8 @@ final class Tab: Identifiable {
             tab: self,
             cliType: cliType,
             worktreeDirectory: worktreeDirectory,
-            worktreeIsManaged: worktreeIsManaged
+            worktreeIsManaged: worktreeIsManaged,
+            profileID: profileID
         )
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()

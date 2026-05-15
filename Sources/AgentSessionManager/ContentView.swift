@@ -33,6 +33,7 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreTerminalSettings(into: appSettings)
                         SettingsPersistence.restoreExitBehavior(into: appSettings)
                         SettingsPersistence.restoreEnvVarOptions(into: appSettings)
+                        SettingsPersistence.restoreProfiles(into: appSettings)
                         DebugLogger.shared.syncFromAppSettings(appSettings)
                         DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
                         if !appSettings.debugLoggingEnabled {

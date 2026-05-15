@@ -1,0 +1,204 @@
+import Foundation
+import Testing
+
+@testable import AgentSessionManager
+
+@Suite("Profile")
+struct ProfileTests {
+
+    @Test("buildArgs returns enabled boolean flags")
+    func buildArgsBooleanFlags() {
+        let profile = Profile(
+            name: "Test",
+            cliType: .claude,
+            cliOptions: [
+                ProfileCLIOption(id: "--verbose", isEnabled: true, value: nil),
+                ProfileCLIOption(id: "--continue", isEnabled: false, value: nil),
+                ProfileCLIOption(id: "--dangerously-skip-permissions", isEnabled: true, value: nil),
+            ]
+        )
+        let args = profile.buildArgs()
+        #expect(args == ["--verbose", "--dangerously-skip-permissions"])
+    }
+
+    @Test("buildArgs returns enabled string flags with values")
+    func buildArgsStringFlags() {
+        let profile = Profile(
+            name: "Test",
+            cliType: .claude,
+            cliOptions: [
+                ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-opus-4-6"),
+                ProfileCLIOption(id: "--effort", isEnabled: true, value: "high"),
+                ProfileCLIOption(id: "--resume", isEnabled: false, value: "session-1"),
+            ]
+        )
+        let args = profile.buildArgs()
+        #expect(args == ["--model", "'claude-opus-4-6'", "--effort", "'high'"])
+    }
+
+    @Test("buildArgs handles empty value for enabled string flag")
+    func buildArgsEmptyStringValue() {
+        let profile = Profile(
+            name: "Test",
+            cliType: .claude,
+            cliOptions: [
+                ProfileCLIOption(id: "--model", isEnabled: true, value: ""),
+                ProfileCLIOption(id: "--verbose", isEnabled: true, value: nil),
+            ]
+        )
+        let args = profile.buildArgs()
+        #expect(args == ["--model", "--verbose"])
+    }
+
+    @Test("buildArgs escapes single quotes in values")
+    func buildArgsEscapesSingleQuotes() {
+        let profile = Profile(
+            name: "Test",
+            cliType: .claude,
+            cliOptions: [
+                ProfileCLIOption(id: "--system-prompt", isEnabled: true, value: "don't stop"),
+            ]
+        )
+        let args = profile.buildArgs()
+        #expect(args == ["--system-prompt", "'don'\\''t stop'"])
+    }
+
+    @Test("buildArgs returns empty array when nothing enabled")
+    func buildArgsNothingEnabled() {
+        let profile = Profile(
+            name: "Test",
+            cliType: .claude,
+            cliOptions: [
+                ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil),
+                ProfileCLIOption(id: "--model", isEnabled: false, value: "opus"),
+            ]
+        )
+        let args = profile.buildArgs()
+        #expect(args.isEmpty)
+    }
+
+    @Test("buildEnvVars returns enabled vars with values")
+    func buildEnvVars() {
+        let profile = Profile(
+            name: "Test",
+            cliType: .claude,
+            envVars: [
+                ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: "opus"),
+                ProfileEnvVar(id: "DEBUG", isEnabled: false, value: "1"),
+                ProfileEnvVar(id: "ANTHROPIC_API_KEY", isEnabled: true, value: "sk-123"),
+            ]
+        )
+        let env = profile.buildEnvVars()
+        #expect(env == ["ANTHROPIC_MODEL": "opus", "ANTHROPIC_API_KEY": "sk-123"])
+    }
+
+    @Test("buildEnvVars skips enabled vars with empty values")
+    func buildEnvVarsSkipsEmpty() {
+        let profile = Profile(
+            name: "Test",
+            cliType: .claude,
+            envVars: [
+                ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: ""),
+            ]
+        )
+        let env = profile.buildEnvVars()
+        #expect(env.isEmpty)
+    }
+
+    @Test("Profile encodes and decodes via JSON round-trip")
+    func jsonRoundTrip() throws {
+        let original = Profile(
+            name: "Complex Task",
+            cliType: .claude,
+            cliOptions: [
+                ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-opus-4-6"),
+                ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil),
+            ],
+            envVars: [
+                ProfileEnvVar(id: "ANTHROPIC_API_KEY", isEnabled: true, value: "sk-test"),
+            ],
+            statusLineConfig: nil
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(Profile.self, from: data)
+        #expect(decoded == original)
+    }
+
+    @Test("Profile with custom status line round-trips")
+    func jsonRoundTripWithStatusLine() throws {
+        var slc = StatusLineConfig()
+        slc.chipLabelStyle = .labelOnly
+        let original = Profile(
+            name: "Custom SL",
+            cliType: .cursor,
+            cliOptions: [],
+            envVars: [],
+            statusLineConfig: slc
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(Profile.self, from: data)
+        #expect(decoded.statusLineConfig != nil)
+        #expect(decoded.statusLineConfig?.chipLabelStyle == .labelOnly)
+        #expect(decoded.name == "Custom SL")
+        #expect(decoded.cliType == .cursor)
+    }
+
+    @Test("Profile with nil status line inherits global")
+    func nilStatusLineInheritsGlobal() {
+        let profile = Profile(
+            name: "No Override",
+            cliType: .claude,
+            statusLineConfig: nil
+        )
+        #expect(profile.statusLineConfig == nil)
+    }
+
+    @Test("PersistedPane profileID round-trips")
+    func persistedPaneProfileID() throws {
+        let profileID = UUID()
+        let original = PersistedPane(
+            id: UUID(),
+            name: "test",
+            cliType: .claude,
+            profileID: profileID
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
+        #expect(decoded.profileID == profileID)
+    }
+
+    @Test("PersistedPane without profileID decodes as nil")
+    func persistedPaneNilProfileID() throws {
+        let json = """
+            {"id":"00000000-0000-0000-0000-000000000001","name":"test","cliType":"claude","isPriority":false,"isMerged":false,"worktreeIsManaged":false}
+            """
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: Data(json.utf8))
+        #expect(decoded.profileID == nil)
+    }
+
+    @Test("Profiles container round-trips with default ID")
+    func profilesContainerRoundTrip() throws {
+        let profile1 = Profile(name: "A", cliType: .claude)
+        let profile2 = Profile(name: "B", cliType: .cursor)
+
+        struct Container: Codable {
+            var profiles: [Profile]
+            var defaultProfileID: UUID?
+        }
+        let original = Container(profiles: [profile1, profile2], defaultProfileID: profile1.id)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(Container.self, from: data)
+        #expect(decoded.profiles.count == 2)
+        #expect(decoded.defaultProfileID == profile1.id)
+    }
+
+    @Test("Different CLI types preserved in profiles")
+    func cliTypePreserved() throws {
+        for cliType in [CLIType.claude, .codex, .cursor, .opencode] {
+            let profile = Profile(name: "Test", cliType: cliType)
+            let data = try JSONEncoder().encode(profile)
+            let decoded = try JSONDecoder().decode(Profile.self, from: data)
+            #expect(decoded.cliType == cliType)
+        }
+    }
+}
