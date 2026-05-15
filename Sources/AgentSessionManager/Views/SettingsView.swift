@@ -888,6 +888,8 @@ private struct StatusLineContent: View {
                 .toggleStyle(.checkbox)
                 .onChange(of: appSettings.githubPRTrackingEnabled) {
                     SettingsPersistence.savePRTracking(appSettings: appSettings)
+                    NotificationCenter.default.post(
+                        name: .agentSessionManagerPRTrackingSettingChanged, object: nil)
                 }
                 .accessibilityIdentifier("settings-pr-tracking-toggle")
 

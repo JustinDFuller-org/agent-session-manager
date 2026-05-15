@@ -457,6 +457,9 @@ extension Notification.Name {
     /// Posted when Claude `Notification` hook integration is toggled (refresh per-pane `--settings` files).
     static let agentSessionManagerClaudeHookAttentionSettingChanged = Notification.Name(
         "agentSessionManagerClaudeHookAttentionSettingChanged")
+    /// Posted when GitHub PR tracking is toggled (refresh per-pane `--settings` files to update `showPRStatus`).
+    static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
+        "agentSessionManagerPRTrackingSettingChanged")
 }
 
 extension utsname {

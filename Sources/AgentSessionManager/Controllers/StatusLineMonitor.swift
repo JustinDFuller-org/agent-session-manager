@@ -161,12 +161,16 @@ final class StatusLineMonitor {
 
     private func writeSettingsFile() {
         let attentionEnabled = isClaude && SettingsPersistence.isClaudeHookAttentionEnabled()
+        let prTrackingEnabled = SettingsPersistence.isPRTrackingEnabled()
         var settings: [String: Any] = [
             "statusLine": [
                 "type": "command",
                 "command": "cat > '\(filePath)'",
             ]
         ]
+        if prTrackingEnabled {
+            settings["showPRStatus"] = false
+        }
         if attentionEnabled {
             settings["hooks"] = [
                 "Notification": [
@@ -302,7 +306,8 @@ final class StatusLineMonitor {
     nonisolated static func makeClaudeSettingsDictionaryForTesting(
         statusOutputPath: String,
         attentionOutputPath: String,
-        includeNotificationHook: Bool
+        includeNotificationHook: Bool,
+        hidePRStatus: Bool = false
     ) -> [String: Any] {
         var settings: [String: Any] = [
             "statusLine": [
@@ -310,6 +315,9 @@ final class StatusLineMonitor {
                 "command": "cat > '\(statusOutputPath)'",
             ]
         ]
+        if hidePRStatus {
+            settings["showPRStatus"] = false
+        }
         if includeNotificationHook {
             settings["hooks"] = [
                 "Notification": [

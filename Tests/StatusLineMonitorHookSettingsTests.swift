@@ -36,4 +36,45 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
         XCTAssertEqual(entryHooks.first?["type"] as? String, "command")
         XCTAssertEqual(entryHooks.first?["command"] as? String, "cat > '/tmp/attention.json'")
     }
+
+    func testMakeClaudeSettingsOmitsShowPRStatusByDefault() {
+        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
+            statusOutputPath: "/tmp/status.json",
+            attentionOutputPath: "/tmp/attention.json",
+            includeNotificationHook: false
+        )
+        XCTAssertNil(settings["showPRStatus"])
+    }
+
+    func testMakeClaudeSettingsIncludesShowPRStatusFalseWhenHidden() {
+        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
+            statusOutputPath: "/tmp/status.json",
+            attentionOutputPath: "/tmp/attention.json",
+            includeNotificationHook: false,
+            hidePRStatus: true
+        )
+        XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
+    }
+
+    func testMakeClaudeSettingsOmitsShowPRStatusWhenNotHidden() {
+        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
+            statusOutputPath: "/tmp/status.json",
+            attentionOutputPath: "/tmp/attention.json",
+            includeNotificationHook: false,
+            hidePRStatus: false
+        )
+        XCTAssertNil(settings["showPRStatus"])
+    }
+
+    func testMakeClaudeSettingsHidePRStatusCombinesWithHooks() {
+        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
+            statusOutputPath: "/tmp/status.json",
+            attentionOutputPath: "/tmp/attention.json",
+            includeNotificationHook: true,
+            hidePRStatus: true
+        )
+        XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
+        XCTAssertNotNil(settings["hooks"])
+        XCTAssertNotNil(settings["statusLine"])
+    }
 }
