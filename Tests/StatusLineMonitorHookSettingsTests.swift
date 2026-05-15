@@ -37,6 +37,30 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
         XCTAssertEqual(entryHooks.first?["command"] as? String, "cat > '/tmp/attention.json'")
     }
 
+    func testMakeClaudeSettingsIncludesPermissionRequestHookStructure() {
+        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
+            statusOutputPath: "/tmp/status.json",
+            attentionOutputPath: "/tmp/attention.json",
+            includeNotificationHook: true
+        )
+        guard let hooks = settings["hooks"] as? [String: Any] else {
+            XCTFail("expected hooks dictionary")
+            return
+        }
+        guard let permissionRequest = hooks["PermissionRequest"] as? [[String: Any]] else {
+            XCTFail("expected hooks.PermissionRequest array")
+            return
+        }
+        XCTAssertEqual(permissionRequest.count, 1)
+        guard let entryHooks = permissionRequest.first?["hooks"] as? [[String: Any]] else {
+            XCTFail("expected entry hooks array")
+            return
+        }
+        XCTAssertEqual(entryHooks.count, 1)
+        XCTAssertEqual(entryHooks.first?["type"] as? String, "command")
+        XCTAssertEqual(entryHooks.first?["command"] as? String, "cat > '/tmp/attention.json'")
+    }
+
     func testMakeClaudeSettingsOmitsShowPRStatusByDefault() {
         let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: "/tmp/status.json",

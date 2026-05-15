@@ -172,18 +172,20 @@ final class StatusLineMonitor {
             settings["showPRStatus"] = false
         }
         if attentionEnabled {
-            settings["hooks"] = [
-                "Notification": [
-                    [
-                        "matcher": "",
-                        "hooks": [
-                            [
-                                "type": "command",
-                                "command": "cat > '\(attentionSignalFilePath)'",
-                            ]
-                        ],
-                    ]
+            let attentionHookEntry: [[String: Any]] = [
+                [
+                    "matcher": "",
+                    "hooks": [
+                        [
+                            "type": "command",
+                            "command": "cat > '\(attentionSignalFilePath)'",
+                        ]
+                    ],
                 ]
+            ]
+            settings["hooks"] = [
+                "Notification": attentionHookEntry,
+                "PermissionRequest": attentionHookEntry,
             ]
         }
         guard let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) else { return }
@@ -319,18 +321,20 @@ final class StatusLineMonitor {
             settings["showPRStatus"] = false
         }
         if includeNotificationHook {
-            settings["hooks"] = [
-                "Notification": [
-                    [
-                        "matcher": "",
-                        "hooks": [
-                            [
-                                "type": "command",
-                                "command": "cat > '\(attentionOutputPath)'",
-                            ]
-                        ],
-                    ]
+            let attentionHookEntry: [[String: Any]] = [
+                [
+                    "matcher": "",
+                    "hooks": [
+                        [
+                            "type": "command",
+                            "command": "cat > '\(attentionOutputPath)'",
+                        ]
+                    ],
                 ]
+            ]
+            settings["hooks"] = [
+                "Notification": attentionHookEntry,
+                "PermissionRequest": attentionHookEntry,
             ]
         }
         return settings
