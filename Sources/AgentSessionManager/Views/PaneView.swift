@@ -124,6 +124,9 @@ struct PaneView: View {
             _ in
             pane.statusLineMonitor?.refreshClaudeIntegrationFromSettings()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerPRTrackingSettingChanged)) { _ in
+            pane.statusLineMonitor?.refreshClaudeIntegrationFromSettings()
+        }
         .accessibilityElement(children: .contain)
     }
 
