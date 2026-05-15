@@ -27,6 +27,9 @@ app-prd: build
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Info.plist $(APP_BUNDLE)/Contents/
 	cp AppIcons/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/
+	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE)/Contents/Resources \
+		--app-icon AppIcon --output-partial-info-plist /dev/null \
+		--platform macosx --minimum-deployment-target 14.0
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
@@ -67,6 +70,9 @@ app-dev: build-dev
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
 	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
 	cp AppIcons/AppIcon.icns $(APP_BUNDLE_DEV)/Contents/Resources/
+	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE_DEV)/Contents/Resources \
+		--app-icon AppIcon --output-partial-info-plist /dev/null \
+		--platform macosx --minimum-deployment-target 14.0
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
