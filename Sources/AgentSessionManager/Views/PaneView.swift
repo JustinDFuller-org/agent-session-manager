@@ -208,7 +208,7 @@ struct PaneView: View {
         if let monitor = pane.statusLineMonitor, monitor.currentData != nil {
             Divider()
             let config = resolvedStatusLineConfig
-            StatusLineView(monitor: monitor, config: config)
+            StatusLineView(monitor: monitor, config: config, profileName: resolvedProfileName)
         }
     }
 
@@ -220,6 +220,11 @@ struct PaneView: View {
             return override
         }
         return appSettings.statusLineConfig
+    }
+
+    private var resolvedProfileName: String? {
+        guard let profileID = pane.profileID else { return nil }
+        return appSettings.profiles.first { $0.id == profileID }?.name
     }
 
     @ViewBuilder

@@ -452,6 +452,10 @@ private struct ProfileEditorSheet: View {
 
     @FocusState private var isNameFocused: Bool
 
+    private var activeToolList: [CLIType] {
+        CLIType.allCases.filter { appSettings.isActive($0) }
+    }
+
     private var activeOptions: [CLIOptionConfig] {
         switch cliType {
         case .claude: return appSettings.cliOptions
@@ -485,7 +489,7 @@ private struct ProfileEditorSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Picker("CLI", selection: $cliType) {
-                    ForEach(CLIType.allCases, id: \.self) { type in
+                    ForEach(activeToolList, id: \.self) { type in
                         Text(type.displayName).tag(type)
                     }
                 }
@@ -576,6 +580,9 @@ private struct ProfileEditorSheet: View {
                     statusLineConfig = slc
                 }
             } else {
+                if !activeToolList.contains(cliType) {
+                    cliType = activeToolList.first ?? .claude
+                }
                 initializeFromGlobal()
             }
             isNameFocused = true

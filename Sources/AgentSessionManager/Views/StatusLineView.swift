@@ -4,6 +4,7 @@ import SwiftUI
 struct StatusLineView: View {
     let monitor: StatusLineMonitor
     let config: StatusLineConfig
+    var profileName: String? = nil
 
     @State private var showPRPopover = false
 
@@ -241,6 +242,8 @@ struct StatusLineView: View {
             return data.outputStyle?.name ?? "—"
         case "openCodeMode":
             return data.openCodeMode ?? "—"
+        case "profileName":
+            return profileName ?? "—"
         default:
             return "—"
         }

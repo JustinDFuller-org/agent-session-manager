@@ -125,6 +125,7 @@ struct StatusLineConfig: Codable, Equatable {
         "sessionStatus": ("Status", "circle.fill"),
         "openCodeMode": ("Mode", "text.alignleft"),
         "pr": ("PR", "arrow.triangle.pull"),
+        "profileName": ("Profile", "person.crop.rectangle"),
     ]
 
     static let itemAvailability: [String: ToolAvailability] = [
@@ -160,6 +161,8 @@ struct StatusLineConfig: Codable, Equatable {
         // OpenCode-only — populated by OpenCode HTTP API
         "sessionStatus": .opencodeOnly,
         "openCodeMode": .opencodeOnly,
+        // App-level — sourced from app state, not from tool hooks
+        "profileName": .all,
     ]
 
     static let itemOrder: [String] = [
@@ -168,7 +171,7 @@ struct StatusLineConfig: Codable, Equatable {
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
         "sessionStatus", "openCodeMode",
-        "pr",
+        "pr", "profileName",
     ]
 
     private static let defaultVisible: Set<String> = ["model", "worktree", "cost", "context"]

@@ -362,7 +362,7 @@ struct NewPaneSheet: View {
                     saveProfileName = selectedProfile?.name ?? ""
                     showSaveProfileSheet = true
                 }
-                .disabled(!canSubmit)
+                .disabled(!canSubmit || (selectedProfile != nil && !isFormModifiedFromProfile))
                 .accessibilityIdentifier("new-pane-save-profile-button")
             }
             Button(isRefreshing ? "Refresh" : "Create Pane") { create() }
