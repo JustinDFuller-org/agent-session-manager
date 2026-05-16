@@ -85,23 +85,11 @@ struct CLIOptionConfig: Identifiable, Codable {
             "--continue",
             "--dangerously-skip-permissions",
             "--disable-slash-commands",
-            "--enable-auto-mode",
-            "--exclude-dynamic-system-prompt-sections",
-            "--fork-session",
             "--ide",
-            "--include-hook-events",
-            "--include-partial-messages",
-            "--init",
-            "--init-only",
-            "--maintenance",
             "--no-chrome",
             "--no-session-persistence",
-            "--print",
-            "--replay-user-messages",
             "--strict-mcp-config",
-            "--teleport",
-            "--verbose",
-            "--version":
+            "--verbose":
             return .boolean
         // Codex-specific boolean flags (not in Claude's all list)
         case "--dangerously-bypass-approvals-and-sandbox",
@@ -174,10 +162,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "Path to file with additional system prompt")
         case "--betas":
             return .string(placeholder: "interleaved-thinking")
-        case "--channels":
-            return .string(placeholder: "plugin:name@marketplace")
-        case "--dangerously-load-development-channels":
-            return .string(placeholder: "plugin:name@marketplace or server:name")
         case "--debug":
             return .string(placeholder: "api,hooks (or empty for all)")
         case "--debug-file":
@@ -186,14 +170,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "\"Bash(git log *)\" \"Edit\"")
         case "--effort":
             return .string(placeholder: "low / medium / high / xhigh / max")
-        case "--fallback-model":
-            return .string(placeholder: "e.g. sonnet")
-        case "--from-pr":
-            return .string(placeholder: "PR number or URL")
-        case "--input-format":
-            return .string(placeholder: "text / stream-json")
-        case "--json-schema":
-            return .string(placeholder: "{\"type\":\"object\",\"properties\":{...}}")
         case "--max-budget-usd":
             return .string(placeholder: "5.00")
         case "--max-turns":
@@ -204,36 +180,20 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "e.g. claude-sonnet-4-6")
         case "--name":
             return .string(placeholder: "Session display name")
-        case "--output-format":
-            return .string(placeholder: "text / json / stream-json")
         case "--permission-mode":
             return .string(placeholder: "default / acceptEdits / plan / auto / dontAsk / bypassPermissions")
         case "--permission-prompt-tool":
             return .string(placeholder: "MCP tool name for permission prompts")
         case "--plugin-dir":
             return .string(placeholder: "Path to plugins directory")
-        case "--remote":
-            return .string(placeholder: "Task description for web session")
-        case "--remote-control":
-            return .string(placeholder: "Session name (optional)")
-        case "--remote-control-session-name-prefix":
-            return .string(placeholder: "dev-box")
         case "--resume":
             return .string(placeholder: "Session name or ID")
-        case "--session-id":
-            return .string(placeholder: "UUID")
-        case "--setting-sources":
-            return .string(placeholder: "user,project,local")
         case "--settings":
             return .string(placeholder: "Path to settings JSON or JSON string")
         case "--system-prompt":
             return .string(placeholder: "Custom system prompt text")
         case "--system-prompt-file":
             return .string(placeholder: "Path to system prompt file")
-        case "--teammate-mode":
-            return .string(placeholder: "auto / in-process / tmux")
-        case "--tmux":
-            return .string(placeholder: "classic (or leave empty)")
         case "--tools":
             return .string(placeholder: "\"Bash,Edit,Read\" or \"\" for none")
         default:
@@ -283,20 +243,12 @@ struct CLIOptionConfig: Identifiable, Codable {
             id: "--betas", label: "Betas", description: "Beta headers to include in API requests (API key users only)",
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
-            id: "--channels", label: "Channels",
-            description: "MCP server channel notifications to listen for (research preview, requires Claude.ai auth)",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
             id: "--chrome", label: "Chrome",
             description: "Enable Chrome browser integration for web automation and testing", isAvailable: false,
             isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--continue", label: "Continue",
             description: "Load the most recent conversation in the current directory", isAvailable: true,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--dangerously-load-development-channels", label: "Load Dev Channels",
-            description: "Enable channels not on the approved allowlist for local development", isAvailable: false,
             isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--dangerously-skip-permissions", label: "Skip Permissions",
@@ -321,55 +273,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             id: "--effort", label: "Effort", description: "Set the effort level (low, medium, high, xhigh, max)",
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
-            id: "--enable-auto-mode", label: "Enable Auto Mode (Removed)",
-            description: "Removed in v2.1.111. Use --permission-mode auto instead", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--exclude-dynamic-system-prompt-sections", label: "Exclude Dynamic Prompt Sections",
-            description: "Move per-machine sections from system prompt into first user message to improve cache reuse",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--fallback-model", label: "Fallback Model",
-            description: "Automatic fallback model when default model is overloaded (print mode only)",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--fork-session", label: "Fork Session",
-            description: "Create a new session ID instead of reusing the original when resuming", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--from-pr", label: "From PR", description: "Resume sessions linked to a specific pull request",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
             id: "--ide", label: "IDE",
             description: "Automatically connect to IDE on startup if exactly one valid IDE is available",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--include-hook-events", label: "Include Hook Events",
-            description: "Include all hook lifecycle events in the output stream (requires stream-json)",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--include-partial-messages", label: "Include Partial Messages",
-            description: "Include partial streaming events in output (requires print + stream-json)",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--init", label: "Init Hooks",
-            description: "Run Setup hooks with the 'init' matcher before the session (print mode only)",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--init-only", label: "Init Only",
-            description: "Run Setup and SessionStart hooks, then exit without starting a conversation",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--input-format", label: "Input Format",
-            description: "Specify input format for print mode (text, stream-json)", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--json-schema", label: "JSON Schema",
-            description: "Get validated JSON output matching a JSON Schema after agent completes (print mode only)",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--maintenance", label: "Maintenance Hooks",
-            description: "Run Setup hooks with the 'maintenance' matcher before the session (print mode only)",
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--max-budget-usd", label: "Max Budget (USD)",
@@ -395,10 +300,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             description: "Disable session persistence — sessions are not saved to disk (print mode only)",
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
-            id: "--output-format", label: "Output Format",
-            description: "Specify output format for print mode (text, json, stream-json)", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
             id: "--permission-mode", label: "Permission Mode", description: "Begin in a specified permission mode",
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
@@ -410,34 +311,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             description: "Load plugins from a directory for this session only", isAvailable: false,
             isDefaultEnabled: false),
         CLIOptionConfig(
-            id: "--print", label: "Print Mode", description: "Print response without interactive mode",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--remote", label: "Remote",
-            description: "Create a new web session on claude.ai with the provided task description", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--remote-control", label: "Remote Control",
-            description: "Start session with Remote Control enabled to control from claude.ai or the Claude app",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--remote-control-session-name-prefix", label: "Remote Control Name Prefix",
-            description: "Prefix for auto-generated Remote Control session names", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--replay-user-messages", label: "Replay User Messages",
-            description: "Re-emit user messages from stdin back on stdout for acknowledgment", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
             id: "--resume", label: "Resume", description: "Resume a specific session by name or ID", isAvailable: true,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--session-id", label: "Session ID",
-            description: "Use a specific session ID for the conversation (must be a valid UUID)", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--setting-sources", label: "Setting Sources",
-            description: "Comma-separated list of setting sources to load (user, project, local)", isAvailable: false,
             isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--settings", label: "Settings",
@@ -456,26 +330,11 @@ struct CLIOptionConfig: Identifiable, Codable {
             description: "Load system prompt from a file, replacing the default", isAvailable: false,
             isDefaultEnabled: false),
         CLIOptionConfig(
-            id: "--teammate-mode", label: "Teammate Mode",
-            description: "Set how agent team teammates display (auto, in-process, tmux)", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--teleport", label: "Teleport", description: "Resume a web session in your local terminal",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--tmux", label: "tmux",
-            description:
-                "Create a tmux session for the worktree (requires --worktree). Pass 'classic' for traditional tmux",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
             id: "--tools", label: "Tools", description: "Restrict which built-in tools Claude can use",
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--verbose", label: "Verbose", description: "Enable verbose logging with full turn-by-turn output",
             isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--version", label: "Version", description: "Output the version number", isAvailable: false,
-            isDefaultEnabled: false),
     ]
 
     static let codexAll: [CLIOptionConfig] = [
