@@ -336,11 +336,28 @@ private struct ProfilesContent: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if appSettings.defaultProfileID == profile.id {
-                                Image(systemName: "star.fill")
-                                    .foregroundStyle(Color.accentColor)
-                                    .font(.caption)
+                            Button {
+                                appSettings.profiles.swapAt(index, index - 1)
+                                SettingsPersistence.saveProfiles(appSettings: appSettings)
+                            } label: {
+                                Image(systemName: "chevron.up")
                             }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(index == 0 ? .tertiary : .secondary)
+                            .disabled(index == 0)
+                            .accessibilityIdentifier("profile-move-up-\(profile.id)")
+
+                            Button {
+                                appSettings.profiles.swapAt(index, index + 1)
+                                SettingsPersistence.saveProfiles(appSettings: appSettings)
+                            } label: {
+                                Image(systemName: "chevron.down")
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(index == appSettings.profiles.count - 1 ? .tertiary : .secondary)
+                            .disabled(index == appSettings.profiles.count - 1)
+                            .accessibilityIdentifier("profile-move-down-\(profile.id)")
+
                             Menu {
                                 Button("Edit") {
                                     editingProfile = profile
@@ -353,36 +370,9 @@ private struct ProfilesContent: View {
                                     appSettings.profiles.append(copy)
                                     SettingsPersistence.saveProfiles(appSettings: appSettings)
                                 }
-                                if appSettings.defaultProfileID == profile.id {
-                                    Button("Unset as Default") {
-                                        appSettings.defaultProfileID = nil
-                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                    }
-                                } else {
-                                    Button("Set as Default") {
-                                        appSettings.defaultProfileID = profile.id
-                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                    }
-                                }
-                                Divider()
-                                if index > 0 {
-                                    Button("Move Up") {
-                                        appSettings.profiles.swapAt(index, index - 1)
-                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                    }
-                                }
-                                if index < appSettings.profiles.count - 1 {
-                                    Button("Move Down") {
-                                        appSettings.profiles.swapAt(index, index + 1)
-                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                    }
-                                }
                                 Divider()
                                 Button("Delete", role: .destructive) {
                                     appSettings.profiles.removeAll { $0.id == profile.id }
-                                    if appSettings.defaultProfileID == profile.id {
-                                        appSettings.defaultProfileID = nil
-                                    }
                                     SettingsPersistence.saveProfiles(appSettings: appSettings)
                                 }
                             } label: {

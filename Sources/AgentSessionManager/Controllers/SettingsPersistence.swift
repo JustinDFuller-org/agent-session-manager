@@ -510,14 +510,10 @@ struct SettingsPersistence {
 
     private struct ProfilesContainer: Codable {
         var profiles: [Profile]
-        var defaultProfileID: UUID?
     }
 
     static func saveProfiles(appSettings: AppSettings) {
-        let container = ProfilesContainer(
-            profiles: appSettings.profiles,
-            defaultProfileID: appSettings.defaultProfileID
-        )
+        let container = ProfilesContainer(profiles: appSettings.profiles)
         guard let data = try? JSONEncoder().encode(container) else { return }
         try? data.write(to: profilesURL)
     }
@@ -528,10 +524,5 @@ struct SettingsPersistence {
             let container = try? JSONDecoder().decode(ProfilesContainer.self, from: data)
         else { return }
         appSettings.profiles = container.profiles
-        if let defaultID = container.defaultProfileID,
-            container.profiles.contains(where: { $0.id == defaultID })
-        {
-            appSettings.defaultProfileID = defaultID
-        }
     }
 }

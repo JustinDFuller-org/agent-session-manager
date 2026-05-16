@@ -193,7 +193,8 @@ struct NewPaneSheet: View {
                 selectedCLIType = activeToolList.first ?? .claude
             }
             if !isRefreshing && selectedProfileID == nil {
-                selectedProfileID = appSettings.defaultProfileID
+                let filtered = appSettings.profiles.filter { activeToolList.contains($0.cliType) }
+                selectedProfileID = filtered.first?.id
             }
             applyProfileOrDefaults()
             if !isRefreshing {
