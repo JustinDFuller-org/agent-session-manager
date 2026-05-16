@@ -109,6 +109,27 @@ private struct GeneralContent: View {
                             }
                     }
                     .padding(.vertical, 2)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auto Session Name")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Text(
+                                "Passes --name <tab>/<pane> to Claude so sessions appear by name in claude resume and the terminal title. Skipped if --name is set manually in CLI Options."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("Auto Session Name", isOn: $appSettings.autoSetSessionName)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .accessibilityIdentifier("settings-auto-session-name-toggle")
+                            .onChange(of: appSettings.autoSetSessionName) {
+                                SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
+                            }
+                    }
+                    .padding(.vertical, 2)
                 }
                 Section("Terminal") {
                     HStack {
