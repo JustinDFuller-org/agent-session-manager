@@ -449,6 +449,8 @@ private struct ProfileEditorSheet: View {
     @State private var envVarStates: [String: ProfileEditorOptionState] = [:]
     @State private var useCustomStatusLine = false
     @State private var statusLineConfig = StatusLineConfig()
+    /// True once we seeded from disk or after copying from global settings on first toggle.
+    @State private var didSeedCustomStatusLineFromGlobal = false
 
     @FocusState private var isNameFocused: Bool
 
@@ -471,87 +473,121 @@ private struct ProfileEditorSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(profile == nil ? "New Profile" : "Edit Profile")
-                .font(.headline)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(profile == nil ? "New Profile" : "Edit Profile")
+                        .font(.headline)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Profile Name")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                TextField("Complex Task, Quick Side Quest, …", text: $name)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isNameFocused)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("CLI")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Picker("CLI", selection: $cliType) {
-                    ForEach(activeToolList, id: \.self) { type in
-                        Text(type.displayName).tag(type)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .onChange(of: cliType) { _, _ in
-                    initializeFromGlobal()
-                }
-            }
-
-            let available = activeOptions.filter(\.isAvailable)
-            if !available.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("CLI Options")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(available) { option in
-                                ProfileEditorOptionRow(
-                                    option: option,
-                                    state: editorStateBinding(for: option.id)
-                                )
-                            }
-                        }
-                    }
-                    .frame(maxHeight: 160)
-                }
-            }
-
-            if cliType == .claude {
-                let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
-                if !availableEnvVars.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Environment Variables")
+                        Text("Profile Name")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(availableEnvVars) { envVar in
-                                    ProfileEditorEnvVarRow(
-                                        envVar: envVar,
-                                        state: editorEnvVarStateBinding(for: envVar.id)
-                                    )
-                                }
+                        TextField("Complex Task, Quick Side Quest, …", text: $name)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($isNameFocused)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("CLI")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Picker("CLI", selection: $cliType) {
+                            ForEach(activeToolList, id: \.self) { type in
+                                Text(type.displayName).tag(type)
                             }
                         }
-                        .frame(maxHeight: 120)
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .onChange(of: cliType) { _, _ in
+                            initializeFromGlobal()
+                        }
+                    }
+
+                    let available = activeOptions.filter(\.isAvailable)
+                    if !available.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("CLI Options")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(available) { option in
+                                        ProfileEditorOptionRow(
+                                            option: option,
+                                            state: editorStateBinding(for: option.id)
+                                        )
+                                    }
+                                }
+                            }
+                            .frame(maxHeight: 160)
+                        }
+                    }
+
+                    if cliType == .claude {
+                        let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
+                        if !availableEnvVars.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Environment Variables")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                ScrollView {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        ForEach(availableEnvVars) { envVar in
+                                            ProfileEditorEnvVarRow(
+                                                envVar: envVar,
+                                                state: editorEnvVarStateBinding(for: envVar.id)
+                                            )
+                                        }
+                                    }
+                                }
+                                .frame(maxHeight: 120)
+                            }
+                        }
+                    }
+
+                    Toggle(isOn: $useCustomStatusLine) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Custom Status Line")
+                                .font(.subheadline)
+                            Text("Override the global status line for panes using this profile.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    .onChange(of: useCustomStatusLine) { _, isOn in
+                        guard isOn else { return }
+                        if !didSeedCustomStatusLineFromGlobal {
+                            statusLineConfig = appSettings.statusLineConfig
+                            didSeedCustomStatusLineFromGlobal = true
+                        }
+                    }
+
+                    if useCustomStatusLine {
+                        Form {
+                            Section {
+                                Text(
+                                    "Customize chips and rows for panes created with this profile. GitHub PR tracking still follows Settings → Status Line → GitHub PR Tracking."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            StatusLineConfigLayoutEditor(
+                                config: $statusLineConfig,
+                                filterCLI: cliType,
+                                phases: .full,
+                                onPersist: {})
+                        }
+                        .formStyle(.grouped)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                .padding(24)
+                .frame(width: 420)
             }
 
-            Toggle(isOn: $useCustomStatusLine) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Custom Status Line")
-                        .font(.subheadline)
-                    Text("Override the global status line for panes using this profile.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .toggleStyle(.checkbox)
+            Divider()
 
             HStack {
                 Spacer()
@@ -561,8 +597,8 @@ private struct ProfileEditorSheet: View {
                     .keyboardShortcut(.defaultAction)
                     .disabled(!isValid)
             }
+            .padding(24)
         }
-        .padding(24)
         .frame(width: 420)
         .onAppear {
             if let existing = profile {
@@ -585,6 +621,7 @@ private struct ProfileEditorSheet: View {
                 }
                 initializeFromGlobal()
             }
+            didSeedCustomStatusLineFromGlobal = profile?.statusLineConfig != nil
             isNameFocused = true
         }
     }
@@ -1268,6 +1305,254 @@ private struct CustomCLIOptionRow: View {
     }
 }
 
+private struct StatusLineEditorPhases: OptionSet {
+    let rawValue: Int
+
+    static let display = StatusLineEditorPhases(rawValue: 1 << 0)
+    static let rows = StatusLineEditorPhases(rawValue: 1 << 1)
+    static let full: StatusLineEditorPhases = [.display, .rows]
+}
+
+/// Chips, alignment, rows, and add-row controls for [`StatusLineConfig`]. Omit PR tracking —
+/// that stays on [`AppSettings`].
+private struct StatusLineConfigLayoutEditor: View {
+    @Binding var config: StatusLineConfig
+    var filterCLI: CLIType?
+    let phases: StatusLineEditorPhases
+    let onPersist: () -> Void
+
+    var body: some View {
+        Group {
+            if phases.contains(.display) {
+                Section("Display") {
+                    Picker("Chip style", selection: chipStylePickerBinding) {
+                        ForEach(ChipLabelStyle.allCases, id: \.self) { style in
+                            Text(style.displayName).tag(style)
+                        }
+                    }
+                    Picker("Item alignment", selection: rowAlignmentPickerBinding) {
+                        ForEach(RowAlignment.allCases, id: \.self) { alignment in
+                            Text(alignment.displayName).tag(alignment)
+                        }
+                    }
+                }
+            }
+            if phases.contains(.rows) {
+                ForEach(Array(config.rows.enumerated()), id: \.element.id) { index, _ in
+                    rowSection(rowIndex: index)
+                }
+                Section {
+                    Button {
+                        touch { $0.rows.append(StatusLineRow()) }
+                    } label: {
+                        Label("Add Row", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+        }
+    }
+
+    private var chipStylePickerBinding: Binding<ChipLabelStyle> {
+        Binding(
+            get: { config.chipLabelStyle },
+            set: { newVal in touch { $0.chipLabelStyle = newVal } })
+    }
+
+    private var rowAlignmentPickerBinding: Binding<RowAlignment> {
+        Binding(
+            get: { config.rowAlignment },
+            set: { newVal in touch { $0.rowAlignment = newVal } })
+    }
+
+    private func touch(_ update: (inout StatusLineConfig) -> Void) {
+        var next = config
+        update(&next)
+        config = next
+        onPersist()
+    }
+
+    private func unusedItemsEligibleForAddition() -> [StatusLineItem] {
+        let base = StatusLineConfig.allItems.filter { !config.usedItemIDs.contains($0.id) }
+        guard let cli = filterCLI else { return base }
+        return base.filter { $0.supportedBy(cli) }
+    }
+
+    @ViewBuilder
+    private func availabilityBadge(for availability: ToolAvailability) -> some View {
+        switch availability {
+        case .claudeOnly:
+            Text("Claude only")
+                .font(.caption2)
+                .foregroundStyle(.blue)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.blue.opacity(0.1)))
+        case .opencodeOnly:
+            Text("OpenCode only")
+                .font(.caption2)
+                .foregroundStyle(.purple)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.purple.opacity(0.1)))
+        case .claudeOrOpencode:
+            Text("Claude + OpenCode")
+                .font(.caption2)
+                .foregroundStyle(.indigo)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.indigo.opacity(0.1)))
+        case .all:
+            Text("All tools")
+                .font(.caption2)
+                .foregroundStyle(.green)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(Color.green.opacity(0.1)))
+        }
+    }
+
+    private func rowSection(rowIndex: Int) -> some View {
+        let rowCount = config.rows.count
+        let available = unusedItemsEligibleForAddition()
+        return Section {
+            ForEach(config.rows[rowIndex].items) { item in
+                HStack {
+                    Image(systemName: item.sfSymbol)
+                        .frame(width: 16)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.label)
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        let desc = itemDescription(for: item.id)
+                        if !desc.isEmpty {
+                            Text(desc)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    availabilityBadge(for: item.availability)
+                    Button(role: .destructive) {
+                        touch {
+                            $0.rows[rowIndex].items.removeAll { $0.id == item.id }
+                        }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .padding(.vertical, 2)
+            }
+            .onMove { from, to in
+                touch {
+                    $0.rows[rowIndex].items.move(fromOffsets: from, toOffset: to)
+                }
+            }
+            Menu {
+                if available.isEmpty {
+                    Text(filterCLI == nil ? "All items are already used" : "No more items supported for this CLI")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(available) { item in
+                        Button {
+                            touch {
+                                $0.rows[rowIndex].items.append(item)
+                            }
+                        } label: {
+                            HStack {
+                                Text(item.label)
+                                switch item.availability {
+                                case .claudeOnly:
+                                    Text("Claude only")
+                                        .font(.caption2)
+                                        .foregroundStyle(.blue)
+                                case .opencodeOnly:
+                                    Text("OpenCode only")
+                                        .font(.caption2)
+                                        .foregroundStyle(.purple)
+                                case .claudeOrOpencode:
+                                    Text("Claude + OpenCode")
+                                        .font(.caption2)
+                                        .foregroundStyle(.indigo)
+                                case .all:
+                                    Text("All tools")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Label("Add Item", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+        } header: {
+            HStack {
+                Text("Row \(rowIndex + 1)")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    touch { $0.rows.swapAt(rowIndex, rowIndex - 1) }
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .buttonStyle(.borderless)
+                .disabled(rowIndex == 0)
+                Button {
+                    touch { $0.rows.swapAt(rowIndex, rowIndex + 1) }
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .buttonStyle(.borderless)
+                .disabled(rowIndex == rowCount - 1)
+                Button(role: .destructive) {
+                    touch { $0.rows.remove(at: rowIndex) }
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    private func itemDescription(for id: String) -> String {
+        switch id {
+        case "model": return "Claude model name"
+        case "worktree": return "Git worktree name"
+        case "cost": return "Total session cost in USD (Claude only)"
+        case "context": return "Context window usage with progress bar (Claude only)"
+        case "effort": return "Effort level (Claude only)"
+        case "thinking": return "Whether extended thinking is on or off (Claude only)"
+        case "vimMode": return "Vim editor mode (Claude only)"
+        case "agentName": return "Agent name (Claude only)"
+        case "sessionName": return "Session name (Claude only)"
+        case "worktreeBranch": return "Git branch for the worktree"
+        case "gitWorktree": return "Git worktree path"
+        case "linesAdded": return "Total lines added this session (Claude only)"
+        case "linesRemoved": return "Total lines removed this session (Claude only)"
+        case "duration": return "Total session duration"
+        case "contextRemaining": return "Context window remaining percentage (Claude only)"
+        case "inputTokens": return "Total input tokens used (Claude only)"
+        case "outputTokens": return "Total output tokens used (Claude only)"
+        case "rate5h": return "5-hour rate limit usage with progress bar (Claude only)"
+        case "rate7d": return "7-day rate limit usage with progress bar (Claude only)"
+        case "rate5hReset": return "Time until 5-hour rate limit resets (Claude only)"
+        case "rate7dReset": return "Time until 7-day rate limit resets (Claude only)"
+        case "version": return "Tool CLI version"
+        case "outputStyle": return "Output style name (Claude only)"
+        case "exceeds200k": return "Warning when context exceeds 200k tokens (Claude only)"
+        case "pr": return "GitHub pull request status for the current branch"
+        case "profileName": return "Selected profile name when the pane uses one"
+        default: return ""
+        }
+    }
+}
+
 private struct StatusLineContent: View {
     @Environment(AppSettings.self) private var appSettings
 
@@ -1282,24 +1567,13 @@ private struct StatusLineContent: View {
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("settings-status-line-description")
             }
-            Section("Display") {
-                Picker("Chip style", selection: $appSettings.statusLineConfig.chipLabelStyle) {
-                    ForEach(ChipLabelStyle.allCases, id: \.self) { style in
-                        Text(style.displayName).tag(style)
-                    }
-                }
-                .onChange(of: appSettings.statusLineConfig.chipLabelStyle) {
+            StatusLineConfigLayoutEditor(
+                config: $appSettings.statusLineConfig,
+                filterCLI: nil,
+                phases: .display,
+                onPersist: {
                     SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                }
-                Picker("Item alignment", selection: $appSettings.statusLineConfig.rowAlignment) {
-                    ForEach(RowAlignment.allCases, id: \.self) { alignment in
-                        Text(alignment.displayName).tag(alignment)
-                    }
-                }
-                .onChange(of: appSettings.statusLineConfig.rowAlignment) {
-                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                }
-            }
+                })
             Section("GitHub PR Tracking") {
                 Toggle(isOn: $appSettings.githubPRTrackingEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -1391,197 +1665,15 @@ private struct StatusLineContent: View {
                 }
                 .padding(.vertical, 2)
             }
-            ForEach(appSettings.statusLineConfig.rows.indices, id: \.self) { rowIndex in
-                rowSection(rowIndex: rowIndex, appSettings: appSettings)
-            }
-            Section {
-                Button {
-                    appSettings.statusLineConfig.rows.append(StatusLineRow())
+            StatusLineConfigLayoutEditor(
+                config: $appSettings.statusLineConfig,
+                filterCLI: nil,
+                phases: .rows,
+                onPersist: {
                     SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                } label: {
-                    Label("Add Row", systemImage: "plus")
-                }
-                .buttonStyle(.borderless)
-            }
+                })
         }
         .formStyle(.grouped)
-    }
-
-    @ViewBuilder
-    private func availabilityBadge(for availability: ToolAvailability) -> some View {
-        switch availability {
-        case .claudeOnly:
-            Text("Claude only")
-                .font(.caption2)
-                .foregroundStyle(.blue)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.blue.opacity(0.1)))
-        case .opencodeOnly:
-            Text("OpenCode only")
-                .font(.caption2)
-                .foregroundStyle(.purple)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.purple.opacity(0.1)))
-        case .claudeOrOpencode:
-            Text("Claude + OpenCode")
-                .font(.caption2)
-                .foregroundStyle(.indigo)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.indigo.opacity(0.1)))
-        case .all:
-            Text("All tools")
-                .font(.caption2)
-                .foregroundStyle(.green)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.green.opacity(0.1)))
-        }
-    }
-
-    @ViewBuilder
-    private func rowSection(rowIndex: Int, appSettings: AppSettings) -> some View {
-        @Bindable var appSettings = appSettings
-        let rowCount = appSettings.statusLineConfig.rows.count
-        let available = StatusLineConfig.allItems.filter {
-            !appSettings.statusLineConfig.usedItemIDs.contains($0.id)
-        }
-        Section {
-            ForEach(appSettings.statusLineConfig.rows[rowIndex].items) { item in
-                HStack {
-                    Image(systemName: item.sfSymbol)
-                        .frame(width: 16)
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.label)
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        let desc = itemDescription(for: item.id)
-                        if !desc.isEmpty {
-                            Text(desc)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    availabilityBadge(for: item.availability)
-                    Button(role: .destructive) {
-                        appSettings.statusLineConfig.rows[rowIndex].items.removeAll { $0.id == item.id }
-                        SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(.red)
-                    }
-                    .buttonStyle(.borderless)
-                }
-                .padding(.vertical, 2)
-            }
-            .onMove { from, to in
-                appSettings.statusLineConfig.rows[rowIndex].items.move(fromOffsets: from, toOffset: to)
-                SettingsPersistence.saveStatusLine(appSettings: appSettings)
-            }
-            Menu {
-                if available.isEmpty {
-                    Text("All items are already used")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(available) { item in
-                        Button {
-                            appSettings.statusLineConfig.rows[rowIndex].items.append(item)
-                            SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                        } label: {
-                            HStack {
-                                Text(item.label)
-                                switch item.availability {
-                                case .claudeOnly:
-                                    Text("Claude only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.blue)
-                                case .opencodeOnly:
-                                    Text("OpenCode only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.purple)
-                                case .claudeOrOpencode:
-                                    Text("Claude + OpenCode")
-                                        .font(.caption2)
-                                        .foregroundStyle(.indigo)
-                                case .all:
-                                    Text("All tools")
-                                        .font(.caption2)
-                                        .foregroundStyle(.green)
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Label("Add Item", systemImage: "plus")
-            }
-            .buttonStyle(.borderless)
-        } header: {
-            HStack {
-                Text("Row \(rowIndex + 1)")
-                    .font(.headline)
-                Spacer()
-                Button {
-                    appSettings.statusLineConfig.rows.swapAt(rowIndex, rowIndex - 1)
-                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                } label: {
-                    Image(systemName: "chevron.up")
-                }
-                .buttonStyle(.borderless)
-                .disabled(rowIndex == 0)
-                Button {
-                    appSettings.statusLineConfig.rows.swapAt(rowIndex, rowIndex + 1)
-                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                } label: {
-                    Image(systemName: "chevron.down")
-                }
-                .buttonStyle(.borderless)
-                .disabled(rowIndex == rowCount - 1)
-                Button(role: .destructive) {
-                    appSettings.statusLineConfig.rows.remove(at: rowIndex)
-                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundStyle(.red)
-                }
-                .buttonStyle(.borderless)
-            }
-        }
-    }
-
-    private func itemDescription(for id: String) -> String {
-        switch id {
-        case "model": return "Claude model name"
-        case "worktree": return "Git worktree name"
-        case "cost": return "Total session cost in USD (Claude only)"
-        case "context": return "Context window usage with progress bar (Claude only)"
-        case "effort": return "Effort level (Claude only)"
-        case "thinking": return "Whether extended thinking is on or off (Claude only)"
-        case "vimMode": return "Vim editor mode (Claude only)"
-        case "agentName": return "Agent name (Claude only)"
-        case "sessionName": return "Session name (Claude only)"
-        case "worktreeBranch": return "Git branch for the worktree"
-        case "gitWorktree": return "Git worktree path"
-        case "linesAdded": return "Total lines added this session (Claude only)"
-        case "linesRemoved": return "Total lines removed this session (Claude only)"
-        case "duration": return "Total session duration"
-        case "contextRemaining": return "Context window remaining percentage (Claude only)"
-        case "inputTokens": return "Total input tokens used (Claude only)"
-        case "outputTokens": return "Total output tokens used (Claude only)"
-        case "rate5h": return "5-hour rate limit usage with progress bar (Claude only)"
-        case "rate7d": return "7-day rate limit usage with progress bar (Claude only)"
-        case "rate5hReset": return "Time until 5-hour rate limit resets (Claude only)"
-        case "rate7dReset": return "Time until 7-day rate limit resets (Claude only)"
-        case "version": return "Tool CLI version"
-        case "outputStyle": return "Output style name (Claude only)"
-        case "exceeds200k": return "Warning when context exceeds 200k tokens (Claude only)"
-        case "pr": return "GitHub pull request status for the current branch"
-        default: return ""
-        }
     }
 }
 
