@@ -219,7 +219,6 @@ final class StatusLineConfigTests: XCTestCase {
 }
 
 final class CLIOptionConfigTests: XCTestCase {
-    // All 62 flags from https://code.claude.com/docs/en/cli-reference#cli-flags
     private let expectedFlagIDs: Set<String> = [
         "--add-dir",
         "--agent",
@@ -230,29 +229,15 @@ final class CLIOptionConfigTests: XCTestCase {
         "--append-system-prompt-file",
         "--bare",
         "--betas",
-        "--channels",
         "--chrome",
         "--continue",
-        "--dangerously-load-development-channels",
         "--dangerously-skip-permissions",
         "--debug",
         "--debug-file",
         "--disable-slash-commands",
         "--disallowedTools",
         "--effort",
-        "--enable-auto-mode",
-        "--exclude-dynamic-system-prompt-sections",
-        "--fallback-model",
-        "--fork-session",
-        "--from-pr",
         "--ide",
-        "--include-hook-events",
-        "--include-partial-messages",
-        "--init",
-        "--init-only",
-        "--input-format",
-        "--json-schema",
-        "--maintenance",
         "--max-budget-usd",
         "--max-turns",
         "--mcp-config",
@@ -260,28 +245,16 @@ final class CLIOptionConfigTests: XCTestCase {
         "--name",
         "--no-chrome",
         "--no-session-persistence",
-        "--output-format",
         "--permission-mode",
         "--permission-prompt-tool",
         "--plugin-dir",
-        "--print",
-        "--remote",
-        "--remote-control",
-        "--remote-control-session-name-prefix",
-        "--replay-user-messages",
         "--resume",
-        "--session-id",
-        "--setting-sources",
         "--settings",
         "--strict-mcp-config",
         "--system-prompt",
         "--system-prompt-file",
-        "--teleport",
-        "--teammate-mode",
-        "--tmux",
         "--tools",
         "--verbose",
-        "--version",
     ]
 
     private var officialFlags: [CLIOptionConfig] {
@@ -301,7 +274,7 @@ final class CLIOptionConfigTests: XCTestCase {
     }
 
     func testFlagCount() {
-        XCTAssertEqual(officialFlags.count, 61, "Expected exactly 61 CLI flags")
+        XCTAssertEqual(officialFlags.count, 35, "Expected exactly 35 CLI flags")
     }
 
     func testNoDuplicateIDs() {

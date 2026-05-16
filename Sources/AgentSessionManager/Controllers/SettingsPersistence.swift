@@ -1,5 +1,12 @@
 import Foundation
 
+private struct FailableDecodable<T: Decodable>: Decodable {
+    let value: T?
+    init(from decoder: Decoder) throws {
+        value = try? T(from: decoder)
+    }
+}
+
 private struct DefaultBranchConfig: Codable, Equatable {
     var isEnabled: Bool = true
     var branchName: String = "main"
@@ -119,10 +126,9 @@ struct SettingsPersistence {
     }
 
     static func restore(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: settingsURL),
-            let saved = try? JSONDecoder().decode([CLIOptionConfig].self, from: data)
-        else { return }
+        guard let data = try? Data(contentsOf: settingsURL) else { return }
+        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
+        let saved = failable?.compactMap(\.value) ?? []
 
         var updated = CLIOptionConfig.all
         var userAdded: [CLIOptionConfig] = []
@@ -143,10 +149,9 @@ struct SettingsPersistence {
     }
 
     static func restoreCodexOptions(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: codexSettingsURL),
-            let saved = try? JSONDecoder().decode([CLIOptionConfig].self, from: data)
-        else { return }
+        guard let data = try? Data(contentsOf: codexSettingsURL) else { return }
+        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
+        let saved = failable?.compactMap(\.value) ?? []
 
         var updated = CLIOptionConfig.codexAll
         var userAdded: [CLIOptionConfig] = []
@@ -167,10 +172,9 @@ struct SettingsPersistence {
     }
 
     static func restoreCursorOptions(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: cursorSettingsURL),
-            let saved = try? JSONDecoder().decode([CLIOptionConfig].self, from: data)
-        else { return }
+        guard let data = try? Data(contentsOf: cursorSettingsURL) else { return }
+        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
+        let saved = failable?.compactMap(\.value) ?? []
 
         var updated = CLIOptionConfig.cursorAll
         var userAdded: [CLIOptionConfig] = []
@@ -191,10 +195,9 @@ struct SettingsPersistence {
     }
 
     static func restoreOpenCodeOptions(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: opencodeSettingsURL),
-            let saved = try? JSONDecoder().decode([CLIOptionConfig].self, from: data)
-        else { return }
+        guard let data = try? Data(contentsOf: opencodeSettingsURL) else { return }
+        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
+        let saved = failable?.compactMap(\.value) ?? []
 
         var updated = CLIOptionConfig.opencodeAll
         var userAdded: [CLIOptionConfig] = []
@@ -486,10 +489,10 @@ struct SettingsPersistence {
     }
 
     static func restoreEnvVarOptions(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: envVarSettingsURL),
-            let saved = try? JSONDecoder().decode([EnvVarConfig].self, from: data)
-        else { return }
+        guard let data = try? Data(contentsOf: envVarSettingsURL) else { return }
+        let failable = try? JSONDecoder().decode([FailableDecodable<EnvVarConfig>].self, from: data)
+        let saved = failable?.compactMap(\.value) ?? []
+        if saved.isEmpty { return }
 
         var updated = EnvVarConfig.all
         var userAdded: [EnvVarConfig] = []
