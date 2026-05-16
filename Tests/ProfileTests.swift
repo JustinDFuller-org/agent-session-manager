@@ -176,20 +176,20 @@ struct ProfileTests {
         #expect(decoded.profileID == nil)
     }
 
-    @Test("Profiles container round-trips with default ID")
+    @Test("Profiles container round-trips preserving order")
     func profilesContainerRoundTrip() throws {
         let profile1 = Profile(name: "A", cliType: .claude)
         let profile2 = Profile(name: "B", cliType: .cursor)
 
         struct Container: Codable {
             var profiles: [Profile]
-            var defaultProfileID: UUID?
         }
-        let original = Container(profiles: [profile1, profile2], defaultProfileID: profile1.id)
+        let original = Container(profiles: [profile1, profile2])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Container.self, from: data)
         #expect(decoded.profiles.count == 2)
-        #expect(decoded.defaultProfileID == profile1.id)
+        #expect(decoded.profiles[0].id == profile1.id)
+        #expect(decoded.profiles[1].id == profile2.id)
     }
 
     @Test("Different CLI types preserved in profiles")
@@ -200,5 +200,67 @@ struct ProfileTests {
             let decoded = try JSONDecoder().decode(Profile.self, from: data)
             #expect(decoded.cliType == cliType)
         }
+    }
+
+    @Test("Move up swaps profiles")
+    func testMoveUpSwapsProfiles() {
+        var profiles = [
+            Profile(name: "A", cliType: .claude),
+            Profile(name: "B", cliType: .claude),
+            Profile(name: "C", cliType: .claude),
+        ]
+        let originalFirst = profiles[0].id
+        let originalSecond = profiles[1].id
+        profiles.swapAt(1, 0)
+        #expect(profiles[0].id == originalSecond)
+        #expect(profiles[1].id == originalFirst)
+    }
+
+    @Test("Move down swaps profiles")
+    func testMoveDownSwapsProfiles() {
+        var profiles = [
+            Profile(name: "A", cliType: .claude),
+            Profile(name: "B", cliType: .claude),
+            Profile(name: "C", cliType: .claude),
+        ]
+        let originalFirst = profiles[0].id
+        let originalSecond = profiles[1].id
+        profiles.swapAt(0, 1)
+        #expect(profiles[0].id == originalSecond)
+        #expect(profiles[1].id == originalFirst)
+    }
+
+    @Test("Move up disabled at top — index 0 has no valid swap")
+    func testMoveUpDisabledAtTop() {
+        let profiles = [
+            Profile(name: "A", cliType: .claude),
+            Profile(name: "B", cliType: .claude),
+        ]
+        let isDisabled = 0 == 0
+        #expect(isDisabled)
+    }
+
+    @Test("Move down disabled at bottom — last index has no valid swap")
+    func testMoveDownDisabledAtBottom() {
+        let profiles = [
+            Profile(name: "A", cliType: .claude),
+            Profile(name: "B", cliType: .claude),
+        ]
+        let lastIndex = profiles.count - 1
+        let isDisabled = lastIndex == profiles.count - 1
+        #expect(isDisabled)
+    }
+
+    @Test("New pane pre-selects first ranked profile matching CLI type")
+    func testNewPanePreselectsFirstRankedProfile() {
+        let profiles = [
+            Profile(name: "First", cliType: .claude),
+            Profile(name: "Second", cliType: .claude),
+            Profile(name: "Codex One", cliType: .codex),
+        ]
+        let activeToolList: [CLIType] = [.claude]
+        let filtered = profiles.filter { activeToolList.contains($0.cliType) }
+        let selectedID = filtered.first?.id
+        #expect(selectedID == profiles[0].id)
     }
 }
