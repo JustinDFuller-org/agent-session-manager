@@ -119,6 +119,7 @@ struct SettingsPersistence {
     private static var exitBehaviorURL: URL { appSupportDir.appending(path: "exit-behavior.json") }
     private static var envVarSettingsURL: URL { appSupportDir.appending(path: "env-var-settings.json") }
     private static var profilesURL: URL { appSupportDir.appending(path: "profiles.json") }
+    private static var sessionNameSettingsURL: URL { appSupportDir.appending(path: "session-name-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -524,5 +525,18 @@ struct SettingsPersistence {
             let container = try? JSONDecoder().decode(ProfilesContainer.self, from: data)
         else { return }
         appSettings.profiles = container.profiles
+    }
+
+    static func saveSessionNameSettings(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.autoSetSessionName) else { return }
+        try? data.write(to: sessionNameSettingsURL)
+    }
+
+    static func restoreSessionNameSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: sessionNameSettingsURL),
+            let value = try? JSONDecoder().decode(Bool.self, from: data)
+        else { return }
+        appSettings.autoSetSessionName = value
     }
 }

@@ -536,10 +536,17 @@ struct NewPaneSheet: View {
         resetForm()
 
         let statusLineOverride = selectedProfile?.statusLineConfig
+        let effectiveExtraArgs = Tab.applyAutoSessionName(
+            tabName: tab.name,
+            paneName: resolved.paneTitle,
+            extraArgs: extraArgs,
+            cliType: selectedCLIType,
+            enabled: appSettings.autoSetSessionName
+        )
 
         tab.addPane(
             name: resolved.paneTitle,
-            extraArgs: extraArgs,
+            extraArgs: effectiveExtraArgs,
             cliType: selectedCLIType,
             worktreeDirectory: resolved.processDirectory,
             worktreeIsManaged: managed,

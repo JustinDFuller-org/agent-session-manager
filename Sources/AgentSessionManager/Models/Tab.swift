@@ -113,6 +113,22 @@ final class Tab: Identifiable {
         return "claude --settings '\(escapedSettings)'\(extraArgs)"
     }
 
+    /// Returns `extraArgs` prepended with `--name '<tabName>/<paneName>'` when auto-naming is
+    /// enabled and neither `--name` nor `-n` is already present in `extraArgs`.
+    nonisolated static func applyAutoSessionName(
+        tabName: String,
+        paneName: String,
+        extraArgs: [String],
+        cliType: CLIType,
+        enabled: Bool
+    ) -> [String] {
+        guard enabled, cliType == .claude else { return extraArgs }
+        guard !extraArgs.contains("--name"), !extraArgs.contains("-n") else { return extraArgs }
+        let raw = "\(tabName)/\(paneName)"
+        let escaped = raw.replacingOccurrences(of: "'", with: "'\\''")
+        return ["--name", "'\(escaped)'"] + extraArgs
+    }
+
     /// Parses `git worktree list --porcelain`.
     nonisolated static func parseWorktreeListPorcelain(_ output: String) -> [GitWorktreeListEntry] {
         var entries: [GitWorktreeListEntry] = []
