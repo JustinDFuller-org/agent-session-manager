@@ -173,19 +173,7 @@ struct StatusLineView: View {
     }
 
     private func prCircleColor(pr: PullRequest) -> Color {
-        if pr.hasMergeConflicts { return .red }
-        switch pr.buildStatus {
-        case .success:
-            return .green
-        case .running:
-            return .yellow
-        case .failed:
-            return .red
-        case .cancelled:
-            return .gray
-        case .unknown:
-            return .secondary
-        }
+        pr.circleColor
     }
 
     private func progressTint(_ pct: Int) -> Color {
