@@ -19,7 +19,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 27)
+        XCTAssertEqual(StatusLineConfig.allItems.count, 28)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -150,7 +150,9 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAgnosticItemsAreCorrect() {
-        let agnosticIds: Set<String> = ["worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr"]
+        let agnosticIds: Set<String> = [
+            "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "profileName",
+        ]
         for id in agnosticIds {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .all, "\(id) should be .all")
         }
@@ -159,6 +161,7 @@ final class StatusLineConfigTests: XCTestCase {
     func testClaudeOnlyItemsAreAllOtherItems() {
         let agnosticIds: Set<String> = [
             "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "model",
+            "profileName",
         ]
         let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
         let claudeOrOpencodeIds: Set<String> = ["cost", "inputTokens", "outputTokens"]
@@ -190,6 +193,7 @@ final class StatusLineConfigTests: XCTestCase {
     func testSupportedByNonClaudeReturnsOnlyAgnostic() {
         let agnosticIds: Set<String> = [
             "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "model",
+            "profileName",
         ]
         let opencodeIds: Set<String> = [
             "sessionStatus", "openCodeMode", "cost", "inputTokens", "outputTokens",
