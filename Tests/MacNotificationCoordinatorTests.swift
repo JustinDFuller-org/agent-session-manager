@@ -142,4 +142,36 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertFalse(line.contains("unError="))
         XCTAssertTrue(line.contains("TestDomain"))
     }
+
+    func testMakeAttachmentReturnsNilForNilImage() {
+        XCTAssertNil(MacNotificationCoordinator.makeAttachment(from: nil))
+    }
+
+    func testMakeAttachmentReturnsAttachmentForValidImage() {
+        let attachment = MacNotificationCoordinator.makeAttachment(from: Self.makeTestImage())
+        XCTAssertNotNil(attachment)
+    }
+
+    func testMakeAttachmentIdentifierIsAppIcon() {
+        let attachment = MacNotificationCoordinator.makeAttachment(from: Self.makeTestImage())
+        XCTAssertEqual(attachment?.identifier, "app-icon")
+    }
+
+    private static func makeTestImage() -> NSImage {
+        let bitmapRep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: 64,
+            pixelsHigh: 64,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        )!
+        let image = NSImage(size: NSSize(width: 64, height: 64))
+        image.addRepresentation(bitmapRep)
+        return image
+    }
 }
