@@ -1807,9 +1807,11 @@ private struct AddCustomEnvVarSheet: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 } else if !varName.isEmpty && !isValid {
-                    Text("Variable name must start with a letter or underscore and contain only letters, digits, or underscores.")
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                    Text(
+                        "Variable name must start with a letter or underscore and contain only letters, digits, or underscores."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.red)
                 }
             }
 

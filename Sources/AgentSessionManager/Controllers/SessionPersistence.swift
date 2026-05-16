@@ -265,7 +265,8 @@ struct SessionPersistence {
                     cliType: persistedPane.cliType,
                     worktreeDirectory: worktreeDir,
                     worktreeIsManaged: persistedPane.worktreeIsManaged,
-                    id: persistedPane.id
+                    id: persistedPane.id,
+                    profileID: persistedPane.profileID
                 )
                 pane.isMerged = persistedPane.isMerged
                 pane.wireTerminalBellForNotifications(

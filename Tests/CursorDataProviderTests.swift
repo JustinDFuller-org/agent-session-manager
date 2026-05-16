@@ -148,8 +148,9 @@ struct CursorDataProviderTests {
         let bareData = try JSONSerialization.data(withJSONObject: bare, options: .prettyPrinted)
         try bareData.write(to: URL(filePath: configPath))
 
-        var config = try JSONSerialization.jsonObject(
-            with: Data(contentsOf: URL(filePath: configPath))) as! [String: Any]
+        var config =
+            try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: configPath)))
+            as! [String: Any]
         var hooks = config["hooks"] as? [String: Any] ?? [:]
 
         var afterEntries = hooks["afterAgentResponse"] as? [[String: Any]] ?? []
@@ -164,8 +165,9 @@ struct CursorDataProviderTests {
         let finalData = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
         try finalData.write(to: URL(filePath: configPath))
 
-        let reloaded = try JSONSerialization.jsonObject(
-            with: Data(contentsOf: URL(filePath: configPath))) as! [String: Any]
+        let reloaded =
+            try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: configPath)))
+            as! [String: Any]
         let reloadedHooks = reloaded["hooks"] as! [String: Any]
 
         let afterArr = reloadedHooks["afterAgentResponse"] as! [[String: Any]]
@@ -195,8 +197,9 @@ struct CursorDataProviderTests {
         let data = try JSONSerialization.data(withJSONObject: existing, options: .prettyPrinted)
         try data.write(to: URL(filePath: configPath))
 
-        var config = try JSONSerialization.jsonObject(
-            with: Data(contentsOf: URL(filePath: configPath))) as! [String: Any]
+        var config =
+            try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: configPath)))
+            as! [String: Any]
         var hooks = config["hooks"] as? [String: Any] ?? [:]
 
         let afterEntries = hooks["afterAgentResponse"] as? [[String: Any]] ?? []
@@ -233,8 +236,9 @@ struct CursorDataProviderTests {
         let data = try JSONSerialization.data(withJSONObject: existing, options: .prettyPrinted)
         try data.write(to: URL(filePath: configPath))
 
-        var config = try JSONSerialization.jsonObject(
-            with: Data(contentsOf: URL(filePath: configPath))) as! [String: Any]
+        var config =
+            try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: configPath)))
+            as! [String: Any]
         var hooks = config["hooks"] as? [String: Any] ?? [:]
 
         var stopEntries = hooks["stop"] as? [[String: Any]] ?? []

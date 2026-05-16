@@ -49,6 +49,13 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         XCTAssertEqual(pane.id, paneID)
     }
 
+    func testProfileIDPreservedAfterAddPane() {
+        let profileID = UUID()
+        let tab = Tab(id: UUID(), name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = tab.addPane(name: "P", profileID: profileID)
+        XCTAssertEqual(pane.profileID, profileID)
+    }
+
     func testIsMergedPersistedAndRestored() throws {
         let persisted = PersistedPane(
             id: UUID(), name: "p", cliType: .claude, isPriority: false, isMerged: true,

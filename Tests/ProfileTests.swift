@@ -56,7 +56,7 @@ struct ProfileTests {
             name: "Test",
             cliType: .claude,
             cliOptions: [
-                ProfileCLIOption(id: "--system-prompt", isEnabled: true, value: "don't stop"),
+                ProfileCLIOption(id: "--system-prompt", isEnabled: true, value: "don't stop")
             ]
         )
         let args = profile.buildArgs()
@@ -98,7 +98,7 @@ struct ProfileTests {
             name: "Test",
             cliType: .claude,
             envVars: [
-                ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: ""),
+                ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: "")
             ]
         )
         let env = profile.buildEnvVars()
@@ -115,7 +115,7 @@ struct ProfileTests {
                 ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil),
             ],
             envVars: [
-                ProfileEnvVar(id: "ANTHROPIC_API_KEY", isEnabled: true, value: "sk-test"),
+                ProfileEnvVar(id: "ANTHROPIC_API_KEY", isEnabled: true, value: "sk-test")
             ],
             statusLineConfig: nil
         )

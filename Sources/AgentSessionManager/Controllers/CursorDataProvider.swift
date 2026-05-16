@@ -343,19 +343,21 @@ enum CursorHookSetup {
         var hooks = config["hooks"] as? [String: Any] ?? [:]
         var needsWrite = false
 
-        needsWrite = installHookEntry(
-            into: &hooks,
-            eventName: "afterAgentResponse",
-            entry: hookEntry,
-            scriptName: hookScriptName
-        ) || needsWrite
+        needsWrite =
+            installHookEntry(
+                into: &hooks,
+                eventName: "afterAgentResponse",
+                entry: hookEntry,
+                scriptName: hookScriptName
+            ) || needsWrite
 
-        needsWrite = installHookEntry(
-            into: &hooks,
-            eventName: "stop",
-            entry: stopHookEntry,
-            scriptName: stopHookScriptName
-        ) || needsWrite
+        needsWrite =
+            installHookEntry(
+                into: &hooks,
+                eventName: "stop",
+                entry: stopHookEntry,
+                scriptName: stopHookScriptName
+            ) || needsWrite
 
         if needsWrite {
             config["hooks"] = hooks
