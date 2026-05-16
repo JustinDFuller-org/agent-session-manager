@@ -314,8 +314,16 @@ final class Tab: Identifiable {
         let startingRef: String
         switch baseRef {
         case .fresh:
-            try await runGit(["fetch", "origin", branch])
-            startingRef = "origin/\(branch)"
+            do {
+                try await runGit(["fetch", "origin", branch])
+                startingRef = "origin/\(branch)"
+            } catch {
+                if await refExists(branch) {
+                    startingRef = branch
+                } else {
+                    throw WorktreeResolutionError.refNotFound(branch)
+                }
+            }
         case .head:
             startingRef = "HEAD"
         }
