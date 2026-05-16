@@ -68,13 +68,16 @@ struct PaneView: View {
                 }
             }
             if appSettings.isPriorityNotificationsEnabled {
-                Toggle("Priority Pane", isOn: Binding(
-                    get: { pane.isPriority },
-                    set: { newValue in
-                        pane.isPriority = newValue
-                        SessionPersistence.save(appState: appState)
-                    }
-                ))
+                Toggle(
+                    "Priority Pane",
+                    isOn: Binding(
+                        get: { pane.isPriority },
+                        set: { newValue in
+                            pane.isPriority = newValue
+                            SessionPersistence.save(appState: appState)
+                        }
+                    )
+                )
             }
             if appSettings.debugLoggingEnabled {
                 Text(

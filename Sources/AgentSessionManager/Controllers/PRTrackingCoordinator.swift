@@ -50,7 +50,9 @@ final class PRTrackingCoordinator {
     }
 
     deinit {
-        appStateObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        for observer in appStateObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     func subscribe(

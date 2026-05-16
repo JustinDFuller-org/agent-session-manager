@@ -70,7 +70,10 @@ final class TerminalBellNotificationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertEqual(appState.notifications.count, 1)
-        XCTAssertTrue(appState.notifications[0].isPriority, "After toggling isPriority, notification should be priority")
+        XCTAssertTrue(
+            appState.notifications[0].isPriority,
+            "After toggling isPriority, notification should be priority"
+        )
     }
 
     func testOsc777NotifyInvokesOnBell() async {
