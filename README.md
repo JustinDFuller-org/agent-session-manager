@@ -1,4 +1,8 @@
-# agent-session-manager
+<img width="1600" height="auto" alt="image" src="https://github.com/user-attachments/assets/fd19e0a4-b660-4913-ae49-a564250fa475" />
+
+<br />
+<br />
+
 Keeps your agents (Claude, Codex, Cursor, etc.) managed in a window optimized for multi-agent workflows.
 
 ## Features
