@@ -76,6 +76,15 @@ Settings → Notifications exposes these controls:
 
 These settings are persisted to `~/Library/Application Support/agent-session-manager/notification-settings.json` (alongside other app settings such as [debug-settings.json](debug-logging.md) under the same support directory).
 
+## Notification icon
+
+The icon shown in macOS banner notifications is loaded directly from the bundle's compiled `.icns` file (keyed by `CFBundleIconFile` in `Info.plist`) rather than from `NSApp.applicationIconImage`. This ensures the correct icon appears for both build variants:
+
+- **Production** (`make run`): uses the standard green `AppIcon.icns`.
+- **Dev** (`make run-dev`): uses the yellow-tinted `AppIcon-Dev.icns`; both `CFBundleIconFile` and `CFBundleIconName` are set to `AppIcon-Dev` in the dev bundle so the notification center header also resolves the correct icon.
+
+There are no user-configurable settings for the notification icon; the selection is entirely driven by which bundle variant is running.
+
 ## See also
 
 - [debug-logging.md](debug-logging.md) — optional in-app debug log (process starts, git, session restore) separate from bell notifications; useful when diagnosing permission or PATH issues alongside panes.

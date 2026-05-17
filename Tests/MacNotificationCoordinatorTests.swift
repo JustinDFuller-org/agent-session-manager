@@ -143,6 +143,12 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertTrue(line.contains("TestDomain"))
     }
 
+    func testBundleAppIconReturnsNonNil() {
+        // In test context there is no .icns file, so bundleAppIcon falls back to
+        // NSApp.applicationIconImage. Verify the fallback contract holds.
+        XCTAssertNotNil(MacNotificationCoordinator.bundleAppIcon())
+    }
+
     func testMakeAttachmentReturnsNilForNilImage() {
         XCTAssertNil(MacNotificationCoordinator.makeAttachment(from: nil))
     }
