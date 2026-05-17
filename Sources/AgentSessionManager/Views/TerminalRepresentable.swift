@@ -62,6 +62,18 @@ struct TerminalRepresentable: NSViewRepresentable {
         func focusIfNeeded(view: LocalProcessTerminalView, isActive: Bool) {
             defer { wasActive = isActive }
             guard isActive && !wasActive else { return }
+            focusWhenReady(view: view)
+        }
+
+        func focusWhenReady(view: LocalProcessTerminalView, attempt: Int = 0) {
+            guard view.frame.width > 0, view.frame.height > 0 else {
+                guard attempt < 10 else { return }
+                DispatchQueue.main.async { [weak self, weak view] in
+                    guard let view else { return }
+                    self?.focusWhenReady(view: view, attempt: attempt + 1)
+                }
+                return
+            }
             view.window?.makeFirstResponder(view)
         }
     }
