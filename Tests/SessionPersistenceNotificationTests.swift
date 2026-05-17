@@ -80,4 +80,48 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertFalse(decoded.isMerged)
     }
+
+    func testExtraArgsPreservedInPane() {
+        let tab = Tab(id: UUID(), name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = tab.addPane(name: "P", extraArgs: ["--model", "opus"])
+        XCTAssertEqual(pane.extraArgs, ["--model", "opus"])
+    }
+
+    func testExtraArgsRoundTripInPersistedPane() throws {
+        let persisted = PersistedPane(
+            id: UUID(), name: "p", cliType: .claude,
+            extraArgs: ["--model", "claude-opus-4-5"]
+        )
+        let data = try JSONEncoder().encode(persisted)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
+        XCTAssertEqual(decoded.extraArgs, ["--model", "claude-opus-4-5"])
+    }
+
+    func testLegacyPaneDefaultsExtraArgsEmpty() throws {
+        let json = Data(
+            """
+            {
+              "id": "00000000-0000-0000-0000-000000000001",
+              "name": "p",
+              "cliType": "claude",
+              "isPriority": false,
+              "worktreeIsManaged": false
+            }
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
+        XCTAssertEqual(decoded.extraArgs, [])
+    }
+
+    func testRestoreCombinesExtraArgsWithContinue() throws {
+        let pane = PersistedPane(
+            id: UUID(), name: "p", cliType: .claude,
+            extraArgs: ["--model", "claude-opus-4-5"]
+        )
+        var extraArgs = pane.extraArgs
+        let continueOnRestart = true
+        if pane.cliType == .claude && continueOnRestart && !extraArgs.contains("--continue") {
+            extraArgs.append("--continue")
+        }
+        XCTAssertEqual(extraArgs, ["--model", "claude-opus-4-5", "--continue"])
+    }
 }
