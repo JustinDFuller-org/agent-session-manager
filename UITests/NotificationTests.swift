@@ -115,6 +115,24 @@ final class NotificationUITests: BaseTestCase {
         XCTAssertEqual(toggle.value as? Int, 0)
     }
 
+    func testStickyNotificationsToggleCanBeToggled() {
+        app.typeKey(",", modifierFlags: .command)
+        let notificationsTab = app.buttons["Notifications"]
+        waitFor(notificationsTab, timeout: 3)
+        notificationsTab.click()
+
+        let toggle = app.checkBoxes["settings-sticky-notifications-toggle"]
+        waitFor(toggle, timeout: 3)
+
+        if toggle.value as? Int == 1 {
+            toggle.click()
+        }
+        XCTAssertEqual(toggle.value as? Int, 0)
+
+        toggle.click()
+        XCTAssertEqual(toggle.value as? Int, 1)
+    }
+
     func testPriorityToggleHiddenInNewPaneSheetWhenDisabled() {
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.buttons["Notifications"]
