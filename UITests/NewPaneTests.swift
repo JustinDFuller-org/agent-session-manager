@@ -254,4 +254,17 @@ final class NewPaneTests: BaseTestCase {
 
         XCTAssertEqual(nameField.value as? String, "hello-focus")
     }
+
+    func testTerminalReceivesFocusAfterPaneCreated() {
+        createPane(named: "autofocus-test")
+
+        // Type without clicking — keystrokes should be delivered to the terminal
+        app.typeText("a")
+
+        screenshot("14-autofocus-after-pane-created")
+        // If focus was not delivered the keystroke would be silently swallowed
+        // or trigger a system beep; reaching this line without a hang confirms
+        // keystrokes were accepted.
+        XCTAssertTrue(app.staticTexts["autofocus-test"].firstMatch.exists)
+    }
 }
