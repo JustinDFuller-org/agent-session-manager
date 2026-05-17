@@ -47,6 +47,17 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         self.appSettings = appSettings
     }
 
+    /// Loads the app icon directly from the bundle's compiled .icns file so the correct icon is
+    /// used for both prod (AppIcon) and dev (AppIcon-Dev) builds. Falls back to
+    /// `NSApp.applicationIconImage` when no .icns file is found (e.g. in test bundles).
+    static func bundleAppIcon() -> NSImage? {
+        let name = (Bundle.main.infoDictionary?["CFBundleIconFile"] as? String) ?? "AppIcon"
+        if let url = Bundle.main.url(forResource: name, withExtension: "icns") {
+            return NSImage(contentsOf: url)
+        }
+        return NSApp.applicationIconImage
+    }
+
     /// Converts an NSImage to a UNNotificationAttachment by writing a temp PNG file.
     /// The notification system copies the file on attachment creation, so the temp file is
     /// removed immediately after. Returns nil if the image is unavailable or conversion fails.
@@ -195,7 +206,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 MacNotificationUserInfoKey.paneID: paneID.uuidString,
                 MacNotificationUserInfoKey.tabID: tabID.uuidString,
             ]
-            if let attachment = Self.makeAttachment(from: NSApp.applicationIconImage) {
+            if let attachment = Self.makeAttachment(from: Self.bundleAppIcon()) {
                 content.attachments = [attachment]
             }
             let identifier = "pane-\(paneID.uuidString)"
@@ -244,7 +255,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 MacNotificationUserInfoKey.tabID: tabID.uuidString,
                 MacNotificationUserInfoKey.notificationKind: NotificationKind.prMerged.rawValue,
             ]
-            if let attachment = Self.makeAttachment(from: NSApp.applicationIconImage) {
+            if let attachment = Self.makeAttachment(from: Self.bundleAppIcon()) {
                 content.attachments = [attachment]
             }
             let identifier = "pr-merged-\(paneID.uuidString)"
