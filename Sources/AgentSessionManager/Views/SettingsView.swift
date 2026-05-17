@@ -29,7 +29,7 @@ struct SettingsView: View {
                 .environment(appSettings)
                 .tabItem { Label("Notifications", systemImage: "bell") }
         }
-        .frame(width: 680, height: 580)
+        .frame(width: 740, height: 580)
     }
 }
 
@@ -49,266 +49,313 @@ private struct GeneralContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         ScrollView {
-            Form {
-                Section {
-                    Text("Configure general app behavior.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Section("Git") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Default Branch")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text("Automatically fetch and create worktrees from a default branch.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-default-branch-toggle")
-                            .onChange(of: appSettings.isDefaultBranchEnabled) {
-                                SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
-                            }
-                    }
-                    .padding(.vertical, 8)
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Configure general app behavior.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-                    if appSettings.isDefaultBranchEnabled {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Git")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Branch Name")
+                                Text("Default Branch")
                                     .font(.system(.body, design: .monospaced))
                                     .fontWeight(.medium)
-                                Text("Branch used as the base when creating new worktrees.")
+                                Text("Automatically fetch and create worktrees from a default branch.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "main")
                             }
                             Spacer()
-                            TextField("", text: $appSettings.defaultBranch)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                                .frame(width: 120)
-                                .accessibilityIdentifier("settings-default-branch-field")
-                                .onChange(of: appSettings.defaultBranch) {
+                            Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-default-branch-toggle")
+                                .onChange(of: appSettings.isDefaultBranchEnabled) {
                                     SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
                                 }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        if appSettings.isDefaultBranchEnabled {
+                            Divider().padding(.leading, 16)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Branch Name")
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.medium)
+                                    Text("Branch used as the base when creating new worktrees.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    DefaultValueLabel(value: "main")
+                                }
+                                Spacer()
+                                TextField("", text: $appSettings.defaultBranch)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(.body, design: .monospaced))
+                                    .frame(width: 120)
+                                    .accessibilityIdentifier("settings-default-branch-field")
+                                    .onChange(of: appSettings.defaultBranch) {
+                                        SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                                    }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Sessions")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Continue on Restart")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("Resume the last conversation when Claude panes reopen after a restart.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-continue-on-restart-toggle")
+                                .onChange(of: appSettings.continueOnRestart) {
+                                    SettingsPersistence.saveRestartSettings(appSettings: appSettings)
+                                }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Auto Session Name")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Passes --name <tab>/<pane> to Claude so sessions appear by name in claude resume and the terminal title. Skipped if --name is set manually in CLI Options."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Auto Session Name", isOn: $appSettings.autoSetSessionName)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-auto-session-name-toggle")
+                                .onChange(of: appSettings.autoSetSessionName) {
+                                    SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
+                                }
+                        }
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                     }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                Section("Sessions") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Continue on Restart")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text("Resume the last conversation when Claude panes reopen after a restart.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-continue-on-restart-toggle")
-                            .onChange(of: appSettings.continueOnRestart) {
-                                SettingsPersistence.saveRestartSettings(appSettings: appSettings)
-                            }
-                    }
-                    .padding(.vertical, 8)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Auto Session Name")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(
-                                "Passes --name <tab>/<pane> to Claude so sessions appear by name in claude resume and the terminal title. Skipped if --name is set manually in CLI Options."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Auto Session Name", isOn: $appSettings.autoSetSessionName)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-auto-session-name-toggle")
-                            .onChange(of: appSettings.autoSetSessionName) {
-                                SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
-                            }
-                    }
-                    .padding(.vertical, 8)
-                }
-                Section("Terminal") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("When Process Exits")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(appSettings.exitBehavior.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "Show Prompt")
-                        }
-                        Spacer()
-                        Picker("When Process Exits", selection: $appSettings.exitBehavior) {
-                            ForEach(ExitBehavior.allCases, id: \.self) { behavior in
-                                Text(behavior.displayName).tag(behavior)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(width: 240)
-                        .accessibilityIdentifier("settings-exit-behavior-picker")
-                        .onChange(of: appSettings.exitBehavior) {
-                            SettingsPersistence.saveExitBehavior(appSettings: appSettings)
-                        }
-                    }
-                    .padding(.vertical, 8)
 
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Scrollback Lines")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text("Number of lines kept in the terminal scroll buffer (100–1,000,000).")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "500")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Terminal")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("When Process Exits")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(appSettings.exitBehavior.description)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "Show Prompt")
+                            }
+                            Spacer()
+                            Picker("When Process Exits", selection: $appSettings.exitBehavior) {
+                                ForEach(ExitBehavior.allCases, id: \.self) { behavior in
+                                    Text(behavior.displayName).tag(behavior)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 240)
+                            .accessibilityIdentifier("settings-exit-behavior-picker")
+                            .onChange(of: appSettings.exitBehavior) {
+                                SettingsPersistence.saveExitBehavior(appSettings: appSettings)
+                            }
                         }
-                        Spacer()
-                        TextField(
-                            "",
-                            text: Binding(
-                                get: { String(appSettings.scrollbackLines) },
-                                set: { newValue in
-                                    if let parsed = Int(newValue) {
-                                        appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
-                                        SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Scrollback Lines")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("Number of lines kept in the terminal scroll buffer (100–1,000,000).")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "500")
+                            }
+                            Spacer()
+                            TextField(
+                                "",
+                                text: Binding(
+                                    get: { String(appSettings.scrollbackLines) },
+                                    set: { newValue in
+                                        if let parsed = Int(newValue) {
+                                            appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
+                                            SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
+                                        }
                                     }
-                                }
+                                )
                             )
-                        )
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-                        .frame(width: 120)
-                        .accessibilityIdentifier("settings-scrollback-lines-field")
-                    }
-                    .padding(.vertical, 8)
-                }
-                Section("Debug") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Debug Logging")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(
-                                "Append diagnostics to a trace file (see path below) instead of keeping them in memory."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Debug Logging", isOn: $appSettings.debugLoggingEnabled)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-debug-logging-toggle")
-                            .onChange(of: appSettings.debugLoggingEnabled) {
-                                DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
-                                DebugLogger.shared.syncFromAppSettings(appSettings)
-                                if !appSettings.debugLoggingEnabled {
-                                    DebugLogger.shared.removeAllTracedPanes()
-                                }
-                                SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                                if appSettings.debugLoggingEnabled {
-                                    DebugLogger.shared.logSystemInfo()
-                                    DebugLogger.shared.logNotificationEnvironment(
-                                        macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
-                                    )
-                                }
-                            }
-                    }
-                    .padding(.vertical, 8)
-
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Trace file path")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text("Leave empty for the default file under Application Support. ~ is expanded.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "~/Library/Application Support/…")
-                        }
-                        Spacer()
-                        TextField("", text: $appSettings.debugLogFilePath)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
-                            .frame(minWidth: 220)
-                            .accessibilityIdentifier("settings-debug-log-file-path")
-                            .onChange(of: appSettings.debugLogFilePath) {
-                                DebugLogger.shared.syncFromAppSettings(appSettings)
-                                SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                            }
+                            .frame(width: 120)
+                            .accessibilityIdentifier("settings-scrollback-lines-field")
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
 
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Max trace file size")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text("When exceeded, older bytes are removed from the start of the file.")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Debug")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Debug Logging")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Append diagnostics to a trace file (see path below) instead of keeping them in memory."
+                                )
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "15 MB")
+                            }
+                            Spacer()
+                            Toggle("Debug Logging", isOn: $appSettings.debugLoggingEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-debug-logging-toggle")
+                                .onChange(of: appSettings.debugLoggingEnabled) {
+                                    DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
+                                    DebugLogger.shared.syncFromAppSettings(appSettings)
+                                    if !appSettings.debugLoggingEnabled {
+                                        DebugLogger.shared.removeAllTracedPanes()
+                                    }
+                                    SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                                    if appSettings.debugLoggingEnabled {
+                                        DebugLogger.shared.logSystemInfo()
+                                        DebugLogger.shared.logNotificationEnvironment(
+                                            macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                                        )
+                                    }
+                                }
                         }
-                        Spacer()
-                        Stepper(value: $appSettings.debugLogMaxSizeMegabytes, in: 1...512) {
-                            Text("\(appSettings.debugLogMaxSizeMegabytes) MB")
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Trace file path")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("Leave empty for the default file under Application Support. ~ is expanded.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "~/Library/Application Support/…")
+                            }
+                            Spacer()
+                            TextField("", text: $appSettings.debugLogFilePath)
+                                .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
-                                .frame(minWidth: 72, alignment: .trailing)
+                                .frame(minWidth: 220)
+                                .accessibilityIdentifier("settings-debug-log-file-path")
+                                .onChange(of: appSettings.debugLogFilePath) {
+                                    DebugLogger.shared.syncFromAppSettings(appSettings)
+                                    SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                                }
                         }
-                        .accessibilityIdentifier("settings-debug-log-max-mb-stepper")
-                        .onChange(of: appSettings.debugLogMaxSizeMegabytes) {
-                            DebugLogger.shared.syncFromAppSettings(appSettings)
-                            SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                        }
-                    }
-                    .padding(.vertical, 8)
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Include terminal snapshots")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(
-                                "When debug logging is on, allow capturing all panes’ terminal text into the trace file from the debug sheet. You can also enable capture per pane from its context menu without this."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Include terminal snapshots", isOn: $appSettings.debugLogIncludeTerminalContents)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-debug-include-terminal-toggle")
-                            .disabled(!appSettings.debugLoggingEnabled)
-                            .onChange(of: appSettings.debugLogIncludeTerminalContents) {
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Max trace file size")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("When exceeded, older bytes are removed from the start of the file.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "15 MB")
+                            }
+                            Spacer()
+                            Stepper(value: $appSettings.debugLogMaxSizeMegabytes, in: 1...512) {
+                                Text("\(appSettings.debugLogMaxSizeMegabytes) MB")
+                                    .font(.system(.body, design: .monospaced))
+                                    .frame(minWidth: 72, alignment: .trailing)
+                            }
+                            .accessibilityIdentifier("settings-debug-log-max-mb-stepper")
+                            .onChange(of: appSettings.debugLogMaxSizeMegabytes) {
                                 DebugLogger.shared.syncFromAppSettings(appSettings)
                                 SettingsPersistence.saveDebugSettings(appSettings: appSettings)
                             }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Include terminal snapshots")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "When debug logging is on, allow capturing all panes’ terminal text into the trace file from the debug sheet. You can also enable capture per pane from its context menu without this."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Include terminal snapshots", isOn: $appSettings.debugLogIncludeTerminalContents)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-debug-include-terminal-toggle")
+                                .disabled(!appSettings.debugLoggingEnabled)
+                                .onChange(of: appSettings.debugLogIncludeTerminalContents) {
+                                    DebugLogger.shared.syncFromAppSettings(appSettings)
+                                    SettingsPersistence.saveDebugSettings(appSettings: appSettings)
+                                }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
+            .padding(20)
         }
-        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -320,125 +367,132 @@ private struct ProfilesContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         ScrollView {
-            Form {
-                Section {
-                    Text(
-                        "Create named profiles to quickly configure panes. Each profile saves the CLI tool, flags, environment variables, and optionally a custom status line. Global CLI Options settings seed new profiles but do not change saved ones."
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                }
+            VStack(alignment: .leading, spacing: 20) {
+                Text(
+                    "Create named profiles to quickly configure panes. Each profile saves the CLI tool, flags, environment variables, and optionally a custom status line. Global CLI Options settings seed new profiles but do not change saved ones."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
                 if appSettings.profiles.isEmpty {
-                    Section {
-                        VStack(spacing: 8) {
-                            Image(systemName: "person.crop.rectangle.stack")
-                                .font(.system(size: 36))
-                                .foregroundStyle(.quaternary)
-                            Text("No profiles yet")
-                                .foregroundStyle(.secondary)
-                            Text("Create a profile to save your preferred CLI configuration for quick reuse.")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                    VStack(spacing: 8) {
+                        Image(systemName: "person.crop.rectangle.stack")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.quaternary)
+                        Text("No profiles yet")
+                            .foregroundStyle(.secondary)
+                        Text("Create a profile to save your preferred CLI configuration for quick reuse.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
                 } else {
-                    Section("Profiles") {
-                        ForEach(Array(appSettings.profiles.enumerated()), id: \.element.id) { index, profile in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 6) {
-                                        Text(profile.name)
-                                            .font(.system(.body, design: .monospaced))
-                                            .fontWeight(.medium)
-                                        Text(profile.cliType.displayName)
-                                            .font(.caption2)
-                                            .padding(.horizontal, 5)
-                                            .padding(.vertical, 8)
-                                            .background(.quaternary)
-                                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                                            .foregroundStyle(.secondary)
-                                        if profile.statusLineConfig != nil {
-                                            Text("Custom status line")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Profiles")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .padding(.leading, 4)
+                        VStack(spacing: 0) {
+                            ForEach(Array(appSettings.profiles.enumerated()), id: \.element.id) { index, profile in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 6) {
+                                            Text(profile.name)
+                                                .font(.system(.body, design: .monospaced))
+                                                .fontWeight(.medium)
+                                            Text(profile.cliType.displayName)
                                                 .font(.caption2)
                                                 .padding(.horizontal, 5)
                                                 .padding(.vertical, 8)
                                                 .background(.quaternary)
                                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                                                 .foregroundStyle(.secondary)
+                                            if profile.statusLineConfig != nil {
+                                                Text("Custom status line")
+                                                    .font(.caption2)
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 8)
+                                                    .background(.quaternary)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                                    .foregroundStyle(.secondary)
+                                            }
                                         }
+                                        Text(profileSummary(profile))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
                                     }
-                                    Text(profileSummary(profile))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Button {
-                                    appSettings.profiles.swapAt(index, index - 1)
-                                    SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                } label: {
-                                    Image(systemName: "chevron.up")
-                                }
-                                .buttonStyle(.borderless)
-                                .foregroundStyle(index == 0 ? .tertiary : .secondary)
-                                .disabled(index == 0)
-                                .accessibilityIdentifier("profile-move-up-\(profile.id)")
-
-                                Button {
-                                    appSettings.profiles.swapAt(index, index + 1)
-                                    SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                } label: {
-                                    Image(systemName: "chevron.down")
-                                }
-                                .buttonStyle(.borderless)
-                                .foregroundStyle(index == appSettings.profiles.count - 1 ? .tertiary : .secondary)
-                                .disabled(index == appSettings.profiles.count - 1)
-                                .accessibilityIdentifier("profile-move-down-\(profile.id)")
-
-                                Menu {
-                                    Button("Edit") {
-                                        editingProfile = profile
-                                        showEditor = true
-                                    }
-                                    Button("Duplicate") {
-                                        var copy = profile
-                                        copy.id = UUID()
-                                        copy.name = "\(profile.name) Copy"
-                                        appSettings.profiles.append(copy)
+                                    Spacer()
+                                    Button {
+                                        appSettings.profiles.swapAt(index, index - 1)
                                         SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                    } label: {
+                                        Image(systemName: "chevron.up")
                                     }
-                                    Divider()
-                                    Button("Delete", role: .destructive) {
-                                        appSettings.profiles.removeAll { $0.id == profile.id }
+                                    .buttonStyle(.borderless)
+                                    .foregroundStyle(index == 0 ? .tertiary : .secondary)
+                                    .disabled(index == 0)
+                                    .accessibilityIdentifier("profile-move-up-\(profile.id)")
+
+                                    Button {
+                                        appSettings.profiles.swapAt(index, index + 1)
                                         SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                    } label: {
+                                        Image(systemName: "chevron.down")
                                     }
-                                } label: {
-                                    Image(systemName: "ellipsis.circle")
-                                        .foregroundStyle(.secondary)
+                                    .buttonStyle(.borderless)
+                                    .foregroundStyle(index == appSettings.profiles.count - 1 ? .tertiary : .secondary)
+                                    .disabled(index == appSettings.profiles.count - 1)
+                                    .accessibilityIdentifier("profile-move-down-\(profile.id)")
+
+                                    Menu {
+                                        Button("Edit") {
+                                            editingProfile = profile
+                                            showEditor = true
+                                        }
+                                        Button("Duplicate") {
+                                            var copy = profile
+                                            copy.id = UUID()
+                                            copy.name = "\(profile.name) Copy"
+                                            appSettings.profiles.append(copy)
+                                            SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                        }
+                                        Divider()
+                                        Button("Delete", role: .destructive) {
+                                            appSettings.profiles.removeAll { $0.id == profile.id }
+                                            SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                        }
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .menuStyle(.borderlessButton)
+                                    .frame(width: 24)
                                 }
-                                .menuStyle(.borderlessButton)
-                                .frame(width: 24)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                if index < appSettings.profiles.count - 1 {
+                                    Divider().padding(.leading, 16)
+                                }
                             }
-                            .padding(.vertical, 8)
                         }
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
-                Section {
-                    Button {
-                        editingProfile = nil
-                        showEditor = true
-                    } label: {
-                        Label("New Profile", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderless)
+
+                Button {
+                    editingProfile = nil
+                    showEditor = true
+                } label: {
+                    Label("New Profile", systemImage: "plus")
                 }
+                .buttonStyle(.borderless)
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
+            .padding(20)
         }
-        .background(Color(NSColor.windowBackgroundColor))
         .sheet(isPresented: $showEditor) {
             ProfileEditorSheet(
                 profile: editingProfile,
@@ -597,22 +651,18 @@ private struct ProfileEditorSheet: View {
                     }
 
                     if useCustomStatusLine {
-                        Form {
-                            Section {
-                                Text(
-                                    "Customize chips and rows for panes created with this profile. GitHub PR tracking still follows Settings → Status Line → GitHub PR Tracking."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text(
+                                "Customize chips and rows for panes created with this profile. GitHub PR tracking still follows Settings → Status Line → GitHub PR Tracking."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                             StatusLineConfigLayoutEditor(
                                 config: $statusLineConfig,
                                 filterCLI: cliType,
                                 phases: .full,
                                 onPersist: {})
                         }
-                        .formStyle(.grouped)
-                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(24)
@@ -771,46 +821,56 @@ private struct ToolsContent: View {
 
     var body: some View {
         ScrollView {
-            Form {
-                Section {
-                    Text(
-                        "Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet."
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                }
-                Section("Available Tools") {
-                    ForEach(CLIType.allCases, id: \.self) { tool in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(tool.displayName)
-                                Text(tool.cliCommandDescription)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fontDesign(.monospaced)
-                            }
-                            Spacer()
-                            Toggle(
-                                tool.displayName,
-                                isOn: Binding(
-                                    get: { appSettings.isActive(tool) },
-                                    set: { active in
-                                        appSettings.setActive(tool, active)
-                                        SettingsPersistence.saveActiveTools(appSettings: appSettings)
-                                    }
+            VStack(alignment: .leading, spacing: 20) {
+                Text(
+                    "Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Available Tools")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        ForEach(Array(CLIType.allCases.enumerated()), id: \.element) { index, tool in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(tool.displayName)
+                                    Text(tool.cliCommandDescription)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .fontDesign(.monospaced)
+                                }
+                                Spacer()
+                                Toggle(
+                                    tool.displayName,
+                                    isOn: Binding(
+                                        get: { appSettings.isActive(tool) },
+                                        set: { active in
+                                            appSettings.setActive(tool, active)
+                                            SettingsPersistence.saveActiveTools(appSettings: appSettings)
+                                        }
+                                    )
                                 )
-                            )
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            if index < CLIType.allCases.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
                         }
-                        .padding(.vertical, 8)
                     }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
+            .padding(20)
         }
-        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -820,99 +880,116 @@ private struct WorktreesContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         ScrollView {
-            Form {
-                Section {
-                    Text("Configure worktree management behavior.")
-                        .font(.subheadline)
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Configure worktree management behavior.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Created Worktrees")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Worktree Cleanup")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(appSettings.worktreeCleanupBehavior.description)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "Ask")
+                            }
+                            Spacer()
+                            Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
+                                ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
+                                    Text(behavior.displayName).tag(behavior)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 220)
+                            .accessibilityIdentifier("settings-worktree-cleanup-picker")
+                            .onChange(of: appSettings.worktreeCleanupBehavior) {
+                                SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Base Ref")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(appSettings.worktreeBaseRef.description)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "Fresh")
+                            }
+                            Spacer()
+                            Picker("Base Ref", selection: $appSettings.worktreeBaseRef) {
+                                ForEach(WorktreeBaseRef.allCases, id: \.self) { option in
+                                    Text(option.displayName).tag(option)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 160)
+                            .accessibilityIdentifier("settings-worktree-base-ref-picker")
+                            .onChange(of: appSettings.worktreeBaseRef) {
+                                SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
 
-                Section("Created Worktrees") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Worktree Cleanup")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(appSettings.worktreeCleanupBehavior.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "Ask")
-                        }
-                        Spacer()
-                        Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
-                            ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
-                                Text(behavior.displayName).tag(behavior)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Existing Worktrees")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Manage Existing Worktrees")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(appSettings.existingWorktreeManagement.description)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "Ask")
+                            }
+                            Spacer()
+                            Picker("Manage Existing", selection: $appSettings.existingWorktreeManagement) {
+                                ForEach(ExistingWorktreeManagement.allCases, id: \.self) { behavior in
+                                    Text(behavior.displayName).tag(behavior)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 220)
+                            .accessibilityIdentifier("settings-existing-worktree-management-picker")
+                            .onChange(of: appSettings.existingWorktreeManagement) {
+                                SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(width: 220)
-                        .accessibilityIdentifier("settings-worktree-cleanup-picker")
-                        .onChange(of: appSettings.worktreeCleanupBehavior) {
-                            SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
-                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Base Ref")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(appSettings.worktreeBaseRef.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "Fresh")
-                        }
-                        Spacer()
-                        Picker("Base Ref", selection: $appSettings.worktreeBaseRef) {
-                            ForEach(WorktreeBaseRef.allCases, id: \.self) { option in
-                                Text(option.displayName).tag(option)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(width: 160)
-                        .accessibilityIdentifier("settings-worktree-base-ref-picker")
-                        .onChange(of: appSettings.worktreeBaseRef) {
-                            SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-
-                Section("Existing Worktrees") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Manage Existing Worktrees")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(appSettings.existingWorktreeManagement.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "Ask")
-                        }
-                        Spacer()
-                        Picker("Manage Existing", selection: $appSettings.existingWorktreeManagement) {
-                            ForEach(ExistingWorktreeManagement.allCases, id: \.self) { behavior in
-                                Text(behavior.displayName).tag(behavior)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(width: 220)
-                        .accessibilityIdentifier("settings-existing-worktree-management-picker")
-                        .onChange(of: appSettings.existingWorktreeManagement) {
-                            SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
-                        }
-                    }
-                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
+            .padding(20)
         }
-        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -979,7 +1056,6 @@ private struct UnifiedCLIOptionsContent: View {
                 EmptyView()
             }
         }
-        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -1005,65 +1081,103 @@ private struct CLIOptionsContent: View {
     }
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
                 Text(
                     "Configure which CLI options appear when creating a new pane. Options marked as default will be pre-checked in the New Pane dialog."
                 )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            }
-            if !enabledOptions.isEmpty {
-                Section("Enabled") {
-                    ForEach(enabledOptions, id: \.id) { option in
-                        let index = options.firstIndex(where: { $0.id == option.id })!
-                        CLIOptionRow(option: $options[index], onChange: onSave)
+
+                if !enabledOptions.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Enabled")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .padding(.leading, 4)
+                        VStack(spacing: 0) {
+                            ForEach(Array(enabledOptions.enumerated()), id: \.element.id) { index, option in
+                                let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                                CLIOptionRow(option: $options[optIndex], onChange: onSave)
+                                    .padding(.horizontal, 16)
+                                if index < enabledOptions.count - 1 {
+                                    Divider().padding(.leading, 16)
+                                }
+                            }
+                        }
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
-            }
-            Section("Not Enabled") {
-                ForEach(disabledOptions, id: \.id) { option in
-                    let index = options.firstIndex(where: { $0.id == option.id })!
-                    CLIOptionRow(option: $options[index], onChange: onSave)
-                }
-            }
-            Section {
-                ForEach(customOptions, id: \.id) { option in
-                    let index = options.firstIndex(where: { $0.id == option.id })!
-                    CustomCLIOptionRow(
-                        option: $options[index],
-                        onChange: onSave,
-                        onDelete: {
-                            options.removeAll { $0.id == option.id }
-                            onSave()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Not Enabled")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        ForEach(Array(disabledOptions.enumerated()), id: \.element.id) { index, option in
+                            let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                            CLIOptionRow(option: $options[optIndex], onChange: onSave)
+                                .padding(.horizontal, 16)
+                            if index < disabledOptions.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
                         }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Custom Options")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        ForEach(Array(customOptions.enumerated()), id: \.element.id) { index, option in
+                            let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                            CustomCLIOptionRow(
+                                option: $options[optIndex],
+                                onChange: onSave,
+                                onDelete: {
+                                    options.removeAll { $0.id == option.id }
+                                    onSave()
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            Divider().padding(.leading, 16)
+                        }
+                        Button {
+                            showAddCustomFlagSheet = true
+                        } label: {
+                            Label("Add Custom Flag", systemImage: "plus")
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Text(customFlagFooter)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+                }
+
+                if let envBinding = envVarOptions, let envSave = onEnvVarSave {
+                    EnvVarSections(
+                        options: envBinding,
+                        onSave: envSave,
+                        showAddSheet: $showAddCustomEnvVarSheet
                     )
                 }
-                Button {
-                    showAddCustomFlagSheet = true
-                } label: {
-                    Label("Add Custom Flag", systemImage: "plus")
-                }
-                .buttonStyle(.borderless)
-            } header: {
-                Text("Custom Options")
-            } footer: {
-                Text(customFlagFooter)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-
-            if let envBinding = envVarOptions, let envSave = onEnvVarSave {
-                EnvVarSections(
-                    options: envBinding,
-                    onSave: envSave,
-                    showAddSheet: $showAddCustomEnvVarSheet
-                )
-            }
+            .padding(20)
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(Color(NSColor.windowBackgroundColor))
         .sheet(isPresented: $showAddCustomFlagSheet) {
             AddCustomFlagSheet(existingIDs: options.map(\.id)) { id, isString in
                 options.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
@@ -1099,54 +1213,99 @@ private struct EnvVarSections: View {
     }
 
     var body: some View {
-        Section {
-            Text(
-                "Configure which environment variables are set when launching Claude Code. Variables marked as default will be pre-enabled with their default value in the New Pane dialog."
-            )
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-        } header: {
-            Text("Environment Variables")
-        }
-
-        if !enabledOptions.isEmpty {
-            Section("Enabled Env Vars") {
-                ForEach(enabledOptions, id: \.id) { option in
-                    let index = options.firstIndex(where: { $0.id == option.id })!
-                    EnvVarOptionRow(option: $options[index], onChange: onSave)
-                }
-            }
-        }
-        Section("Not Enabled Env Vars") {
-            ForEach(disabledOptions, id: \.id) { option in
-                let index = options.firstIndex(where: { $0.id == option.id })!
-                EnvVarOptionRow(option: $options[index], onChange: onSave)
-            }
-        }
-        Section {
-            ForEach(customOptions, id: \.id) { option in
-                let index = options.firstIndex(where: { $0.id == option.id })!
-                CustomEnvVarOptionRow(
-                    option: $options[index],
-                    onChange: onSave,
-                    onDelete: {
-                        options.removeAll { $0.id == option.id }
-                        onSave()
-                    }
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Environment Variables")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .padding(.leading, 4)
+                Text(
+                    "Configure which environment variables are set when launching Claude Code. Variables marked as default will be pre-enabled with their default value in the New Pane dialog."
                 )
-            }
-            Button {
-                showAddSheet = true
-            } label: {
-                Label("Add Custom Env Var", systemImage: "plus")
-            }
-            .buttonStyle(.borderless)
-        } header: {
-            Text("Custom Env Vars")
-        } footer: {
-            Text("Custom environment variables are passed to the Claude Code process.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .padding(.leading, 4)
+            }
+
+            if !enabledOptions.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Enabled Env Vars")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        ForEach(Array(enabledOptions.enumerated()), id: \.element.id) { index, option in
+                            let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                            EnvVarOptionRow(option: $options[optIndex], onChange: onSave)
+                                .padding(.horizontal, 16)
+                            if index < enabledOptions.count - 1 {
+                                Divider().padding(.leading, 16)
+                            }
+                        }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Not Enabled Env Vars")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .padding(.leading, 4)
+                VStack(spacing: 0) {
+                    ForEach(Array(disabledOptions.enumerated()), id: \.element.id) { index, option in
+                        let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                        EnvVarOptionRow(option: $options[optIndex], onChange: onSave)
+                            .padding(.horizontal, 16)
+                        if index < disabledOptions.count - 1 {
+                            Divider().padding(.leading, 16)
+                        }
+                    }
+                }
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Custom Env Vars")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .padding(.leading, 4)
+                VStack(spacing: 0) {
+                    ForEach(Array(customOptions.enumerated()), id: \.element.id) { index, option in
+                        let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                        CustomEnvVarOptionRow(
+                            option: $options[optIndex],
+                            onChange: onSave,
+                            onDelete: {
+                                options.removeAll { $0.id == option.id }
+                                onSave()
+                            }
+                        )
+                        .padding(.horizontal, 16)
+                        Divider().padding(.leading, 16)
+                    }
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Label("Add Custom Env Var", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                Text("Custom environment variables are passed to the Claude Code process.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 4)
+            }
         }
     }
 }
@@ -1397,31 +1556,67 @@ private struct StatusLineConfigLayoutEditor: View {
     var body: some View {
         Group {
             if phases.contains(.display) {
-                Section("Display") {
-                    Picker("Chip style", selection: chipStylePickerBinding) {
-                        ForEach(ChipLabelStyle.allCases, id: \.self) { style in
-                            Text(style.displayName).tag(style)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Display")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Chip style")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Spacer()
+                            Picker("Chip style", selection: chipStylePickerBinding) {
+                                ForEach(ChipLabelStyle.allCases, id: \.self) { style in
+                                    Text(style.displayName).tag(style)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .labelsHidden()
+                            .frame(width: 160)
                         }
-                    }
-                    Picker("Item alignment", selection: rowAlignmentPickerBinding) {
-                        ForEach(RowAlignment.allCases, id: \.self) { alignment in
-                            Text(alignment.displayName).tag(alignment)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            Text("Item alignment")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            Spacer()
+                            Picker("Item alignment", selection: rowAlignmentPickerBinding) {
+                                ForEach(RowAlignment.allCases, id: \.self) { alignment in
+                                    Text(alignment.displayName).tag(alignment)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .labelsHidden()
+                            .frame(width: 160)
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
             if phases.contains(.rows) {
                 ForEach(Array(config.rows.enumerated()), id: \.element.id) { index, _ in
                     rowSection(rowIndex: index)
                 }
-                Section {
+                VStack(spacing: 0) {
                     Button {
                         touch { $0.rows.append(StatusLineRow()) }
                     } label: {
                         Label("Add Row", systemImage: "plus")
                     }
                     .buttonStyle(.borderless)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                 }
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
     }
@@ -1488,85 +1683,11 @@ private struct StatusLineConfigLayoutEditor: View {
     private func rowSection(rowIndex: Int) -> some View {
         let rowCount = config.rows.count
         let available = unusedItemsEligibleForAddition()
-        return Section {
-            ForEach(config.rows[rowIndex].items) { item in
-                HStack {
-                    Image(systemName: item.sfSymbol)
-                        .frame(width: 16)
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.label)
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        let desc = itemDescription(for: item.id)
-                        if !desc.isEmpty {
-                            Text(desc)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    availabilityBadge(for: item.availability)
-                    Button(role: .destructive) {
-                        touch {
-                            $0.rows[rowIndex].items.removeAll { $0.id == item.id }
-                        }
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(.red)
-                    }
-                    .buttonStyle(.borderless)
-                }
-                .padding(.vertical, 8)
-            }
-            .onMove { from, to in
-                touch {
-                    $0.rows[rowIndex].items.move(fromOffsets: from, toOffset: to)
-                }
-            }
-            Menu {
-                if available.isEmpty {
-                    Text(filterCLI == nil ? "All items are already used" : "No more items supported for this CLI")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(available) { item in
-                        Button {
-                            touch {
-                                $0.rows[rowIndex].items.append(item)
-                            }
-                        } label: {
-                            HStack {
-                                Text(item.label)
-                                switch item.availability {
-                                case .claudeOnly:
-                                    Text("Claude only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.blue)
-                                case .opencodeOnly:
-                                    Text("OpenCode only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.purple)
-                                case .claudeOrOpencode:
-                                    Text("Claude + OpenCode")
-                                        .font(.caption2)
-                                        .foregroundStyle(.indigo)
-                                case .all:
-                                    Text("All tools")
-                                        .font(.caption2)
-                                        .foregroundStyle(.green)
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Label("Add Item", systemImage: "plus")
-            }
-            .buttonStyle(.borderless)
-        } header: {
+        return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Row \(rowIndex + 1)")
                     .font(.headline)
+                    .padding(.leading, 4)
                 Spacer()
                 Button {
                     touch { $0.rows.swapAt(rowIndex, rowIndex - 1) }
@@ -1590,6 +1711,83 @@ private struct StatusLineConfigLayoutEditor: View {
                 }
                 .buttonStyle(.borderless)
             }
+            VStack(spacing: 0) {
+                ForEach(config.rows[rowIndex].items) { item in
+                    HStack {
+                        Image(systemName: item.sfSymbol)
+                            .frame(width: 16)
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.label)
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            let desc = itemDescription(for: item.id)
+                            if !desc.isEmpty {
+                                Text(desc)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        availabilityBadge(for: item.availability)
+                        Button(role: .destructive) {
+                            touch {
+                                $0.rows[rowIndex].items.removeAll { $0.id == item.id }
+                            }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    Divider().padding(.leading, 16)
+                }
+                Menu {
+                    if available.isEmpty {
+                        Text(filterCLI == nil ? "All items are already used" : "No more items supported for this CLI")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(available) { item in
+                            Button {
+                                touch {
+                                    $0.rows[rowIndex].items.append(item)
+                                }
+                            } label: {
+                                HStack {
+                                    Text(item.label)
+                                    switch item.availability {
+                                    case .claudeOnly:
+                                        Text("Claude only")
+                                            .font(.caption2)
+                                            .foregroundStyle(.blue)
+                                    case .opencodeOnly:
+                                        Text("OpenCode only")
+                                            .font(.caption2)
+                                            .foregroundStyle(.purple)
+                                    case .claudeOrOpencode:
+                                        Text("Claude + OpenCode")
+                                            .font(.caption2)
+                                            .foregroundStyle(.indigo)
+                                    case .all:
+                                        Text("All tools")
+                                            .font(.caption2)
+                                            .foregroundStyle(.green)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Add Item", systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+            .background(Color(NSColor.controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 
@@ -1632,15 +1830,14 @@ private struct StatusLineContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         ScrollView {
-            Form {
-                Section {
-                    Text(
-                        "Configure the info panel shown at the bottom of each pane. Items marked \"Claude only\" require Claude Code's statusLine hook. Items marked \"OpenCode only\" are populated via the OpenCode HTTP API. All other items work with any tool via git and process data."
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("settings-status-line-description")
-                }
+            VStack(alignment: .leading, spacing: 20) {
+                Text(
+                    "Configure the info panel shown at the bottom of each pane. Items marked \"Claude only\" require Claude Code's statusLine hook. Items marked \"OpenCode only\" are populated via the OpenCode HTTP API. All other items work with any tool via git and process data."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("settings-status-line-description")
+
                 StatusLineConfigLayoutEditor(
                     config: $appSettings.statusLineConfig,
                     filterCLI: nil,
@@ -1648,99 +1845,119 @@ private struct StatusLineContent: View {
                     onPersist: {
                         SettingsPersistence.saveStatusLine(appSettings: appSettings)
                     })
-                Section("GitHub PR Tracking") {
-                    Toggle(isOn: $appSettings.githubPRTrackingEnabled) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Track pull requests")
-                            Text(
-                                "Detects the PR for the current git branch and shows its status in the status line. Requires the GitHub CLI (gh) installed and authenticated."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .onChange(of: appSettings.githubPRTrackingEnabled) {
-                        SettingsPersistence.savePRTracking(appSettings: appSettings)
-                        NotificationCenter.default.post(
-                            name: .agentSessionManagerPRTrackingSettingChanged, object: nil)
-                    }
-                    .accessibilityIdentifier("settings-pr-tracking-toggle")
 
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("PR Polling Interval")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(
-                                "How often to check for PR updates across all panes (min 15s). Uses a single batched GraphQL request per cycle — the rate limit auto-adjusts at high pane counts."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "30 seconds")
-                        }
-                        Spacer()
-                        HStack(spacing: 4) {
-                            TextField(
-                                "",
-                                text: Binding(
-                                    get: { String(appSettings.prPollingIntervalSeconds) },
-                                    set: { newValue in
-                                        if let parsed = Int(newValue) {
-                                            appSettings.prPollingIntervalSeconds = max(15, parsed)
-                                            SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
-                                        }
-                                    }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("GitHub PR Tracking")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Track pull requests")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Detects the PR for the current git branch and shows its status in the status line. Requires the GitHub CLI (gh) installed and authenticated."
                                 )
-                            )
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                            .frame(width: 72)
-                            .accessibilityIdentifier("settings-pr-polling-interval-field")
-                            Text("seconds")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Track pull requests", isOn: $appSettings.githubPRTrackingEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .onChange(of: appSettings.githubPRTrackingEnabled) {
+                                    SettingsPersistence.savePRTracking(appSettings: appSettings)
+                                    NotificationCenter.default.post(
+                                        name: .agentSessionManagerPRTrackingSettingChanged, object: nil)
+                                }
+                                .accessibilityIdentifier("settings-pr-tracking-toggle")
                         }
-                    }
-                    .padding(.vertical, 8)
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Request Timeout")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Text(
-                                "Cancel the in-flight request and wait for the next cycle if it takes longer than this (min 5s)."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            DefaultValueLabel(value: "15 seconds")
-                        }
-                        Spacer()
-                        HStack(spacing: 4) {
-                            TextField(
-                                "",
-                                text: Binding(
-                                    get: { String(appSettings.prRequestTimeoutSeconds) },
-                                    set: { newValue in
-                                        if let parsed = Int(newValue) {
-                                            appSettings.prRequestTimeoutSeconds = max(5, parsed)
-                                            SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
-                                        }
-                                    }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("PR Polling Interval")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "How often to check for PR updates across all panes (min 15s). Uses a single batched GraphQL request per cycle — the rate limit auto-adjusts at high pane counts."
                                 )
-                            )
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                            .frame(width: 72)
-                            .accessibilityIdentifier("settings-pr-request-timeout-field")
-                            Text("seconds")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "30 seconds")
+                            }
+                            Spacer()
+                            HStack(spacing: 4) {
+                                TextField(
+                                    "",
+                                    text: Binding(
+                                        get: { String(appSettings.prPollingIntervalSeconds) },
+                                        set: { newValue in
+                                            if let parsed = Int(newValue) {
+                                                appSettings.prPollingIntervalSeconds = max(15, parsed)
+                                                SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                            }
+                                        }
+                                    )
+                                )
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                                .frame(width: 72)
+                                .accessibilityIdentifier("settings-pr-polling-interval-field")
+                                Text("seconds")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Request Timeout")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Cancel the in-flight request and wait for the next cycle if it takes longer than this (min 5s)."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "15 seconds")
+                            }
+                            Spacer()
+                            HStack(spacing: 4) {
+                                TextField(
+                                    "",
+                                    text: Binding(
+                                        get: { String(appSettings.prRequestTimeoutSeconds) },
+                                        set: { newValue in
+                                            if let parsed = Int(newValue) {
+                                                appSettings.prRequestTimeoutSeconds = max(5, parsed)
+                                                SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                            }
+                                        }
+                                    )
+                                )
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                                .frame(width: 72)
+                                .accessibilityIdentifier("settings-pr-request-timeout-field")
+                                Text("seconds")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
+
                 StatusLineConfigLayoutEditor(
                     config: $appSettings.statusLineConfig,
                     filterCLI: nil,
@@ -1749,10 +1966,8 @@ private struct StatusLineContent: View {
                         SettingsPersistence.saveStatusLine(appSettings: appSettings)
                     })
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
+            .padding(20)
         }
-        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -1989,207 +2204,280 @@ private struct NotificationsContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         ScrollView {
-            Form {
-                Section {
-                    Text("Configure notification behavior for pane alerts.")
-                        .font(.subheadline)
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Configure notification behavior for pane alerts.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("macOS")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
-                }
-                Section("macOS") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Banner Notifications")
-                                .font(.system(.body, design: .default))
-                                .fontWeight(.medium)
-                            Text(
-                                "Show a system notification when a background pane rings the bell. Requires permission in System Settings."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Banner Notifications")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Show a system notification when a background pane rings the bell. Requires permission in System Settings."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
+                                .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
+                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                                    if appSettings.debugLoggingEnabled {
+                                        DebugLogger.shared.logNotificationEnvironment(
+                                            macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
+                                        )
+                                    }
+                                }
                         }
-                        Spacer()
-                        Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Sticky Notifications")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Clear all macOS notifications when Agent Session Manager is focused. For banners to stay on screen until dismissed, set the notification style to \"Alerts\" in System Settings → Notifications."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                Button("Open Notification Settings") {
+                                    let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!
+                                    NSWorkspace.shared.open(url)
+                                }
+                                .font(.caption)
+                                .buttonStyle(.link)
+                            }
+                            Spacer()
+                            Toggle("Sticky Notifications", isOn: $appSettings.isStickyNotificationsEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-sticky-notifications-toggle")
+                                .onChange(of: appSettings.isStickyNotificationsEnabled) {
+                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                                }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Claude Code")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Notification hook for attention")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Merge Claude’s Notification hook into each pane’s --settings so permission prompts and other notifies can trigger the same in‑app alerts as a terminal bell, even when no BEL or OSC 777 is sent."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle(
+                                "Notification hook for attention",
+                                isOn: $appSettings.isClaudeNotificationHookAttentionEnabled
+                            )
                             .toggleStyle(.checkbox)
                             .labelsHidden()
-                            .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
-                            .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
+                            .accessibilityIdentifier("settings-claude-notification-hook-toggle")
+                            .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
                                 SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                if appSettings.debugLoggingEnabled {
-                                    DebugLogger.shared.logNotificationEnvironment(
-                                        macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
-                                    )
+                                NotificationCenter.default.post(
+                                    name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Cursor")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Stop hook for attention")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Install a Cursor stop hook so the app is notified when the agent finishes a turn (plan ready, task complete, etc.)."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle(
+                                "Stop hook for attention",
+                                isOn: $appSettings.isCursorNotificationHookAttentionEnabled
+                            )
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .accessibilityIdentifier("settings-cursor-notification-hook-toggle")
+                            .onChange(of: appSettings.isCursorNotificationHookAttentionEnabled) {
+                                SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Sidebar")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Sidebar Position")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("Which side the notification sidebar appears on.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Picker("Sidebar Position", selection: $appSettings.notificationSidebarSide) {
+                                ForEach(SidebarSide.allCases, id: \.self) { side in
+                                    Text(side.displayName).tag(side)
                                 }
                             }
-                    }
-                    .padding(.vertical, 8)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Sticky Notifications").font(.system(.body, design: .default)).fontWeight(.medium)
-                            Text(
-                                "Clear all macOS notifications when Agent Session Manager is focused. For banners to stay on screen until dismissed, set the notification style to \"Alerts\" in System Settings → Notifications."
-                            ).font(.caption).foregroundStyle(.secondary)
-                            Button("Open Notification Settings") {
-                                let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!
-                                NSWorkspace.shared.open(url)
-                            }.font(.caption).buttonStyle(.link)
-                        }
-                        Spacer()
-                        Toggle("Sticky Notifications", isOn: $appSettings.isStickyNotificationsEnabled)
-                            .toggleStyle(.checkbox).labelsHidden()
-                            .accessibilityIdentifier("settings-sticky-notifications-toggle")
-                            .onChange(of: appSettings.isStickyNotificationsEnabled) {
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 120)
+                            .accessibilityIdentifier("settings-sidebar-side")
+                            .onChange(of: appSettings.notificationSidebarSide) {
                                 SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
                             }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Always Show Notifications Bar")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("Keep the notifications sidebar visible even when there are no notifications.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Always Show Notifications Bar", isOn: $appSettings.alwaysShowNotificationsSidebar)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-always-show-notifications-bar-toggle")
+                                .onChange(of: appSettings.alwaysShowNotificationsSidebar) {
+                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                                }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                Section("Claude Code") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Notification hook for attention")
-                                .font(.system(.body, design: .default))
-                                .fontWeight(.medium)
-                            Text(
-                                "Merge Claude’s Notification hook into each pane’s --settings so permission prompts and other notifies can trigger the same in‑app alerts as a terminal bell, even when no BEL or OSC 777 is sent."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle(
-                            "Notification hook for attention",
-                            isOn: $appSettings.isClaudeNotificationHookAttentionEnabled
-                        )
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-claude-notification-hook-toggle")
-                        .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
-                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                            NotificationCenter.default.post(
-                                name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-                Section("Cursor") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Stop hook for attention")
-                                .font(.system(.body, design: .default))
-                                .fontWeight(.medium)
-                            Text(
-                                "Install a Cursor stop hook so the app is notified when the agent finishes a turn (plan ready, task complete, etc.)."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle(
-                            "Stop hook for attention",
-                            isOn: $appSettings.isCursorNotificationHookAttentionEnabled
-                        )
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-cursor-notification-hook-toggle")
-                        .onChange(of: appSettings.isCursorNotificationHookAttentionEnabled) {
-                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-                Section("Sidebar") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Sidebar Position")
-                                .font(.system(.body, design: .default))
-                                .fontWeight(.medium)
-                            Text("Which side the notification sidebar appears on.")
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Priority")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Priority Notifications")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Allow panes to be marked as priority. Priority notifications appear at the top of the sidebar."
+                                )
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Picker("Sidebar Position", selection: $appSettings.notificationSidebarSide) {
-                            ForEach(SidebarSide.allCases, id: \.self) { side in
-                                Text(side.displayName).tag(side)
                             }
+                            Spacer()
+                            Toggle("Priority Notifications", isOn: $appSettings.isPriorityNotificationsEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-priority-notifications-toggle")
+                                .onChange(of: appSettings.isPriorityNotificationsEnabled) {
+                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                                }
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(width: 120)
-                        .accessibilityIdentifier("settings-sidebar-side")
-                        .onChange(of: appSettings.notificationSidebarSide) {
-                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Always Show Notifications Bar")
-                                .font(.system(.body, design: .default))
-                                .fontWeight(.medium)
-                            Text("Keep the notifications sidebar visible even when there are no notifications.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Always Show Notifications Bar", isOn: $appSettings.alwaysShowNotificationsSidebar)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-always-show-notifications-bar-toggle")
-                            .onChange(of: appSettings.alwaysShowNotificationsSidebar) {
-                                SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                            }
-                    }
-                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                Section("Priority") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Priority Notifications")
-                                .font(.system(.body, design: .default))
-                                .fontWeight(.medium)
-                            Text(
-                                "Allow panes to be marked as priority. Priority notifications appear at the top of the sidebar."
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Priority Notifications", isOn: $appSettings.isPriorityNotificationsEnabled)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-priority-notifications-toggle")
-                            .onChange(of: appSettings.isPriorityNotificationsEnabled) {
-                                SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("GitHub PR")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(.leading, 4)
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("PR Merged Notifications")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("Show a sidebar notification and macOS banner when a tracked PR is merged.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                    }
-                    .padding(.vertical, 8)
-                }
-                Section("GitHub PR") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("PR Merged Notifications")
-                                .font(.system(.body, design: .default))
-                                .fontWeight(.medium)
-                            Text("Show a sidebar notification and macOS banner when a tracked PR is merged.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Toggle("PR Merged Notifications", isOn: $appSettings.isPRMergedNotificationsEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-pr-merged-notifications-toggle")
+                                .onChange(of: appSettings.isPRMergedNotificationsEnabled) {
+                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                                }
                         }
-                        Spacer()
-                        Toggle("PR Merged Notifications", isOn: $appSettings.isPRMergedNotificationsEnabled)
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-pr-merged-notifications-toggle")
-                            .onChange(of: appSettings.isPRMergedNotificationsEnabled) {
-                                SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                            }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
+            .padding(20)
         }
-        .background(Color(NSColor.windowBackgroundColor))
     }
 }
