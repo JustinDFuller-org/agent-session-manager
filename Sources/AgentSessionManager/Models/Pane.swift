@@ -47,6 +47,7 @@ final class Pane: Identifiable {
     var isMerged: Bool = false
     var restartToken: UUID = UUID()
     var profileID: UUID?
+    var extraArgs: [String] = []
 
     init(
         id: UUID = UUID(),

@@ -500,6 +500,7 @@ final class Tab: Identifiable {
             worktreeIsManaged: worktreeIsManaged,
             profileID: profileID
         )
+        pane.extraArgs = extraArgs
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
