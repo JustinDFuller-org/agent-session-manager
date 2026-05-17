@@ -456,12 +456,16 @@ struct SettingsPersistence {
     private struct PRPollingSettings: Codable {
         var intervalSeconds: Int = 30
         var timeoutSeconds: Int = 15
+        var backgroundRefreshEnabled: Bool = true
+        var backgroundIntervalSeconds: Int = 60
     }
 
     static func savePRPollingSettings(appSettings: AppSettings) {
         let payload = PRPollingSettings(
             intervalSeconds: appSettings.prPollingIntervalSeconds,
-            timeoutSeconds: appSettings.prRequestTimeoutSeconds
+            timeoutSeconds: appSettings.prRequestTimeoutSeconds,
+            backgroundRefreshEnabled: appSettings.prBackgroundRefreshEnabled,
+            backgroundIntervalSeconds: appSettings.prBackgroundPollingIntervalSeconds
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: prPollingSettingsURL)
@@ -474,14 +478,22 @@ struct SettingsPersistence {
         else { return }
         appSettings.prPollingIntervalSeconds = max(15, settings.intervalSeconds)
         appSettings.prRequestTimeoutSeconds = max(5, settings.timeoutSeconds)
+        appSettings.prBackgroundRefreshEnabled = settings.backgroundRefreshEnabled
+        appSettings.prBackgroundPollingIntervalSeconds = max(15, settings.backgroundIntervalSeconds)
     }
 
-    static func prPollingSettings() -> (intervalSeconds: Int, timeoutSeconds: Int) {
+    static func prPollingSettings() -> (
+        intervalSeconds: Int, timeoutSeconds: Int, backgroundRefreshEnabled: Bool,
+        backgroundIntervalSeconds: Int
+    ) {
         guard
             let data = try? Data(contentsOf: prPollingSettingsURL),
             let settings = try? JSONDecoder().decode(PRPollingSettings.self, from: data)
-        else { return (30, 15) }
-        return (max(15, settings.intervalSeconds), max(5, settings.timeoutSeconds))
+        else { return (30, 15, true, 60) }
+        return (
+            max(15, settings.intervalSeconds), max(5, settings.timeoutSeconds),
+            settings.backgroundRefreshEnabled, max(15, settings.backgroundIntervalSeconds)
+        )
     }
 
     static func saveEnvVarOptions(appSettings: AppSettings) {

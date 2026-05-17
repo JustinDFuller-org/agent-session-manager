@@ -242,15 +242,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
 
     // MARK: - pause / resume
 
-    func testPauseStopsTimer() {
-        let coordinator = PRTrackingCoordinator()
-        let paneID = UUID()
-        coordinator.subscribers[paneID] = makeRecord(owner: "o", repo: "r", branch: "main")
-        coordinator.pause()
-        XCTAssertTrue(coordinator.isPaused)
-        XCTAssertNil(coordinator.cycleTimer)
-    }
-
     func testPausePreservesSubscribers() {
         let coordinator = PRTrackingCoordinator()
         let paneID = UUID()
@@ -259,20 +250,73 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertNotNil(coordinator.subscribers[paneID])
     }
 
-    func testResumeWhileNotPausedIsNoop() {
+    func testResumeWhileNotPausedReschedulesTimer() {
         let coordinator = PRTrackingCoordinator()
         XCTAssertFalse(coordinator.isPaused)
         coordinator.resume()
         XCTAssertFalse(coordinator.isPaused)
     }
 
-    func testResumeWithNoSubscribersLeavesTimerNil() {
+    func testPauseWithBackgroundRefreshEnabledKeepsTimerRunning() {
+        let tmpDir = makeTempSettingsDir(backgroundRefreshEnabled: true, backgroundIntervalSeconds: 60)
+        defer { cleanupTempSettingsDir(tmpDir) }
+
+        let coordinator = PRTrackingCoordinator()
+        let paneID = UUID()
+        coordinator.subscribers[paneID] = makeRecord(owner: "o", repo: "r", branch: "main")
+        coordinator.pause()
+        XCTAssertFalse(coordinator.isPaused)
+        XCTAssertNotNil(coordinator.cycleTimer)
+    }
+
+    func testPauseWithBackgroundRefreshDisabledStopsTimer() {
+        let tmpDir = makeTempSettingsDir(backgroundRefreshEnabled: false, backgroundIntervalSeconds: 60)
+        defer { cleanupTempSettingsDir(tmpDir) }
+
+        let coordinator = PRTrackingCoordinator()
+        let paneID = UUID()
+        coordinator.subscribers[paneID] = makeRecord(owner: "o", repo: "r", branch: "main")
+        coordinator.pause()
+        XCTAssertTrue(coordinator.isPaused)
+        XCTAssertNil(coordinator.cycleTimer)
+    }
+
+    func testResumeFromBackgroundRefreshDisabledWithNoSubscribersLeavesTimerNil() {
+        let tmpDir = makeTempSettingsDir(backgroundRefreshEnabled: false, backgroundIntervalSeconds: 60)
+        defer { cleanupTempSettingsDir(tmpDir) }
+
         let coordinator = PRTrackingCoordinator()
         coordinator.pause()
         XCTAssertTrue(coordinator.isPaused)
         coordinator.resume()
         XCTAssertFalse(coordinator.isPaused)
         XCTAssertNil(coordinator.cycleTimer)
+    }
+
+    func testBackgroundedFlagSetOnPause() {
+        let coordinator = PRTrackingCoordinator()
+        XCTAssertFalse(coordinator.isBackgrounded)
+        coordinator.pause()
+        XCTAssertTrue(coordinator.isBackgrounded)
+    }
+
+    func testBackgroundedFlagClearedOnResume() {
+        let coordinator = PRTrackingCoordinator()
+        coordinator.pause()
+        XCTAssertTrue(coordinator.isBackgrounded)
+        coordinator.resume()
+        XCTAssertFalse(coordinator.isBackgrounded)
+    }
+
+    func testResumeFromBackgroundRefreshRestoresForegroundInterval() {
+        let tmpDir = makeTempSettingsDir(backgroundRefreshEnabled: true, backgroundIntervalSeconds: 90)
+        defer { cleanupTempSettingsDir(tmpDir) }
+
+        let coordinator = PRTrackingCoordinator()
+        coordinator.pause()
+        XCTAssertTrue(coordinator.isBackgrounded)
+        coordinator.resume()
+        XCTAssertFalse(coordinator.isBackgrounded)
     }
 
     // MARK: - Helpers
@@ -287,5 +331,38 @@ final class PRTrackingCoordinatorTests: XCTestCase {
             callback: { _ in },
             isActive: true
         )
+    }
+
+    /// Writes a temp pr-polling-settings.json inside ~/Library/Application Support/<subdirName>
+    /// and redirects SettingsPersistence to read from that subdirectory.
+    /// Returns the subdirectory name to pass to cleanupTempSettingsDir.
+    @discardableResult
+    private func makeTempSettingsDir(
+        backgroundRefreshEnabled: Bool,
+        backgroundIntervalSeconds: Int
+    ) -> String {
+        let subdirName = "pr-tests-\(UUID().uuidString)"
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = appSupport.appending(path: subdirName)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let payload: [String: Any] = [
+            "intervalSeconds": 30,
+            "timeoutSeconds": 15,
+            "backgroundRefreshEnabled": backgroundRefreshEnabled,
+            "backgroundIntervalSeconds": backgroundIntervalSeconds,
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            try? data.write(to: dir.appending(path: "pr-polling-settings.json"))
+        }
+        PersistenceHelpers.overrideAppSupportSubdirectory = subdirName
+        return subdirName
+    }
+
+    private func cleanupTempSettingsDir(_ subdirName: String) {
+        PersistenceHelpers.overrideAppSupportSubdirectory = nil
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(at: appSupport.appending(path: subdirName))
     }
 }
