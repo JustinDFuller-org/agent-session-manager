@@ -1953,6 +1953,69 @@ private struct StatusLineContent: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Background Refresh")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "Keep checking for PR updates while the app is in the background at a reduced rate. Disable to pause all polling when the app is not focused."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("Background Refresh", isOn: $appSettings.prBackgroundRefreshEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .onChange(of: appSettings.prBackgroundRefreshEnabled) {
+                                    SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                }
+                                .accessibilityIdentifier("settings-pr-background-refresh-toggle")
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        Divider().padding(.leading, 16)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Background Polling Interval")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(
+                                    "How often to check for PR updates while the app is in the background (min 15s)."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                DefaultValueLabel(value: "60 seconds")
+                            }
+                            Spacer()
+                            HStack(spacing: 4) {
+                                TextField(
+                                    "",
+                                    text: Binding(
+                                        get: { String(appSettings.prBackgroundPollingIntervalSeconds) },
+                                        set: { newValue in
+                                            if let parsed = Int(newValue) {
+                                                appSettings.prBackgroundPollingIntervalSeconds = max(15, parsed)
+                                                SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                            }
+                                        }
+                                    )
+                                )
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                                .frame(width: 72)
+                                .accessibilityIdentifier("settings-pr-background-interval-field")
+                                Text("seconds")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .opacity(appSettings.prBackgroundRefreshEnabled ? 1 : 0.4)
+                        .disabled(!appSettings.prBackgroundRefreshEnabled)
                     }
                     .background(Color(NSColor.controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 8))

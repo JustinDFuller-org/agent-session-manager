@@ -121,6 +121,8 @@ final class AppSettings {
     var isPRMergedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30
     var prRequestTimeoutSeconds: Int = 15
+    var prBackgroundRefreshEnabled: Bool = true
+    var prBackgroundPollingIntervalSeconds: Int = 60
     var isStickyNotificationsEnabled: Bool = false
     var scrollbackLines: Int = 500
     var exitBehavior: ExitBehavior = .prompt

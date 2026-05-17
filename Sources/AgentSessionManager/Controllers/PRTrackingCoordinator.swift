@@ -27,6 +27,7 @@ final class PRTrackingCoordinator {
     /// Incremented each time a new cycle starts; guards against stale async Tasks delivering results.
     private var cycleToken: UInt64 = 0
     private(set) var isPaused = false
+    private(set) var isBackgrounded = false
     @ObservationIgnored nonisolated(unsafe) private var appStateObservers: [Any] = []
 
     init() {
@@ -93,29 +94,45 @@ final class PRTrackingCoordinator {
     }
 
     func pause() {
-        isPaused = true
-        cycleTimer?.invalidate()
-        cycleTimer = nil
-        timeoutWorkItem?.cancel()
-        timeoutWorkItem = nil
-        activeBatchProcess?.terminate()
-        activeBatchProcess = nil
-        DebugLogger.shared.log("[pr] coordinator paused (app backgrounded)")
+        isBackgrounded = true
+        let settings = SettingsPersistence.prPollingSettings()
+        if !settings.backgroundRefreshEnabled {
+            isPaused = true
+            cycleTimer?.invalidate()
+            cycleTimer = nil
+            timeoutWorkItem?.cancel()
+            timeoutWorkItem = nil
+            activeBatchProcess?.terminate()
+            activeBatchProcess = nil
+            DebugLogger.shared.log("[pr] coordinator paused (background refresh disabled)")
+        } else {
+            scheduleCycleTimer()
+            DebugLogger.shared.log("[pr] coordinator switched to background interval (\(effectiveInterval)s)")
+        }
     }
 
     func resume() {
-        guard isPaused else { return }
-        isPaused = false
-        guard !subscribers.isEmpty else { return }
-        DebugLogger.shared.log("[pr] coordinator resumed (app foregrounded)")
-        runCycle()
-        scheduleCycleTimer()
+        isBackgrounded = false
+        if isPaused {
+            isPaused = false
+            guard !subscribers.isEmpty else { return }
+            DebugLogger.shared.log("[pr] coordinator resumed (app foregrounded)")
+            runCycle()
+            scheduleCycleTimer()
+        } else {
+            scheduleCycleTimer()
+            DebugLogger.shared.log("[pr] coordinator restored foreground interval (\(effectiveInterval)s)")
+        }
     }
 
     private func scheduleCycleTimer() {
         cycleTimer?.invalidate()
         let settings = SettingsPersistence.prPollingSettings()
-        effectiveInterval = max(15, TimeInterval(settings.intervalSeconds))
+        if isBackgrounded {
+            effectiveInterval = max(15, TimeInterval(settings.backgroundIntervalSeconds))
+        } else {
+            effectiveInterval = max(15, TimeInterval(settings.intervalSeconds))
+        }
         cycleTimer = Timer.scheduledTimer(withTimeInterval: effectiveInterval, repeats: false) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, !self.subscribers.isEmpty else { return }
