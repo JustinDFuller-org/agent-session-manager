@@ -146,3 +146,16 @@ vite.config.ts.timestamp-*
 .build/
 AgentSessionManager.app/
 AgentSessionManager.xcodeproj/
+
+# macOS
+.DS_Store
+
+# Agent Session Manager runtime directories
+.agent-session-manager/
+.claude/worktrees/
+
+# Swift package manager
+.swiftpm/
+
+# Legacy worktree directory
+.tree/
