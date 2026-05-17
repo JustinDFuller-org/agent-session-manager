@@ -38,6 +38,7 @@ targets:
         Dev:
           PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.dev
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEV_BUILD
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon-Dev
     dependencies:
       - package: SwiftTerm
         product: SwiftTerm
