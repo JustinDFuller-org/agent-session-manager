@@ -119,16 +119,19 @@ struct PersistedPane: Codable {
     var worktreeDirectory: String?
     var worktreeIsManaged: Bool
     var profileID: UUID?
+    var extraArgs: [String]
 
     enum CodingKeys: String, CodingKey {
         case id, name, cliType, isPriority, isMerged, worktreeDirectory, worktreeIsManaged
         case claudeProcessDirectory
         case profileID
+        case extraArgs
     }
 
     init(
         id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, isMerged: Bool = false,
-        worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil
+        worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil,
+        extraArgs: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -138,6 +141,7 @@ struct PersistedPane: Codable {
         self.worktreeDirectory = worktreeDirectory
         self.worktreeIsManaged = worktreeIsManaged
         self.profileID = profileID
+        self.extraArgs = extraArgs
     }
 
     init(from decoder: Decoder) throws {
@@ -152,6 +156,7 @@ struct PersistedPane: Codable {
             ?? container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
         worktreeIsManaged = (try? container.decodeIfPresent(Bool.self, forKey: .worktreeIsManaged)) ?? false
         profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
+        extraArgs = (try? container.decodeIfPresent([String].self, forKey: .extraArgs)) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -164,6 +169,7 @@ struct PersistedPane: Codable {
         try container.encode(worktreeDirectory, forKey: .worktreeDirectory)
         try container.encode(worktreeIsManaged, forKey: .worktreeIsManaged)
         try container.encodeIfPresent(profileID, forKey: .profileID)
+        try container.encode(extraArgs, forKey: .extraArgs)
     }
 }
 
@@ -192,7 +198,8 @@ struct SessionPersistence {
                         isMerged: pane.isMerged,
                         worktreeDirectory: pane.worktreeDirectory?.path,
                         worktreeIsManaged: pane.worktreeIsManaged,
-                        profileID: pane.profileID
+                        profileID: pane.profileID,
+                        extraArgs: pane.extraArgs
                     )
                 }
             )
@@ -258,7 +265,12 @@ struct SessionPersistence {
                 } else {
                     continue
                 }
-                let extraArgs = persistedPane.cliType == .claude && appSettings.continueOnRestart ? ["--continue"] : []
+                var extraArgs = persistedPane.extraArgs
+                if persistedPane.cliType == .claude && appSettings.continueOnRestart
+                    && !extraArgs.contains("--continue")
+                {
+                    extraArgs.append("--continue")
+                }
                 let pane = tab.addPane(
                     name: persistedPane.name,
                     extraArgs: extraArgs,
