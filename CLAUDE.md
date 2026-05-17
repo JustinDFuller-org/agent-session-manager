@@ -138,6 +138,10 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 - Tasks and bugs are tracked as GitHub Issues: https://github.com/JustinDFuller/agent-session-manager/issues
 - Reference the relevant issue number in commit messages and PR descriptions.
 
+## Skills
+
+- `/swiftui-macos-form-alignment` — SwiftUI macOS Form alignment quirks, background control, and VStack-based alternative
+
 ## Documentation
 
 - **Feature guides** — `documentation/features/` (e.g. `worktree-creation.md` for git worktree paths and New Pane modes).
