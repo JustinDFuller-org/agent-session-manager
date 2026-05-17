@@ -1,6 +1,7 @@
 APP_NAME = AgentSessionManager
 APP_NAME_DEV = AgentSessionManagerDev
 BUILD_DIR = .build/release
+BUILD_DIR_DEV = .build/debug
 APP_BUNDLE = $(APP_NAME).app
 APP_BUNDLE_DEV = $(APP_NAME_DEV).app
 SCHEME = AgentSessionManager
@@ -63,16 +64,20 @@ watch-prd:
 # --- Dev targets ---
 
 build-dev:
-	swift build -c release -Xswiftc -D -Xswiftc DEV_BUILD
+	swift build -Xswiftc -D -Xswiftc DEV_BUILD
 
 app-dev: build-dev
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/MacOS
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/Resources
-	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
+	cp $(BUILD_DIR_DEV)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
 	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
-	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE_DEV)/Contents/Resources \
-		--app-icon AppIcon --output-partial-info-plist /dev/null \
-		--platform macosx --minimum-deployment-target 14.0
+	@if [ ! -f .build/dev-assets-compiled ] || \
+	    [ AppIcons/Assets.xcassets -nt .build/dev-assets-compiled ]; then \
+		xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE_DEV)/Contents/Resources \
+			--app-icon AppIcon --output-partial-info-plist /dev/null \
+			--platform macosx --minimum-deployment-target 14.0; \
+		touch .build/dev-assets-compiled; \
+	fi
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
