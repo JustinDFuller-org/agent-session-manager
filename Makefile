@@ -77,6 +77,8 @@ app-dev: build-dev
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" $(APP_BUNDLE_DEV)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon-Dev" $(APP_BUNDLE_DEV)/Contents/Info.plist 2>/dev/null || \
+		/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon-Dev" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	codesign --force --deep --sign - $(APP_BUNDLE_DEV)
 	touch $(APP_BUNDLE_DEV)
 	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f $(APP_BUNDLE_DEV)
