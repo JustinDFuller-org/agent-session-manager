@@ -28,6 +28,9 @@ struct SettingsView: View {
             NotificationsContent()
                 .environment(appSettings)
                 .tabItem { Label("Notifications", systemImage: "bell") }
+            TracingView()
+                .environment(appSettings)
+                .tabItem { Label("Tracing", systemImage: "waveform") }
         }
         .frame(width: 740, height: 580)
     }
@@ -235,124 +238,6 @@ private struct GeneralContent: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Debug")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Debug Logging")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Append diagnostics to a trace file (see path below) instead of keeping them in memory."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Debug Logging", isOn: $appSettings.debugLoggingEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-debug-logging-toggle")
-                                .onChange(of: appSettings.debugLoggingEnabled) {
-                                    DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
-                                    DebugLogger.shared.syncFromAppSettings(appSettings)
-                                    if !appSettings.debugLoggingEnabled {
-                                        DebugLogger.shared.removeAllTracedPanes()
-                                    }
-                                    SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                                    if appSettings.debugLoggingEnabled {
-                                        DebugLogger.shared.logSystemInfo()
-                                        DebugLogger.shared.logNotificationEnvironment(
-                                            macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
-                                        )
-                                    }
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Trace file path")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Leave empty for the default file under Application Support. ~ is expanded.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "~/Library/Application Support/…")
-                            }
-                            Spacer()
-                            TextField("", text: $appSettings.debugLogFilePath)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                                .frame(minWidth: 220)
-                                .accessibilityIdentifier("settings-debug-log-file-path")
-                                .onChange(of: appSettings.debugLogFilePath) {
-                                    DebugLogger.shared.syncFromAppSettings(appSettings)
-                                    SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Max trace file size")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("When exceeded, older bytes are removed from the start of the file.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "15 MB")
-                            }
-                            Spacer()
-                            Stepper(value: $appSettings.debugLogMaxSizeMegabytes, in: 1...512) {
-                                Text("\(appSettings.debugLogMaxSizeMegabytes) MB")
-                                    .font(.system(.body, design: .monospaced))
-                                    .frame(minWidth: 72, alignment: .trailing)
-                            }
-                            .accessibilityIdentifier("settings-debug-log-max-mb-stepper")
-                            .onChange(of: appSettings.debugLogMaxSizeMegabytes) {
-                                DebugLogger.shared.syncFromAppSettings(appSettings)
-                                SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Include terminal snapshots")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "When debug logging is on, allow capturing all panes’ terminal text into the trace file from the debug sheet. You can also enable capture per pane from its context menu without this."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Include terminal snapshots", isOn: $appSettings.debugLogIncludeTerminalContents)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-debug-include-terminal-toggle")
-                                .disabled(!appSettings.debugLoggingEnabled)
-                                .onChange(of: appSettings.debugLogIncludeTerminalContents) {
-                                    DebugLogger.shared.syncFromAppSettings(appSettings)
-                                    SettingsPersistence.saveDebugSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
             }
             .padding(20)
         }
@@ -2297,11 +2182,6 @@ private struct NotificationsContent: View {
                                 .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
                                 .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
                                     SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                    if appSettings.debugLoggingEnabled {
-                                        DebugLogger.shared.logNotificationEnvironment(
-                                            macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
-                                        )
-                                    }
                                 }
                         }
                         .padding(.horizontal, 16)
@@ -2318,7 +2198,11 @@ private struct NotificationsContent: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 Button("Open Notification Settings") {
-                                    let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!
+                                    // swiftlint:disable:next force_unwrapping
+                                    let url = URL(
+                                        string:
+                                            "x-apple.systempreferences:com.apple.preference.notifications"
+                                    )!
                                     NSWorkspace.shared.open(url)
                                 }
                                 .font(.caption)

@@ -235,14 +235,6 @@ struct SessionPersistence {
             let session = try? JSONDecoder().decode(PersistedSession.self, from: data)
         else { return }
 
-        var lines: [String] = []
-        lines.append("Restoring \(session.tabs.count) tab(s) from \(sessionURL.path)")
-        for persistedTab in session.tabs {
-            lines.append(
-                "  tab: \(persistedTab.name), directory: \(persistedTab.directory), panes: \(persistedTab.panes.count)")
-        }
-        DebugLogger.shared.logSessionRestore(summary: lines.joined(separator: "\n"))
-
         for persistedTab in session.tabs {
             guard let dir = URL(string: "file://\(persistedTab.directory)") else { continue }
             let tab = Tab(id: persistedTab.id, name: persistedTab.name, directory: dir)
@@ -344,9 +336,6 @@ struct SessionPersistence {
         }
         guard !candidates.isEmpty else { return }
 
-        DebugLogger.shared.log(
-            "[pr] startup check: \(candidates.count) candidate pane(s) to check for merged PRs")
-
         var branchInfos: [PRTrackingCoordinator.BranchInfo] = []
         await withTaskGroup(of: PRTrackingCoordinator.BranchInfo?.self) { group in
             for (pane, _) in candidates {
@@ -367,13 +356,7 @@ struct SessionPersistence {
             }
         }
 
-        guard !branchInfos.isEmpty else {
-            DebugLogger.shared.log("[pr] startup check: no panes with resolvable branches")
-            return
-        }
-
-        DebugLogger.shared.log(
-            "[pr] startup check: querying GitHub for \(branchInfos.count) branch(es)")
+        guard !branchInfos.isEmpty else { return }
 
         let results = await PRTrackingCoordinator.checkBranchesForMergedPRs(branches: branchInfos)
         var mergedCount = 0
@@ -390,7 +373,11 @@ struct SessionPersistence {
             mergedCount += 1
         }
 
-        DebugLogger.shared.log(
-            "[pr] startup check complete: \(mergedCount) merged PR(s) detected")
+        TracingService.shared.record(
+            "session.pr_check",
+            attributes: [
+                "panes_checked": String(candidates.count),
+                "merged_count": String(mergedCount),
+            ])
     }
 }

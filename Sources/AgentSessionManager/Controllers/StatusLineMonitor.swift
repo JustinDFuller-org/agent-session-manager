@@ -83,6 +83,9 @@ final class StatusLineMonitor {
     func start() {
         if isClaude {
             writeSettingsFile()
+            TracingService.shared.record(
+                "statusline.monitor.started",
+                attributes: ["pane.name": String(paneID.uuidString.prefix(8))])
             FileManager.default.createFile(atPath: filePath, contents: nil)
 
             let fd = open(filePath, O_EVTONLY)
@@ -148,6 +151,9 @@ final class StatusLineMonitor {
     func stop() {
         source?.cancel()
         source = nil
+        TracingService.shared.record(
+            "statusline.monitor.stopped",
+            attributes: ["pane.name": String(paneID.uuidString.prefix(8))])
         stopAttentionWatcher()
         agnosticProvider?.stop()
         agnosticProvider = nil
@@ -190,6 +196,12 @@ final class StatusLineMonitor {
         }
         guard let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) else { return }
         try? data.write(to: URL(filePath: settingsFilePath))
+        TracingService.shared.record(
+            "statusline.settings_file.written",
+            attributes: [
+                "path": settingsFilePath,
+                "bytes": String(data.count),
+            ])
     }
 
     private func restartAttentionWatcherIfEligible() {
@@ -235,14 +247,9 @@ final class StatusLineMonitor {
             Task { @MainActor in
                 guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
                 self.lastAttentionPayloadFingerprint = fingerprint
-                if DebugLogger.shared.acceptsPaneDiagnostics(paneID: self.paneID) || DebugLogger.shared.isEnabled {
-                    DebugLogger.shared.log(
-                        "[notify] Claude Notification hook stdin written to attention file (\(data.count) bytes)",
-                        paneID: self.paneID,
-                        tabName: "",
-                        paneName: ""
-                    )
-                }
+                TracingService.shared.record(
+                    "statusline.attention.received",
+                    attributes: ["pane.name": String(self.paneID.uuidString.prefix(8))])
                 self.onClaudeHookAttention?()
             }
         }
@@ -253,18 +260,8 @@ final class StatusLineMonitor {
 
     @MainActor
     private func applyPROutputIfValid(_ outData: Data) {
-        guard !outData.isEmpty else {
-            DebugLogger.shared.log("[pr] applyPROutput skipped: empty data", paneID: paneID)
-            return
-        }
-        guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else {
-            DebugLogger.shared.log("[pr] applyPROutput decode failed", paneID: paneID)
-            return
-        }
-        DebugLogger.shared.log(
-            "[pr] applyPROutput decoded pr=#\(pr.number) state=\(pr.state) isDraft=\(pr.isDraft ?? false)",
-            paneID: paneID
-        )
+        guard !outData.isEmpty else { return }
+        guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else { return }
         if currentData == nil {
             currentData = StatusLineData(
                 model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
@@ -284,10 +281,15 @@ final class StatusLineMonitor {
     private func checkForMergedTransition(_ pr: PullRequest?) {
         guard let pr else { return }
         let newState = pr.state.lowercased()
-        DebugLogger.shared.log(
-            "[pr] checkMergedTransition state=\(newState) lastKnown=\(lastKnownPRState ?? "nil") hasFired=\(hasFiredMergedNotification)",
-            paneID: paneID
-        )
+        if newState == "merged", lastKnownPRState != nil, lastKnownPRState != "merged" {
+            TracingService.shared.record(
+                "statusline.pr_transition",
+                attributes: [
+                    "pane.name": String(paneID.uuidString.prefix(8)),
+                    "old_state": lastKnownPRState ?? "nil",
+                    "new_state": newState,
+                ])
+        }
         defer { lastKnownPRState = newState }
         guard !hasFiredMergedNotification else { return }
         guard newState == "merged" else { return }

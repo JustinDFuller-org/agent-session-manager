@@ -27,7 +27,6 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
                         SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
                         SettingsPersistence.restoreWorktreeBaseRef(into: appSettings)
-                        SettingsPersistence.restoreDebugSettings(into: appSettings)
                         SettingsPersistence.restorePRTracking(into: appSettings)
                         SettingsPersistence.restorePRPollingSettings(into: appSettings)
                         SettingsPersistence.restoreTerminalSettings(into: appSettings)
@@ -35,17 +34,8 @@ struct AgentSessionManagerApp: App {
                         SettingsPersistence.restoreEnvVarOptions(into: appSettings)
                         SettingsPersistence.restoreProfiles(into: appSettings)
                         SettingsPersistence.restoreSessionNameSettings(into: appSettings)
-                        DebugLogger.shared.syncFromAppSettings(appSettings)
-                        DebugLogger.shared.isEnabled = appSettings.debugLoggingEnabled
-                        if !appSettings.debugLoggingEnabled {
-                            DebugLogger.shared.removeAllTracedPanes()
-                        }
-                        if appSettings.debugLoggingEnabled {
-                            DebugLogger.shared.logSystemInfo()
-                            DebugLogger.shared.logNotificationEnvironment(
-                                macOSBannerNotificationsEnabled: appSettings.isMacOSBannerNotificationsEnabled
-                            )
-                        }
+                        SettingsPersistence.restoreTracingSettings(into: appSettings)
+                        TracingService.shared.configure(from: appSettings)
                         SessionPersistence.restore(into: appState, appSettings: appSettings)
                         await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
                     }
@@ -105,6 +95,10 @@ extension Notification.Name {
     static let closeTab = Notification.Name("closeTab")
     static let prMergedActionRequested = Notification.Name("prMergedActionRequested")
     static let openShellHere = Notification.Name("openShellHere")
+    static let agentSessionManagerClaudeHookAttentionSettingChanged = Notification.Name(
+        "agentSessionManagerClaudeHookAttentionSettingChanged")
+    static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
+        "agentSessionManagerPRTrackingSettingChanged")
 }
 
 extension AgentSessionManagerApp {

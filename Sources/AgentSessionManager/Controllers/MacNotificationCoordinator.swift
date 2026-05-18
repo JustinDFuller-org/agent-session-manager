@@ -21,9 +21,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     private weak var appState: AppState?
     private weak var appSettings: AppSettings?
 
-    /// Logged once per process when banners are on but UN authorization is denied.
-    private static var hasLoggedDeniedBannerHint = false
-
     /// Maps `NSError` from UserNotifications APIs for debug logs and unit tests.
     nonisolated static func describeUserNotificationsNSError(_ error: Error) -> String {
         let ns = error as NSError
@@ -83,63 +80,21 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     }
 
     func requestAuthorizationIfNeeded() async {
-        guard !AgentSessionManagerApp.isUITesting else {
-            await MainActor.run {
-                if DebugLogger.shared.isEnabled {
-                    DebugLogger.shared.log("[banner] requestAuthorization skipped (UI testing)")
-                }
-            }
-            return
-        }
-        guard let appSettings = self.appSettings else {
-            await MainActor.run {
-                if DebugLogger.shared.isEnabled {
-                    DebugLogger.shared.log(
-                        "[banner] requestAuthorization skipped (coordinator not bound yet; banner flow requires bind before ContentView loads)"
-                    )
-                }
-            }
-            return
-        }
-        guard appSettings.isMacOSBannerNotificationsEnabled else {
-            await MainActor.run {
-                if DebugLogger.shared.isEnabled {
-                    DebugLogger.shared.log(
-                        "[banner] requestAuthorization skipped (macOS banner notifications off in settings)")
-                }
-            }
-            return
-        }
+        guard !AgentSessionManagerApp.isUITesting else { return }
+        guard let appSettings = self.appSettings else { return }
+        guard appSettings.isMacOSBannerNotificationsEnabled else { return }
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
-        await MainActor.run {
-            DebugLogger.shared.log(
-                "[banner] notification settings snapshot authorization=\(String(describing: settings.authorizationStatus)) macOSBannersEnabled=\(appSettings.isMacOSBannerNotificationsEnabled) willRequest=\(settings.authorizationStatus == .notDetermined)"
-            )
-            if settings.authorizationStatus == .denied, DebugLogger.shared.isEnabled,
-                !Self.hasLoggedDeniedBannerHint
-            {
-                Self.hasLoggedDeniedBannerHint = true
-                DebugLogger.shared.log(
-                    "[banner] authorization denied for banners — enable Agent Session Manager in System Settings → Notifications (in-app sidebar still works without this)"
-                )
-            }
-        }
         guard settings.authorizationStatus == .notDetermined else { return }
         let granted: Bool
         do {
             granted = try await center.requestAuthorization(options: [.alert, .sound])
         } catch {
-            await MainActor.run {
-                DebugLogger.shared.log(
-                    "[banner] failureSite=\(MacNotificationFailureSite.requestAuthorization.rawValue) \(Self.describeUserNotificationsNSError(error))"
-                )
-            }
             return
         }
-        await MainActor.run {
-            DebugLogger.shared.log("[banner] requestAuthorization finished granted=\(granted)")
-        }
+        TracingService.shared.record(
+            "notification.auth.requested",
+            attributes: ["result": granted ? "authorized" : "denied"])
     }
 
     func postPaneAttentionIfNeeded(
@@ -148,55 +103,14 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         tabID: UUID,
         tabName: String
     ) {
-        DebugLogger.shared.log(
-            "[banner] postPaneAttentionIfNeeded begin tab=\(tabName) pane=\(paneName) tabID=\(tabID.uuidString) bannersEnabled=\(appSettings?.isMacOSBannerNotificationsEnabled ?? false)",
-            paneID: paneID,
-            tabName: tabName,
-            paneName: paneName
-        )
-        guard let appSettings = self.appSettings else {
-            DebugLogger.shared.log(
-                "[banner] skipped coordinator not bound (no app settings)",
-                paneID: paneID,
-                tabName: tabName,
-                paneName: paneName
-            )
-            return
-        }
-        guard appSettings.isMacOSBannerNotificationsEnabled else {
-            DebugLogger.shared.log(
-                "[banner] skipped banner notifications disabled in settings",
-                paneID: paneID,
-                tabName: tabName,
-                paneName: paneName
-            )
-            return
-        }
-        guard !AgentSessionManagerApp.isUITesting else {
-            DebugLogger.shared.log("[banner] skipped UI testing", paneID: paneID, tabName: tabName, paneName: paneName)
-            return
-        }
+        guard let appSettings = self.appSettings else { return }
+        guard appSettings.isMacOSBannerNotificationsEnabled else { return }
+        guard !AgentSessionManagerApp.isUITesting else { return }
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
-            guard settings.authorizationStatus == .authorized else {
-                DebugLogger.shared.log(
-                    "[banner] skipped authorization=\(String(describing: settings.authorizationStatus))",
-                    paneID: paneID,
-                    tabName: tabName,
-                    paneName: paneName
-                )
-                return
-            }
-            guard settings.alertSetting == .enabled else {
-                DebugLogger.shared.log(
-                    "[banner] skipped alertSetting=\(String(describing: settings.alertSetting)) (allow banners or alerts for this app in System Settings → Notifications)",
-                    paneID: paneID,
-                    tabName: tabName,
-                    paneName: paneName
-                )
-                return
-            }
+            guard settings.authorizationStatus == .authorized else { return }
+            guard settings.alertSetting == .enabled else { return }
             let content = UNMutableNotificationContent()
             content.title = "Agent Session Manager"
             content.subtitle = paneName
@@ -213,19 +127,19 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
             do {
                 try await center.add(request)
-                DebugLogger.shared.log(
-                    "[banner] UNUserNotificationCenter.add succeeded identifier=\(identifier)",
-                    paneID: paneID,
-                    tabName: tabName,
-                    paneName: paneName
-                )
+                TracingService.shared.record(
+                    "notification.pane_attention.posted",
+                    attributes: [
+                        "pane.name": paneName,
+                        "title": "Agent Session Manager",
+                    ])
             } catch {
-                DebugLogger.shared.log(
-                    "[banner] failureSite=\(MacNotificationFailureSite.scheduleLocalNotification.rawValue) \(Self.describeUserNotificationsNSError(error))",
-                    paneID: paneID,
-                    tabName: tabName,
-                    paneName: paneName
-                )
+                TracingService.shared.record(
+                    "notification.pane_attention.skipped",
+                    attributes: [
+                        "pane.name": paneName,
+                        "reason": "schedule_error",
+                    ])
             }
         }
     }
@@ -262,19 +176,13 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
             do {
                 try await center.add(request)
-                DebugLogger.shared.log(
-                    "[banner] postPRMergedBanner succeeded identifier=\(identifier)",
-                    paneID: paneID,
-                    tabName: tabName,
-                    paneName: paneName
-                )
+                TracingService.shared.record(
+                    "notification.pr_merged.posted",
+                    attributes: [
+                        "pane.name": paneName,
+                        "pr.title": prTitle,
+                    ])
             } catch {
-                DebugLogger.shared.log(
-                    "[banner] postPRMergedBanner failed \(Self.describeUserNotificationsNSError(error))",
-                    paneID: paneID,
-                    tabName: tabName,
-                    paneName: paneName
-                )
             }
         }
     }
@@ -348,14 +256,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        let req = notification.request
-        let info = req.content.userInfo
-        let keys = info.keys.map { "\($0)" }.sorted().joined(separator: ",")
-        Task { @MainActor in
-            DebugLogger.shared.log(
-                "[banner] willPresent id=\(req.identifier) title=\(req.content.title) subtitle=\(req.content.subtitle) body=\(req.content.body) userInfoKeys=\(keys)"
-            )
-        }
         DispatchQueue.main.async {
             completionHandler(Self.willPresentPresentationOptions)
         }

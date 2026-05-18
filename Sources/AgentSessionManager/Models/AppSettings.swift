@@ -110,13 +110,11 @@ final class AppSettings {
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
     var worktreeBaseRef: WorktreeBaseRef = .fresh
-    var debugLoggingEnabled: Bool = false
+    var tracingEnabled: Bool = false
+    var tracingOutputTarget: TracingOutputTarget = .stdout
     /// Empty string means the default file under Application Support.
-    var debugLogFilePath: String = ""
-    /// Maximum debug trace file size before older content is truncated from the beginning.
-    var debugLogMaxFileBytes: Int = AppSettings.defaultDebugLogMaxFileBytes
-    /// When global debug logging is on, allow terminal snapshot capture to write to the trace file for all panes.
-    var debugLogIncludeTerminalContents: Bool = false
+    var tracingFilePath: String = ""
+    var tracingFileMaxBytes: Int = AppSettings.defaultTracingFileMaxBytes
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30
@@ -129,14 +127,14 @@ final class AppSettings {
     var profiles: [Profile] = []
     var autoSetSessionName: Bool = true
 
-    static let defaultDebugLogMaxFileBytes = 15 * 1024 * 1024
+    static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
 
     /// Resolved trace file URL (creates the Application Support parent directory when using the default).
-    var resolvedDebugLogFileURL: URL {
+    var resolvedTracingFileURL: URL {
         let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
-        let defaultURL = dir.appending(path: "debug-trace.log")
-        let raw = debugLogFilePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let defaultURL = dir.appending(path: "traces.jsonl")
+        let raw = tracingFilePath.trimmingCharacters(in: .whitespacesAndNewlines)
         if raw.isEmpty {
             return defaultURL.standardizedFileURL
         }
@@ -144,9 +142,9 @@ final class AppSettings {
         return URL(fileURLWithPath: expanded).standardizedFileURL
     }
 
-    var debugLogMaxSizeMegabytes: Int {
-        get { max(1, debugLogMaxFileBytes / (1024 * 1024)) }
-        set { debugLogMaxFileBytes = max(1, min(512, newValue)) * 1024 * 1024 }
+    var tracingFileMaxSizeMegabytes: Int {
+        get { max(1, tracingFileMaxBytes / (1024 * 1024)) }
+        set { tracingFileMaxBytes = max(1, min(512, newValue)) * 1024 * 1024 }
     }
 
     func isActive(_ tool: CLIType) -> Bool {

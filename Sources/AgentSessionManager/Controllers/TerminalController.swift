@@ -54,55 +54,18 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
         }
     }
 
-    private let terminalStreamDebounceLock = NSLock()
-    private var terminalStreamDebounceWork: DispatchWorkItem?
-    /// Fingerprint of last streamed screen text; only read/written on the main actor.
-    private var lastTerminalStreamFingerprint: Int?
-
-    override func dataReceived(slice: ArraySlice<UInt8>) {
-        super.dataReceived(slice: slice)
-        scheduleDebouncedTerminalStreamFlush()
-    }
-
-    private func scheduleDebouncedTerminalStreamFlush() {
-        terminalStreamDebounceLock.lock()
-        terminalStreamDebounceWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            Task { @MainActor in
-                self.flushTerminalStreamSnapshotToDebugIfNeeded()
-            }
-        }
-        terminalStreamDebounceWork = work
-        terminalStreamDebounceLock.unlock()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
-    }
-
-    @MainActor
-    private func flushTerminalStreamSnapshotToDebugIfNeeded() {
-        guard let paneID = telemetryPaneUUID else { return }
-        guard DebugLogger.shared.isTerminalCaptureEnabled(for: paneID) else { return }
-        let content = TerminalController.renderedScreenText(from: getTerminal())
-        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        var hasher = Hasher()
-        hasher.combine(content)
-        let fingerprint = hasher.finalize()
-        if fingerprint == lastTerminalStreamFingerprint { return }
-        lastTerminalStreamFingerprint = fingerprint
-        DebugLogger.shared.logTerminalContent(
-            paneName: telemetryPaneName.isEmpty ? "?" : telemetryPaneName,
-            content: content,
-            tabName: telemetryTabName.isEmpty ? "?" : telemetryTabName,
-            paneID: paneID,
-            kind: DebugLogger.TerminalContentLogKind.stream
-        )
-    }
-
     override func bell(source: Terminal) {
         super.bell(source: source)
-        let pane = telemetryPaneName.isEmpty ? "?" : telemetryPaneName
-        let msg = "[bell] SwiftTerm bell() pane=\(pane)"
-        deliverAttentionToHost(logMessage: msg)
+        onBell?()
+        Task { @MainActor in
+            TracingService.shared.record(
+                "terminal.attention.delivered",
+                attributes: [
+                    "source": "bell",
+                    "pane.name": self.telemetryPaneName,
+                    "tab.name": self.telemetryTabName,
+                ])
+        }
     }
 
     /// Hooks OSC 777 (`ESC]777;notify;title;body BEL`) into the same path as ``bell(source:)``.
@@ -116,34 +79,19 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
             guard let text = String(bytes: data, encoding: .utf8) else { return }
             let parts = text.components(separatedBy: ";")
             guard parts.count >= 3, parts[0] == "notify" else { return }
-            let title = parts[1]
-            let body = parts[2...].joined(separator: ";")
-            let label = self.telemetryPaneName.isEmpty ? "?" : self.telemetryPaneName
-            let safeTitle = String(title.prefix(200)).replacingOccurrences(of: "\n", with: " ")
-            let safeBody = String(body.prefix(500)).replacingOccurrences(of: "\n", with: " ")
-            let msg = "[bell] SwiftTerm notify(OSC 777) pane=\(label) title=\(safeTitle) body=\(safeBody)"
-            self.deliverAttentionToHost(logMessage: msg)
-        }
-    }
-
-    private func deliverAttentionToHost(logMessage: String) {
-        let paneId = telemetryPaneUUID
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let debug = DebugLogger.shared
-            if let id = paneId {
-                if debug.acceptsPaneDiagnostics(paneID: id) {
-                    debug.log(
-                        logMessage,
-                        paneID: id,
-                        tabName: self.telemetryTabName,
-                        paneName: self.telemetryPaneName
-                    )
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.onBell?()
+                Task { @MainActor in
+                    TracingService.shared.record(
+                        "terminal.attention.delivered",
+                        attributes: [
+                            "source": "osc777",
+                            "pane.name": self.telemetryPaneName,
+                            "tab.name": self.telemetryTabName,
+                        ])
                 }
-            } else if debug.isEnabled {
-                debug.log(logMessage)
             }
-            self.onBell?()
         }
     }
 }
@@ -188,7 +136,6 @@ final class TerminalController: NSObject {
             //   Remaining TCC prompts are one-time decisions from Claude's startup
             //   path scanning. See documentation/features/panes.md.
             let args = ["-i", "-c", cmd]
-            let tracePane = terminalView.telemetryPaneUUID
             let env = pendingEnvironment
             let cwd = pendingDirectory
             terminalView.startProcess(
@@ -197,17 +144,20 @@ final class TerminalController: NSObject {
                 environment: env,
                 currentDirectory: cwd
             )
-            Self.scheduleDeferredProcessStartLog(
-                executable: shell,
-                args: args,
-                environment: env,
-                currentDirectory: cwd,
-                paneID: tracePane,
-                tabName: terminalView.telemetryTabName,
-                paneName: terminalView.telemetryPaneName
-            )
+            let tracePaneName = terminalView.telemetryPaneName
+            let traceTabName = terminalView.telemetryTabName
+            Task(priority: .utility) { @MainActor in
+                TracingService.shared.record(
+                    "terminal.process.started",
+                    attributes: [
+                        "executable": shell,
+                        "args": args.joined(separator: " "),
+                        "working_directory": cwd ?? "",
+                        "pane.name": tracePaneName,
+                        "tab.name": traceTabName,
+                    ])
+            }
         } else {
-            let tracePane = terminalView.telemetryPaneUUID
             let env = pendingEnvironment
             let cwd = pendingDirectory
             terminalView.startProcess(
@@ -215,15 +165,19 @@ final class TerminalController: NSObject {
                 environment: env,
                 currentDirectory: cwd
             )
-            Self.scheduleDeferredProcessStartLog(
-                executable: shell,
-                args: [],
-                environment: env,
-                currentDirectory: cwd,
-                paneID: tracePane,
-                tabName: terminalView.telemetryTabName,
-                paneName: terminalView.telemetryPaneName
-            )
+            let tracePaneName = terminalView.telemetryPaneName
+            let traceTabName = terminalView.telemetryTabName
+            Task(priority: .utility) { @MainActor in
+                TracingService.shared.record(
+                    "terminal.process.started",
+                    attributes: [
+                        "executable": shell,
+                        "args": "",
+                        "working_directory": cwd ?? "",
+                        "pane.name": tracePaneName,
+                        "tab.name": traceTabName,
+                    ])
+            }
         }
         let pid = terminalView.process.shellPid
         if pid > 0 {
@@ -264,35 +218,19 @@ final class TerminalController: NSObject {
     func terminate() {
         terminalView.terminate()
     }
-
-    /// Builds large log lines off the critical path so the PTY can start before telemetry work runs.
-    private static func scheduleDeferredProcessStartLog(
-        executable: String,
-        args: [String],
-        environment: [String]?,
-        currentDirectory: String?,
-        paneID: UUID?,
-        tabName: String,
-        paneName: String
-    ) {
-        Task(priority: .utility) { @MainActor in
-            DebugLogger.shared.logProcessStart(
-                executable: executable,
-                args: args,
-                environment: environment,
-                currentDirectory: currentDirectory,
-                paneID: paneID,
-                tabName: tabName.isEmpty ? nil : tabName,
-                paneName: paneName.isEmpty ? nil : paneName
-            )
-        }
-    }
 }
 
 extension TerminalController: LocalProcessTerminalViewDelegate {
     nonisolated func processTerminated(source: TerminalView, exitCode: Int32?) {
         Task { @MainActor in
             self.processState = .exited(code: exitCode)
+            TracingService.shared.record(
+                "terminal.process.exited",
+                attributes: [
+                    "exit_code": exitCode.map(String.init) ?? "nil",
+                    "pane.name": self.terminalView.telemetryPaneName,
+                    "tab.name": self.terminalView.telemetryTabName,
+                ])
         }
     }
 

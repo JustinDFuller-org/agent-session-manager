@@ -34,17 +34,8 @@ final class AppState {
         activeTab?.lastActivePaneID = id
         activePaneID = id
         if let id {
-            let hadNotification = notifications.contains { $0.paneID == id }
             clearNotification(paneID: id)
             MacNotificationCoordinator.shared.removeDeliveredNotifications(forPaneID: id)
-            if hadNotification {
-                DebugLogger.shared.log(
-                    "[notify] clearNotification reason=activatedPane paneID=\(id.uuidString)",
-                    paneID: id,
-                    tabName: "",
-                    paneName: ""
-                )
-            }
         }
     }
 
@@ -66,7 +57,6 @@ final class AppState {
     func closeTab(_ tab: Tab) {
         let paneIDs = Set(tab.panes.map(\.id))
         for pane in tab.panes {
-            DebugLogger.shared.removeTracedPane(pane.id)
             pane.terminalController?.terminate()
         }
         notifications.removeAll { paneIDs.contains($0.paneID) }
@@ -84,12 +74,6 @@ final class AppState {
 
     func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
         if notifications.contains(where: { $0.paneID == paneID }) {
-            DebugLogger.shared.log(
-                "[notify] addNotification skipped duplicate paneID=\(paneID.uuidString) name=\(paneName)",
-                paneID: paneID,
-                tabName: tabName,
-                paneName: paneName
-            )
             return
         }
         notifications.append(
@@ -100,12 +84,13 @@ final class AppState {
                 tabName: tabName,
                 isPriority: isPriority
             ))
-        DebugLogger.shared.log(
-            "[notify] addNotification appended pane=\(paneName) tab=\(tabName) priority=\(isPriority) paneID=\(paneID.uuidString)",
-            paneID: paneID,
-            tabName: tabName,
-            paneName: paneName
-        )
+        TracingService.shared.record(
+            "pane.notification.added",
+            attributes: [
+                "pane.name": paneName,
+                "tab.name": tabName,
+                "notification.kind": "attention",
+            ])
         MacNotificationCoordinator.shared.postPaneAttentionIfNeeded(
             paneID: paneID,
             paneName: paneName,
@@ -159,12 +144,13 @@ final class AppState {
     }
 
     func navigateTo(notification: PaneNotification) {
-        DebugLogger.shared.log(
-            "[notify] navigateToNotification sidebar pane=\(notification.paneName) tab=\(notification.tabName) kind=\(notification.kind.rawValue)",
-            paneID: notification.paneID,
-            tabName: notification.tabName,
-            paneName: notification.paneName
-        )
+        TracingService.shared.record(
+            "pane.notification.cleared",
+            attributes: [
+                "pane.name": notification.paneName,
+                "tab.name": notification.tabName,
+                "reason": "navigated",
+            ])
         switchToTab(id: notification.tabID)
         setActivePane(id: notification.paneID)
         if notification.kind == .prMerged {
@@ -180,12 +166,7 @@ final class AppState {
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {
-        DebugLogger.shared.log(
-            "[notify] focusPane tabID=\(tabID.uuidString) paneID=\(paneID.uuidString) source=bannerOrExternal",
-            paneID: paneID,
-            tabName: "",
-            paneName: ""
-        )
+        TracingService.shared.record("pane.activated", attributes: ["pane.name": "", "tab.name": ""])
         switchToTab(id: tabID)
         setActivePane(id: paneID)
     }
