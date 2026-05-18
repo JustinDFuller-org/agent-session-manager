@@ -416,12 +416,8 @@ final class Tab: Identifiable {
     }
 
     private func runGitOutput(_ args: [String]) async throws -> String {
-        TracingService.shared.record(
-            "tab.git.command",
-            attributes: [
-                "cwd": directory.path,
-                "args": args.joined(separator: " "),
-            ])
+        let startTime = Date().timeIntervalSince1970
+        let cwd = directory.path
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let outPipe = Pipe()
@@ -432,8 +428,17 @@ final class Tab: Identifiable {
             process.standardOutput = outPipe
             process.standardError = errPipe
             process.terminationHandler = { proc in
+                let durationMs = Int((Date().timeIntervalSince1970 - startTime) * 1000)
                 let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
                 let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                TracingService.shared.record(
+                    "tab.git.command",
+                    attributes: [
+                        "cwd": cwd,
+                        "args": args.joined(separator: " "),
+                        "duration_ms": String(durationMs),
+                        "exit_code": String(proc.terminationStatus),
+                    ])
                 if proc.terminationStatus == 0 {
                     continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
                 } else {
@@ -451,12 +456,8 @@ final class Tab: Identifiable {
     }
 
     private func runGit(_ args: [String]) async throws {
-        TracingService.shared.record(
-            "tab.git.command",
-            attributes: [
-                "cwd": directory.path,
-                "args": args.joined(separator: " "),
-            ])
+        let startTime = Date().timeIntervalSince1970
+        let cwd = directory.path
         try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let errPipe = Pipe()
@@ -466,8 +467,17 @@ final class Tab: Identifiable {
             process.standardOutput = FileHandle.nullDevice
             process.standardError = errPipe
             process.terminationHandler = { proc in
+                let durationMs = Int((Date().timeIntervalSince1970 - startTime) * 1000)
                 let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
                 let stderr = String(data: errData, encoding: .utf8) ?? ""
+                TracingService.shared.record(
+                    "tab.git.command",
+                    attributes: [
+                        "cwd": cwd,
+                        "args": args.joined(separator: " "),
+                        "duration_ms": String(durationMs),
+                        "exit_code": String(proc.terminationStatus),
+                    ])
                 if proc.terminationStatus == 0 {
                     continuation.resume()
                 } else {

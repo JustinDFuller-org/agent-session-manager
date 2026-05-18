@@ -411,6 +411,7 @@ final class PRTrackingCoordinator {
             (try? jsonData.write(to: URL(filePath: tempPath))) != nil
         else { return nil }
 
+        let startTime = Date().timeIntervalSince1970
         return await withCheckedContinuation { continuation in
             let task = Process()
             let outPipe = Pipe()
@@ -419,9 +420,19 @@ final class PRTrackingCoordinator {
             task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
             task.standardOutput = outPipe
             task.standardError = errPipe
-            task.terminationHandler = { _ in
+            task.terminationHandler = { process in
+                let durationMs = Int((Date().timeIntervalSince1970 - startTime) * 1000)
                 try? FileManager.default.removeItem(atPath: tempPath)
                 let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let result = process.terminationStatus == 0 ? "ok" : "error"
+                TracingService.shared.record(
+                    "pr.graphql.query",
+                    attributes: [
+                        "context": "startup_check",
+                        "result": result,
+                        "duration_ms": String(durationMs),
+                        "exit_code": String(process.terminationStatus),
+                    ])
                 guard let text = String(data: outData, encoding: .utf8), !text.isEmpty else {
                     continuation.resume(returning: nil)
                     return
