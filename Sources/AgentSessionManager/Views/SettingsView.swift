@@ -244,10 +244,28 @@ private struct GeneralContent: View {
     }
 }
 
+enum ProfileEditorMode: Identifiable {
+    case new
+    case edit(Profile)
+
+    var id: String {
+        switch self {
+        case .new: return "new"
+        case .edit(let p): return p.id.uuidString
+        }
+    }
+
+    var profile: Profile? {
+        switch self {
+        case .new: return nil
+        case .edit(let p): return p
+        }
+    }
+}
+
 private struct ProfilesContent: View {
     @Environment(AppSettings.self) private var appSettings
-    @State private var showEditor = false
-    @State private var editingProfile: Profile?
+    @State private var editorMode: ProfileEditorMode?
 
     var body: some View {
         @Bindable var appSettings = appSettings
@@ -334,8 +352,7 @@ private struct ProfilesContent: View {
 
                                     Menu {
                                         Button("Edit") {
-                                            editingProfile = profile
-                                            showEditor = true
+                                            editorMode = .edit(profile)
                                         }
                                         Button("Duplicate") {
                                             var copy = profile
@@ -369,8 +386,7 @@ private struct ProfilesContent: View {
                 }
 
                 Button {
-                    editingProfile = nil
-                    showEditor = true
+                    editorMode = .new
                 } label: {
                     Label("New Profile", systemImage: "plus")
                 }
@@ -378,9 +394,9 @@ private struct ProfilesContent: View {
             }
             .padding(20)
         }
-        .sheet(isPresented: $showEditor) {
+        .sheet(item: $editorMode) { mode in
             ProfileEditorSheet(
-                profile: editingProfile,
+                profile: mode.profile,
                 appSettings: appSettings,
                 onSave: { saved in
                     if let index = appSettings.profiles.firstIndex(where: { $0.id == saved.id }) {
@@ -457,6 +473,7 @@ private struct ProfileEditorSheet: View {
                         TextField("Complex Task, Quick Side Quest, …", text: $name)
                             .textFieldStyle(.roundedBorder)
                             .focused($isNameFocused)
+                            .accessibilityIdentifier("profile-editor-name-field")
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
