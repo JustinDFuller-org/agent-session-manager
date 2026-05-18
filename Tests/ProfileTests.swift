@@ -251,6 +251,21 @@ struct ProfileTests {
         #expect(isDisabled)
     }
 
+    @Test("ProfileEditorMode.new has nil profile and 'new' id")
+    func profileEditorModeNew() {
+        let mode = ProfileEditorMode.new
+        #expect(mode.profile == nil)
+        #expect(mode.id == "new")
+    }
+
+    @Test("ProfileEditorMode.edit carries profile and uses UUID as id")
+    func profileEditorModeEdit() {
+        let profile = Profile(name: "MyProfile", cliType: .claude)
+        let mode = ProfileEditorMode.edit(profile)
+        #expect(mode.profile?.id == profile.id)
+        #expect(mode.id == profile.id.uuidString)
+    }
+
     @Test("New pane pre-selects first ranked profile matching CLI type")
     func testNewPanePreselectsFirstRankedProfile() {
         let profiles = [
