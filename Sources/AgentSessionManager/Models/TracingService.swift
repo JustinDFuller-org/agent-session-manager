@@ -111,4 +111,17 @@ final class TracingService: @unchecked Sendable {
         }
         return try await body()
     }
+
+    /// Emits a span with explicit start and end times, for callback-based async operations
+    /// where the span cannot wrap the body directly.
+    func recordSpan(_ name: String, startTime: Date, endTime: Date, attributes: [String: String] = [:]) {
+        guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return }
+        var span = tracer.spanBuilder(spanName: name)
+            .setStartTime(time: startTime)
+            .startSpan()
+        for (key, value) in attributes {
+            span.setAttribute(key: key, value: value)
+        }
+        span.end(time: endTime)
+    }
 }

@@ -224,22 +224,23 @@ final class PRTrackingCoordinator {
             deadline: .now() + Double(settings.timeoutSeconds), execute: timeoutWork)
 
         let count = subscribers.values.filter { $0.owner != nil && $0.repo != nil && $0.branchName != nil }.count
-        let queryStartTime = Date().timeIntervalSince1970
+        let queryStartTime = Date()
 
         task.terminationHandler = { [weak self] process in
-            let durationMs = Int((Date().timeIntervalSince1970 - queryStartTime) * 1000)
+            let queryEndTime = Date()
             timeoutWork.cancel()
             try? FileManager.default.removeItem(atPath: tempPath)
             let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
             let result = process.terminationStatus == 0 ? "ok" : "error"
             Task { @MainActor [weak self] in
                 guard let self, self.cycleToken == token else { return }
-                TracingService.shared.record(
+                TracingService.shared.recordSpan(
                     "pr.graphql.query",
+                    startTime: queryStartTime,
+                    endTime: queryEndTime,
                     attributes: [
                         "pane_count": String(count),
                         "result": result,
-                        "duration_ms": String(durationMs),
                         "exit_code": String(process.terminationStatus),
                     ])
                 self.activeBatchProcess = nil
@@ -411,48 +412,42 @@ final class PRTrackingCoordinator {
             (try? jsonData.write(to: URL(filePath: tempPath))) != nil
         else { return nil }
 
-        let startTime = Date().timeIntervalSince1970
-        return await withCheckedContinuation { continuation in
-            let task = Process()
-            let outPipe = Pipe()
-            let errPipe = Pipe()
-            task.executableURL = URL(filePath: "/bin/zsh")
-            task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
-            task.standardOutput = outPipe
-            task.standardError = errPipe
-            task.terminationHandler = { process in
-                let durationMs = Int((Date().timeIntervalSince1970 - startTime) * 1000)
-                try? FileManager.default.removeItem(atPath: tempPath)
-                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                let result = process.terminationStatus == 0 ? "ok" : "error"
-                TracingService.shared.record(
-                    "pr.graphql.query",
-                    attributes: [
-                        "context": "startup_check",
-                        "result": result,
-                        "duration_ms": String(durationMs),
-                        "exit_code": String(process.terminationStatus),
-                    ])
-                guard let text = String(data: outData, encoding: .utf8), !text.isEmpty else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                let separators = ["\r\n\r\n", "\n\n"]
-                var jsonText = text
-                for sep in separators {
-                    let parts = text.components(separatedBy: sep)
-                    if parts.count >= 2 {
-                        jsonText = parts.dropFirst().joined(separator: sep)
-                        break
+        return await TracingService.shared.withSpan(
+            "pr.graphql.query",
+            attributes: ["context": "startup_check"]
+        ) {
+            await withCheckedContinuation { continuation in
+                let task = Process()
+                let outPipe = Pipe()
+                let errPipe = Pipe()
+                task.executableURL = URL(filePath: "/bin/zsh")
+                task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
+                task.standardOutput = outPipe
+                task.standardError = errPipe
+                task.terminationHandler = { _ in
+                    try? FileManager.default.removeItem(atPath: tempPath)
+                    let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                    guard let text = String(data: outData, encoding: .utf8), !text.isEmpty else {
+                        continuation.resume(returning: nil)
+                        return
                     }
+                    let separators = ["\r\n\r\n", "\n\n"]
+                    var jsonText = text
+                    for sep in separators {
+                        let parts = text.components(separatedBy: sep)
+                        if parts.count >= 2 {
+                            jsonText = parts.dropFirst().joined(separator: sep)
+                            break
+                        }
+                    }
+                    continuation.resume(returning: jsonText)
                 }
-                continuation.resume(returning: jsonText)
-            }
-            do {
-                try task.run()
-            } catch {
-                try? FileManager.default.removeItem(atPath: tempPath)
-                continuation.resume(returning: nil)
+                do {
+                    try task.run()
+                } catch {
+                    try? FileManager.default.removeItem(atPath: tempPath)
+                    continuation.resume(returning: nil)
+                }
             }
         }
     }
