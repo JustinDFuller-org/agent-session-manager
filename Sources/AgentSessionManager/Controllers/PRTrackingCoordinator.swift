@@ -223,13 +223,25 @@ final class PRTrackingCoordinator {
         DispatchQueue.main.asyncAfter(
             deadline: .now() + Double(settings.timeoutSeconds), execute: timeoutWork)
 
-        task.terminationHandler = { [weak self] _ in
+        let count = subscribers.values.filter { $0.owner != nil && $0.repo != nil && $0.branchName != nil }.count
+        let queryStartTime = Date().timeIntervalSince1970
+
+        task.terminationHandler = { [weak self] process in
+            let durationMs = Int((Date().timeIntervalSince1970 - queryStartTime) * 1000)
             timeoutWork.cancel()
             try? FileManager.default.removeItem(atPath: tempPath)
             let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+            let result = process.terminationStatus == 0 ? "ok" : "error"
             Task { @MainActor [weak self] in
                 guard let self, self.cycleToken == token else { return }
+                TracingService.shared.record(
+                    "pr.graphql.query",
+                    attributes: [
+                        "pane_count": String(count),
+                        "result": result,
+                        "duration_ms": String(durationMs),
+                        "exit_code": String(process.terminationStatus),
+                    ])
                 self.activeBatchProcess = nil
                 self.processBatchResponse(outData)
             }
@@ -238,13 +250,6 @@ final class PRTrackingCoordinator {
         activeBatchProcess = task
         do {
             try task.run()
-            let count = subscribers.values.filter { $0.owner != nil && $0.repo != nil && $0.branchName != nil }.count
-            TracingService.shared.record(
-                "pr.graphql.query",
-                attributes: [
-                    "pane_count": String(count),
-                    "result": "ok",
-                ])
         } catch {
             activeBatchProcess = nil
             try? FileManager.default.removeItem(atPath: tempPath)
