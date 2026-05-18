@@ -416,7 +416,12 @@ final class Tab: Identifiable {
     }
 
     private func runGitOutput(_ args: [String]) async throws -> String {
-        DebugLogger.shared.logGitCommand(args, cwd: directory.path)
+        TracingService.shared.record(
+            "tab.git.command",
+            attributes: [
+                "cwd": directory.path,
+                "args": args.joined(separator: " "),
+            ])
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let outPipe = Pipe()
@@ -446,7 +451,12 @@ final class Tab: Identifiable {
     }
 
     private func runGit(_ args: [String]) async throws {
-        DebugLogger.shared.logGitCommand(args, cwd: directory.path)
+        TracingService.shared.record(
+            "tab.git.command",
+            attributes: [
+                "cwd": directory.path,
+                "args": args.joined(separator: " "),
+            ])
         try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let errPipe = Pipe()
@@ -486,11 +496,20 @@ final class Tab: Identifiable {
         statusLineConfigOverride: StatusLineConfig? = nil
     ) -> Pane {
         if let wd = worktreeDirectory {
-            DebugLogger.shared.logWorktreeResolution(
-                userRef: name, result: "dir: \(wd.path), managed: \(worktreeIsManaged)")
-        } else {
-            DebugLogger.shared.logWorktreeResolution(userRef: name, result: "cwd: \(directory.path)")
+            TracingService.shared.record(
+                "tab.worktree.resolved",
+                attributes: [
+                    "user_ref": name,
+                    "result": "dir: \(wd.path)",
+                    "path": wd.path,
+                ])
         }
+        TracingService.shared.record(
+            "tab.pane.added",
+            attributes: [
+                "pane.name": name,
+                "tab.name": self.name,
+            ])
         let pane = Pane(
             id: id ?? UUID(),
             name: name,
@@ -716,7 +735,6 @@ final class Tab: Identifiable {
     }
 
     func closePane(_ pane: Pane) {
-        DebugLogger.shared.removeTracedPane(pane.id)
         pane.terminalController?.terminate()
         pane.statusLineMonitor?.stop()
         panes.removeAll { $0.id == pane.id }

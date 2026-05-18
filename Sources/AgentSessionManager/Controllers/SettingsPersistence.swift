@@ -111,7 +111,7 @@ struct SettingsPersistence {
     private static var existingWorktreeManagementURL: URL {
         appSupportDir.appending(path: "existing-worktree-management.json")
     }
-    private static var debugSettingsURL: URL { appSupportDir.appending(path: "debug-settings.json") }
+    private static var tracingSettingsURL: URL { appSupportDir.appending(path: "tracing-settings.json") }
     private static var prTrackingSettingsURL: URL { appSupportDir.appending(path: "pr-tracking-settings.json") }
     private static var terminalSettingsURL: URL { appSupportDir.appending(path: "terminal-settings.json") }
     private static var prPollingSettingsURL: URL { appSupportDir.appending(path: "pr-polling-settings.json") }
@@ -356,36 +356,31 @@ struct SettingsPersistence {
         appSettings.existingWorktreeManagement = behavior
     }
 
-    private struct DebugSettings: Codable, Equatable {
+    private struct TracingSettings: Codable {
         var enabled: Bool = false
-        var logFilePath: String = ""
-        var maxFileBytes: Int = 15 * 1024 * 1024
-        var includeTerminalContents: Bool = false
+        var outputTarget: TracingOutputTarget = .stdout
+        var filePath: String = ""
+        var maxFileBytes: Int = AppSettings.defaultTracingFileMaxBytes
     }
 
-    static func saveDebugSettings(appSettings: AppSettings) {
-        let payload = DebugSettings(
-            enabled: appSettings.debugLoggingEnabled,
-            logFilePath: appSettings.debugLogFilePath,
-            maxFileBytes: max(1_048_576, appSettings.debugLogMaxFileBytes),
-            includeTerminalContents: appSettings.debugLogIncludeTerminalContents
+    static func saveTracingSettings(appSettings: AppSettings) {
+        let payload = TracingSettings(
+            enabled: appSettings.tracingEnabled,
+            outputTarget: appSettings.tracingOutputTarget,
+            filePath: appSettings.tracingFilePath,
+            maxFileBytes: max(1_048_576, appSettings.tracingFileMaxBytes)
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
-        try? data.write(to: debugSettingsURL)
+        try? data.write(to: tracingSettingsURL)
     }
 
-    static func restoreDebugSettings(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: debugSettingsURL) else { return }
-        if let settings = try? JSONDecoder().decode(DebugSettings.self, from: data) {
-            appSettings.debugLoggingEnabled = settings.enabled
-            appSettings.debugLogFilePath = settings.logFilePath
-            appSettings.debugLogMaxFileBytes = max(1_048_576, settings.maxFileBytes)
-            appSettings.debugLogIncludeTerminalContents = settings.includeTerminalContents
-            return
-        }
-        if let legacy = try? JSONDecoder().decode(Bool.self, from: data) {
-            appSettings.debugLoggingEnabled = legacy
-        }
+    static func restoreTracingSettings(into appSettings: AppSettings) {
+        guard let data = try? Data(contentsOf: tracingSettingsURL) else { return }
+        guard let settings = try? JSONDecoder().decode(TracingSettings.self, from: data) else { return }
+        appSettings.tracingEnabled = settings.enabled
+        appSettings.tracingOutputTarget = settings.outputTarget
+        appSettings.tracingFilePath = settings.filePath
+        appSettings.tracingFileMaxBytes = max(1_048_576, settings.maxFileBytes)
     }
 
     static func savePRTracking(appSettings: AppSettings) {

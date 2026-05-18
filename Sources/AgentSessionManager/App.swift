@@ -11,19 +11,12 @@ struct ContentView: View {
     @State private var showPRMergedAlert = false
     @State private var pendingPRMergedPane: Pane?
     @State private var pendingPRMergedTab: Tab?
-    @State private var showDebugLog = false
-    @State private var debugLadybugRefreshTick = 0
     @State private var showRefreshSheet = false
     @State private var paneToRefresh: Pane?
     @State private var showRefreshSettingsSheet = false
 
     var body: some View {
         @Bindable var appState = appState
-        let _ = debugLadybugRefreshTick
-        let showDebugLadybug =
-            appSettings.debugLoggingEnabled
-            || !DebugLogger.shared.tracedPaneIDs.isEmpty
-            || !DebugLogger.shared.tracedPaneTerminalCaptureIDs.isEmpty
         let hasNotifications = !appState.notifications.isEmpty
         VStack(spacing: 0) {
             TabBarView()
@@ -75,25 +68,6 @@ struct ContentView: View {
             appState.activePane?.terminalController?.focusTerminal()
             MacNotificationCoordinator.shared.removeAllDeliveredNotificationsIfStickyEnabled()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerDebugTracingChanged)) { _ in
-            debugLadybugRefreshTick &+= 1
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if showDebugLadybug {
-                Button {
-                    showDebugLog = true
-                } label: {
-                    Image(systemName: "ladybug")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
-                }
-                .buttonStyle(.plain)
-                .padding(12)
-                .accessibilityIdentifier("debug-log-button")
-            }
-        }
         .onReceive(NotificationCenter.default.publisher(for: .newTab)) { _ in
             showingNewTab = true
         }
@@ -128,11 +102,6 @@ struct ContentView: View {
         )
         .sheet(isPresented: $showingNewTab) {
             NewTabSheet()
-        }
-        .sheet(isPresented: $showDebugLog) {
-            DebugLogView()
-                .environment(appState)
-                .environment(appSettings)
         }
         .sheet(isPresented: $showRefreshSheet) {
             if let pane = paneToRefresh {

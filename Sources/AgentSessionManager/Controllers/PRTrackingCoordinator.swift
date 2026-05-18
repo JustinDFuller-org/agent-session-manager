@@ -104,10 +104,8 @@ final class PRTrackingCoordinator {
             timeoutWorkItem = nil
             activeBatchProcess?.terminate()
             activeBatchProcess = nil
-            DebugLogger.shared.log("[pr] coordinator paused (background refresh disabled)")
         } else {
             scheduleCycleTimer()
-            DebugLogger.shared.log("[pr] coordinator switched to background interval (\(effectiveInterval)s)")
         }
     }
 
@@ -116,12 +114,10 @@ final class PRTrackingCoordinator {
         if isPaused {
             isPaused = false
             guard !subscribers.isEmpty else { return }
-            DebugLogger.shared.log("[pr] coordinator resumed (app foregrounded)")
             runCycle()
             scheduleCycleTimer()
         } else {
             scheduleCycleTimer()
-            DebugLogger.shared.log("[pr] coordinator restored foreground interval (\(effectiveInterval)s)")
         }
     }
 
@@ -165,11 +161,15 @@ final class PRTrackingCoordinator {
             subscribers[$0]?.owner != nil && subscribers[$0]?.repo != nil
         }
         guard !paneIDs.isEmpty else {
-            DebugLogger.shared.log("[pr] coordinator cycle skipped: no resolved subscribers")
             return
         }
 
-        DebugLogger.shared.log("[pr] coordinator cycle starting for \(paneIDs.count) resolved subscriber(s)")
+        TracingService.shared.record(
+            "pr.poll.cycle",
+            attributes: [
+                "pane_count": String(paneIDs.count),
+                "result": "ok",
+            ])
 
         Task { @MainActor [weak self] in
             guard let self, self.cycleToken == token else { return }
@@ -196,7 +196,6 @@ final class PRTrackingCoordinator {
         guard SettingsPersistence.isPRTrackingEnabled() else { return }
         let query = buildBatchQuery()
         guard !query.isEmpty else {
-            DebugLogger.shared.log("[pr] coordinator batch query empty: no subscribers with resolved branch")
             return
         }
 
@@ -206,7 +205,6 @@ final class PRTrackingCoordinator {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: jsonBody),
             (try? jsonData.write(to: URL(filePath: tempPath))) != nil
         else {
-            DebugLogger.shared.log("[pr] coordinator failed to write temp query file")
             return
         }
 
@@ -220,7 +218,6 @@ final class PRTrackingCoordinator {
 
         let timeoutWork = DispatchWorkItem { [weak task] in
             task?.terminate()
-            DebugLogger.shared.log("[pr] coordinator batch query timed out after \(settings.timeoutSeconds)s")
         }
         timeoutWorkItem = timeoutWork
         DispatchQueue.main.asyncAfter(
@@ -233,13 +230,6 @@ final class PRTrackingCoordinator {
             let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
             Task { @MainActor [weak self] in
                 guard let self, self.cycleToken == token else { return }
-                if !errData.isEmpty,
-                    let errText = String(data: errData, encoding: .utf8)?
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
-                    !errText.isEmpty
-                {
-                    DebugLogger.shared.log("[pr] coordinator batch graphql stderr: \(errText)")
-                }
                 self.activeBatchProcess = nil
                 self.processBatchResponse(outData)
             }
@@ -249,11 +239,15 @@ final class PRTrackingCoordinator {
         do {
             try task.run()
             let count = subscribers.values.filter { $0.owner != nil && $0.repo != nil && $0.branchName != nil }.count
-            DebugLogger.shared.log("[pr] coordinator batch graphql started with \(count) pane(s)")
+            TracingService.shared.record(
+                "pr.graphql.query",
+                attributes: [
+                    "pane_count": String(count),
+                    "result": "ok",
+                ])
         } catch {
             activeBatchProcess = nil
             try? FileManager.default.removeItem(atPath: tempPath)
-            DebugLogger.shared.log("[pr] coordinator batch graphql failed to start: \(error)")
         }
     }
 
@@ -310,7 +304,9 @@ final class PRTrackingCoordinator {
         }
 
         if let points = remainingPoints {
-            DebugLogger.shared.log("[pr] coordinator x-ratelimit-remaining=\(points)")
+            TracingService.shared.record(
+                "pr.graphql.query",
+                attributes: ["rate_limit_remaining": String(points)])
             adjustInterval(remainingPoints: points)
         }
 
@@ -318,10 +314,11 @@ final class PRTrackingCoordinator {
             let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
             let dataDict = json["data"] as? [String: Any]
         else {
-            DebugLogger.shared.log("[pr] coordinator batch response parse failed")
+            TracingService.shared.record("pr.graphql.query", attributes: ["result": "parse_failed"])
             return
         }
 
+        var parsedCount = 0
         for (paneID, _) in subscribers {
             let alias = "pane_" + paneID.uuidString.replacingOccurrences(of: "-", with: "")
             guard let repoData = dataDict[alias] as? [String: Any],
@@ -335,11 +332,14 @@ final class PRTrackingCoordinator {
             }
 
             if let pr = Self.parsePRFromGraphQLNode(node) {
-                DebugLogger.shared.log("[pr] coordinator pane \(paneID) pr=#\(pr.number) state=\(pr.state)")
+                parsedCount += 1
                 subscribers[paneID]?.lastData = pr
                 subscribers[paneID]?.callback(pr)
             }
         }
+        TracingService.shared.record(
+            "pr.response.parsed",
+            attributes: ["pr_count": String(parsedCount)])
     }
 
     func adjustInterval(remainingPoints: Int) {
@@ -347,12 +347,8 @@ final class PRTrackingCoordinator {
         let base = max(15, TimeInterval(settings.intervalSeconds))
         if remainingPoints < 500 {
             effectiveInterval = min(600, effectiveInterval * 2)
-            DebugLogger.shared.log(
-                "[pr] coordinator rate limit low (\(remainingPoints)), backing off to \(effectiveInterval)s")
         } else if remainingPoints > 2000, effectiveInterval > base {
             effectiveInterval = max(base, effectiveInterval / 1.5)
-            DebugLogger.shared.log(
-                "[pr] coordinator rate limit healthy (\(remainingPoints)), restoring to \(effectiveInterval)s")
         }
     }
 
@@ -488,7 +484,6 @@ final class PRTrackingCoordinator {
                     guard let self else { return }
                     self.subscribers[paneID]?.owner = owner
                     self.subscribers[paneID]?.repo = repo
-                    DebugLogger.shared.log("[pr] coordinator resolved owner=\(owner) repo=\(repo) for pane \(paneID)")
                 }
             }
         }
