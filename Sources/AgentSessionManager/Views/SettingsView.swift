@@ -688,10 +688,13 @@ private struct ProfileEditorSheet: View {
                 cliType = existing.cliType
                 for opt in existing.cliOptions {
                     optionStates[opt.id] = ProfileEditorOptionState(
-                        enabled: opt.isEnabled, value: opt.value ?? "")
+                        enabled: opt.isEnabled, value: opt.value ?? "",
+                        showOnPaneCreate: opt.showOnPaneCreate)
                 }
                 for ev in existing.envVars {
-                    envVarStates[ev.id] = ProfileEditorOptionState(enabled: ev.isEnabled, value: ev.value)
+                    envVarStates[ev.id] = ProfileEditorOptionState(
+                        enabled: ev.isEnabled, value: ev.value,
+                        showOnPaneCreate: ev.showOnPaneCreate)
                 }
                 if let slc = existing.statusLineConfig {
                     useCustomStatusLine = true
@@ -744,7 +747,8 @@ private struct ProfileEditorSheet: View {
             return ProfileCLIOption(
                 id: opt.id,
                 isEnabled: state.enabled,
-                value: state.value.isEmpty ? nil : state.value
+                value: state.value.isEmpty ? nil : state.value,
+                showOnPaneCreate: state.showOnPaneCreate
             )
         }
 
@@ -752,7 +756,9 @@ private struct ProfileEditorSheet: View {
         if cliType == .claude {
             envVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
                 let state = envVarStates[ev.id] ?? ProfileEditorOptionState(enabled: false, value: "")
-                return ProfileEnvVar(id: ev.id, isEnabled: state.enabled, value: state.value)
+                return ProfileEnvVar(
+                    id: ev.id, isEnabled: state.enabled, value: state.value,
+                    showOnPaneCreate: state.showOnPaneCreate)
             }
         } else {
             envVars = []
@@ -774,6 +780,7 @@ private struct ProfileEditorSheet: View {
 private struct ProfileEditorOptionState {
     var enabled: Bool
     var value: String
+    var showOnPaneCreate: Bool = false
 }
 
 private struct ProfileEditorOptionRow: View {
@@ -793,6 +800,10 @@ private struct ProfileEditorOptionRow: View {
                     .disabled(!state.enabled)
                     .frame(maxWidth: .infinity)
             }
+            Toggle("Show", isOn: $state.showOnPaneCreate)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .help("Show this option in the New Pane sheet when this profile is selected.")
         }
     }
 }
@@ -812,6 +823,10 @@ private struct ProfileEditorEnvVarRow: View {
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
                 .frame(maxWidth: .infinity)
+            Toggle("Show", isOn: $state.showOnPaneCreate)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .help("Show this option in the New Pane sheet when this profile is selected.")
         }
     }
 }

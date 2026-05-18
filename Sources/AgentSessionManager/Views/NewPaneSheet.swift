@@ -81,6 +81,20 @@ struct NewPaneSheet: View {
         return appSettings.profiles.first { $0.id == id }
     }
 
+    private var visibleCLIOptions: [CLIOptionConfig] {
+        let allAvailable = activeOptions.filter(\.isAvailable)
+        guard let profile = selectedProfile else { return allAvailable }
+        let showSet = Set(profile.cliOptions.filter(\.showOnPaneCreate).map(\.id))
+        return allAvailable.filter { showSet.contains($0.id) }
+    }
+
+    private var visibleEnvVars: [EnvVarConfig] {
+        let allAvailable = appSettings.envVarOptions.filter(\.isAvailable)
+        guard let profile = selectedProfile else { return allAvailable }
+        let showSet = Set(profile.envVars.filter(\.showOnPaneCreate).map(\.id))
+        return allAvailable.filter { showSet.contains($0.id) }
+    }
+
     private var isFormModifiedFromProfile: Bool {
         guard let profile = selectedProfile else { return true }
         if selectedCLIType != profile.cliType { return true }
@@ -317,14 +331,13 @@ struct NewPaneSheet: View {
 
     @ViewBuilder
     private var cliOptionsSection: some View {
-        let available = activeOptions.filter(\.isAvailable)
-        if !available.isEmpty {
+        if !visibleCLIOptions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("CLI Options")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(available) { option in
+                    ForEach(visibleCLIOptions) { option in
                         CLIOptionToggleRow(option: option, state: stateBinding(for: option))
                     }
                 }
@@ -335,14 +348,13 @@ struct NewPaneSheet: View {
     @ViewBuilder
     private var envVarSection: some View {
         if selectedCLIType == .claude {
-            let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
-            if !availableEnvVars.isEmpty {
+            if !visibleEnvVars.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Environment Variables")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(availableEnvVars) { envVar in
+                        ForEach(visibleEnvVars) { envVar in
                             EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
                         }
                     }
@@ -430,10 +442,12 @@ struct NewPaneSheet: View {
     private func saveCurrentFormAsProfile(name: String) {
         let cliOptions = activeOptions.filter(\.isAvailable).map { opt in
             let state = optionStates[opt.id] ?? OptionState(enabled: false, value: "")
+            let showOnCreate = selectedProfile?.cliOptions.first { $0.id == opt.id }?.showOnPaneCreate ?? false
             return ProfileCLIOption(
                 id: opt.id,
                 isEnabled: state.enabled,
-                value: state.value.isEmpty ? nil : state.value
+                value: state.value.isEmpty ? nil : state.value,
+                showOnPaneCreate: showOnCreate
             )
         }
 
@@ -441,7 +455,10 @@ struct NewPaneSheet: View {
         if selectedCLIType == .claude {
             envVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
                 let state = envVarStates[ev.id] ?? OptionState(enabled: false, value: "")
-                return ProfileEnvVar(id: ev.id, isEnabled: state.enabled, value: state.value)
+                let showOnCreate = selectedProfile?.envVars.first { $0.id == ev.id }?.showOnPaneCreate ?? false
+                return ProfileEnvVar(
+                    id: ev.id, isEnabled: state.enabled, value: state.value,
+                    showOnPaneCreate: showOnCreate)
             }
         } else {
             envVars = []

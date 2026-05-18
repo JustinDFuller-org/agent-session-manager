@@ -4,12 +4,44 @@ struct ProfileCLIOption: Codable, Equatable {
     var id: String
     var isEnabled: Bool
     var value: String?
+    var showOnPaneCreate: Bool
+
+    init(id: String, isEnabled: Bool, value: String? = nil, showOnPaneCreate: Bool = false) {
+        self.id = id
+        self.isEnabled = isEnabled
+        self.value = value
+        self.showOnPaneCreate = showOnPaneCreate
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
+        value = try c.decodeIfPresent(String.self, forKey: .value)
+        showOnPaneCreate = try c.decodeIfPresent(Bool.self, forKey: .showOnPaneCreate) ?? false
+    }
 }
 
 struct ProfileEnvVar: Codable, Equatable {
     var id: String
     var isEnabled: Bool
     var value: String
+    var showOnPaneCreate: Bool
+
+    init(id: String, isEnabled: Bool, value: String, showOnPaneCreate: Bool = false) {
+        self.id = id
+        self.isEnabled = isEnabled
+        self.value = value
+        self.showOnPaneCreate = showOnPaneCreate
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
+        value = try c.decode(String.self, forKey: .value)
+        showOnPaneCreate = try c.decodeIfPresent(Bool.self, forKey: .showOnPaneCreate) ?? false
+    }
 }
 
 struct Profile: Identifiable, Codable, Equatable {
