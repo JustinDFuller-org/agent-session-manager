@@ -49,8 +49,10 @@ final class TracingService: @unchecked Sendable {
         }
 
         let processor = SimpleSpanProcessor(spanExporter: exporter)
+        let memoryProcessor = SimpleSpanProcessor(spanExporter: MemorySpanExporter())
         let provider = TracerProviderBuilder()
             .add(spanProcessor: processor)
+            .add(spanProcessor: memoryProcessor)
             .build()
 
         let tracer = provider.get(

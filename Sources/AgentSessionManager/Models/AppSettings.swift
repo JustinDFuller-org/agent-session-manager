@@ -115,6 +115,7 @@ final class AppSettings {
     /// Empty string means the default file under Application Support.
     var tracingFilePath: String = ""
     var tracingFileMaxBytes: Int = AppSettings.defaultTracingFileMaxBytes
+    var traceDashboardMaxSpans: Int = 500
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30

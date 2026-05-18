@@ -49,6 +49,11 @@ struct AgentSessionManagerApp: App {
             SettingsView()
                 .environment(appSettings)
         }
+
+        Window("Trace Dashboard", id: "trace-dashboard") {
+            TraceDashboardView()
+                .environment(TraceStore.shared)
+        }
     }
 }
 
@@ -58,8 +63,16 @@ private struct AppCommands: Commands {
     @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
     @AppStorage("keyBinding.openShellHereKey") var openShellHereKey = "s"
     @FocusedValue(\.hasActiveTab) var hasActiveTab
+    @Environment(\.openWindow) var openWindow
 
     var body: some Commands {
+        CommandGroup(after: .windowSize) {
+            Button("Open Trace Dashboard") {
+                openWindow(id: "trace-dashboard")
+            }
+            .keyboardShortcut("d", modifiers: [.command, .shift])
+        }
+
         CommandGroup(replacing: .newItem) {
             Button("New Tab") {
                 NotificationCenter.default.post(name: .newTab, object: nil)

@@ -361,6 +361,35 @@ struct SettingsPersistence {
         var outputTarget: TracingOutputTarget = .stdout
         var filePath: String = ""
         var maxFileBytes: Int = AppSettings.defaultTracingFileMaxBytes
+        var dashboardMaxSpans: Int = 500
+
+        enum CodingKeys: String, CodingKey {
+            case enabled, outputTarget, filePath, maxFileBytes, dashboardMaxSpans
+        }
+
+        init(
+            enabled: Bool,
+            outputTarget: TracingOutputTarget,
+            filePath: String,
+            maxFileBytes: Int,
+            dashboardMaxSpans: Int
+        ) {
+            self.enabled = enabled
+            self.outputTarget = outputTarget
+            self.filePath = filePath
+            self.maxFileBytes = maxFileBytes
+            self.dashboardMaxSpans = dashboardMaxSpans
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+            outputTarget = try c.decodeIfPresent(TracingOutputTarget.self, forKey: .outputTarget) ?? .stdout
+            filePath = try c.decodeIfPresent(String.self, forKey: .filePath) ?? ""
+            maxFileBytes =
+                try c.decodeIfPresent(Int.self, forKey: .maxFileBytes) ?? (10 * 1024 * 1024)
+            dashboardMaxSpans = try c.decodeIfPresent(Int.self, forKey: .dashboardMaxSpans) ?? 500
+        }
     }
 
     static func saveTracingSettings(appSettings: AppSettings) {
@@ -368,7 +397,8 @@ struct SettingsPersistence {
             enabled: appSettings.tracingEnabled,
             outputTarget: appSettings.tracingOutputTarget,
             filePath: appSettings.tracingFilePath,
-            maxFileBytes: max(1_048_576, appSettings.tracingFileMaxBytes)
+            maxFileBytes: max(1_048_576, appSettings.tracingFileMaxBytes),
+            dashboardMaxSpans: max(1, appSettings.traceDashboardMaxSpans)
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: tracingSettingsURL)
@@ -381,6 +411,8 @@ struct SettingsPersistence {
         appSettings.tracingOutputTarget = settings.outputTarget
         appSettings.tracingFilePath = settings.filePath
         appSettings.tracingFileMaxBytes = max(1_048_576, settings.maxFileBytes)
+        appSettings.traceDashboardMaxSpans = max(1, settings.dashboardMaxSpans)
+        TraceStore.shared.maxSpans = max(1, settings.dashboardMaxSpans)
     }
 
     static func savePRTracking(appSettings: AppSettings) {
