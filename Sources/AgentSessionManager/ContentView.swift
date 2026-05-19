@@ -106,6 +106,10 @@ extension AgentSessionManagerApp {
         CommandLine.arguments.contains("--uitesting")
     }
 
+    static var shouldSimulateBannerClick: Bool {
+        CommandLine.arguments.contains("--uitesting-simulate-banner-click")
+    }
+
     private var appWindowTitle: String {
         #if DEV_BUILD
         "Agent Session Manager (Dev)"
