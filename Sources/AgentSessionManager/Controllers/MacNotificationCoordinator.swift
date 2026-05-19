@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import UserNotifications
 
 enum MacNotificationUserInfoKey {
@@ -44,20 +45,29 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         self.appSettings = appSettings
     }
 
+    /// Options for notification image attachments (PNG type hint for UserNotifications).
+    nonisolated static let notificationAttachmentOptions: [AnyHashable: Any] = [
+        UNNotificationAttachmentOptionsTypeHintKey: UTType.png.identifier,
+    ]
+
     /// Loads the app icon directly from the bundle's compiled .icns file so the correct icon is
     /// used for both prod (AppIcon) and dev (AppIcon-Dev) builds. Falls back to
-    /// `NSApp.applicationIconImage` when no .icns file is found (e.g. in test bundles).
-    static func bundleAppIcon() -> NSImage? {
-        let name = (Bundle.main.infoDictionary?["CFBundleIconFile"] as? String) ?? "AppIcon"
-        if let url = Bundle.main.url(forResource: name, withExtension: "icns") {
+    /// `NSApp.applicationIconImage` when loading from `Bundle.main` and no .icns is found.
+    static func bundleAppIcon(in bundle: Bundle = .main) -> NSImage? {
+        let name = (bundle.infoDictionary?["CFBundleIconFile"] as? String) ?? "AppIcon"
+        if let url = bundle.url(forResource: name, withExtension: "icns") {
             return NSImage(contentsOf: url)
         }
-        return NSApp.applicationIconImage
+        if bundle == .main, let app = NSApp {
+            return app.applicationIconImage
+        }
+        return nil
     }
 
     /// Converts an NSImage to a UNNotificationAttachment by writing a temp PNG file.
     /// The notification system copies the file on attachment creation, so the temp file is
-    /// removed immediately after. Returns nil if the image is unavailable or conversion fails.
+    /// removed only after a successful attachment init. Returns nil if the image is unavailable
+    /// or conversion fails.
     static func makeAttachment(from image: NSImage?) -> UNNotificationAttachment? {
         guard let image,
             let tiffData = image.tiffRepresentation,
@@ -70,13 +80,31 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         do {
             try pngData.write(to: tempURL)
             let attachment = try UNNotificationAttachment(
-                identifier: "app-icon", url: tempURL, options: nil)
+                identifier: "app-icon",
+                url: tempURL,
+                options: notificationAttachmentOptions)
             try? FileManager.default.removeItem(at: tempURL)
             return attachment
         } catch {
-            try? FileManager.default.removeItem(at: tempURL)
             return nil
         }
+    }
+
+    /// Best-effort PNG attachment for notification rich content; traces when icon or conversion fails.
+    static func notificationIconAttachment() -> UNNotificationAttachment? {
+        guard let image = bundleAppIcon() else {
+            TracingService.shared.record(
+                "notification.icon.unavailable",
+                attributes: ["reason": "bundle_app_icon_nil"])
+            return nil
+        }
+        guard let attachment = makeAttachment(from: image) else {
+            TracingService.shared.record(
+                "notification.icon.unavailable",
+                attributes: ["reason": "attachment_creation_failed"])
+            return nil
+        }
+        return attachment
     }
 
     func requestAuthorizationIfNeeded() async {
@@ -120,7 +148,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 MacNotificationUserInfoKey.paneID: paneID.uuidString,
                 MacNotificationUserInfoKey.tabID: tabID.uuidString,
             ]
-            if let attachment = Self.makeAttachment(from: Self.bundleAppIcon()) {
+            if let attachment = Self.notificationIconAttachment() {
                 content.attachments = [attachment]
             }
             let identifier = "pane-\(paneID.uuidString)"
@@ -169,7 +197,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 MacNotificationUserInfoKey.tabID: tabID.uuidString,
                 MacNotificationUserInfoKey.notificationKind: NotificationKind.prMerged.rawValue,
             ]
-            if let attachment = Self.makeAttachment(from: Self.bundleAppIcon()) {
+            if let attachment = Self.notificationIconAttachment() {
                 content.attachments = [attachment]
             }
             let identifier = "pr-merged-\(paneID.uuidString)"

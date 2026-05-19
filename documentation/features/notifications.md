@@ -78,12 +78,19 @@ These settings are persisted to `~/Library/Application Support/agent-session-man
 
 ## Notification icon
 
-The icon shown in macOS banner notifications is loaded directly from the bundle's compiled `.icns` file (keyed by `CFBundleIconFile` in `Info.plist`) rather than from `NSApp.applicationIconImage`. This ensures the correct icon appears for both build variants:
+The **banner header icon** (small app icon in the corner of a macOS notification) comes from **Launch Services** and the app bundle’s registered icon—not from `UNNotificationAttachment`. Agent Session Manager ensures Launch Services can resolve the icon as follows:
 
-- **Production** (`make run`): uses the standard green `AppIcon.icns`.
-- **Dev** (`make run-dev`): uses the yellow-tinted `AppIcon-Dev.icns`; both `CFBundleIconFile` and `CFBundleIconName` are set to `AppIcon-Dev` in the dev bundle so the notification center header also resolves the correct icon.
+1. **Full standalone `.icns`** — `make app` / `make app-dev` compile the asset catalog with `actool --standalone-icon-behavior all`, producing a multi-resolution `AppIcon.icns` or `AppIcon-Dev.icns` in `Contents/Resources` (not a minimal placeholder).
+2. **Plist keys** — `CFBundleIconFile` and `CFBundleIconName` are synced from `actool`’s partial Info.plist after compile (dev uses `AppIcon-Dev` for both).
+3. **Launch Services** — After codesign, the Makefile unregisters and re-registers the bundle with `lsregister` so icon changes take effect on rebuild.
+4. **Runtime registration** — On launch, `NSApp.applicationIconImage` is set from the bundle `.icns` so ad-hoc builds run from a worktree (outside `/Applications`) still expose a concrete bitmap to the system.
 
-There are no user-configurable settings for the notification icon; the selection is entirely driven by which bundle variant is running.
+**Optional attachment** — The same icon may also be attached as a PNG for rich notification content; that does not control the header icon and may not appear in all notification styles on macOS.
+
+- **Production** (`make run`): green icon via `AppIcon` / `AppIcon.icns`.
+- **Dev** (`make run-dev`): yellow-tinted icon via `AppIcon-Dev` / `AppIcon-Dev.icns`.
+
+There are no user-configurable settings for the notification icon. After changing icons, run `make clean && make run` (or `make run-dev`). If the banner still shows a generic white icon, remove Agent Session Manager from **System Settings → Notifications**, rebuild, and allow notifications again. Ad-hoc-signed local builds may still show a generic icon on some macOS versions until the app is signed with a Developer ID and notarized.
 
 ## See also
 

@@ -1,3 +1,4 @@
+import UniformTypeIdentifiers
 import UserNotifications
 import XCTest
 
@@ -143,10 +144,79 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertTrue(line.contains("TestDomain"))
     }
 
-    func testBundleAppIconReturnsNonNil() {
-        // In test context there is no .icns file, so bundleAppIcon falls back to
-        // NSApp.applicationIconImage. Verify the fallback contract holds.
-        XCTAssertNotNil(MacNotificationCoordinator.bundleAppIcon())
+    func testBundleAppIconMainBundleFallbackDoesNotCrash() {
+        // swift test may run without NSApp; bundleAppIcon must not trap on NSApp access.
+        _ = MacNotificationCoordinator.bundleAppIcon()
+        if NSApp != nil {
+            XCTAssertNotNil(MacNotificationCoordinator.bundleAppIcon())
+        }
+    }
+
+    func testBundleAppIconLoadsFromEmbeddedICNS() throws {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let assetCatalog = repoRoot.appendingPathComponent("AppIcons/Assets.xcassets")
+        guard FileManager.default.fileExists(atPath: assetCatalog.path) else {
+            throw XCTSkip("Asset catalog not found at \(assetCatalog.path)")
+        }
+
+        let appBundle = FileManager.default.temporaryDirectory
+            .appendingPathComponent("asm-icon-fixture-\(UUID().uuidString).app", isDirectory: true)
+        let resources = appBundle.appendingPathComponent("Contents/Resources", isDirectory: true)
+        let partial = appBundle.appendingPathComponent("partial.plist")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: appBundle) }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.arguments = [
+            "actool", assetCatalog.path,
+            "--compile", resources.path,
+            "--app-icon", "AppIcon",
+            "--standalone-icon-behavior", "all",
+            "--output-partial-info-plist", partial.path,
+            "--platform", "macosx",
+            "--minimum-deployment-target", "14.0",
+        ]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw XCTSkip("actool failed with status \(process.terminationStatus)")
+        }
+
+        let info: [String: Any] = [
+            "CFBundleIconFile": "AppIcon",
+            "CFBundleIconName": "AppIcon",
+        ]
+        let infoURL = appBundle.appendingPathComponent("Contents/Info.plist")
+        let plistData = try PropertyListSerialization.data(
+            fromPropertyList: info, format: .xml, options: 0)
+        try plistData.write(to: infoURL)
+
+        guard let bundle = Bundle(path: appBundle.path) else {
+            XCTFail("Could not create Bundle at \(appBundle.path)")
+            return
+        }
+        XCTAssertNotNil(MacNotificationCoordinator.bundleAppIcon(in: bundle))
+
+        let emptyBundleDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("asm-icon-empty-\(UUID().uuidString).app", isDirectory: true)
+        let emptyContents = emptyBundleDir.appendingPathComponent("Contents", isDirectory: true)
+        try FileManager.default.createDirectory(at: emptyContents, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: emptyBundleDir) }
+        let emptyInfo: [String: Any] = ["CFBundleIconFile": "MissingIcon"]
+        try PropertyListSerialization.data(fromPropertyList: emptyInfo, format: .xml, options: 0)
+            .write(to: emptyContents.appendingPathComponent("Info.plist"))
+        let emptyBundle = try XCTUnwrap(Bundle(path: emptyBundleDir.path))
+        XCTAssertNil(MacNotificationCoordinator.bundleAppIcon(in: emptyBundle))
+    }
+
+    func testNotificationAttachmentOptionsUsePNGTypeHint() {
+        let hint = MacNotificationCoordinator.notificationAttachmentOptions[
+            UNNotificationAttachmentOptionsTypeHintKey
+        ] as? String
+        XCTAssertEqual(hint, UTType.png.identifier)
     }
 
     func testMakeAttachmentReturnsNilForNilImage() {
