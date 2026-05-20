@@ -11,6 +11,10 @@ RESULTS_PATH = .build/TestResults.xcresult
 BUNDLE_ID = com.justinfuller.agent-session-manager
 BUNDLE_ID_DEV = com.justinfuller.agent-session-manager.dev
 
+LSREGISTER = /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+ICON_PARTIAL_PRD = .build/icon-partial-prd.plist
+ICON_PARTIAL_DEV = .build/icon-partial-dev.plist
+
 export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 
 # --- Production targets ---
@@ -27,16 +31,29 @@ app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Info.plist $(APP_BUNDLE)/Contents/
+	mkdir -p .build
 	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE)/Contents/Resources \
-		--app-icon AppIcon --output-partial-info-plist /dev/null \
+		--app-icon AppIcon --standalone-icon-behavior all \
+		--output-partial-info-plist $(ICON_PARTIAL_PRD) \
 		--platform macosx --minimum-deployment-target 14.0
 	/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME)" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" $(APP_BUNDLE)/Contents/Info.plist
+	@ICON_FILE=$$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" $(ICON_PARTIAL_PRD) 2>/dev/null); \
+	ICON_NAME=$$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconName" $(ICON_PARTIAL_PRD) 2>/dev/null); \
+	if [ -n "$$ICON_FILE" ]; then \
+		/usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string $$ICON_FILE" $(APP_BUNDLE)/Contents/Info.plist; \
+	fi; \
+	if [ -n "$$ICON_NAME" ]; then \
+		/usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string $$ICON_NAME" $(APP_BUNDLE)/Contents/Info.plist; \
+	fi
 	codesign --force --deep --sign - $(APP_BUNDLE)
 	touch $(APP_BUNDLE)
-	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f $(APP_BUNDLE)
+	$(LSREGISTER) -u $(APP_BUNDLE) 2>/dev/null || true
+	$(LSREGISTER) -f $(APP_BUNDLE)
 
 run: run-prd
 
@@ -71,10 +88,13 @@ app-dev: build-dev
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/Resources
 	cp $(BUILD_DIR_DEV)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
 	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
+	mkdir -p .build
 	@if [ ! -f .build/dev-assets-compiled ] || \
-	    [ AppIcons/Assets.xcassets -nt .build/dev-assets-compiled ]; then \
+	    [ AppIcons/Assets.xcassets -nt .build/dev-assets-compiled ] || \
+	    [ Makefile -nt .build/dev-assets-compiled ]; then \
 		xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE_DEV)/Contents/Resources \
-			--app-icon AppIcon-Dev --output-partial-info-plist /dev/null \
+			--app-icon AppIcon-Dev --standalone-icon-behavior all \
+			--output-partial-info-plist $(ICON_PARTIAL_DEV) \
 			--platform macosx --minimum-deployment-target 14.0; \
 		touch .build/dev-assets-compiled; \
 	fi
@@ -82,13 +102,20 @@ app-dev: build-dev
 	/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $(BUNDLE_ID_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleName $(APP_NAME_DEV)" $(APP_BUNDLE_DEV)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleDevelopmentRegion en" $(APP_BUNDLE_DEV)/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon-Dev" $(APP_BUNDLE_DEV)/Contents/Info.plist 2>/dev/null || \
-		/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon-Dev" $(APP_BUNDLE_DEV)/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon-Dev" $(APP_BUNDLE_DEV)/Contents/Info.plist 2>/dev/null || \
-		/usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon-Dev" $(APP_BUNDLE_DEV)/Contents/Info.plist
+	@ICON_FILE=$$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" $(ICON_PARTIAL_DEV) 2>/dev/null); \
+	ICON_NAME=$$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconName" $(ICON_PARTIAL_DEV) 2>/dev/null); \
+	if [ -n "$$ICON_FILE" ]; then \
+		/usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" $(APP_BUNDLE_DEV)/Contents/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string $$ICON_FILE" $(APP_BUNDLE_DEV)/Contents/Info.plist; \
+	fi; \
+	if [ -n "$$ICON_NAME" ]; then \
+		/usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" $(APP_BUNDLE_DEV)/Contents/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string $$ICON_NAME" $(APP_BUNDLE_DEV)/Contents/Info.plist; \
+	fi
 	codesign --force --deep --sign - $(APP_BUNDLE_DEV)
 	touch $(APP_BUNDLE_DEV)
-	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f $(APP_BUNDLE_DEV)
+	$(LSREGISTER) -u $(APP_BUNDLE_DEV) 2>/dev/null || true
+	$(LSREGISTER) -f $(APP_BUNDLE_DEV)
 
 run-dev: app-dev
 	open $(APP_BUNDLE_DEV)
