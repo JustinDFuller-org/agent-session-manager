@@ -22,6 +22,9 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     private weak var appState: AppState?
     private weak var appSettings: AppSettings?
 
+    /// Set while handling a banner click so `applicationShouldHandleReopen` can avoid redundant work.
+    private(set) var isHandlingNotificationResponse = false
+
     /// Maps `NSError` from UserNotifications APIs for debug logs and unit tests.
     nonisolated static func describeUserNotificationsNSError(_ error: Error) -> String {
         let ns = error as NSError
@@ -266,12 +269,34 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             let tabIDStr = userInfo[MacNotificationUserInfoKey.tabID] as? String
         else { return }
         let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
+        isHandlingNotificationResponse = true
+        defer { isHandlingNotificationResponse = false }
         handleNotificationNavigation(paneIDStr: paneIDStr, tabIDStr: tabIDStr, kind: kind)
-        if let window = NSApp.windows.first(where: { !($0 is NSPanel) }) {
-            if window.isMiniaturized { window.deminiaturize(nil) }
-            window.makeKeyAndOrderFront(nil)
-        }
+        MainWindowController.activateApplicationForUserAttention()
+        MainWindowController.focusMainWindowAndDedupe()
+    }
+
+    /// UI tests: simulates a banner click without Notification Center (focus + dedupe only).
+    func simulateBannerClickForUITesting(paneID: UUID, tabID: UUID, kind: String? = nil) {
+        guard AgentSessionManagerApp.isUITesting else { return }
+        isHandlingNotificationResponse = true
+        defer { isHandlingNotificationResponse = false }
+        handleNotificationNavigation(
+            paneIDStr: paneID.uuidString,
+            tabIDStr: tabID.uuidString,
+            kind: kind
+        )
+        MainWindowController.activateApplicationForUserAttention()
+        MainWindowController.focusMainWindowAndDedupe()
+    }
+
+    /// UI tests: applies the legacy `NSApp.activate` path that could spawn a duplicate main window, then dedupes.
+    func simulateLegacyNotificationActivationForUITesting() {
+        guard AgentSessionManagerApp.isUITesting else { return }
+        isHandlingNotificationResponse = true
+        defer { isHandlingNotificationResponse = false }
         NSApp.activate(ignoringOtherApps: true)
+        MainWindowController.focusMainWindowAndDedupe()
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.

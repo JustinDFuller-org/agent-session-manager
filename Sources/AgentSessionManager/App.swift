@@ -63,6 +63,10 @@ struct ContentView: View {
         .task {
             MacNotificationCoordinator.shared.bind(appState: appState, appSettings: appSettings)
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+            if AgentSessionManagerApp.shouldSimulateBannerClick {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                MacNotificationCoordinator.shared.simulateLegacyNotificationActivationForUITesting()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             appState.activePane?.terminalController?.focusTerminal()

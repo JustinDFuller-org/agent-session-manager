@@ -73,6 +73,34 @@ final class NotificationUITests: BaseTestCase {
         XCTAssertEqual(nonPanelWindows.count, 1, "Expected exactly one app window after launch")
     }
 
+    /// Regression: simulated banner activation (legacy `NSApp.activate` + dedupe) must not leave two main windows.
+    func testNotificationClickDoesNotOpenSecondMainWindow() {
+        app.terminate()
+        app.launchArguments = [
+            "--uitesting",
+            "--uitesting-skip-restore",
+            "--uitesting-simulate-banner-click",
+        ]
+        app.launch()
+
+        let mainTitle = "Agent Session Manager"
+        let predicate = NSPredicate(format: "title CONTAINS %@", mainTitle)
+        let mainWindows = app.windows.matching(predicate)
+        let oneMain = mainWindows.element(boundBy: 0)
+        XCTAssertTrue(oneMain.waitForExistence(timeout: 5))
+
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            if mainWindows.count == 1 { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertEqual(
+            mainWindows.count,
+            1,
+            "Expected exactly one main window after simulated notification activation"
+        )
+    }
+
     func testAlwaysShowNotificationsBarToggleExistsAndIsOnByDefault() {
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.buttons["Notifications"]

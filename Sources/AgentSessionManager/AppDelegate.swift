@@ -3,6 +3,7 @@ import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.setActivationPolicy(.regular)
         if let icon = MacNotificationCoordinator.bundleAppIcon() {
             NSApp.applicationIconImage = icon
@@ -11,7 +12,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        sender.windows.first { !($0 is NSPanel) }?.makeKeyAndOrderFront(nil)
+        if MacNotificationCoordinator.shared.isHandlingNotificationResponse {
+            return false
+        }
+        MainWindowController.focusMainWindow()
+        MainWindowController.closeDuplicateMainWindows(keeping: MainWindowController.preferredMainWindow())
         return false
     }
 
