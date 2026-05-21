@@ -95,7 +95,7 @@ struct PaneView: View {
 
     private func paneHeader(pendingNotification: PaneNotification?) -> some View {
         HStack(spacing: 6) {
-            statusDot(pendingNotification: pendingNotification)
+            statusDot()
 
             if let notification = pendingNotification, notification.kind == .terminalBell {
                 Circle()
@@ -143,27 +143,35 @@ struct PaneView: View {
     }
 
     @ViewBuilder
-    private func statusDot(pendingNotification: PaneNotification?) -> some View {
-        if pane.isMerged {
-            Circle()
-                .fill(Color.purple)
-                .frame(width: 7, height: 7)
-                .accessibilityIdentifier("pane-status-dot-merged-\(pane.name)")
-        } else {
-            switch pane.terminalController?.processState {
-            case .running:
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 7, height: 7)
-                    .opacity(pulse ? 0.5 : 1.0)
-                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
-                    .onAppear { pulse = true }
-            case .exited:
-                Circle().fill(Color.gray.opacity(0.4)).frame(width: 7, height: 7)
-            default:
-                Circle().fill(Color.gray).frame(width: 7, height: 7)
+    private func statusDot() -> some View {
+        let pr = pane.statusLineMonitor?.currentData?.pr
+        let sessionState = pane.statusLineMonitor?.currentData?.sessionStatus?.state
+        let shouldPulse = sessionState == "busy" || sessionState == "retry"
+        let dotColor = paneStatusDotColor(
+            pr: pr,
+            isMerged: pane.isMerged,
+            processState: pane.terminalController?.processState
+        )
+        let isMergedCondition = pane.isMerged || pr?.state.lowercased() == "merged"
+        let dotAccessibilityID =
+            isMergedCondition
+            ? "pane-status-dot-merged-\(pane.name)"
+            : "pane-status-dot-\(pane.name)"
+
+        Circle()
+            .fill(dotColor)
+            .frame(width: 7, height: 7)
+            .opacity(pulse ? 0.5 : 1.0)
+            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+            .onAppear { pulse = shouldPulse }
+            .onChange(of: shouldPulse) { _, newValue in
+                if newValue {
+                    pulse = true
+                } else {
+                    withAnimation(.linear(duration: 0)) { pulse = false }
+                }
             }
-        }
+            .accessibilityIdentifier(dotAccessibilityID)
     }
 
     @ViewBuilder
