@@ -50,7 +50,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
 
     /// Options for notification image attachments (PNG type hint for UserNotifications).
     nonisolated static let notificationAttachmentOptions: [AnyHashable: Any] = [
-        UNNotificationAttachmentOptionsTypeHintKey: UTType.png.identifier,
+        UNNotificationAttachmentOptionsTypeHintKey: UTType.png.identifier
     ]
 
     /// Loads the app icon directly from the bundle's compiled .icns file so the correct icon is
@@ -271,12 +271,31 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
         isHandlingNotificationResponse = true
         defer { isHandlingNotificationResponse = false }
+
+        #if DEV_BUILD
+        WindowSnapshot.record(
+            event: "notification.click.handler_entered",
+            extra: [
+                "paneID": paneIDStr,
+                "tabID": tabIDStr,
+                "kind": kind ?? "paneAttention",
+            ])
+        #endif
+
         handleNotificationNavigation(paneIDStr: paneIDStr, tabIDStr: tabIDStr, kind: kind)
-        MainWindowController.activateApplicationForUserAttention()
-        MainWindowController.focusMainWindowAndDedupe()
+
+        #if DEV_BUILD
+        WindowSnapshot.record(event: "notification.click.after_navigation")
+        #endif
+
+        (NSApp.delegate as? AppDelegate)?.focusMainWindow()
+
+        #if DEV_BUILD
+        WindowSnapshot.record(event: "notification.click.after_focus")
+        #endif
     }
 
-    /// UI tests: simulates a banner click without Notification Center (focus + dedupe only).
+    /// UI tests: simulates a banner click without Notification Center.
     func simulateBannerClickForUITesting(paneID: UUID, tabID: UUID, kind: String? = nil) {
         guard AgentSessionManagerApp.isUITesting else { return }
         isHandlingNotificationResponse = true
@@ -286,17 +305,15 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             tabIDStr: tabID.uuidString,
             kind: kind
         )
-        MainWindowController.activateApplicationForUserAttention()
-        MainWindowController.focusMainWindowAndDedupe()
+        (NSApp.delegate as? AppDelegate)?.focusMainWindow()
     }
 
-    /// UI tests: applies the legacy `NSApp.activate` path that could spawn a duplicate main window, then dedupes.
+    /// UI tests: simulates the activation path triggered by a notification click.
     func simulateLegacyNotificationActivationForUITesting() {
         guard AgentSessionManagerApp.isUITesting else { return }
         isHandlingNotificationResponse = true
         defer { isHandlingNotificationResponse = false }
-        NSApp.activate(ignoringOtherApps: true)
-        MainWindowController.focusMainWindowAndDedupe()
+        (NSApp.delegate as? AppDelegate)?.focusMainWindow()
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.

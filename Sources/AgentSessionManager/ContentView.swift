@@ -4,51 +4,13 @@ import SwiftUI
 @main
 struct AgentSessionManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var appState = AppState()
-    @State private var appSettings = AppSettings()
 
     var body: some Scene {
-        Window(appWindowTitle, id: "main") {
-            ContentView()
-                .environment(appState)
-                .environment(appSettings)
-                .frame(minWidth: 900, minHeight: 600)
-                .task {
-                    if !CommandLine.arguments.contains("--uitesting-skip-restore") {
-                        SettingsPersistence.restore(into: appSettings)
-                        SettingsPersistence.restoreStatusLine(into: appSettings)
-                        SettingsPersistence.restoreCodexOptions(into: appSettings)
-                        SettingsPersistence.restoreCursorOptions(into: appSettings)
-                        SettingsPersistence.restoreOpenCodeOptions(into: appSettings)
-                        SettingsPersistence.restoreActiveTools(into: appSettings)
-                        SettingsPersistence.restoreDefaultBranch(into: appSettings)
-                        SettingsPersistence.restoreNotificationSettings(into: appSettings)
-                        SettingsPersistence.restoreRestartSettings(into: appSettings)
-                        SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
-                        SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
-                        SettingsPersistence.restoreWorktreeBaseRef(into: appSettings)
-                        SettingsPersistence.restorePRTracking(into: appSettings)
-                        SettingsPersistence.restorePRPollingSettings(into: appSettings)
-                        SettingsPersistence.restoreTerminalSettings(into: appSettings)
-                        SettingsPersistence.restoreExitBehavior(into: appSettings)
-                        SettingsPersistence.restoreEnvVarOptions(into: appSettings)
-                        SettingsPersistence.restoreProfiles(into: appSettings)
-                        SettingsPersistence.restoreSessionNameSettings(into: appSettings)
-                        SettingsPersistence.restoreTracingSettings(into: appSettings)
-                        TracingService.shared.configure(from: appSettings)
-                        SessionPersistence.restore(into: appState, appSettings: appSettings)
-                        await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
-                    }
-                }
-                .onChange(of: appState.tabs.count) { SessionPersistence.save(appState: appState) }
-                .onChange(of: appState.activeTabID) { SessionPersistence.save(appState: appState) }
-        }
-        .commands { AppCommands() }
-
         Settings {
             SettingsView()
-                .environment(appSettings)
+                .environment(appDelegate.appSettings)
         }
+        .commands { AppCommands() }
 
         Window("Trace Dashboard", id: "trace-dashboard") {
             TraceDashboardView()
@@ -121,13 +83,5 @@ extension AgentSessionManagerApp {
 
     static var shouldSimulateBannerClick: Bool {
         CommandLine.arguments.contains("--uitesting-simulate-banner-click")
-    }
-
-    private var appWindowTitle: String {
-        #if DEV_BUILD
-        "Agent Session Manager (Dev)"
-        #else
-        "Agent Session Manager"
-        #endif
     }
 }
