@@ -416,69 +416,71 @@ final class Tab: Identifiable {
     }
 
     private func runGitOutput(_ args: [String]) async throws -> String {
-        TracingService.shared.record(
+        let cwd = directory.path
+        return try await TracingService.shared.withSpan(
             "tab.git.command",
-            attributes: [
-                "cwd": directory.path,
-                "args": args.joined(separator: " "),
-            ])
-        return try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            let outPipe = Pipe()
-            let errPipe = Pipe()
-            process.executableURL = URL(filePath: "/usr/bin/git")
-            process.arguments = args
-            process.currentDirectoryURL = directory
-            process.standardOutput = outPipe
-            process.standardError = errPipe
-            process.terminationHandler = { proc in
-                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                if proc.terminationStatus == 0 {
-                    continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
-                } else {
-                    let stderr = String(data: errData, encoding: .utf8) ?? ""
-                    continuation.resume(
-                        throwing: GitCommandError(arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+            attributes: ["cwd": cwd, "args": args.joined(separator: " ")]
+        ) {
+            try await withCheckedThrowingContinuation { continuation in
+                let process = Process()
+                let outPipe = Pipe()
+                let errPipe = Pipe()
+                process.executableURL = URL(filePath: "/usr/bin/git")
+                process.arguments = args
+                process.currentDirectoryURL = self.directory
+                process.standardOutput = outPipe
+                process.standardError = errPipe
+                process.terminationHandler = { proc in
+                    let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                    let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                    if proc.terminationStatus == 0 {
+                        continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
+                    } else {
+                        let stderr = String(data: errData, encoding: .utf8) ?? ""
+                        continuation.resume(
+                            throwing: GitCommandError(
+                                arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+                    }
                 }
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }
 
     private func runGit(_ args: [String]) async throws {
-        TracingService.shared.record(
+        let cwd = directory.path
+        try await TracingService.shared.withSpan(
             "tab.git.command",
-            attributes: [
-                "cwd": directory.path,
-                "args": args.joined(separator: " "),
-            ])
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            let errPipe = Pipe()
-            process.executableURL = URL(filePath: "/usr/bin/git")
-            process.arguments = args
-            process.currentDirectoryURL = directory
-            process.standardOutput = FileHandle.nullDevice
-            process.standardError = errPipe
-            process.terminationHandler = { proc in
-                let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                let stderr = String(data: errData, encoding: .utf8) ?? ""
-                if proc.terminationStatus == 0 {
-                    continuation.resume()
-                } else {
-                    continuation.resume(
-                        throwing: GitCommandError(arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+            attributes: ["cwd": cwd, "args": args.joined(separator: " ")]
+        ) {
+            try await withCheckedThrowingContinuation { continuation in
+                let process = Process()
+                let errPipe = Pipe()
+                process.executableURL = URL(filePath: "/usr/bin/git")
+                process.arguments = args
+                process.currentDirectoryURL = self.directory
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = errPipe
+                process.terminationHandler = { proc in
+                    let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                    let stderr = String(data: errData, encoding: .utf8) ?? ""
+                    if proc.terminationStatus == 0 {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(
+                            throwing: GitCommandError(
+                                arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+                    }
                 }
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }

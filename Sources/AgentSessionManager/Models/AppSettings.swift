@@ -115,6 +115,7 @@ final class AppSettings {
     /// Empty string means the default file under Application Support.
     var tracingFilePath: String = ""
     var tracingFileMaxBytes: Int = AppSettings.defaultTracingFileMaxBytes
+    var traceDashboardMaxSpans: Int = 500
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30
@@ -127,7 +128,7 @@ final class AppSettings {
     var profiles: [Profile] = []
     var autoSetSessionName: Bool = true
 
-    static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
+    nonisolated static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
 
     /// Resolved trace file URL (creates the Application Support parent directory when using the default).
     var resolvedTracingFileURL: URL {

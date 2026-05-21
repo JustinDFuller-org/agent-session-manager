@@ -68,6 +68,36 @@ struct TracingView: View {
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
+
+                            Divider().padding(.leading, 16)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Dashboard Buffer")
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.medium)
+                                    Text("Max spans kept in memory for the in-app dashboard.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                HStack(spacing: 4) {
+                                    TextField("", value: $appSettings.traceDashboardMaxSpans, format: .number)
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: 72)
+                                        .accessibilityIdentifier("settings-tracing-dashboard-max-spans-field")
+                                        .onChange(of: appSettings.traceDashboardMaxSpans) {
+                                            let clamped = max(1, appSettings.traceDashboardMaxSpans)
+                                            appSettings.traceDashboardMaxSpans = clamped
+                                            TraceStore.shared.maxSpans = clamped
+                                            SettingsPersistence.saveTracingSettings(appSettings: appSettings)
+                                        }
+                                    Text("spans")
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
                         }
                     }
                     .background(Color(nsColor: .controlBackgroundColor))
