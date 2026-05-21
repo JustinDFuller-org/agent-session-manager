@@ -1,45 +1,157 @@
 import SwiftUI
 
+// MARK: - Data helpers
+
+struct SpanRow {
+    let span: StoredSpan
+    let depth: Int
+}
+
+func buildWaterfallRows(from spans: [StoredSpan]) -> [SpanRow] {
+    var spanById: [String: StoredSpan] = [:]
+    var childrenByParent: [String: [StoredSpan]] = [:]
+
+    for span in spans { spanById[span.spanId] = span }
+
+    for span in spans {
+        if let parentId = span.parentSpanId, spanById[parentId] != nil {
+            childrenByParent[parentId, default: []].append(span)
+        }
+    }
+
+    for key in childrenByParent.keys {
+        childrenByParent[key]?.sort { $0.startEpochMs < $1.startEpochMs }
+    }
+
+    let roots = spans
+        .filter { span in
+            guard let parentId = span.parentSpanId else { return true }
+            return spanById[parentId] == nil
+        }
+        .sorted { $0.startEpochMs < $1.startEpochMs }
+
+    var result: [SpanRow] = []
+
+    func dfs(_ span: StoredSpan, depth: Int) {
+        result.append(SpanRow(span: span, depth: depth))
+        for child in childrenByParent[span.spanId] ?? [] {
+            dfs(child, depth: depth + 1)
+        }
+    }
+
+    for root in roots { dfs(root, depth: 0) }
+    return result
+}
+
+/// Summary of a single trace, derived from its spans.
+struct TraceSummary: Identifiable {
+    let traceId: String
+    let rootName: String
+    let startEpochMs: Int64
+    let durationMs: Int64
+    let spanCount: Int
+
+    var id: String { traceId }
+}
+
+func buildTraceSummaries(from spans: [StoredSpan]) -> [TraceSummary] {
+    var byTrace: [String: [StoredSpan]] = [:]
+    for span in spans { byTrace[span.traceId, default: []].append(span) }
+
+    return byTrace.map { traceId, traceSpans in
+        let spanById = Dictionary(uniqueKeysWithValues: traceSpans.map { ($0.spanId, $0) })
+        let root = traceSpans
+            .filter { span in
+                guard let pid = span.parentSpanId else { return true }
+                return spanById[pid] == nil
+            }
+            .sorted { $0.startEpochMs < $1.startEpochMs }
+            .first
+        let start = traceSpans.map(\.startEpochMs).min() ?? 0
+        let end = traceSpans.map(\.endEpochMs).max() ?? start
+        return TraceSummary(
+            traceId: traceId,
+            rootName: root?.name ?? traceSpans[0].name,
+            startEpochMs: start,
+            durationMs: end - start,
+            spanCount: traceSpans.count
+        )
+    }
+    .sorted { $0.startEpochMs > $1.startEpochMs }
+}
+
+// MARK: - Root dashboard view
+
 struct TraceDashboardView: View {
     @Environment(TraceStore.self) private var store
+    @State private var selectedTraceId: String?
     @State private var filterText = ""
-    @State private var selectedSpan: StoredSpan?
 
-    private var filteredSpans: [StoredSpan] {
-        guard !filterText.isEmpty else { return store.spans }
-        return store.spans.filter { $0.name.localizedCaseInsensitiveContains(filterText) }
+    private var summaries: [TraceSummary] {
+        let all = buildTraceSummaries(from: store.spans)
+        guard !filterText.isEmpty else { return all }
+        return all.filter { $0.rootName.localizedCaseInsensitiveContains(filterText) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
-            Divider()
-            if store.spans.isEmpty {
-                emptyState
+            if let traceId = selectedTraceId {
+                let traceSpans = store.spans.filter { $0.traceId == traceId }
+                TraceDetailView(
+                    summary: summaries.first { $0.traceId == traceId }
+                        ?? TraceSummary(traceId: traceId, rootName: traceId, startEpochMs: 0, durationMs: 0, spanCount: 0),
+                    spans: traceSpans,
+                    onBack: { selectedTraceId = nil }
+                )
             } else {
-                content
+                TraceListView(
+                    summaries: summaries,
+                    filterText: $filterText,
+                    totalSpanCount: store.spans.count,
+                    onSelect: { selectedTraceId = $0 },
+                    onClear: { store.clear() }
+                )
             }
         }
         .frame(minWidth: 700, minHeight: 400)
         .background(Color(nsColor: .windowBackgroundColor))
     }
+}
+
+// MARK: - Trace list
+
+struct TraceListView: View {
+    let summaries: [TraceSummary]
+    @Binding var filterText: String
+    let totalSpanCount: Int
+    let onSelect: (String) -> Void
+    let onClear: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            toolbar
+            Divider()
+            if summaries.isEmpty {
+                emptyState
+            } else {
+                list
+            }
+        }
+    }
 
     private var toolbar: some View {
         HStack(spacing: 8) {
-            TextField("Filter spans…", text: $filterText)
+            TextField("Filter traces…", text: $filterText)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 220)
                 .accessibilityIdentifier("trace-dashboard-filter-field")
             Spacer()
-            Text("\(store.spans.count) span\(store.spans.count == 1 ? "" : "s")")
+            Text("\(totalSpanCount) span\(totalSpanCount == 1 ? "" : "s")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("trace-dashboard-span-count")
-            Button("Clear") {
-                store.clear()
-                selectedSpan = nil
-            }
-            .accessibilityIdentifier("trace-dashboard-clear-button")
+            Button("Clear") { onClear() }
+                .accessibilityIdentifier("trace-dashboard-clear-button")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -62,25 +174,165 @@ struct TraceDashboardView: View {
         .accessibilityIdentifier("trace-dashboard-empty-state")
     }
 
-    private var content: some View {
-        VSplitView {
-            TraceWaterfallView(spans: filteredSpans, selectedSpan: $selectedSpan)
-                .frame(minHeight: 200)
-            if let span = selectedSpan {
-                SpanDetailView(span: span)
-                    .frame(minHeight: 120, maxHeight: 240)
+    private var list: some View {
+        ScrollView(.vertical) {
+            VStack(spacing: 0) {
+                listHeader
+                Divider()
+                ForEach(Array(summaries.enumerated()), id: \.element.id) { index, summary in
+                    TraceListRow(summary: summary, rowIndex: index)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onSelect(summary.traceId) }
+                    Divider().padding(.leading, 16)
+                }
+            }
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+        .accessibilityIdentifier("trace-dashboard-list")
+    }
+
+    private var listHeader: some View {
+        HStack(spacing: 0) {
+            Text("NAME")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("SPANS")
+                .frame(width: 60, alignment: .trailing)
+            Text("DURATION")
+                .frame(width: 90, alignment: .trailing)
+            Text("TIME")
+                .frame(width: 90, alignment: .trailing)
+        }
+        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+        .foregroundStyle(.tertiary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+}
+
+struct TraceListRow: View {
+    let summary: TraceSummary
+    let rowIndex: Int
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .none
+        f.timeStyle = .medium
+        return f
+    }()
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(summary.rootName)
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("\(summary.spanCount)")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 60, alignment: .trailing)
+
+            Text(durationLabel(summary.durationMs))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 90, alignment: .trailing)
+
+            Text(Self.timeFormatter.string(from: Date(timeIntervalSince1970: Double(summary.startEpochMs) / 1000)))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 90, alignment: .trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(rowIndex % 2 == 1 ? Color(nsColor: .controlBackgroundColor).opacity(0.5) : Color.clear)
+    }
+
+    private func durationLabel(_ ms: Int64) -> String {
+        if ms == 0 { return "—" }
+        return ms < 1000 ? "\(ms)ms" : String(format: "%.2fs", Double(ms) / 1000)
+    }
+}
+
+// MARK: - Trace detail (single-trace waterfall)
+
+struct TraceDetailView: View {
+    let summary: TraceSummary
+    let spans: [StoredSpan]
+    let onBack: () -> Void
+    @State private var selectedSpan: StoredSpan?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            toolbar
+            Divider()
+            VSplitView {
+                TraceWaterfallView(spans: spans, selectedSpan: $selectedSpan)
+                    .frame(minHeight: 200)
+                if let span = selectedSpan {
+                    SpanDetailView(span: span)
+                        .frame(minHeight: 120, maxHeight: 240)
+                }
             }
         }
     }
+
+    private var toolbar: some View {
+        HStack(spacing: 8) {
+            Button(action: onBack) {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Traces")
+                        .font(.system(size: 12))
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityIdentifier("trace-detail-back-button")
+
+            Divider().frame(height: 14)
+
+            Text(summary.rootName)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            Spacer()
+
+            Text("\(summary.spanCount) span\(summary.spanCount == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if summary.durationMs > 0 {
+                Text(durationLabel(summary.durationMs))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private func durationLabel(_ ms: Int64) -> String {
+        ms < 1000 ? "\(ms)ms" : String(format: "%.2fs", Double(ms) / 1000)
+    }
 }
+
+// MARK: - Single-trace waterfall
 
 struct TraceWaterfallView: View {
     let spans: [StoredSpan]
     @Binding var selectedSpan: StoredSpan?
 
     private static let labelWidth: CGFloat = 200
+    private static let minBarAreaWidth: CGFloat = 500
     private static let rowHeight: CGFloat = 20
     private static let rowPadding: CGFloat = 2
+    private static let indentPerDepth: CGFloat = 12
 
     private var windowStart: Int64 { spans.map(\.startEpochMs).min() ?? 0 }
     private var windowEnd: Int64 { spans.map(\.endEpochMs).max() ?? 1 }
@@ -90,91 +342,101 @@ struct TraceWaterfallView: View {
     }
 
     var body: some View {
-        ScrollView([.vertical, .horizontal]) {
-            VStack(spacing: 0) {
-                timeAxis
-                ForEach(Array(spans.enumerated()), id: \.element.id) { index, span in
-                    spanRow(span: span, index: index)
+        GeometryReader { geo in
+            let totalWidth = max(geo.size.width, Self.labelWidth + Self.minBarAreaWidth)
+            let barAreaWidth = totalWidth - Self.labelWidth
+            let rows = buildWaterfallRows(from: spans)
+            ScrollView([.vertical, .horizontal]) {
+                VStack(spacing: 0) {
+                    timeAxis(barAreaWidth: barAreaWidth)
+                    ForEach(Array(rows.enumerated()), id: \.element.span.id) { index, row in
+                        renderSpanRow(row: row, rowIndex: index, barAreaWidth: barAreaWidth)
+                    }
                 }
+                .frame(width: totalWidth)
+                .padding(.bottom, 8)
             }
-            .padding(.bottom, 8)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
         }
         .background(Color(nsColor: .textBackgroundColor))
         .accessibilityIdentifier("trace-dashboard-waterfall")
     }
 
-    private var timeAxis: some View {
-        GeometryReader { geo in
-            let barWidth = max(0, geo.size.width - Self.labelWidth)
-            Canvas { ctx, size in
-                let ticks = 5
-                for i in 0...ticks {
-                    let x = Self.labelWidth + (barWidth / CGFloat(ticks)) * CGFloat(i)
-                    let ms = Int64(Double(i) / Double(ticks) * windowDuration)
-                    let label = "\(ms)ms"
-                    let resolved = ctx.resolve(
-                        Text(label)
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Color.secondary)
-                    )
-                    ctx.draw(resolved, at: CGPoint(x: x, y: size.height / 2), anchor: .center)
-                }
+    private func timeAxis(barAreaWidth: CGFloat) -> some View {
+        Canvas { ctx, size in
+            let ticks = 5
+            for i in 0...ticks {
+                let x = Self.labelWidth + (barAreaWidth / CGFloat(ticks)) * CGFloat(i)
+                let ms = Int64(Double(i) / Double(ticks) * windowDuration)
+                let label = ms < 1000 ? "\(ms)ms" : String(format: "%.1fs", Double(ms) / 1000)
+                let resolved = ctx.resolve(
+                    Text(label)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(Color.secondary)
+                )
+                ctx.draw(resolved, at: CGPoint(x: x, y: size.height / 2), anchor: .center)
             }
         }
         .frame(height: 16)
         .padding(.bottom, 2)
     }
 
-    private func spanRow(span: StoredSpan, index: Int) -> some View {
+    private func renderSpanRow(row: SpanRow, rowIndex: Int, barAreaWidth: CGFloat) -> some View {
+        let span = row.span
+        let indent = CGFloat(row.depth) * Self.indentPerDepth
         let isSelected = selectedSpan?.id == span.id
-        return GeometryReader { geo in
-            let barWidth = max(0, geo.size.width - Self.labelWidth)
-            let startRatio = Double(span.startEpochMs - windowStart) / windowDuration
-            let endRatio = Double(span.endEpochMs - windowStart) / windowDuration
-            let x = Self.labelWidth + CGFloat(startRatio) * barWidth
-            let w = max(4, CGFloat(endRatio - startRatio) * barWidth)
+        let startRatio = Double(span.startEpochMs - windowStart) / windowDuration
+        let endRatio = Double(span.endEpochMs - windowStart) / windowDuration
+        let barX = CGFloat(startRatio) * barAreaWidth
+        let barW = max(4, CGFloat(endRatio - startRatio) * barAreaWidth)
 
-            ZStack(alignment: .leading) {
-                if isSelected {
-                    Color.accentColor.opacity(0.1)
-                } else if index % 2 == 1 {
-                    Color(nsColor: .controlBackgroundColor).opacity(0.5)
-                }
-
-                HStack(spacing: 0) {
-                    Text(span.name)
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(width: Self.labelWidth, alignment: .leading)
-                        .padding(.leading, 8)
-
-                    if span.durationMs == 0 {
-                        Circle()
-                            .fill(spanColor(for: span.name))
-                            .frame(width: 6, height: 6)
-                            .offset(x: x - Self.labelWidth - 3)
-                    } else {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(spanColor(for: span.name))
-                            .frame(width: w, height: Self.rowHeight - Self.rowPadding * 2 - 2)
-                            .offset(x: x - Self.labelWidth)
-                    }
-                    Spacer()
-                }
+        return ZStack(alignment: .leading) {
+            if isSelected {
+                Color.accentColor.opacity(0.1)
+            } else if rowIndex % 2 == 1 {
+                Color(nsColor: .controlBackgroundColor).opacity(0.5)
             }
-            .frame(height: Self.rowHeight)
-            .contentShape(Rectangle())
-            .onTapGesture { selectedSpan = span }
-            .overlay(
-                isSelected
-                    ? RoundedRectangle(cornerRadius: 0)
-                        .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
-                    : nil
-            )
+
+            HStack(spacing: 0) {
+                Text(span.name)
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.leading, 8 + indent)
+                    .frame(width: Self.labelWidth, alignment: .leading)
+
+                if span.durationMs == 0 {
+                    Circle()
+                        .fill(spanColor(for: span.name))
+                        .frame(width: 6, height: 6)
+                        .offset(x: barX - 3)
+                } else {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(spanColor(for: span.name))
+                        .frame(width: barW, height: Self.rowHeight - Self.rowPadding * 2 - 2)
+                        .offset(x: barX)
+                    Text(durationLabel(span.durationMs))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .offset(x: barX + barW + 4)
+                }
+                Spacer()
+            }
         }
         .frame(height: Self.rowHeight)
+        .contentShape(Rectangle())
+        .onTapGesture { selectedSpan = span }
+        .overlay(
+            isSelected
+                ? RoundedRectangle(cornerRadius: 0)
+                    .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
+                : nil
+        )
+    }
+
+    private func durationLabel(_ ms: Int64) -> String {
+        ms < 1000 ? "\(ms)ms" : String(format: "%.1fs", Double(ms) / 1000)
     }
 
     private func spanColor(for name: String) -> Color {
@@ -185,10 +447,13 @@ struct TraceWaterfallView: View {
         case "tab": return .green
         case "pr": return .orange
         case "statusline": return .purple
+        case "session": return .teal
         default: return .gray
         }
     }
 }
+
+// MARK: - Span detail panel
 
 struct SpanDetailView: View {
     let span: StoredSpan

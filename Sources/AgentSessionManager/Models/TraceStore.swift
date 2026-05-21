@@ -6,6 +6,7 @@ struct StoredSpan: Identifiable {
     let name: String
     let traceId: String
     let spanId: String
+    let parentSpanId: String?
     let startEpochMs: Int64
     let endEpochMs: Int64
     let durationMs: Int64
@@ -15,6 +16,7 @@ struct StoredSpan: Identifiable {
         name: String,
         traceId: String,
         spanId: String,
+        parentSpanId: String?,
         startEpochMs: Int64,
         endEpochMs: Int64,
         attributes: [String: String]
@@ -23,6 +25,7 @@ struct StoredSpan: Identifiable {
         self.name = name
         self.traceId = traceId
         self.spanId = spanId
+        self.parentSpanId = parentSpanId
         self.startEpochMs = startEpochMs
         self.endEpochMs = endEpochMs
         self.durationMs = endEpochMs - startEpochMs

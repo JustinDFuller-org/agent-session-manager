@@ -26,6 +26,8 @@ final class PRTrackingCoordinator {
     private var timeoutWorkItem: DispatchWorkItem?
     /// Incremented each time a new cycle starts; guards against stale async Tasks delivering results.
     private var cycleToken: UInt64 = 0
+    /// Live span for the current poll cycle; ended when the cycle completes, errors, or is superseded.
+    private var currentCycleHandle: SpanHandle?
     private(set) var isPaused = false
     private(set) var isBackgrounded = false
     @ObservationIgnored nonisolated(unsafe) private var appStateObservers: [Any] = []
@@ -150,6 +152,10 @@ final class PRTrackingCoordinator {
     private func runCycle() {
         guard SettingsPersistence.isPRTrackingEnabled() else { return }
 
+        // End any previous cycle that was superseded before it could finish.
+        TracingService.shared.end(handle: currentCycleHandle, attributes: ["result": "superseded"])
+        currentCycleHandle = nil
+
         timeoutWorkItem?.cancel()
         timeoutWorkItem = nil
         activeBatchProcess?.terminate()
@@ -160,19 +166,18 @@ final class PRTrackingCoordinator {
         let paneIDs = subscribers.keys.filter {
             subscribers[$0]?.owner != nil && subscribers[$0]?.repo != nil
         }
-        guard !paneIDs.isEmpty else {
-            return
-        }
+        guard !paneIDs.isEmpty else { return }
 
-        TracingService.shared.record(
+        let cycleHandle = TracingService.shared.startSpan(
             "pr.poll.cycle",
-            attributes: [
-                "pane_count": String(paneIDs.count),
-                "result": "ok",
-            ])
+            attributes: ["pane_count": String(paneIDs.count)])
+        currentCycleHandle = cycleHandle
 
         Task { @MainActor [weak self] in
-            guard let self, self.cycleToken == token else { return }
+            guard let self, self.cycleToken == token else {
+                TracingService.shared.end(handle: cycleHandle, attributes: ["result": "cancelled"])
+                return
+            }
 
             await withTaskGroup(of: (UUID, String?).self) { group in
                 for paneID in paneIDs {
@@ -187,12 +192,15 @@ final class PRTrackingCoordinator {
                 }
             }
 
-            guard self.cycleToken == token else { return }
-            self.runBatchQuery(token: token)
+            guard self.cycleToken == token else {
+                TracingService.shared.end(handle: cycleHandle, attributes: ["result": "cancelled"])
+                return
+            }
+            self.runBatchQuery(token: token, cycleHandle: cycleHandle)
         }
     }
 
-    private func runBatchQuery(token: UInt64) {
+    private func runBatchQuery(token: UInt64, cycleHandle: SpanHandle?) {
         guard SettingsPersistence.isPRTrackingEnabled() else { return }
         let query = buildBatchQuery()
         guard !query.isEmpty else {
@@ -233,9 +241,13 @@ final class PRTrackingCoordinator {
             let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
             let result = process.terminationStatus == 0 ? "ok" : "error"
             Task { @MainActor [weak self] in
-                guard let self, self.cycleToken == token else { return }
+                guard let self, self.cycleToken == token else {
+                    TracingService.shared.end(handle: cycleHandle, attributes: ["result": "cancelled"])
+                    return
+                }
                 TracingService.shared.recordSpan(
                     "pr.graphql.query",
+                    parent: cycleHandle,
                     startTime: queryStartTime,
                     endTime: queryEndTime,
                     attributes: [
@@ -244,7 +256,7 @@ final class PRTrackingCoordinator {
                         "exit_code": String(process.terminationStatus),
                     ])
                 self.activeBatchProcess = nil
-                self.processBatchResponse(outData)
+                self.processBatchResponse(outData, cycleHandle: cycleHandle)
             }
         }
 
@@ -284,8 +296,12 @@ final class PRTrackingCoordinator {
         return "query BatchedPRStatus { \(fragments.joined(separator: " ")) }"
     }
 
-    private func processBatchResponse(_ data: Data) {
-        guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+    private func processBatchResponse(_ data: Data, cycleHandle: SpanHandle?) {
+        guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else {
+            TracingService.shared.end(handle: cycleHandle, attributes: ["result": "empty_response"])
+            currentCycleHandle = nil
+            return
+        }
 
         let separators = ["\r\n\r\n", "\n\n"]
         var headerSection = ""
@@ -310,9 +326,6 @@ final class PRTrackingCoordinator {
         }
 
         if let points = remainingPoints {
-            TracingService.shared.record(
-                "pr.graphql.query",
-                attributes: ["rate_limit_remaining": String(points)])
             adjustInterval(remainingPoints: points)
         }
 
@@ -320,7 +333,8 @@ final class PRTrackingCoordinator {
             let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
             let dataDict = json["data"] as? [String: Any]
         else {
-            TracingService.shared.record("pr.graphql.query", attributes: ["result": "parse_failed"])
+            TracingService.shared.end(handle: cycleHandle, attributes: ["result": "parse_failed"])
+            currentCycleHandle = nil
             return
         }
 
@@ -343,9 +357,12 @@ final class PRTrackingCoordinator {
                 subscribers[paneID]?.callback(pr)
             }
         }
-        TracingService.shared.record(
-            "pr.response.parsed",
-            attributes: ["pr_count": String(parsedCount)])
+
+        var parsedAttrs: [String: String] = ["pr_count": String(parsedCount)]
+        if let points = remainingPoints { parsedAttrs["rate_limit_remaining"] = String(points) }
+        TracingService.shared.record("pr.response.parsed", parent: cycleHandle, attributes: parsedAttrs)
+        TracingService.shared.end(handle: cycleHandle, attributes: ["result": "ok"])
+        currentCycleHandle = nil
     }
 
     func adjustInterval(remainingPoints: Int) {
@@ -370,14 +387,15 @@ final class PRTrackingCoordinator {
     /// Runs a single batched GraphQL query for the given branches and returns merged PR info.
     /// Does not require a running coordinator or active subscriptions.
     static func checkBranchesForMergedPRs(
-        branches: [BranchInfo]
+        branches: [BranchInfo],
+        parent: SpanHandle? = nil
     ) async -> [(paneID: UUID, pr: PullRequest)] {
         guard !branches.isEmpty else { return [] }
 
         let query = buildStaticBatchQuery(branches: branches)
         guard !query.isEmpty else { return [] }
 
-        guard let jsonText = await executeGraphQLQuery(query) else { return [] }
+        guard let jsonText = await executeGraphQLQuery(query, parent: parent) else { return [] }
         return parseStaticBatchResponse(jsonText, branches: branches)
     }
 
@@ -405,7 +423,7 @@ final class PRTrackingCoordinator {
     }
 
     /// Executes a GraphQL query via `gh api graphql` and returns the JSON body (minus HTTP headers).
-    nonisolated static func executeGraphQLQuery(_ query: String) async -> String? {
+    nonisolated static func executeGraphQLQuery(_ query: String, parent: SpanHandle? = nil) async -> String? {
         let tempPath = NSTemporaryDirectory() + "agent-session-manager-graphql-\(UUID().uuidString).json"
         let jsonBody = ["query": query]
         guard let jsonData = try? JSONSerialization.data(withJSONObject: jsonBody),
@@ -414,6 +432,7 @@ final class PRTrackingCoordinator {
 
         return await TracingService.shared.withSpan(
             "pr.graphql.query",
+            parent: parent,
             attributes: ["context": "startup_check"]
         ) {
             await withCheckedContinuation { continuation in

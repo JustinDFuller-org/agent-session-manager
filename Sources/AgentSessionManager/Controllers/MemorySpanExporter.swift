@@ -22,6 +22,7 @@ final class MemorySpanExporter: SpanExporter {
                 name: spanData.name,
                 traceId: spanData.traceId.hexString,
                 spanId: spanData.spanId.hexString,
+                parentSpanId: spanData.parentSpanId?.hexString,
                 startEpochMs: startMs,
                 endEpochMs: endMs,
                 attributes: attrs

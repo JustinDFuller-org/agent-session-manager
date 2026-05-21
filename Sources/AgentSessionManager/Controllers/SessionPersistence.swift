@@ -358,7 +358,13 @@ struct SessionPersistence {
 
         guard !branchInfos.isEmpty else { return }
 
-        let results = await PRTrackingCoordinator.checkBranchesForMergedPRs(branches: branchInfos)
+        let checkHandle = TracingService.shared.startSpan(
+            "session.pr_check",
+            attributes: ["panes_checked": String(candidates.count)])
+
+        let results = await PRTrackingCoordinator.checkBranchesForMergedPRs(
+            branches: branchInfos, parent: checkHandle)
+
         var mergedCount = 0
         for (paneID, pr) in results where pr.state == "merged" {
             guard let (pane, tab) = candidates.first(where: { $0.pane.id == paneID }) else { continue }
@@ -373,11 +379,8 @@ struct SessionPersistence {
             mergedCount += 1
         }
 
-        TracingService.shared.record(
-            "session.pr_check",
-            attributes: [
-                "panes_checked": String(candidates.count),
-                "merged_count": String(mergedCount),
-            ])
+        TracingService.shared.end(
+            handle: checkHandle,
+            attributes: ["merged_count": String(mergedCount)])
     }
 }

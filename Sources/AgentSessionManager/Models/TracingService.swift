@@ -11,6 +11,17 @@ enum TracingOutputTarget: String, Codable, CaseIterable {
     var displayName: String { rawValue.capitalized }
 }
 
+/// Opaque handle to a live span. Callers hold this to add child spans or end the span
+/// at a time they control — necessary for callback-based async flows where withSpan
+/// cannot wrap the body (e.g., Process terminationHandler).
+final class SpanHandle: @unchecked Sendable {
+    fileprivate let span: any Span
+
+    fileprivate init(_ span: any Span) {
+        self.span = span
+    }
+}
+
 /// Thin wrapper around the OpenTelemetry Swift SDK. Thread-safe; callers on any actor may use it.
 final class TracingService: @unchecked Sendable {
     static let shared = TracingService()
@@ -40,7 +51,7 @@ final class TracingService: @unchecked Sendable {
         let exporter: any SpanExporter
         switch settings.tracingOutputTarget {
         case .stdout:
-            exporter = StdoutExporter(isDebug: false)
+            exporter = StdoutSpanExporter(isDebug: false)
         case .file:
             exporter = FileSpanExporter(
                 fileURL: settings.resolvedTracingFileURL,
@@ -66,62 +77,98 @@ final class TracingService: @unchecked Sendable {
         }
     }
 
-    /// Emits a zero-duration span (instantaneous event).
-    func record(_ name: String, attributes: [String: String] = [:]) {
+    // MARK: - Long-lived spans
+
+    /// Starts a span and returns a handle. The caller must call ``end(handle:attributes:)``
+    /// when the work completes. Use this for callback-based flows where ``withSpan`` cannot
+    /// wrap the body (e.g., Process terminationHandler chains).
+    func startSpan(_ name: String, attributes: [String: String] = [:]) -> SpanHandle? {
+        guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return nil }
+        let span = tracer.spanBuilder(spanName: name).startSpan()
+        for (key, value) in attributes { span.setAttribute(key: key, value: value) }
+        return SpanHandle(span)
+    }
+
+    /// Ends a span previously started with ``startSpan(_:attributes:)``.
+    /// Passing `nil` is a no-op, so callers can hold optional handles without guarding.
+    func end(handle: SpanHandle?, attributes: [String: String] = [:]) {
+        guard let handle else { return }
+        for (key, value) in attributes { handle.span.setAttribute(key: key, value: value) }
+        handle.span.end()
+    }
+
+    // MARK: - Instant events
+
+    /// Emits a zero-duration span (instantaneous event). Pass a `parent` handle to make
+    /// this span a child of an in-progress trace.
+    func record(_ name: String, parent: SpanHandle? = nil, attributes: [String: String] = [:]) {
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return }
-        var span = tracer.spanBuilder(spanName: name).startSpan()
-        for (key, value) in attributes {
-            span.setAttribute(key: key, value: value)
-        }
+        let builder = tracer.spanBuilder(spanName: name)
+        if let parent { _ = builder.setParent(parent.span.context) }
+        let span = builder.startSpan()
+        for (key, value) in attributes { span.setAttribute(key: key, value: value) }
         span.end()
     }
 
-    /// Wraps a synchronous throwing body in a span.
+    // MARK: - Scoped spans
+
+    /// Wraps a synchronous throwing body in a span. Pass a `parent` handle to make this
+    /// span a child of an in-progress trace.
     @discardableResult
     func withSpan<T>(
         _ name: String,
+        parent: SpanHandle? = nil,
         attributes: [String: String] = [:],
         _ body: () throws -> T
     ) rethrows -> T {
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else {
             return try body()
         }
-        var span = tracer.spanBuilder(spanName: name).startSpan()
-        defer { span.end() }
-        for (key, value) in attributes {
-            span.setAttribute(key: key, value: value)
+        let builder = tracer.spanBuilder(spanName: name)
+        if let parent { _ = builder.setParent(parent.span.context) }
+        return try builder.withActiveSpan { span in
+            for (key, value) in attributes { span.setAttribute(key: key, value: value) }
+            return try body()
         }
-        return try body()
     }
 
-    /// Wraps an async throwing body in a span.
+    /// Wraps an async throwing body in a span. Pass a `parent` handle to make this
+    /// span a child of an in-progress trace.
     @discardableResult
     func withSpan<T>(
         _ name: String,
+        parent: SpanHandle? = nil,
         attributes: [String: String] = [:],
         _ body: () async throws -> T
     ) async rethrows -> T {
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else {
             return try await body()
         }
-        var span = tracer.spanBuilder(spanName: name).startSpan()
-        defer { span.end() }
-        for (key, value) in attributes {
-            span.setAttribute(key: key, value: value)
+        let builder = tracer.spanBuilder(spanName: name)
+        if let parent { _ = builder.setParent(parent.span.context) }
+        return try await builder.withActiveSpan { span in
+            for (key, value) in attributes { span.setAttribute(key: key, value: value) }
+            return try await body()
         }
-        return try await body()
     }
 
+    // MARK: - Explicit-timing spans
+
     /// Emits a span with explicit start and end times, for callback-based async operations
-    /// where the span cannot wrap the body directly.
-    func recordSpan(_ name: String, startTime: Date, endTime: Date, attributes: [String: String] = [:]) {
+    /// where the span cannot wrap the body directly. Pass a `parent` handle to make this
+    /// span a child of an in-progress trace.
+    func recordSpan(
+        _ name: String,
+        parent: SpanHandle? = nil,
+        startTime: Date,
+        endTime: Date,
+        attributes: [String: String] = [:]
+    ) {
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return }
-        var span = tracer.spanBuilder(spanName: name)
-            .setStartTime(time: startTime)
-            .startSpan()
-        for (key, value) in attributes {
-            span.setAttribute(key: key, value: value)
-        }
+        let builder = tracer.spanBuilder(spanName: name).setStartTime(time: startTime)
+        if let parent { _ = builder.setParent(parent.span.context) }
+        let span = builder.startSpan()
+        for (key, value) in attributes { span.setAttribute(key: key, value: value) }
         span.end(time: endTime)
     }
 }

@@ -128,7 +128,7 @@ final class AppSettings {
     var profiles: [Profile] = []
     var autoSetSessionName: Bool = true
 
-    static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
+    nonisolated static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
 
     /// Resolved trace file URL (creates the Application Support parent directory when using the default).
     var resolvedTracingFileURL: URL {
