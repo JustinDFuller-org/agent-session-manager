@@ -4,6 +4,7 @@ struct TabButtonView: View {
     @Environment(AppState.self) private var appState
     let tab: Tab
     @State private var isDragTarget = false
+    @State private var loadingPulse = false
 
     private var isActive: Bool {
         appState.activeTabID == tab.id
@@ -22,6 +23,18 @@ struct TabButtonView: View {
                         Text(tab.name)
                             .font(.system(size: 12, weight: isActive ? .semibold : .regular))
                             .lineLimit(1)
+                        if tab.hasRunningPane {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 6, height: 6)
+                                .opacity(loadingPulse ? 0.5 : 1.0)
+                                .animation(
+                                    .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                                    value: loadingPulse
+                                )
+                                .onAppear { loadingPulse = true }
+                                .accessibilityIdentifier("tab-loading-dot-\(tab.name)")
+                        }
                         if let notification = tabNotification {
                             Circle()
                                 .fill(notification.isPriority ? Color.orange : Color.accentColor)

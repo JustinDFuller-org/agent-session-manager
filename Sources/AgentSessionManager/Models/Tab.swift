@@ -75,6 +75,13 @@ final class Tab: Identifiable {
         self.directory = directory
     }
 
+    var hasRunningPane: Bool {
+        panes.contains {
+            if case .running = $0.terminalController?.processState { return true }
+            return false
+        }
+    }
+
     var directoryDisplayName: String {
         directory.lastPathComponent
     }

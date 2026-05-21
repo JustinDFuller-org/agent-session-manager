@@ -100,7 +100,7 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 @MainActor
 final class TerminalController: NSObject {
     let terminalView: BellCapturingTerminalView
-    private(set) var processState: ProcessState = .idle
+    var processState: ProcessState = .idle
     var pendingCommand: String?
     var pendingDirectory: String?
     var pendingEnvironment: [String]?
