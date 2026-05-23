@@ -155,6 +155,7 @@ Skills are stored in `.agents/skills/`. Load them when working on relevant featu
 - `sqlite-documentation` — SQLite official doc index; **load before working with SQLite**, the C/C++ API, `import SQLite3`, prepared statements, binding, query execution, result codes, or any SQLite-specific behavior. Any project that uses or interacts with SQLite should load this skill.
 - `git-worktree-documentation` — Git worktree official doc index; **load before implementing any git worktree feature**, worktree creation, listing, removal, locking, pruning, repair, or any git worktree CLI behavior — do not guess at behavior.
 - `opentelemetry-swift-documentation` — OpenTelemetry Swift official doc index; **load before implementing any OpenTelemetry feature**, tracing, metrics, logging, instrumentation, exporters, or context propagation — do not guess at behavior.
+- `agents-documentation` — AGENTS.md and Agent Skills official doc index; **load before implementing any AGENTS.md or Agent Skills feature**, SKILL.md format, frontmatter fields, skill creation, client integration, skills-ref validation, or the agentskills.io spec — do not guess at behavior.
 
 ## Feature Skills
 
