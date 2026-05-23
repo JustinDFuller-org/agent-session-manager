@@ -8,7 +8,9 @@
       "Bash(make lint)",
       "WebFetch(domain:code.claude.com)",
       "WebFetch(domain:cursor.com)",
-      "WebFetch(domain:cli.github.com)"
+      "WebFetch(domain:cli.github.com)",
+      "WebFetch(domain:opentelemetry.io)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
