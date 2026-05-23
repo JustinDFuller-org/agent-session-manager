@@ -8,7 +8,7 @@ allowed-tools:
 
 # Claude Code Documentation Index
 
-Fetch from this index rather than guessing at behavior. One URL per topic — read the most specific one first.
+Fetch from this index before implementing any Claude Code feature — do not guess at behavior. One URL per topic — read the most specific one first.
 
 ## Discovery
 
