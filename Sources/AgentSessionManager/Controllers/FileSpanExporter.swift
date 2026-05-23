@@ -41,10 +41,10 @@ final class FileSpanExporter: SpanExporter {
         var attrs: [String: String] = [:]
         for (key, value) in span.attributes {
             switch value {
-            case .string(let s): attrs[key] = s
-            case .bool(let b): attrs[key] = String(b)
+            case .string(let str): attrs[key] = str
+            case .bool(let bool): attrs[key] = String(bool)
             case .int(let i): attrs[key] = String(i)
-            case .double(let d): attrs[key] = String(d)
+            case .double(let double): attrs[key] = String(double)
             default: attrs[key] = value.description
             }
         }
@@ -64,8 +64,8 @@ final class FileSpanExporter: SpanExporter {
             """
     }
 
-    private func jsonEscape(_ s: String) -> String {
-        s.replacingOccurrences(of: "\\", with: "\\\\")
+    private func jsonEscape(_ str: String) -> String {
+        str.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\n", with: "\\n")
             .replacingOccurrences(of: "\r", with: "\\r")

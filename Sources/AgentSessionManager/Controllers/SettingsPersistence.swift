@@ -382,13 +382,13 @@ struct SettingsPersistence {
         }
 
         init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
-            outputTarget = try c.decodeIfPresent(TracingOutputTarget.self, forKey: .outputTarget) ?? .stdout
-            filePath = try c.decodeIfPresent(String.self, forKey: .filePath) ?? ""
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+            outputTarget = try container.decodeIfPresent(TracingOutputTarget.self, forKey: .outputTarget) ?? .stdout
+            filePath = try container.decodeIfPresent(String.self, forKey: .filePath) ?? ""
             maxFileBytes =
-                try c.decodeIfPresent(Int.self, forKey: .maxFileBytes) ?? (10 * 1024 * 1024)
-            dashboardMaxSpans = try c.decodeIfPresent(Int.self, forKey: .dashboardMaxSpans) ?? 500
+                try container.decodeIfPresent(Int.self, forKey: .maxFileBytes) ?? (10 * 1024 * 1024)
+            dashboardMaxSpans = try container.decodeIfPresent(Int.self, forKey: .dashboardMaxSpans) ?? 500
         }
     }
 
@@ -480,7 +480,7 @@ struct SettingsPersistence {
         appSettings.exitBehavior = value
     }
 
-    private struct PRPollingSettings: Codable {
+    struct PRPollingSettings: Codable {
         var intervalSeconds: Int = 30
         var timeoutSeconds: Int = 15
         var backgroundRefreshEnabled: Bool = true
@@ -509,17 +509,16 @@ struct SettingsPersistence {
         appSettings.prBackgroundPollingIntervalSeconds = max(15, settings.backgroundIntervalSeconds)
     }
 
-    static func prPollingSettings() -> (
-        intervalSeconds: Int, timeoutSeconds: Int, backgroundRefreshEnabled: Bool,
-        backgroundIntervalSeconds: Int
-    ) {
+    static func prPollingSettings() -> PRPollingSettings {
         guard
             let data = try? Data(contentsOf: prPollingSettingsURL),
             let settings = try? JSONDecoder().decode(PRPollingSettings.self, from: data)
-        else { return (30, 15, true, 60) }
-        return (
-            max(15, settings.intervalSeconds), max(5, settings.timeoutSeconds),
-            settings.backgroundRefreshEnabled, max(15, settings.backgroundIntervalSeconds)
+        else { return PRPollingSettings() }
+        return PRPollingSettings(
+            intervalSeconds: max(15, settings.intervalSeconds),
+            timeoutSeconds: max(5, settings.timeoutSeconds),
+            backgroundRefreshEnabled: settings.backgroundRefreshEnabled,
+            backgroundIntervalSeconds: max(15, settings.backgroundIntervalSeconds)
         )
     }
 

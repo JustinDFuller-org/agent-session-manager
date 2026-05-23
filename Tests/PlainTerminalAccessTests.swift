@@ -4,7 +4,6 @@ import XCTest
 
 @MainActor
 final class PlainTerminalAccessTests: XCTestCase {
-
     // MARK: - CLIType.shell
 
     func testShellCLITypeDisplayName() {

@@ -4,7 +4,7 @@ import SwiftUI
 struct StatusLineView: View {
     let monitor: StatusLineMonitor
     let config: StatusLineConfig
-    var profileName: String? = nil
+    var profileName: String?
 
     @State private var showPRPopover = false
 

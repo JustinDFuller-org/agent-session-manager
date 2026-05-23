@@ -3,7 +3,6 @@ import XCTest
 @testable import AgentSessionManager
 
 final class RefreshPaneTests: XCTestCase {
-
     // MARK: - injectContinueFlag
 
     func testInjectContinueFlagAddsWhenMissing() {

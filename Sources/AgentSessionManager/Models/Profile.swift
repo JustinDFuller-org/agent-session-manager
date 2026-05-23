@@ -14,11 +14,11 @@ struct ProfileCLIOption: Codable, Equatable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(String.self, forKey: .id)
-        isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
-        value = try c.decodeIfPresent(String.self, forKey: .value)
-        showOnPaneCreate = try c.decodeIfPresent(Bool.self, forKey: .showOnPaneCreate) ?? false
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        value = try container.decodeIfPresent(String.self, forKey: .value)
+        showOnPaneCreate = try container.decodeIfPresent(Bool.self, forKey: .showOnPaneCreate) ?? false
     }
 }
 
@@ -36,11 +36,11 @@ struct ProfileEnvVar: Codable, Equatable {
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(String.self, forKey: .id)
-        isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
-        value = try c.decode(String.self, forKey: .value)
-        showOnPaneCreate = try c.decodeIfPresent(Bool.self, forKey: .showOnPaneCreate) ?? false
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        value = try container.decode(String.self, forKey: .value)
+        showOnPaneCreate = try container.decodeIfPresent(Bool.self, forKey: .showOnPaneCreate) ?? false
     }
 }
 
@@ -82,8 +82,8 @@ struct Profile: Identifiable, Codable, Equatable {
 
     func buildEnvVars() -> [String: String] {
         var env: [String: String] = [:]
-        for v in envVars where v.isEnabled && !v.value.isEmpty {
-            env[v.id] = v.value
+        for envVar in envVars where envVar.isEnabled && !envVar.value.isEmpty {
+            env[envVar.id] = envVar.value
         }
         return env
     }

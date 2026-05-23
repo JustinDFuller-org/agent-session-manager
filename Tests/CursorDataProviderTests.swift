@@ -5,7 +5,6 @@ import Testing
 
 @Suite("CursorDataProvider")
 struct CursorDataProviderTests {
-
     // MARK: - CursorHookPayload parsing
 
     @Test func testParseValidPayload() {

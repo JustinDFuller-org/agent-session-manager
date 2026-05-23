@@ -677,47 +677,6 @@ final class Tab: Identifiable {
         pane.restartToken = UUID()
     }
 
-    /// Appends `--continue` to a command string if not already present.
-    nonisolated static func injectContinueFlag(into command: String) -> String {
-        if command.contains("--continue") { return command }
-        return command + " --continue"
-    }
-
-    /// Extracts the extra args portion from a Claude command string (everything after `--settings '...'`).
-    nonisolated static func extractExtraArgs(from command: String) -> String {
-        guard let settingsRange = command.range(of: "--settings ") else {
-            let parts = command.split(separator: " ", maxSplits: 1)
-            return parts.count > 1 ? " " + parts[1] : ""
-        }
-        var idx = settingsRange.upperBound
-        if idx < command.endIndex && command[idx] == "'" {
-            idx = command.index(after: idx)
-            while idx < command.endIndex {
-                if command[idx] == "'" {
-                    if command.index(after: idx) < command.endIndex
-                        && command[command.index(after: idx)] == "\\"
-                    {
-                        idx = command.index(idx, offsetBy: 4, limitedBy: command.endIndex) ?? command.endIndex
-                        continue
-                    }
-                    idx = command.index(after: idx)
-                    break
-                }
-                idx = command.index(after: idx)
-            }
-        }
-        if idx < command.endIndex {
-            return String(command[idx...])
-        }
-        return ""
-    }
-
-    /// Injects `--continue` into an extra-args string if not already present.
-    nonisolated static func injectContinueFlagIntoArgs(_ args: String) -> String {
-        if args.contains("--continue") { return args }
-        return args + " --continue"
-    }
-
     /// Replaces a pane's terminal with a plain shell session in the same working directory.
     func openShellInPane(_ pane: Pane) {
         guard let old = pane.terminalController else { return }
@@ -757,5 +716,48 @@ final class Tab: Identifiable {
 
     func movePane(from source: IndexSet, to destination: Int) {
         panes.move(fromOffsets: source, toOffset: destination)
+    }
+}
+
+extension Tab {
+    /// Appends `--continue` to a command string if not already present.
+    nonisolated static func injectContinueFlag(into command: String) -> String {
+        if command.contains("--continue") { return command }
+        return command + " --continue"
+    }
+
+    /// Extracts the extra args portion from a Claude command string (everything after `--settings '...'`).
+    nonisolated static func extractExtraArgs(from command: String) -> String {
+        guard let settingsRange = command.range(of: "--settings ") else {
+            let parts = command.split(separator: " ", maxSplits: 1)
+            return parts.count > 1 ? " " + parts[1] : ""
+        }
+        var idx = settingsRange.upperBound
+        if idx < command.endIndex && command[idx] == "'" {
+            idx = command.index(after: idx)
+            while idx < command.endIndex {
+                if command[idx] == "'" {
+                    if command.index(after: idx) < command.endIndex
+                        && command[command.index(after: idx)] == "\\"
+                    {
+                        idx = command.index(idx, offsetBy: 4, limitedBy: command.endIndex) ?? command.endIndex
+                        continue
+                    }
+                    idx = command.index(after: idx)
+                    break
+                }
+                idx = command.index(after: idx)
+            }
+        }
+        if idx < command.endIndex {
+            return String(command[idx...])
+        }
+        return ""
+    }
+
+    /// Injects `--continue` into an extra-args string if not already present.
+    nonisolated static func injectContinueFlagIntoArgs(_ args: String) -> String {
+        if args.contains("--continue") { return args }
+        return args + " --continue"
     }
 }

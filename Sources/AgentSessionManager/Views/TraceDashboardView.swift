@@ -23,7 +23,8 @@ func buildWaterfallRows(from spans: [StoredSpan]) -> [SpanRow] {
         childrenByParent[key]?.sort { $0.startEpochMs < $1.startEpochMs }
     }
 
-    let roots = spans
+    let roots =
+        spans
         .filter { span in
             guard let parentId = span.parentSpanId else { return true }
             return spanById[parentId] == nil
@@ -60,13 +61,13 @@ func buildTraceSummaries(from spans: [StoredSpan]) -> [TraceSummary] {
 
     return byTrace.map { traceId, traceSpans in
         let spanById = Dictionary(uniqueKeysWithValues: traceSpans.map { ($0.spanId, $0) })
-        let root = traceSpans
+        let root =
+            traceSpans
             .filter { span in
                 guard let pid = span.parentSpanId else { return true }
                 return spanById[pid] == nil
             }
-            .sorted { $0.startEpochMs < $1.startEpochMs }
-            .first
+            .min(by: { $0.startEpochMs < $1.startEpochMs })
         let start = traceSpans.map(\.startEpochMs).min() ?? 0
         let end = traceSpans.map(\.endEpochMs).max() ?? start
         return TraceSummary(
@@ -99,7 +100,8 @@ struct TraceDashboardView: View {
                 let traceSpans = store.spans.filter { $0.traceId == traceId }
                 TraceDetailView(
                     summary: summaries.first { $0.traceId == traceId }
-                        ?? TraceSummary(traceId: traceId, rootName: traceId, startEpochMs: 0, durationMs: 0, spanCount: 0),
+                        ?? TraceSummary(
+                            traceId: traceId, rootName: traceId, startEpochMs: 0, durationMs: 0, spanCount: 0),
                     spans: traceSpans,
                     onBack: { selectedTraceId = nil }
                 )
@@ -215,10 +217,10 @@ struct TraceListRow: View {
     let rowIndex: Int
 
     private static let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .none
-        f.timeStyle = .medium
-        return f
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .medium
+        return formatter
     }()
 
     var body: some View {
@@ -337,8 +339,8 @@ struct TraceWaterfallView: View {
     private var windowStart: Int64 { spans.map(\.startEpochMs).min() ?? 0 }
     private var windowEnd: Int64 { spans.map(\.endEpochMs).max() ?? 1 }
     private var windowDuration: Double {
-        let d = Double(windowEnd - windowStart)
-        return d > 0 ? d : 1
+        let duration = Double(windowEnd - windowStart)
+        return duration > 0 ? duration : 1
     }
 
     var body: some View {
@@ -459,10 +461,10 @@ struct SpanDetailView: View {
     let span: StoredSpan
 
     private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .none
-        f.timeStyle = .medium
-        return f
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .medium
+        return formatter
     }()
 
     var body: some View {

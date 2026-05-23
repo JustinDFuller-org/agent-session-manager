@@ -5,7 +5,7 @@ struct NewPaneSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     let tab: Tab
-    var refreshingPane: Pane? = nil
+    var refreshingPane: Pane?
 
     @State private var sessionInput = ""
     @State private var selectedCLIType: CLIType = .claude

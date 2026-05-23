@@ -45,7 +45,7 @@ final class Pane: Identifiable {
     var statusLineMonitor: StatusLineMonitor?
     var isPriority: Bool = false
     var isMerged: Bool = false
-    var restartToken: UUID = UUID()
+    var restartToken = UUID()
     var profileID: UUID?
     var extraArgs: [String] = []
 
