@@ -5,7 +5,7 @@ let package = Package(
     name: "AgentSessionManager",
     platforms: [.macOS(.v14)],
     dependencies: [
-        .package(url: "https://github.com/JustinDFuller/SwiftTerm.git", revision: "2714960a6ad76ae1f50a63f94aefe0e68d39df89"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.13.0"),
         .package(url: "https://github.com/open-telemetry/opentelemetry-swift", from: "1.9.0"),
     ],
     targets: [
