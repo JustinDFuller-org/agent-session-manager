@@ -702,10 +702,14 @@ private struct ProfileEditorOptionRow: View {
                     .disabled(!state.enabled)
                     .frame(maxWidth: .infinity)
             }
-            Toggle("Show", isOn: $state.showOnPaneCreate)
-                .toggleStyle(.checkbox)
-                .font(.caption)
-                .help("Show this option in the New Pane sheet when this profile is selected.")
+            HStack(spacing: 4) {
+                Text("Show")
+                    .font(.caption)
+                Toggle("Show", isOn: $state.showOnPaneCreate)
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .help("Show this option in the New Pane sheet when this profile is selected.")
+            }
         }
     }
 }
@@ -725,10 +729,14 @@ private struct ProfileEditorEnvVarRow: View {
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
                 .frame(maxWidth: .infinity)
-            Toggle("Show", isOn: $state.showOnPaneCreate)
-                .toggleStyle(.checkbox)
-                .font(.caption)
-                .help("Show this option in the New Pane sheet when this profile is selected.")
+            HStack(spacing: 4) {
+                Text("Show")
+                    .font(.caption)
+                Toggle("Show", isOn: $state.showOnPaneCreate)
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .help("Show this option in the New Pane sheet when this profile is selected.")
+            }
         }
     }
 }
@@ -1386,18 +1394,28 @@ private struct CLIOptionRow: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Toggle("Show", isOn: $option.isAvailable)
-                        .toggleStyle(.checkbox)
-                        .onChange(of: option.isAvailable) {
-                            if !option.isAvailable {
-                                option.isDefaultEnabled = false
+                    HStack(spacing: 4) {
+                        Text("Show")
+                            .font(.caption)
+                        Toggle("Show", isOn: $option.isAvailable)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .onChange(of: option.isAvailable) {
+                                if !option.isAvailable {
+                                    option.isDefaultEnabled = false
+                                }
+                                onChange()
                             }
-                            onChange()
-                        }
-                    Toggle("Default on", isOn: $option.isDefaultEnabled)
-                        .toggleStyle(.checkbox)
-                        .disabled(!option.isAvailable)
-                        .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
+                    HStack(spacing: 4) {
+                        Text("Default on")
+                            .font(.caption)
+                        Toggle("Default on", isOn: $option.isDefaultEnabled)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .disabled(!option.isAvailable)
+                            .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
                 }
             }
         }
@@ -1429,18 +1447,28 @@ private struct CustomCLIOptionRow: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Toggle("Show", isOn: $option.isAvailable)
-                        .toggleStyle(.checkbox)
-                        .onChange(of: option.isAvailable) {
-                            if !option.isAvailable {
-                                option.isDefaultEnabled = false
+                    HStack(spacing: 4) {
+                        Text("Show")
+                            .font(.caption)
+                        Toggle("Show", isOn: $option.isAvailable)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .onChange(of: option.isAvailable) {
+                                if !option.isAvailable {
+                                    option.isDefaultEnabled = false
+                                }
+                                onChange()
                             }
-                            onChange()
-                        }
-                    Toggle("Default on", isOn: $option.isDefaultEnabled)
-                        .toggleStyle(.checkbox)
-                        .disabled(!option.isAvailable)
-                        .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
+                    HStack(spacing: 4) {
+                        Text("Default on")
+                            .font(.caption)
+                        Toggle("Default on", isOn: $option.isDefaultEnabled)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .disabled(!option.isAvailable)
+                            .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
                 }
                 Button(role: .destructive, action: onDelete) {
                     Image(systemName: "trash")
@@ -1968,18 +1996,28 @@ private struct EnvVarOptionRow: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Toggle("Show", isOn: $option.isAvailable)
-                        .toggleStyle(.checkbox)
-                        .onChange(of: option.isAvailable) {
-                            if !option.isAvailable {
-                                option.isDefaultEnabled = false
+                    HStack(spacing: 4) {
+                        Text("Show")
+                            .font(.caption)
+                        Toggle("Show", isOn: $option.isAvailable)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .onChange(of: option.isAvailable) {
+                                if !option.isAvailable {
+                                    option.isDefaultEnabled = false
+                                }
+                                onChange()
                             }
-                            onChange()
-                        }
-                    Toggle("Default on", isOn: $option.isDefaultEnabled)
-                        .toggleStyle(.checkbox)
-                        .disabled(!option.isAvailable)
-                        .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
+                    HStack(spacing: 4) {
+                        Text("Default on")
+                            .font(.caption)
+                        Toggle("Default on", isOn: $option.isDefaultEnabled)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .disabled(!option.isAvailable)
+                            .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
                 }
             }
             if option.isAvailable {
@@ -2012,18 +2050,28 @@ private struct CustomEnvVarOptionRow: View {
                     .fontWeight(.medium)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Toggle("Show", isOn: $option.isAvailable)
-                        .toggleStyle(.checkbox)
-                        .onChange(of: option.isAvailable) {
-                            if !option.isAvailable {
-                                option.isDefaultEnabled = false
+                    HStack(spacing: 4) {
+                        Text("Show")
+                            .font(.caption)
+                        Toggle("Show", isOn: $option.isAvailable)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .onChange(of: option.isAvailable) {
+                                if !option.isAvailable {
+                                    option.isDefaultEnabled = false
+                                }
+                                onChange()
                             }
-                            onChange()
-                        }
-                    Toggle("Default on", isOn: $option.isDefaultEnabled)
-                        .toggleStyle(.checkbox)
-                        .disabled(!option.isAvailable)
-                        .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
+                    HStack(spacing: 4) {
+                        Text("Default on")
+                            .font(.caption)
+                        Toggle("Default on", isOn: $option.isDefaultEnabled)
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
+                            .disabled(!option.isAvailable)
+                            .onChange(of: option.isDefaultEnabled) { onChange() }
+                    }
                 }
                 Button(role: .destructive, action: onDelete) {
                     Image(systemName: "trash")
