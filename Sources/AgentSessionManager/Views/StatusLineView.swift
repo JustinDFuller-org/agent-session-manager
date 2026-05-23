@@ -267,7 +267,7 @@ private struct PRPopoverContent: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Circle()
-                    .fill(circleColor)
+                    .fill(pr.circleColor)
                     .frame(width: 8, height: 8)
                 Text("#\(pr.number)")
                     .font(.headline)
@@ -338,22 +338,6 @@ private struct PRPopoverContent: View {
         }
         .frame(width: 320)
         .textSelection(.enabled)
-    }
-
-    private var circleColor: Color {
-        if pr.hasMergeConflicts { return .red }
-        switch pr.buildStatus {
-        case .success:
-            return .green
-        case .running:
-            return .yellow
-        case .failed:
-            return .red
-        case .cancelled:
-            return .gray
-        case .unknown:
-            return .secondary
-        }
     }
 
     private var visibleChecks: [StatusCheck] {
