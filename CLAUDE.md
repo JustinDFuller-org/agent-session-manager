@@ -141,8 +141,10 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 ## Skills
 
 - `/swiftui-macos-form-alignment` — SwiftUI macOS Form alignment quirks, background control, and VStack-based alternative
-- `/claude-documentation` — Claude Code official doc index; load when building Claude Code features, hooks, or settings integration.
-- `/opencode-documentation` — OpenCode official doc index; load when building OpenCode features, CLI integration, TUI, or any OpenCode-specific behavior.
+- `/claude-documentation` — Claude Code official doc index; **load before implementing any Claude Code feature**, hooks, or settings integration — do not guess at behavior.
+- `/cursor-documentation` — Cursor official doc index; **load before implementing any Cursor feature**, CLI integration, rules, skills, MCP, or worktrees — do not guess at behavior.
+- `/codex-documentation` — Codex official doc index; **load before implementing any Codex feature**, CLI integration, hooks, config, or AGENTS.md support.
+- `/opencode-documentation` — OpenCode official doc index; **load before implementing any OpenCode feature**, CLI integration, TUI, or any OpenCode-specific behavior.
 
 ## Feature Skills
 
@@ -163,6 +165,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - observability-dashboard: `/feature-observability-dashboard`
 - worktree-cleanup: `/feature-worktree-cleanup`
 - panes: `/feature-panes`
+- codex-cli: `/feature-codex-cli`
 - continue-on-restart: `/feature-continue-on-restart`
 - tab-pane-reordering: `/feature-tab-pane-reordering`
 - pr-tracking: `/feature-pr-tracking`
