@@ -6,15 +6,38 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: format-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   swift-format:
     name: swift-format check
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.1"
+
+      - name: Cache swift-format build
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/swift-format-bin
+          key: swift-format-linux-6.1-v1
+
       - name: Install swift-format
-        run: brew install swift-format
+        run: |
+          if [ ! -f ~/.cache/swift-format-bin/swift-format ]; then
+            mkdir -p ~/.cache/swift-format-bin
+            git clone --depth 1 --branch release/6.1 \
+              https://github.com/swiftlang/swift-format.git /tmp/swift-format
+            cd /tmp/swift-format
+            swift build -c release --product swift-format
+            cp .build/release/swift-format ~/.cache/swift-format-bin/
+          fi
+          sudo cp ~/.cache/swift-format-bin/swift-format /usr/local/bin/
 
       - name: Check formatting
         run: swift-format lint --recursive --strict Sources/ Tests/ UITests/

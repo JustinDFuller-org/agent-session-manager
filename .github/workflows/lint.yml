@@ -6,15 +6,22 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   swiftlint:
     name: SwiftLint
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
       - name: Install SwiftLint
-        run: brew install swiftlint
+        run: |
+          curl -Lo swiftlint.zip \
+            https://github.com/realm/SwiftLint/releases/download/0.58.2/swiftlint_linux.zip
+          unzip -j swiftlint.zip swiftlint -d /usr/local/bin
 
       - name: Run SwiftLint
         run: swiftlint lint --strict --config .swiftlint.yml
