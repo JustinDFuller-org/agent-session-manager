@@ -20,9 +20,6 @@ struct TabButtonView: View {
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
-                        Text(tab.name)
-                            .font(.system(size: 12, weight: isActive ? .semibold : .regular))
-                            .lineLimit(1)
                         if tab.hasRunningPane {
                             Circle()
                                 .fill(Color.green)
@@ -41,6 +38,9 @@ struct TabButtonView: View {
                                 .frame(width: 6, height: 6)
                                 .accessibilityIdentifier("tab-notification-dot-\(tab.name)")
                         }
+                        Text(tab.name)
+                            .font(.system(size: 12, weight: isActive ? .semibold : .regular))
+                            .lineLimit(1)
                     }
                     Text(tab.directoryDisplayName)
                         .font(.system(size: 10))
