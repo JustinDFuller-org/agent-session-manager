@@ -152,6 +152,7 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 - `/swifterm-documentation` — SwiftTerm official doc index; **load before working with SwiftTerm**, terminal emulation, terminal views, process lifecycle, delegate callbacks, GPU rendering, pseudo-terminals, or any SwiftTerm-specific behavior. Any project that uses or interacts with SwiftTerm should load this skill.
 - `/sqlite-documentation` — SQLite official doc index; **load before working with SQLite**, the C/C++ API, `import SQLite3`, prepared statements, binding, query execution, result codes, or any SQLite-specific behavior. Any project that uses or interacts with SQLite should load this skill.
 - `/git-worktree-documentation` — Git worktree official doc index; **load before implementing any git worktree feature**, worktree creation, listing, removal, locking, pruning, repair, or any git worktree CLI behavior — do not guess at behavior.
+- `/observation-documentation` — Observation official doc index; **load before implementing any Observation feature**, `@Observable`, `withObservationTracking`, `ObservationRegistrar`, `@ObservationIgnored`, or any Observation framework behavior — do not guess at behavior.
 - `/opentelemetry-swift-documentation` — OpenTelemetry Swift official doc index; **load before implementing any OpenTelemetry feature**, tracing, metrics, logging, instrumentation, exporters, or context propagation — do not guess at behavior.
 
 ## Feature Skills
