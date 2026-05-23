@@ -7,7 +7,9 @@
       "Bash(make test-ui)",
       "Bash(make lint)",
       "WebFetch(domain:code.claude.com)",
-      "WebFetch(domain:cursor.com)"
+      "WebFetch(domain:cursor.com)",
+      "WebFetch(domain:opentelemetry.io)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
