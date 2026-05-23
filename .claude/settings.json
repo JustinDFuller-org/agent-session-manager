@@ -9,8 +9,9 @@
       "WebFetch(domain:code.claude.com)",
       "WebFetch(domain:cursor.com)",
       "WebFetch(domain:cli.github.com)",
-      "WebFetch(domain:opentelemetry.io)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:git-scm.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:opentelemetry.io)"
     ]
   }
 }
