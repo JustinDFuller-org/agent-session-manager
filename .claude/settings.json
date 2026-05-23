@@ -12,7 +12,9 @@
       "WebFetch(domain:git-scm.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:opentelemetry.io)",
-      "WebFetch(domain:developer.apple.com)"
+      "WebFetch(domain:developer.apple.com)",
+      "WebFetch(domain:agents.md)",
+      "WebFetch(domain:agentskills.io)"
     ]
   }
 }
