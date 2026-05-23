@@ -146,6 +146,7 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 - `/cursor-documentation` — Cursor official doc index; **load before implementing any Cursor feature**, CLI integration, rules, skills, MCP, or worktrees — do not guess at behavior.
 - `/codex-documentation` — Codex official doc index; **load before implementing any Codex feature**, CLI integration, hooks, config, or AGENTS.md support.
 - `/opencode-documentation` — OpenCode official doc index; **load before implementing any OpenCode feature**, CLI integration, TUI, or any OpenCode-specific behavior.
+- `/usernotifications-documentation` — UserNotifications official doc index; **load before implementing any notification feature**, requesting authorization, scheduling local notifications, handling notification actions, or any UserNotifications framework behavior — do not guess at behavior.
 
 ## Feature Skills
 
