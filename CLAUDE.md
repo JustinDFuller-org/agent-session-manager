@@ -145,6 +145,7 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 - `/appkit-documentation` — AppKit official doc index; **load before implementing any AppKit feature**, NSView, NSWindow, NSEvent handling, NSColor, NSWorkspace, or AppKit bridging — do not guess at behavior.
 - `/claude-documentation` — Claude Code official doc index; **load before implementing any Claude Code feature**, hooks, or settings integration — do not guess at behavior.
 - `/cursor-documentation` — Cursor official doc index; **load before implementing any Cursor feature**, CLI integration, rules, skills, MCP, or worktrees — do not guess at behavior.
+- `/gh-documentation` — GitHub CLI official doc index; **load before implementing any GitHub CLI feature**, PR/issue automation, API scripting, or any gh CLI behavior — do not guess at behavior.
 - `/codex-documentation` — Codex official doc index; **load before implementing any Codex feature**, CLI integration, hooks, config, or AGENTS.md support.
 - `/opencode-documentation` — OpenCode official doc index; **load before implementing any OpenCode feature**, CLI integration, TUI, or any OpenCode-specific behavior.
 - `/usernotifications-documentation` — UserNotifications official doc index; **load before implementing any notification feature**, requesting authorization, scheduling local notifications, handling notification actions, or any UserNotifications framework behavior — do not guess at behavior.
