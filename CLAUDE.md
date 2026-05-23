@@ -144,6 +144,7 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 - `/claude-documentation` — Claude Code official doc index; **load before implementing any Claude Code feature**, hooks, or settings integration — do not guess at behavior.
 - `/cursor-documentation` — Cursor official doc index; **load before implementing any Cursor feature**, CLI integration, rules, skills, MCP, or worktrees — do not guess at behavior.
 - `/codex-documentation` — Codex official doc index; **load before implementing any Codex feature**, CLI integration, hooks, config, or AGENTS.md support.
+- `/opencode-documentation` — OpenCode official doc index; **load before implementing any OpenCode feature**, CLI integration, TUI, or any OpenCode-specific behavior.
 
 ## Feature Skills
 
@@ -159,6 +160,8 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - default-branch: `/feature-default-branch`
 - opencode-status-line: `/feature-opencode-status-line`
 - opencode-cli: `/feature-opencode-cli`
+
+**OpenCode features:** load `/opencode-documentation` before working on any opencode-* feature — fetch the relevant doc page rather than guessing at behavior.
 - observability-dashboard: `/feature-observability-dashboard`
 - worktree-cleanup: `/feature-worktree-cleanup`
 - panes: `/feature-panes`
