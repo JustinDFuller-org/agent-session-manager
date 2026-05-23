@@ -1,9 +1,9 @@
 ---
 name: observation-documentation
 description: Observation official doc index — load when building Observation features, @Observable, withObservationTracking, ObservationRegistrar, or any Observation framework behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:developer.apple.com)
+allowed-tools: WebFetch(domain:developer.apple.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # Observation Documentation Index

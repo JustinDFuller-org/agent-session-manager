@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents (Claude Code, OpenCode, Codex, Cursor CLI) when working with code in this repository.
 
 ## What This Is
 
@@ -140,59 +140,60 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 
 ## Skills
 
-- `/swiftui-macos-form-alignment` — SwiftUI macOS Form alignment quirks, background control, and VStack-based alternative
-- `/swiftui-documentation` — SwiftUI official doc index; **load before implementing any SwiftUI feature**, views, modifiers, state management, data flow, or AppKit bridging — do not guess at behavior.
-- `/appkit-documentation` — AppKit official doc index; **load before implementing any AppKit feature**, NSView, NSWindow, NSEvent handling, NSColor, NSWorkspace, or AppKit bridging — do not guess at behavior.
-- `/claude-documentation` — Claude Code official doc index; **load before implementing any Claude Code feature**, hooks, or settings integration — do not guess at behavior.
-- `/cursor-documentation` — Cursor official doc index; **load before implementing any Cursor feature**, CLI integration, rules, skills, MCP, or worktrees — do not guess at behavior.
-- `/gh-documentation` — GitHub CLI official doc index; **load before implementing any GitHub CLI feature**, PR/issue automation, API scripting, or any gh CLI behavior — do not guess at behavior.
-- `/codex-documentation` — Codex official doc index; **load before implementing any Codex feature**, CLI integration, hooks, config, or AGENTS.md support.
-- `/opencode-documentation` — OpenCode official doc index; **load before implementing any OpenCode feature**, CLI integration, TUI, or any OpenCode-specific behavior.
-- `/usernotifications-documentation` — UserNotifications official doc index; **load before implementing any notification feature**, requesting authorization, scheduling local notifications, handling notification actions, or any UserNotifications framework behavior — do not guess at behavior.
-- `/swifterm-documentation` — SwiftTerm official doc index; **load before working with SwiftTerm**, terminal emulation, terminal views, process lifecycle, delegate callbacks, GPU rendering, pseudo-terminals, or any SwiftTerm-specific behavior. Any project that uses or interacts with SwiftTerm should load this skill.
-- `/sqlite-documentation` — SQLite official doc index; **load before working with SQLite**, the C/C++ API, `import SQLite3`, prepared statements, binding, query execution, result codes, or any SQLite-specific behavior. Any project that uses or interacts with SQLite should load this skill.
-- `/git-worktree-documentation` — Git worktree official doc index; **load before implementing any git worktree feature**, worktree creation, listing, removal, locking, pruning, repair, or any git worktree CLI behavior — do not guess at behavior.
-- `/observation-documentation` — Observation official doc index; **load before implementing any Observation feature**, `@Observable`, `withObservationTracking`, `ObservationRegistrar`, `@ObservationIgnored`, or any Observation framework behavior — do not guess at behavior.
-- `/opentelemetry-swift-documentation` — OpenTelemetry Swift official doc index; **load before implementing any OpenTelemetry feature**, tracing, metrics, logging, instrumentation, exporters, or context propagation — do not guess at behavior.
+Skills are stored in `.agents/skills/`. Load them when working on relevant features.
+
+- `swiftui-macos-form-alignment` — SwiftUI macOS Form alignment quirks, background control, and VStack-based alternative
+- `swiftui-documentation` — SwiftUI official doc index; **load before implementing any SwiftUI feature**, views, modifiers, state management, data flow, or AppKit bridging — do not guess at behavior.
+- `appkit-documentation` — AppKit official doc index; **load before implementing any AppKit feature**, NSView, NSWindow, NSEvent handling, NSColor, NSWorkspace, or AppKit bridging — do not guess at behavior.
+- `claude-documentation` — Claude Code official doc index; **load before implementing any Claude Code feature**, hooks, or settings integration — do not guess at behavior.
+- `cursor-documentation` — Cursor official doc index; **load before implementing any Cursor feature**, CLI integration, rules, skills, MCP, or worktrees — do not guess at behavior.
+- `gh-documentation` — GitHub CLI official doc index; **load before implementing any GitHub CLI feature**, PR/issue automation, API scripting, or any gh CLI behavior — do not guess at behavior.
+- `codex-documentation` — Codex official doc index; **load before implementing any Codex feature**, CLI integration, hooks, config, or AGENTS.md support.
+- `opencode-documentation` — OpenCode official doc index; **load before implementing any OpenCode feature**, CLI integration, TUI, or any OpenCode-specific behavior.
+- `usernotifications-documentation` — UserNotifications official doc index; **load before implementing any notification feature**, requesting authorization, scheduling local notifications, handling notification actions, or any UserNotifications framework behavior — do not guess at behavior.
+- `swifterm-documentation` — SwiftTerm official doc index; **load before working with SwiftTerm**, terminal emulation, terminal views, process lifecycle, delegate callbacks, GPU rendering, pseudo-terminals, or any SwiftTerm-specific behavior. Any project that uses or interacts with SwiftTerm should load this skill.
+- `sqlite-documentation` — SQLite official doc index; **load before working with SQLite**, the C/C++ API, `import SQLite3`, prepared statements, binding, query execution, result codes, or any SQLite-specific behavior. Any project that uses or interacts with SQLite should load this skill.
+- `git-worktree-documentation` — Git worktree official doc index; **load before implementing any git worktree feature**, worktree creation, listing, removal, locking, pruning, repair, or any git worktree CLI behavior — do not guess at behavior.
+- `opentelemetry-swift-documentation` — OpenTelemetry Swift official doc index; **load before implementing any OpenTelemetry feature**, tracing, metrics, logging, instrumentation, exporters, or context propagation — do not guess at behavior.
 
 ## Feature Skills
 
 Each feature has a skill that loads its documentation on demand. Do NOT auto-load these — only load the one relevant to the feature you are currently working on.
 
-- terminal-scrollback: `/feature-terminal-scrollback`
-- notifications: `/feature-notifications`
-- tab-loading-indicator: `/feature-tab-loading-indicator`
-- profiles: `/feature-profiles`
-- dev-build: `/feature-dev-build`
-- profile-ordering: `/feature-profile-ordering`
-- session-names: `/feature-session-names`
-- default-branch: `/feature-default-branch`
-- opencode-status-line: `/feature-opencode-status-line`
-- opencode-cli: `/feature-opencode-cli`
+- terminal-scrollback: `feature-terminal-scrollback`
+- notifications: `feature-notifications`
+- tab-loading-indicator: `feature-tab-loading-indicator`
+- profiles: `feature-profiles`
+- dev-build: `feature-dev-build`
+- profile-ordering: `feature-profile-ordering`
+- session-names: `feature-session-names`
+- default-branch: `feature-default-branch`
+- opencode-status-line: `feature-opencode-status-line`
+- opencode-cli: `feature-opencode-cli`
 
-**OpenCode features:** load `/opencode-documentation` before working on any opencode-* feature — fetch the relevant doc page rather than guessing at behavior.
-- observability-dashboard: `/feature-observability-dashboard`
-- worktree-cleanup: `/feature-worktree-cleanup`
-- panes: `/feature-panes`
-- codex-cli: `/feature-codex-cli`
-- continue-on-restart: `/feature-continue-on-restart`
-- tab-pane-reordering: `/feature-tab-pane-reordering`
-- pr-tracking: `/feature-pr-tracking`
-- sticky-notifications: `/feature-sticky-notifications`
-- cursor-cli: `/feature-cursor-cli`
-- pr-merged-notifications: `/feature-pr-merged-notifications`
-- tracing: `/feature-tracing`
-- debug-logging: `/feature-debug-logging`
-- terminal-rendering: `/feature-terminal-rendering`
-- worktree-creation: `/feature-worktree-creation`
+**OpenCode features:** load `opencode-documentation` before working on any opencode-* feature — fetch the relevant doc page rather than guessing at behavior.
+- observability-dashboard: `feature-observability-dashboard`
+- worktree-cleanup: `feature-worktree-cleanup`
+- panes: `feature-panes`
+- codex-cli: `feature-codex-cli`
+- continue-on-restart: `feature-continue-on-restart`
+- tab-pane-reordering: `feature-tab-pane-reordering`
+- pr-tracking: `feature-pr-tracking`
+- sticky-notifications: `feature-sticky-notifications`
+- cursor-cli: `feature-cursor-cli`
+- pr-merged-notifications: `feature-pr-merged-notifications`
+- tracing: `feature-tracing`
+- debug-logging: `feature-debug-logging`
+- terminal-rendering: `feature-terminal-rendering`
+- worktree-creation: `feature-worktree-creation`
 
 **Workflow reminders:**
-1. **When working on a feature** — load the corresponding skill (e.g. `/feature-panes`) before starting.
+1. **When working on a feature** — load the corresponding skill (e.g. `feature-panes`) before starting.
 2. **After updating a feature doc** (`documentation/features/<name>.md`) — verify the skill still points to it correctly (no action needed if skill uses `!`cat``, but confirm the doc path hasn't changed).
 3. **When creating a new feature** — create all three artifacts in order:
    a. `documentation/features/<name>.md` — the feature guide
-   b. `.claude/skills/feature-<name>/SKILL.md` — the skill (use `!`cat`` to reference the doc)
-   c. Add a line to the `## Feature Skills` section of `CLAUDE.md`
+   b. `.agents/skills/feature-<name>/SKILL.md` — the skill (use `!`cat`` to reference the doc)
+   c. Add a line to the `## Feature Skills` section of `AGENTS.md`
 
 ## Key Behaviors to Know
 
