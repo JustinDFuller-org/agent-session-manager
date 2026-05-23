@@ -5,7 +5,6 @@ import Testing
 
 @Suite("Profile")
 struct ProfileTests {
-
     @Test("buildArgs returns enabled boolean flags")
     func buildArgsBooleanFlags() {
         let profile = Profile(
@@ -236,7 +235,8 @@ struct ProfileTests {
             Profile(name: "A", cliType: .claude),
             Profile(name: "B", cliType: .claude),
         ]
-        let isDisabled = 0 == 0
+        let selectedIndex = 0
+        let isDisabled = selectedIndex <= 0 || profiles.isEmpty
         #expect(isDisabled)
     }
 

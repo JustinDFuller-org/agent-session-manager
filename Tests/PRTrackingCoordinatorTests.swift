@@ -4,7 +4,6 @@ import XCTest
 
 @MainActor
 final class PRTrackingCoordinatorTests: XCTestCase {
-
     // MARK: - parseOwnerRepo
 
     func testParseOwnerRepoHTTPS() {

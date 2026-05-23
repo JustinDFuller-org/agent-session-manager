@@ -213,9 +213,10 @@ final class MacNotificationCoordinatorTests: XCTestCase {
     }
 
     func testNotificationAttachmentOptionsUsePNGTypeHint() {
-        let hint = MacNotificationCoordinator.notificationAttachmentOptions[
-            UNNotificationAttachmentOptionsTypeHintKey
-        ] as? String
+        let hint =
+            MacNotificationCoordinator.notificationAttachmentOptions[
+                UNNotificationAttachmentOptionsTypeHintKey
+            ] as? String
         XCTAssertEqual(hint, UTType.png.identifier)
     }
 

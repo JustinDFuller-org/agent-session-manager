@@ -5,7 +5,6 @@ import Testing
 
 @Suite("ProfileShowOnPaneCreate")
 struct ProfileShowOnPaneCreateTests {
-
     @Test("ProfileCLIOption decodes old JSON without showOnPaneCreate as false")
     func cliOptionBackwardCompatibleDecode() throws {
         let json = """

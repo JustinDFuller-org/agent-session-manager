@@ -1,7 +1,6 @@
 import XCTest
 
 final class TraceDashboardUITests: BaseTestCase {
-
     func testOpenTraceDashboardViaKeyboardShortcut() {
         app.typeKey("d", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Trace Dashboard"]

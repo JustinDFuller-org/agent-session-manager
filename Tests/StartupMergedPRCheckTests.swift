@@ -5,7 +5,6 @@ import XCTest
 
 @MainActor
 final class StartupMergedPRCheckTests: XCTestCase {
-
     override func setUp() {
         super.setUp()
         PersistenceHelpers.overrideAppSupportSubdirectory = "agent-session-manager"

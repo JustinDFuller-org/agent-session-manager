@@ -4,7 +4,6 @@ import XCTest
 
 @MainActor
 final class TraceDashboardTests: XCTestCase {
-
     private var appSettings: AppSettings!
 
     override func setUp() async throws {
@@ -92,9 +91,9 @@ final class TraceDashboardTests: XCTestCase {
     }
 
     func testStoredSpanHasUniqueIDs() {
-        let a = makeSpan(name: "same.name")
-        let b = makeSpan(name: "same.name")
-        XCTAssertNotEqual(a.id, b.id)
+        let span1 = makeSpan(name: "same.name")
+        let span2 = makeSpan(name: "same.name")
+        XCTAssertNotEqual(span1.id, span2.id)
     }
 
     // MARK: MemorySpanExporter (via TracingService)

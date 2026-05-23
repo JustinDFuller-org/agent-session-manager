@@ -30,8 +30,8 @@ enum WindowSnapshot {
         if let main = NSApp.mainWindow {
             attributes["mainWindowID"] = identityHash(main)
         }
-        for (k, v) in extra {
-            attributes[k] = v
+        for (key, value) in extra {
+            attributes[key] = value
         }
         TracingService.shared.record("window.snapshot", attributes: attributes)
         #endif

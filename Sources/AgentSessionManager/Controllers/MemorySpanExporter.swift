@@ -11,10 +11,10 @@ final class MemorySpanExporter: SpanExporter {
             var attrs: [String: String] = [:]
             for (key, value) in spanData.attributes {
                 switch value {
-                case .string(let s): attrs[key] = s
-                case .bool(let b): attrs[key] = String(b)
+                case .string(let str): attrs[key] = str
+                case .bool(let bool): attrs[key] = String(bool)
                 case .int(let i): attrs[key] = String(i)
-                case .double(let d): attrs[key] = String(d)
+                case .double(let double): attrs[key] = String(double)
                 default: attrs[key] = value.description
                 }
             }

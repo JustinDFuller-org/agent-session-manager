@@ -136,11 +136,11 @@ struct ContentView: View {
             if let pane = paneToRefresh {
                 RefreshPaneSheet(
                     pane: pane,
-                    onQuickRefresh: { p in
-                        p.tab?.refreshPane(p)
+                    onQuickRefresh: { pane in
+                        pane.tab?.refreshPane(pane)
                     },
-                    onRefreshWithSettings: { p in
-                        paneToRefresh = p
+                    onRefreshWithSettings: { pane in
+                        paneToRefresh = pane
                         showRefreshSettingsSheet = true
                     }
                 )

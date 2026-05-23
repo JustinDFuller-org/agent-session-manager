@@ -157,7 +157,7 @@ lint:
 	swift-format lint --recursive --strict Sources/ Tests/ UITests/
 
 setup-hooks:
-	git config core.hooksPath .githooks
+	git config core.hooksPath "$$(dirname $$(git rev-parse --git-common-dir))/.githooks"
 
 restart:
 	pkill -x $(APP_NAME) 2>/dev/null || true

@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: swift test
@@ -13,8 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Resolve Swift packages
-        run: swift package resolve
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .build/checkouts
+          key: swift-packages-${{ hashFiles('Package.resolved') }}
 
       - name: Run unit tests
         run: swift test
