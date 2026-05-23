@@ -1,9 +1,9 @@
 ---
 name: cursor-documentation
 description: Cursor official doc index — load when building Cursor features, CLI integration, hooks, rules, skills, MCP, worktrees, or any Cursor agent behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:cursor.com)
+allowed-tools: WebFetch(domain:cursor.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # Cursor Documentation Index

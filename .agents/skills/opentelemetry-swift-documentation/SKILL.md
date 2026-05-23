@@ -1,10 +1,9 @@
 ---
 name: opentelemetry-swift-documentation
 description: OpenTelemetry Swift official doc index — load when building or working with OpenTelemetry Swift features, tracing, metrics, logging, span export, instrumentation, or any OpenTelemetry Swift behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:opentelemetry.io)
-  - WebFetch(domain:github.com)
+allowed-tools: WebFetch(domain:opentelemetry.io) WebFetch(domain:github.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # OpenTelemetry Swift Documentation Index

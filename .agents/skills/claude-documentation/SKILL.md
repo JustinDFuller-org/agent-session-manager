@@ -1,9 +1,9 @@
 ---
 name: claude-documentation
 description: Claude Code official doc index — load when building Claude Code features, hooks, status line integration, settings files, worktrees, or any Claude Code CLI behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:code.claude.com)
+allowed-tools: WebFetch(domain:code.claude.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # Claude Code Documentation Index

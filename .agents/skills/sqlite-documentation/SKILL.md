@@ -1,9 +1,9 @@
 ---
 name: sqlite-documentation
 description: SQLite official doc index — load when working with SQLite, the C/C++ API, import SQLite3, prepared statements, binding, query execution, result codes, or any SQLite-specific behavior. Any project that uses or interacts with SQLite should load this skill.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:www.sqlite.org)
+allowed-tools: WebFetch(domain:www.sqlite.org)
+metadata:
+  user-invocable: "false"
 ---
 
 # SQLite Documentation Index

@@ -1,9 +1,9 @@
 ---
 name: swiftui-documentation
 description: SwiftUI official doc index — load when building SwiftUI views, modifiers, state management, data flow, AppKit bridging, or any SwiftUI behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:developer.apple.com)
+allowed-tools: WebFetch(domain:developer.apple.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # SwiftUI Documentation Index

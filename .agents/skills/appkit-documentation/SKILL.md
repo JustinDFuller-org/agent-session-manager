@@ -1,9 +1,9 @@
 ---
 name: appkit-documentation
 description: AppKit official doc index — load when building AppKit features, NSView, NSWindow, NSEvent, NSColor, NSWorkspace, or any AppKit behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:developer.apple.com)
+allowed-tools: WebFetch(domain:developer.apple.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # AppKit Documentation Index

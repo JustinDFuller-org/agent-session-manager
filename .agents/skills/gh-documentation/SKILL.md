@@ -1,9 +1,9 @@
 ---
 name: gh-documentation
 description: GitHub CLI official doc index — load when building GitHub CLI features, PR/issue automation, API scripting, or any gh CLI behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:cli.github.com)
+allowed-tools: WebFetch(domain:cli.github.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # GitHub CLI Documentation Index

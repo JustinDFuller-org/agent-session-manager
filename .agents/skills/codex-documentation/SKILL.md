@@ -1,9 +1,9 @@
 ---
 name: codex-documentation
 description: Codex official doc index — load when building Codex features, CLI flags, hooks, config, rules, or AGENTS.md integration.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:developers.openai.com)
+allowed-tools: WebFetch(domain:developers.openai.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # Codex Documentation Index

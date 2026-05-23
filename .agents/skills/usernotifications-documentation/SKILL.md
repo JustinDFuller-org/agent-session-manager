@@ -1,9 +1,9 @@
 ---
 name: usernotifications-documentation
 description: UserNotifications official doc index — load when building notification features, requesting authorization, scheduling local notifications, handling notification actions, or any UserNotifications framework behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:developer.apple.com)
+allowed-tools: WebFetch(domain:developer.apple.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # User Notifications Documentation Index

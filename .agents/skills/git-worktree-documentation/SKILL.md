@@ -1,9 +1,9 @@
 ---
 name: git-worktree-documentation
 description: Git worktree official doc index — load when building git worktree features, worktree creation, listing, removal, locking, pruning, repair, or any git worktree CLI behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:git-scm.com)
+allowed-tools: WebFetch(domain:git-scm.com)
+metadata:
+  user-invocable: "false"
 ---
 
 # Git Worktree Documentation Index

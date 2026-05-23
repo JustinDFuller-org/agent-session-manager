@@ -1,9 +1,9 @@
 ---
 name: swifterm-documentation
 description: SwiftTerm official doc index — load when building SwiftTerm features, terminal emulation, terminal views, process lifecycle, delegate callbacks, GPU rendering, pseudo-terminals, or any SwiftTerm-specific behavior. Any project that uses or interacts with SwiftTerm should load this skill.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:migueldeicaza.github.io)
+allowed-tools: WebFetch(domain:migueldeicaza.github.io)
+metadata:
+  user-invocable: "false"
 ---
 
 # SwiftTerm Documentation Index

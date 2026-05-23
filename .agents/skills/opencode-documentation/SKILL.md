@@ -1,9 +1,9 @@
 ---
 name: opencode-documentation
 description: OpenCode official doc index — load when building OpenCode features, CLI integration, TUI behavior, status line, or any OpenCode-specific behavior.
-user-invocable: false
-allowed-tools:
-  - WebFetch(domain:opencode.ai)
+allowed-tools: WebFetch(domain:opencode.ai)
+metadata:
+  user-invocable: "false"
 ---
 
 # OpenCode Documentation Index
