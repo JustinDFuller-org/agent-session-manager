@@ -141,6 +141,7 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 ## Skills
 
 - `/swiftui-macos-form-alignment` — SwiftUI macOS Form alignment quirks, background control, and VStack-based alternative
+- `/claude-documentation` — Claude Code official doc index; load when building Claude Code features, hooks, or settings integration.
 
 ## Documentation
 

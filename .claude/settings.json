@@ -5,7 +5,8 @@
       "Bash(swift test *)",
       "Bash(xcodebuild test *)",
       "Bash(make test-ui)",
-      "Bash(make lint)"
+      "Bash(make lint)",
+      "WebFetch(domain:code.claude.com)"
     ]
   }
 }
