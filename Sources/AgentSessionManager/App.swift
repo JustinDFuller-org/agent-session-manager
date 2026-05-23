@@ -59,7 +59,6 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
-        .focusedValue(\.hasActiveTab, !appState.tabs.isEmpty)
         .task {
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
             if !CommandLine.arguments.contains("--uitesting-skip-restore") {
@@ -289,17 +288,6 @@ struct EmptyStateView: View {
                 .accessibilityIdentifier("empty-state-hint")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct HasActiveTabKey: FocusedValueKey {
-    typealias Value = Bool
-}
-
-extension FocusedValues {
-    var hasActiveTab: Bool? {
-        get { self[HasActiveTabKey.self] }
-        set { self[HasActiveTabKey.self] = newValue }
     }
 }
 

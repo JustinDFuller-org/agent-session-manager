@@ -10,7 +10,7 @@ struct AgentSessionManagerApp: App {
             SettingsView()
                 .environment(appDelegate.appSettings)
         }
-        .commands { AppCommands() }
+        .commands { AppCommands(appState: appDelegate.appState) }
 
         Window("Trace Dashboard", id: "trace-dashboard") {
             TraceDashboardView()
@@ -20,11 +20,11 @@ struct AgentSessionManagerApp: App {
 }
 
 private struct AppCommands: Commands {
+    let appState: AppState
     @AppStorage("keyBinding.newTabKey") var newTabKey = "t"
     @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
     @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
     @AppStorage("keyBinding.openShellHereKey") var openShellHereKey = "s"
-    @FocusedValue(\.hasActiveTab) var hasActiveTab
     @Environment(\.openWindow) var openWindow
 
     var body: some Commands {
@@ -45,13 +45,13 @@ private struct AppCommands: Commands {
                 NotificationCenter.default.post(name: .newPane, object: nil)
             }
             .keyboardShortcut(KeyEquivalent(Character(newPaneKey)), modifiers: .command)
-            .disabled(!(hasActiveTab ?? false))
+            .disabled(appState.tabs.isEmpty)
 
             Button("Open Shell Here") {
                 NotificationCenter.default.post(name: .openShellHere, object: nil)
             }
             .keyboardShortcut(KeyEquivalent(Character(openShellHereKey)), modifiers: [.command, .shift])
-            .disabled(!(hasActiveTab ?? false))
+            .disabled(appState.tabs.isEmpty)
 
             Divider()
 
@@ -59,7 +59,7 @@ private struct AppCommands: Commands {
                 NotificationCenter.default.post(name: .closeTab, object: nil)
             }
             .keyboardShortcut(KeyEquivalent(Character(closeTabKey)), modifiers: .command)
-            .disabled(!(hasActiveTab ?? false))
+            .disabled(appState.tabs.isEmpty)
         }
     }
 }
