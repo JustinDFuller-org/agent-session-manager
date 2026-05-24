@@ -18,7 +18,7 @@ final class CloseTests: BaseTestCase {
         createTab(named: "PaneCloseTab")
         createPane(named: "pane-to-close")
 
-        let paneName = app.staticTexts["pane-to-close"].firstMatch
+        let paneName = app.staticTexts["pane-name-pane-to-close"].firstMatch
         waitFor(paneName)
 
         app.buttons["close-pane-to-close"].firstMatch.click()

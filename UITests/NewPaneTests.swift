@@ -20,7 +20,7 @@ final class NewPaneTests: BaseTestCase {
         XCTAssertTrue(openButton.isEnabled)
         openButton.click()
 
-        let paneName = app.staticTexts["auth-refactor"].firstMatch
+        let paneName = app.staticTexts["pane-name-auth-refactor"].firstMatch
         waitFor(paneName)
         screenshot("07-pane-created")
         XCTAssertTrue(paneName.exists)
@@ -73,24 +73,24 @@ final class NewPaneTests: BaseTestCase {
         createPane(named: "feature-c")
         screenshot("09c-three-panes")
 
-        XCTAssertTrue(app.staticTexts["feature-a"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["feature-b"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["feature-c"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-feature-a"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-feature-b"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-feature-c"].firstMatch.exists)
     }
 
     func testClosingOnePaneKeepsOthers() {
         createPane(named: "keep-pane")
         createPane(named: "close-pane")
 
-        waitFor(app.staticTexts["keep-pane"].firstMatch)
-        waitFor(app.staticTexts["close-pane"].firstMatch)
+        waitFor(app.staticTexts["pane-name-keep-pane"].firstMatch)
+        waitFor(app.staticTexts["pane-name-close-pane"].firstMatch)
         screenshot("10a-two-panes-before-close")
 
         app.buttons["close-close-pane"].firstMatch.click()
         screenshot("10b-one-pane-after-close")
 
-        XCTAssertTrue(app.staticTexts["keep-pane"].firstMatch.exists)
-        XCTAssertFalse(app.staticTexts["close-pane"].exists)
+        XCTAssertTrue(app.staticTexts["pane-name-keep-pane"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["pane-name-close-pane"].exists)
     }
 
     func testFourPanesGridLayout() {
@@ -101,10 +101,10 @@ final class NewPaneTests: BaseTestCase {
 
         screenshot("11-four-pane-grid")
 
-        XCTAssertTrue(app.staticTexts["pane-1"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["pane-2"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["pane-3"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["pane-4"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-pane-1"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-pane-2"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-pane-3"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-pane-4"].firstMatch.exists)
     }
 
     func testInvalidNameShowsErrorAndDisablesOpenButton() {
@@ -265,6 +265,6 @@ final class NewPaneTests: BaseTestCase {
         // If focus was not delivered the keystroke would be silently swallowed
         // or trigger a system beep; reaching this line without a hang confirms
         // keystrokes were accepted.
-        XCTAssertTrue(app.staticTexts["autofocus-test"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-autofocus-test"].firstMatch.exists)
     }
 }

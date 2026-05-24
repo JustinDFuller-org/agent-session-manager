@@ -9,6 +9,7 @@ class BaseTestCase: XCTestCase {
 
         clearPersistedState()
         GitUITestWorkspace.prepareCleanRepo()
+        writeDefaultBranch("ui-root")
 
         app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
@@ -59,6 +60,16 @@ class BaseTestCase: XCTestCase {
     }
 
     var emptyStateHint: XCUIElement { app.staticTexts["empty-state-hint"] }
+
+    func writeDefaultBranch(_ branch: String) {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let json = "{\"isEnabled\":true,\"branchName\":\"\(branch)\"}"
+        let data = Data(json.utf8)
+        try? data.write(to: support.appending(path: "default-branch.json"))
+    }
 
     func clearPersistedState() {
         let support = FileManager.default
