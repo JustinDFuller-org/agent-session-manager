@@ -15,14 +15,14 @@ final class WorktreeCleanupUITests: BaseTestCase {
         let proceed = app.buttons["new-pane-reuse-confirm-continue"]
         waitFor(proceed)
         proceed.click()
-        waitFor(app.staticTexts[folder].firstMatch)
+        waitFor(app.staticTexts["pane-name-\(folder)"].firstMatch)
     }
 
     func testSimplePaneCloseShowsNoCleanupAlert() {
         createTab(named: "SimpleTab")
         createPane(named: "simple-pane")
 
-        let paneName = app.staticTexts["simple-pane"].firstMatch
+        let paneName = app.staticTexts["pane-name-simple-pane"].firstMatch
         waitFor(paneName)
 
         app.buttons["close-simple-pane"].firstMatch.click()
@@ -52,7 +52,7 @@ final class WorktreeCleanupUITests: BaseTestCase {
 
         app.buttons["close-simple-pane"].firstMatch.click()
         XCTAssertFalse(app.buttons["Keep Worktree"].firstMatch.waitForExistence(timeout: 2))
-        let simplePaneName = app.staticTexts["simple-pane"].firstMatch
+        let simplePaneName = app.staticTexts["pane-name-simple-pane"].firstMatch
         waitForDisappear(simplePaneName)
 
         app.buttons["close-wt-managed"].firstMatch.click()

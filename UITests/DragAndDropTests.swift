@@ -82,8 +82,8 @@ final class DragAndDropTests: BaseTestCase {
         createPane(named: "Foo")
         createPane(named: "Bar")
 
-        let fooName = app.staticTexts["Foo"].firstMatch
-        let barName = app.staticTexts["Bar"].firstMatch
+        let fooName = app.staticTexts["pane-name-Foo"].firstMatch
+        let barName = app.staticTexts["pane-name-Bar"].firstMatch
         waitFor(fooName)
         waitFor(barName)
 
@@ -100,8 +100,8 @@ final class DragAndDropTests: BaseTestCase {
         createPane(named: "Foo")
         createPane(named: "Bar")
 
-        let fooName = app.staticTexts["Foo"].firstMatch
-        let barName = app.staticTexts["Bar"].firstMatch
+        let fooName = app.staticTexts["pane-name-Foo"].firstMatch
+        let barName = app.staticTexts["pane-name-Bar"].firstMatch
         waitFor(fooName)
         waitFor(barName)
 
@@ -118,8 +118,8 @@ final class DragAndDropTests: BaseTestCase {
         createPane(named: "Foo")
         createPane(named: "Bar")
 
-        let fooName = app.staticTexts["Foo"].firstMatch
-        let barName = app.staticTexts["Bar"].firstMatch
+        let fooName = app.staticTexts["pane-name-Foo"].firstMatch
+        let barName = app.staticTexts["pane-name-Bar"].firstMatch
         waitFor(fooName)
         waitFor(barName)
 

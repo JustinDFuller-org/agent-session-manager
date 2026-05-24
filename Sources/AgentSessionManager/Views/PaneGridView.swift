@@ -20,11 +20,15 @@ struct PaneGridView: View {
                 panesGrid
             }
         }
-        .sheet(isPresented: $showingNewPane, onDismiss: {
-            appState.activePane?.terminalController?.focusTerminal()
-        }) {
-            NewPaneSheet(tab: tab)
-        }
+        .sheet(
+            isPresented: $showingNewPane,
+            onDismiss: {
+                appState.activePane?.terminalController?.focusTerminal()
+            },
+            content: {
+                NewPaneSheet(tab: tab)
+            }
+        )
         .onReceive(NotificationCenter.default.publisher(for: .newPane)) { _ in
             showingNewPane = true
         }

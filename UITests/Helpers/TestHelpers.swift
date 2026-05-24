@@ -22,6 +22,6 @@ extension BaseTestCase {
         field.click()
         field.typeText(name)
         app.buttons["new-pane-open-button"].click()
-        waitFor(app.staticTexts[name].firstMatch)
+        waitFor(app.staticTexts["pane-name-\(name)"].firstMatch)
     }
 }

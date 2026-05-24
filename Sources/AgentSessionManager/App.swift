@@ -61,6 +61,7 @@ struct ContentView: View {
         .background(Color(nsColor: .controlBackgroundColor))
         .task {
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
+            SettingsPersistence.restoreDefaultBranch(into: appSettings)
             if !CommandLine.arguments.contains("--uitesting-skip-restore") {
                 SettingsPersistence.restore(into: appSettings)
                 SettingsPersistence.restoreStatusLine(into: appSettings)
@@ -68,7 +69,6 @@ struct ContentView: View {
                 SettingsPersistence.restoreCursorOptions(into: appSettings)
                 SettingsPersistence.restoreOpenCodeOptions(into: appSettings)
                 SettingsPersistence.restoreActiveTools(into: appSettings)
-                SettingsPersistence.restoreDefaultBranch(into: appSettings)
                 SettingsPersistence.restoreNotificationSettings(into: appSettings)
                 SettingsPersistence.restoreRestartSettings(into: appSettings)
                 SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
