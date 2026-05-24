@@ -82,9 +82,7 @@ final class ProfileOrderingTests: BaseTestCase {
     }
 
     private func clearProfilesSetting() {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let file = support.appending(path: "agent-session-manager/profiles.json")
+        let file = UITestAppSupport.directory.appending(path: "profiles.json")
         try? FileManager.default.removeItem(at: file)
     }
 }
