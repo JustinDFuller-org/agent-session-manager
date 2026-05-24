@@ -14,6 +14,9 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
     from: 1.13.0
+  opentelemetry-swift:
+    url: https://github.com/open-telemetry/opentelemetry-swift
+    from: 1.9.0
 
 targets:
   AgentSessionManager:
@@ -42,6 +45,12 @@ targets:
     dependencies:
       - package: SwiftTerm
         product: SwiftTerm
+      - package: opentelemetry-swift
+        product: OpenTelemetryApi
+      - package: opentelemetry-swift
+        product: OpenTelemetrySdk
+      - package: opentelemetry-swift
+        product: StdoutExporter
     entitlements:
       path: AgentSessionManager.entitlements
       properties:
