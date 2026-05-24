@@ -151,6 +151,16 @@ test-ui: xcodeproj
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA)
 
+test-ui-dev: xcodeproj
+	rm -rf $(RESULTS_PATH)
+	xcodebuild test \
+		-project $(APP_NAME).xcodeproj \
+		-scheme $(SCHEME) \
+		-configuration Dev \
+		-destination 'platform=macOS' \
+		-resultBundlePath $(RESULTS_PATH) \
+		-derivedDataPath $(DERIVED_DATA)
+
 screenshots: xcodeproj
 	rm -rf $(SCREENSHOTS_DIR)
 	mkdir -p $(SCREENSHOTS_DIR)
@@ -162,6 +172,30 @@ screenshots: xcodeproj
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA) \
 		-only-testing:AgentSessionManagerUITests/ScreenshotTests
+
+reset-app-state:
+	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
+	    opencode-settings.json statusline-settings.json active-tools-settings.json \
+	    default-branch.json notification-settings.json restart-settings.json \
+	    worktree-cleanup.json existing-worktree-management.json debug-settings.json \
+	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \
+	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
+	    env-var-settings.json profiles.json session-name-settings.json; do \
+		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
+	done
+	@echo "App state reset."
+
+reset-app-state-dev:
+	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
+	    opencode-settings.json statusline-settings.json active-tools-settings.json \
+	    default-branch.json notification-settings.json restart-settings.json \
+	    worktree-cleanup.json existing-worktree-management.json debug-settings.json \
+	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \
+	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
+	    env-var-settings.json profiles.json session-name-settings.json; do \
+		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
+	done
+	@echo "Dev app state reset."
 
 open-results:
 	open $(RESULTS_PATH)

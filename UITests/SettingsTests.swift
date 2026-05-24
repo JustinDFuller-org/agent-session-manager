@@ -194,9 +194,7 @@ final class SettingsTests: BaseTestCase {
     }
 
     private func clearDefaultBranchSetting() {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let file = support.appending(path: "agent-session-manager/default-branch.json")
+        let file = UITestAppSupport.directory.appending(path: "default-branch.json")
         try? FileManager.default.removeItem(at: file)
     }
 }

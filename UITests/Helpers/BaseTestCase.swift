@@ -69,9 +69,7 @@ class BaseTestCase: XCTestCase {
     var emptyStateHint: XCUIElement { app.staticTexts["empty-state-hint"] }
 
     func writeDefaultBranch(_ branch: String) {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "agent-session-manager")
+        let support = UITestAppSupport.directory
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         let json = "{\"isEnabled\":true,\"branchName\":\"\(branch)\"}"
         let data = Data(json.utf8)
@@ -79,16 +77,17 @@ class BaseTestCase: XCTestCase {
     }
 
     func clearPersistedState() {
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "agent-session-manager")
+        let support = UITestAppSupport.directory
         for file in [
             "sessions.json", "settings.json", "codex-settings.json",
-            "cursor-settings.json", "statusline-settings.json",
+            "cursor-settings.json", "opencode-settings.json", "statusline-settings.json",
             "active-tools-settings.json", "default-branch.json",
             "notification-settings.json", "restart-settings.json",
             "worktree-cleanup.json", "existing-worktree-management.json",
             "debug-settings.json", "pr-tracking-settings.json",
+            "tracing-settings.json", "pr-polling-settings.json",
+            "terminal-settings.json", "worktree-base-ref.json", "exit-behavior.json",
+            "env-var-settings.json", "profiles.json", "session-name-settings.json",
         ] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
