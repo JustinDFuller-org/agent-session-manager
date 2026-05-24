@@ -7,8 +7,7 @@ final class PaneStatusDotUITests: XCTestCase {
     private static let paneID = "55555555-5555-5555-5555-555555555555"
 
     private var sessionURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "agent-session-manager/sessions.json")
+        UITestAppSupport.directory.appending(path: "sessions.json")
     }
 
     override func setUp() {
@@ -74,8 +73,7 @@ final class PaneStatusDotUITests: XCTestCase {
               "pendingNotifications": []
             }
             """
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "agent-session-manager")
+        let support = UITestAppSupport.directory
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         try? json.data(using: .utf8)?.write(to: sessionURL)
     }

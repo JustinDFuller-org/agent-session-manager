@@ -8,8 +8,7 @@ final class PRMergedNotificationUITests: XCTestCase {
     private static let notifID = "33333333-3333-3333-3333-333333333333"
 
     private var sessionURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "agent-session-manager/sessions.json")
+        UITestAppSupport.directory.appending(path: "sessions.json")
     }
 
     override func setUp() {
@@ -173,8 +172,7 @@ final class PRMergedNotificationUITests: XCTestCase {
               ]
             }
             """
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "agent-session-manager")
+        let support = UITestAppSupport.directory
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         try? json.data(using: .utf8)?.write(to: sessionURL)
     }

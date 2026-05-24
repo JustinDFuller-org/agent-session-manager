@@ -8,11 +8,7 @@ final class SessionPersistenceTests: XCTestCase {
         continueAfterFailure = false
 
         // Clear any prior sessions
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let sessionFile =
-            support
-            .appending(path: "agent-session-manager/sessions.json")
+        let sessionFile = UITestAppSupport.directory.appending(path: "sessions.json")
         try? FileManager.default.removeItem(at: sessionFile)
 
         let testDir = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -29,9 +25,7 @@ final class SessionPersistenceTests: XCTestCase {
     override func tearDown() {
         app.terminate()
         // Always clear sessions after the persistence test so the next test starts clean.
-        let support = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let sessionFile = support.appending(path: "agent-session-manager/sessions.json")
+        let sessionFile = UITestAppSupport.directory.appending(path: "sessions.json")
         try? FileManager.default.removeItem(at: sessionFile)
         super.tearDown()
     }
