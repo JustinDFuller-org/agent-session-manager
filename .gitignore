@@ -159,3 +159,6 @@ AgentSessionManager.xcodeproj/
 
 # Legacy worktree directory
 .tree/
+
+# UI test screenshots (committed per-PR via git add -f)
+screenshots/

@@ -26,15 +26,18 @@ swift test                                                        # unit tests �
 swift-format lint --recursive --strict Sources/ Tests/ UITests/  # format — must pass
 swiftlint lint --strict --config .swiftlint.yml                   # lint — must pass
 make xcodeproj && make test-ui                                    # UI tests — must pass
+make screenshots                                                  # capture UI screenshots — must pass
 ```
 
 UI test regressions are easy to miss and costly to fix later. **Never skip this step.** The git pre-commit hook runs unit tests, format, and lint; the pre-push hook runs UI smoke tests (`AppLaunchTests`, `NewTabTests`, `NewPaneTests`), so most regressions will be caught before they reach a PR. Run `make setup-hooks` once to install them.
 
 **5. Commit & PR** — After all CI checks pass, automatically:
 
-1. Stage and commit all changes with a message that includes the issue number and explains *why* the change was made.
-2. Push the branch.
-3. Open a PR with `gh pr create` using this exact template (fill in the bracketed placeholders):
+1. Run `make screenshots` to populate `screenshots/`.
+2. Stage with `git add -f screenshots/` (force-add because the directory is gitignored).
+3. Stage and commit all changes with a message that includes the issue number and explains *why* the change was made.
+4. Push the branch.
+5. Open a PR with `gh pr create` using this exact template (fill in the bracketed placeholders):
 
 ```
 gh pr create --title "[conventional-type]: [issue title] (#[N])" --body "$(cat <<'EOF'
@@ -49,6 +52,17 @@ gh pr create --title "[conventional-type]: [issue title] (#[N])" --body "$(cat <
 
 - [x] [each CI command that was run and passed, e.g. `swift test`, `make lint`, `make test-ui`]
 - [ ] [any manual verification steps left for the human reviewer]
+
+## Screenshots
+
+| View | Screenshot |
+|------|-----------|
+| Empty State | ![Empty State](screenshots/empty-state.png) |
+| Main Window | ![Main Window](screenshots/main-window-tab.png) |
+| New Pane Sheet | ![New Pane Sheet](screenshots/new-pane-sheet.png) |
+| Split Panes | ![Split Panes](screenshots/split-panes.png) |
+| Settings - General | ![Settings General](screenshots/settings-general.png) |
+| Settings - Notifications | ![Settings Notifications](screenshots/settings-notifications.png) |
 
 Closes #[N]
 

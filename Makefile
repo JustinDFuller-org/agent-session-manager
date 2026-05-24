@@ -1,4 +1,5 @@
 APP_NAME = AgentSessionManager
+SCREENSHOTS_DIR = screenshots
 APP_NAME_DEV = AgentSessionManagerDev
 BUILD_DIR = .build/release
 BUILD_DIR_DEV = .build/debug
@@ -149,6 +150,18 @@ test-ui: xcodeproj
 		-destination 'platform=macOS' \
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA)
+
+screenshots: xcodeproj
+	rm -rf $(SCREENSHOTS_DIR)
+	mkdir -p $(SCREENSHOTS_DIR)
+	rm -rf $(RESULTS_PATH)
+	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test \
+		-project $(APP_NAME).xcodeproj \
+		-scheme $(SCHEME) \
+		-destination 'platform=macOS' \
+		-resultBundlePath $(RESULTS_PATH) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:AgentSessionManagerUITests/ScreenshotTests
 
 open-results:
 	open $(RESULTS_PATH)
