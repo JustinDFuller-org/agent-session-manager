@@ -25,10 +25,12 @@ Every new behavior needs **both** a unit test and a UI test. Every changed behav
 swift test                                                        # unit tests — must pass
 swift-format lint --recursive --strict Sources/ Tests/ UITests/  # format — must pass
 swiftlint lint --strict --config .swiftlint.yml                   # lint — must pass
-make xcodeproj && make test-ui                                    # UI tests — must pass
+make xcodeproj && make test-ui-dev                                # UI tests — must pass (dev build, isolated from prod settings)
 ```
 
 UI test regressions are easy to miss and costly to fix later. **Never skip this step.** The git pre-commit hook runs unit tests, format, and lint; the pre-push hook runs UI smoke tests (`AppLaunchTests`, `NewTabTests`, `NewPaneTests`), so most regressions will be caught before they reach a PR. Run `make setup-hooks` once to install them.
+
+Use `make test-ui-dev` (not `make test-ui`) so tests run against the dev build and write to `agent-session-manager.dev` instead of the production app support directory. If a test run is interrupted before tearDown completes, the settings will be left dirty — run `make reset-app-state-dev` to clean them up (`make reset-app-state` for the prod directory).
 
 **5. Commit & PR** — After all CI checks pass, automatically:
 
@@ -71,5 +73,15 @@ swift test                                                        # unit tests (
 make lint                                                         # swift-format check (matches CI)
 swiftlint lint --strict --config .swiftlint.yml                   # swiftlint check (matches CI)
 make xcodeproj                                                    # regenerate after project.yml changes
-make test-ui                                                      # UI tests (requires Xcode)
+make test-ui-dev                                                  # UI tests against dev build (isolated from prod settings)
+make reset-app-state-dev                                          # clear dev settings if a test run was interrupted mid-tearDown
+make reset-app-state                                              # same for prod settings
 ```
+
+## UI test maintenance
+
+`UITestAppSupport.directory` (`UITests/Helpers/UITestAppSupport.swift`) is the single source of truth for which app support directory UITests read and write. It returns `agent-session-manager.dev` when compiled with `DEV_BUILD` (`-configuration Dev`), and `agent-session-manager` otherwise.
+
+When a new settings file is added to the app, update it in **two places**:
+1. `UITests/Helpers/BaseTestCase.swift` — `clearPersistedState()` file list
+2. `Makefile` — both the `reset-app-state` and `reset-app-state-dev` file lists
