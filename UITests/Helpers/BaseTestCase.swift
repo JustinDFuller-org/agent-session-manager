@@ -32,17 +32,7 @@ class BaseTestCase: XCTestCase {
     }
 
     func screenshot(_ name: String) {
-        let captured = app.screenshot()
-        let attachment = XCTAttachment(screenshot: captured)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-
-        if let outputPath = ProcessInfo.processInfo.environment["SCREENSHOTS_OUTPUT_PATH"] {
-            let dir = URL(fileURLWithPath: outputPath)
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try? captured.pngRepresentation.write(to: dir.appendingPathComponent("\(name).png"))
-        }
+        screenshot(name, app: app)
     }
 
     func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5) {

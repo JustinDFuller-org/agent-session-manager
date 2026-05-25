@@ -171,7 +171,11 @@ screenshots: xcodeproj
 		-destination 'platform=macOS' \
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-only-testing:AgentSessionManagerUITests/ScreenshotTests
+		-only-testing:AgentSessionManagerUITests/ScreenshotTests \
+		-only-testing:AgentSessionManagerUITests/ScreenshotInjectedTests
+
+pr-screenshots:
+	@bash "$(CURDIR)/../../../scripts/pr-screenshots.sh"
 
 reset-app-state:
 	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
