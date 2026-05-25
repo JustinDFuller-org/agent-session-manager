@@ -1,6 +1,11 @@
 import XCTest
 
 final class DragAndDropTests: BaseTestCase {
+    override func setUp() {
+        super.setUp()
+        try? Data("\"head\"".utf8).write(to: UITestAppSupport.directory.appending(path: "worktree-base-ref.json"))
+    }
+
     // MARK: - Tab Reordering
 
     func testDragTabForward() {

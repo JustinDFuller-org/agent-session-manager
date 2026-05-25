@@ -1,4 +1,5 @@
 APP_NAME = AgentSessionManager
+SCREENSHOTS_DIR = screenshots
 APP_NAME_DEV = AgentSessionManagerDev
 BUILD_DIR = .build/release
 BUILD_DIR_DEV = .build/debug
@@ -160,6 +161,22 @@ test-ui-dev: xcodeproj
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA)
 
+screenshots: xcodeproj
+	rm -rf $(SCREENSHOTS_DIR)
+	mkdir -p $(SCREENSHOTS_DIR)
+	rm -rf $(RESULTS_PATH)
+	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test \
+		-project $(APP_NAME).xcodeproj \
+		-scheme $(SCHEME) \
+		-destination 'platform=macOS' \
+		-resultBundlePath $(RESULTS_PATH) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:AgentSessionManagerUITests/ScreenshotTests \
+		-only-testing:AgentSessionManagerUITests/ScreenshotInjectedTests
+
+pr-screenshots:
+	@bash "$(CURDIR)/../../../scripts/pr-screenshots.sh"
+
 reset-app-state:
 	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
 	    opencode-settings.json statusline-settings.json active-tools-settings.json \
@@ -181,6 +198,7 @@ reset-app-state-dev:
 	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
 	    env-var-settings.json profiles.json session-name-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
+		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done
 	@echo "Dev app state reset."
 

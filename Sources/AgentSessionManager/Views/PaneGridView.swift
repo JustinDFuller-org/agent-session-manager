@@ -46,6 +46,7 @@ struct PaneGridView: View {
             LazyVGrid(columns: cols, spacing: spacing) {
                 ForEach(tab.panes) { pane in
                     PaneView(pane: pane, onClosePane: onClosePane, onRefreshPane: onRefreshPane)
+                        .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pane-\(pane.name)")
                         .frame(height: cellHeight)
                         .id(pane.id)

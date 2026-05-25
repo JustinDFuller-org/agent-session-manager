@@ -32,10 +32,7 @@ class BaseTestCase: XCTestCase {
     }
 
     func screenshot(_ name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        screenshot(name, app: app)
     }
 
     func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5) {
