@@ -175,6 +175,7 @@ final class StatusLineMonitor {
             ]
         ]
         if prTrackingEnabled {
+            settings["showPRStatus"] = false
             settings["prStatusFooterEnabled"] = false
         }
         if attentionEnabled {
@@ -320,6 +321,7 @@ final class StatusLineMonitor {
             ]
         ]
         if hidePRStatus {
+            settings["showPRStatus"] = false
             settings["prStatusFooterEnabled"] = false
         }
         if includeNotificationHook {

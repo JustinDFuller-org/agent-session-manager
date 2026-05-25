@@ -68,6 +68,7 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
             includeNotificationHook: false
         )
         XCTAssertNil(settings["prStatusFooterEnabled"])
+        XCTAssertNil(settings["showPRStatus"])
     }
 
     func testMakeClaudeSettingsIncludesPRStatusFooterFalseWhenHidden() {
@@ -78,6 +79,7 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
             hidePRStatus: true
         )
         XCTAssertEqual(settings["prStatusFooterEnabled"] as? Bool, false)
+        XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
     }
 
     func testMakeClaudeSettingsOmitsPRStatusFooterWhenNotHidden() {
@@ -88,6 +90,7 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
             hidePRStatus: false
         )
         XCTAssertNil(settings["prStatusFooterEnabled"])
+        XCTAssertNil(settings["showPRStatus"])
     }
 
     func testMakeClaudeSettingsHidePRStatusFooterCombinesWithHooks() {
@@ -98,6 +101,7 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
             hidePRStatus: true
         )
         XCTAssertEqual(settings["prStatusFooterEnabled"] as? Bool, false)
+        XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
         XCTAssertNotNil(settings["hooks"])
         XCTAssertNotNil(settings["statusLine"])
     }
