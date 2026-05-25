@@ -7,9 +7,13 @@ enum PersistenceHelpers {
         if let override = overrideAppSupportSubdirectory {
             return override
         }
+        #if DEV_BUILD
+        return "agent-session-manager.dev"
+        #else
         if let bundleID = Bundle.main.bundleIdentifier {
             return String(bundleID.split(separator: ".").last ?? "agent-session-manager")
         }
         return "agent-session-manager"
+        #endif
     }
 }

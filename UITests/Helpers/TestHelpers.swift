@@ -22,6 +22,8 @@ extension BaseTestCase {
         field.click()
         field.typeText(name)
         app.buttons["new-pane-open-button"].click()
-        waitFor(app.staticTexts["pane-name-\(name)"].firstMatch)
+        waitForDisappear(field, timeout: 25)
+        // Wait for the pane name text — Text elements are reliably in the accessibility tree.
+        waitFor(app.staticTexts.matching(identifier: "pane-name-\(name)").firstMatch, timeout: 10)
     }
 }

@@ -129,6 +129,7 @@ struct PaneView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pane-header-\(pane.name)")
         .onHover { isHovering in
             if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
@@ -172,6 +173,7 @@ struct PaneView: View {
                 }
             }
             .accessibilityIdentifier(dotAccessibilityID)
+            .accessibilityLabel(isMergedCondition ? "merged pane status" : "pane status")
     }
 
     @ViewBuilder

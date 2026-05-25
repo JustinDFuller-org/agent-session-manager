@@ -194,6 +194,7 @@ reset-app-state-dev:
 	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
 	    env-var-settings.json profiles.json session-name-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
+		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done
 	@echo "Dev app state reset."
 

@@ -1,13 +1,14 @@
 import XCTest
 
-final class SessionPersistenceTests: XCTestCase {
+/// Tests session restoration across a full app restart. Intentionally does not extend
+/// BaseTestCase and does not use `--uitesting-skip-restore` so that the restore path runs.
+final class SessionPersistenceFlowTests: XCTestCase {
     var app: XCUIApplication!
 
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
 
-        // Clear any prior sessions
         let sessionFile = UITestAppSupport.directory.appending(path: "sessions.json")
         try? FileManager.default.removeItem(at: sessionFile)
 
@@ -24,13 +25,12 @@ final class SessionPersistenceTests: XCTestCase {
 
     override func tearDown() {
         app.terminate()
-        // Always clear sessions after the persistence test so the next test starts clean.
         let sessionFile = UITestAppSupport.directory.appending(path: "sessions.json")
         try? FileManager.default.removeItem(at: sessionFile)
         super.tearDown()
     }
 
-    func testTabsRestoredAfterRelaunch() {
+    func testSessionPersistenceFlow() {
         // Create a tab
         app.typeKey("t", modifierFlags: .command)
         let field = app.textFields["new-tab-name-field"]
@@ -43,21 +43,21 @@ final class SessionPersistenceTests: XCTestCase {
         createBtn.click()
         XCTAssertTrue(app.buttons["tab-button-PersistenceTab"].waitForExistence(timeout: 5))
 
-        let screenshot1 = XCTAttachment(screenshot: app.screenshot())
-        screenshot1.name = "13-before-quit"
-        screenshot1.lifetime = .keepAlways
-        add(screenshot1)
+        let screenshotBefore = XCTAttachment(screenshot: app.screenshot())
+        screenshotBefore.name = "13-before-quit"
+        screenshotBefore.lifetime = .keepAlways
+        add(screenshotBefore)
 
-        // Quit and relaunch WITHOUT clearing sessions
+        // Quit and relaunch without clearing sessions — tab must be restored
         app.terminate()
         app.launch()
 
         let restoredTab = app.buttons["tab-button-PersistenceTab"]
         XCTAssertTrue(restoredTab.waitForExistence(timeout: 10))
 
-        let screenshot2 = XCTAttachment(screenshot: app.screenshot())
-        screenshot2.name = "14-after-relaunch"
-        screenshot2.lifetime = .keepAlways
-        add(screenshot2)
+        let screenshotAfter = XCTAttachment(screenshot: app.screenshot())
+        screenshotAfter.name = "14-after-relaunch"
+        screenshotAfter.lifetime = .keepAlways
+        add(screenshotAfter)
     }
 }

@@ -1,46 +1,44 @@
 import XCTest
 
 final class ScreenshotTests: BaseTestCase {
-    func testEmptyState() {
+    override func setUp() {
+        super.setUp()
+        try? Data("\"head\"".utf8).write(to: UITestAppSupport.directory.appending(path: "worktree-base-ref.json"))
+    }
+
+    func testWalkthrough() {
+        // 1. Empty state
         waitFor(emptyStateHint)
         screenshot("empty-state")
-    }
 
-    func testMainWindowWithTab() {
+        // 2. Main window with a tab
         createTab(named: "Alpha")
         screenshot("main-window-tab")
-    }
 
-    func testNewPaneSheet() {
-        createTab(named: "Alpha")
+        // 3. New pane sheet open
         app.typeKey("p", modifierFlags: .command)
-        let field = app.textFields["new-pane-name-field"]
-        waitFor(field)
+        waitFor(app.textFields["new-pane-name-field"])
         screenshot("new-pane-sheet")
         app.typeKey(.escape, modifierFlags: [])
-    }
+        waitForDisappear(app.textFields["new-pane-name-field"])
 
-    func testSplitPanes() {
-        createTab(named: "Alpha")
+        // 4. Split panes
         createPane(named: "feature-a")
         screenshot("split-panes")
-    }
 
-    func testSettingsGeneral() {
+        // 5. Settings — General tab
         app.typeKey(",", modifierFlags: .command)
         let generalTab = app.buttons["General"]
         waitFor(generalTab)
         generalTab.click()
         screenshot("settings-general")
-        app.typeKey("w", modifierFlags: .command)
-    }
 
-    func testSettingsNotifications() {
-        app.typeKey(",", modifierFlags: .command)
+        // 6. Settings — Notifications tab
         let notificationsTab = app.buttons["Notifications"]
         waitFor(notificationsTab)
         notificationsTab.click()
         screenshot("settings-notifications")
+
         app.typeKey("w", modifierFlags: .command)
     }
 }
