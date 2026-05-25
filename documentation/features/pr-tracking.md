@@ -86,3 +86,9 @@ If no PR exists for the branch, or `gh` is not installed or not authenticated, n
 | GitHub PR Tracking | Settings → Status Line | On | Enable or disable PR detection |
 
 The setting is persisted to `~/Library/Application Support/agent-session-manager/pr-tracking-settings.json`.
+
+### Hiding Claude Code's native PR footer badge
+
+When PR tracking is enabled, the app injects both `showPRStatus: false` and `prStatusFooterEnabled: false` into the per-pane `--settings` file passed to Claude Code. This suppresses Claude Code's own `PR #N` footer badge so the app's PR chip is the sole PR indicator, avoiding duplication.
+
+> **Note:** Claude Code renamed this setting from `showPRStatus` to `prStatusFooterEnabled` in version 2.1.145+. Both keys are injected for backward compatibility — unknown keys are ignored by each version, so writing both is safe.

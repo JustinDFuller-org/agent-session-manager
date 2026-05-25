@@ -176,6 +176,7 @@ final class StatusLineMonitor {
         ]
         if prTrackingEnabled {
             settings["showPRStatus"] = false
+            settings["prStatusFooterEnabled"] = false
         }
         if attentionEnabled {
             let attentionHookEntry: [[String: Any]] = [
@@ -321,6 +322,7 @@ final class StatusLineMonitor {
         ]
         if hidePRStatus {
             settings["showPRStatus"] = false
+            settings["prStatusFooterEnabled"] = false
         }
         if includeNotificationHook {
             let attentionHookEntry: [[String: Any]] = [

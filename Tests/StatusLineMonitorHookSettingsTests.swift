@@ -61,42 +61,46 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
         XCTAssertEqual(entryHooks.first?["command"] as? String, "cat > '/tmp/attention.json'")
     }
 
-    func testMakeClaudeSettingsOmitsShowPRStatusByDefault() {
+    func testMakeClaudeSettingsOmitsPRStatusFooterByDefault() {
         let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: "/tmp/status.json",
             attentionOutputPath: "/tmp/attention.json",
             includeNotificationHook: false
         )
+        XCTAssertNil(settings["prStatusFooterEnabled"])
         XCTAssertNil(settings["showPRStatus"])
     }
 
-    func testMakeClaudeSettingsIncludesShowPRStatusFalseWhenHidden() {
+    func testMakeClaudeSettingsIncludesPRStatusFooterFalseWhenHidden() {
         let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: "/tmp/status.json",
             attentionOutputPath: "/tmp/attention.json",
             includeNotificationHook: false,
             hidePRStatus: true
         )
+        XCTAssertEqual(settings["prStatusFooterEnabled"] as? Bool, false)
         XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
     }
 
-    func testMakeClaudeSettingsOmitsShowPRStatusWhenNotHidden() {
+    func testMakeClaudeSettingsOmitsPRStatusFooterWhenNotHidden() {
         let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: "/tmp/status.json",
             attentionOutputPath: "/tmp/attention.json",
             includeNotificationHook: false,
             hidePRStatus: false
         )
+        XCTAssertNil(settings["prStatusFooterEnabled"])
         XCTAssertNil(settings["showPRStatus"])
     }
 
-    func testMakeClaudeSettingsHidePRStatusCombinesWithHooks() {
+    func testMakeClaudeSettingsHidePRStatusFooterCombinesWithHooks() {
         let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: "/tmp/status.json",
             attentionOutputPath: "/tmp/attention.json",
             includeNotificationHook: true,
             hidePRStatus: true
         )
+        XCTAssertEqual(settings["prStatusFooterEnabled"] as? Bool, false)
         XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
         XCTAssertNotNil(settings["hooks"])
         XCTAssertNotNil(settings["statusLine"])
