@@ -124,8 +124,8 @@ final class TabPaneFlowTests: BaseTestCase {
             app.windows.firstMatch.buttons["Keep Worktree"].click()
         }
         waitForDisappear(app.staticTexts["pane-name-feature-d"].firstMatch, timeout: 10)
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "pane-header-feature-b").firstMatch.exists)
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "pane-header-feature-c").firstMatch.exists)
+        waitFor(app.descendants(matching: .any).matching(identifier: "pane-header-feature-b").firstMatch)
+        waitFor(app.descendants(matching: .any).matching(identifier: "pane-header-feature-c").firstMatch)
         screenshot("pane-layout-after-close")
 
         // Close another pane via close button
