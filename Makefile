@@ -175,7 +175,7 @@ screenshots: xcodeproj
 		-only-testing:AgentSessionManagerUITests/ScreenshotInjectedTests
 
 pr-screenshots:
-	@bash "$(CURDIR)/../../../scripts/pr-screenshots.sh"
+	@bash "$(CURDIR)/scripts/pr-screenshots.sh"
 
 reset-app-state:
 	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
