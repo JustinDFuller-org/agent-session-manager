@@ -120,8 +120,8 @@ final class TabPaneFlowTests: BaseTestCase {
         // Close one pane: layout updates, remaining pane headers intact
         app.buttons.matching(identifier: "pane-close-feature-d").firstMatch.click()
         // Managed worktree panes show a cleanup alert — dismiss it to proceed.
-        if app.buttons["Keep Worktree"].firstMatch.waitForExistence(timeout: 3) {
-            app.buttons["Keep Worktree"].firstMatch.click()
+        if app.windows.firstMatch.buttons["Keep Worktree"].waitForExistence(timeout: 3) {
+            app.windows.firstMatch.buttons["Keep Worktree"].click()
         }
         waitForDisappear(app.staticTexts["pane-name-feature-d"].firstMatch, timeout: 10)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "pane-header-feature-b").firstMatch.exists)
@@ -130,8 +130,8 @@ final class TabPaneFlowTests: BaseTestCase {
 
         // Close another pane via close button
         app.buttons.matching(identifier: "pane-close-feature-c").firstMatch.click()
-        if app.buttons["Keep Worktree"].firstMatch.waitForExistence(timeout: 3) {
-            app.buttons["Keep Worktree"].firstMatch.click()
+        if app.windows.firstMatch.buttons["Keep Worktree"].waitForExistence(timeout: 3) {
+            app.windows.firstMatch.buttons["Keep Worktree"].click()
         }
         waitForDisappear(app.staticTexts["pane-name-feature-c"].firstMatch, timeout: 10)
         XCTAssertTrue(app.staticTexts["pane-name-feature-a"].firstMatch.exists)
