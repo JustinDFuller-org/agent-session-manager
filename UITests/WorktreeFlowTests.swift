@@ -63,6 +63,7 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertFalse(app.textFields["new-pane-name-field"].waitForExistence(timeout: 2))
 
         // Duplicate managed worktree shows error, cancel closes sheet
+        // Managed secondary worktrees open directly (isExternalTakeover: false) — no dialog.
         GitUITestWorkspace.addManagedSecondaryWorktree(folder: "wt-dup", newTrackingBranch: "wt-track-dup-ui")
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
@@ -70,22 +71,19 @@ final class WorktreeFlowTests: BaseTestCase {
         nameField.click()
         nameField.typeText("wt-dup")
         app.buttons["new-pane-open-button"].click()
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "takeover-dont-manage-button").firstMatch.waitForExistence(timeout: paneWait))
-        app.descendants(matching: .any).matching(identifier: "takeover-dont-manage-button").firstMatch.click()
         XCTAssertTrue(app.staticTexts.matching(identifier: "pane-name-wt-dup").firstMatch.waitForExistence(timeout: paneWait))
 
+        // Opening a duplicate pane name triggers inline validation before submit.
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
         nameField.click()
         nameField.typeText("wt-dup")
-        app.buttons["new-pane-open-button"].click()
-
-        let errScroll = app.scrollViews["new-pane-worktree-error"]
-        XCTAssertTrue(errScroll.waitForExistence(timeout: paneWait))
-        let errLabel = errScroll.staticTexts.element(boundBy: 0).label
-        XCTAssertTrue(errLabel.contains("already open"))
+        let dupError = app.staticTexts["new-pane-name-error"]
+        waitFor(dupError)
+        XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
         app.buttons["new-pane-cancel-button"].click()
+        waitForDisappear(nameField)
 
         // Managed secondary worktree reuse after confirmation
         GitUITestWorkspace.addManagedSecondaryWorktree(folder: "wt-side", newTrackingBranch: "wt-track-side-ui")
@@ -95,8 +93,6 @@ final class WorktreeFlowTests: BaseTestCase {
         nameField.click()
         nameField.typeText("wt-side")
         app.buttons["new-pane-open-button"].click()
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "takeover-dont-manage-button").firstMatch.waitForExistence(timeout: paneWait))
-        app.descendants(matching: .any).matching(identifier: "takeover-dont-manage-button").firstMatch.click()
         XCTAssertTrue(app.staticTexts.matching(identifier: "pane-name-wt-side").firstMatch.waitForExistence(timeout: paneWait))
     }
 
@@ -124,7 +120,7 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertTrue(app.buttons["Cancel"].firstMatch.exists)
 
         // Dismiss the alert so we can continue
-        app.buttons["Cancel"].firstMatch.click()
+        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
         waitForDisappear(keepButton)
 
         // Mixed layout: managed + non-managed — only managed shows cleanup alert
@@ -169,9 +165,6 @@ final class WorktreeFlowTests: BaseTestCase {
         field.click()
         field.typeText(folder)
         app.buttons["new-pane-open-button"].click()
-        let proceed = app.descendants(matching: .any).matching(identifier: "takeover-manage-button").firstMatch
-        waitFor(proceed, timeout: paneWait)
-        proceed.click()
         waitForDisappear(field, timeout: 25)
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(folder)").firstMatch, timeout: 10)
     }
