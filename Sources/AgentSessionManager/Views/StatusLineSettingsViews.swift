@@ -19,67 +19,49 @@ struct StatusLineConfigLayoutEditor: View {
     var body: some View {
         Group {
             if phases.contains(.display) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Display")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            Text("Chip style")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Spacer()
-                            Picker("Chip style", selection: chipStylePickerBinding) {
-                                ForEach(ChipLabelStyle.allCases, id: \.self) { style in
-                                    Text(style.displayName).tag(style)
-                                }
+                Section("Display") {
+                    LabeledContent {
+                        Picker("Chip style", selection: chipStylePickerBinding) {
+                            ForEach(ChipLabelStyle.allCases, id: \.self) { style in
+                                Text(style.displayName).tag(style)
                             }
-                            .pickerStyle(.menu)
-                            .labelsHidden()
-                            .frame(width: 160)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            Text("Item alignment")
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            Spacer()
-                            Picker("Item alignment", selection: rowAlignmentPickerBinding) {
-                                ForEach(RowAlignment.allCases, id: \.self) { alignment in
-                                    Text(alignment.displayName).tag(alignment)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .labelsHidden()
-                            .frame(width: 160)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(width: 160)
+                    } label: {
+                        Text("Chip style")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
                     }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    LabeledContent {
+                        Picker("Item alignment", selection: rowAlignmentPickerBinding) {
+                            ForEach(RowAlignment.allCases, id: \.self) { alignment in
+                                Text(alignment.displayName).tag(alignment)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(width: 160)
+                    } label: {
+                        Text("Item alignment")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                    }
                 }
             }
             if phases.contains(.rows) {
-                ForEach(Array(config.rows.enumerated()), id: \.element.id) { index, _ in
-                    rowSection(rowIndex: index)
+                ForEach(Array(config.rows.indices), id: \.self) { rowIndex in
+                    rowSection(rowIndex: rowIndex)
                 }
-                VStack(spacing: 0) {
+                Section {
                     Button {
                         touch { $0.rows.append(StatusLineRow()) }
                     } label: {
                         Label("Add Row", systemImage: "plus")
                     }
                     .buttonStyle(.borderless)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
                 }
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
     }
@@ -146,11 +128,80 @@ struct StatusLineConfigLayoutEditor: View {
     private func rowSection(rowIndex: Int) -> some View {
         let rowCount = config.rows.count
         let available = unusedItemsEligibleForAddition()
-        return VStack(alignment: .leading, spacing: 6) {
+        return Section {
+            ForEach(config.rows[rowIndex].items) { item in
+                HStack {
+                    Image(systemName: item.sfSymbol)
+                        .frame(width: 16)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.label)
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        let desc = itemDescription(for: item.id)
+                        if !desc.isEmpty {
+                            Text(desc)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    availabilityBadge(for: item.availability)
+                    Button(role: .destructive) {
+                        touch {
+                            $0.rows[rowIndex].items.removeAll { $0.id == item.id }
+                        }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            Menu {
+                if available.isEmpty {
+                    Text(filterCLI == nil ? "All items are already used" : "No more items supported for this CLI")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(available) { item in
+                        Button {
+                            touch {
+                                $0.rows[rowIndex].items.append(item)
+                            }
+                        } label: {
+                            HStack {
+                                Text(item.label)
+                                switch item.availability {
+                                case .claudeOnly:
+                                    Text("Claude only")
+                                        .font(.caption2)
+                                        .foregroundStyle(.blue)
+                                case .opencodeOnly:
+                                    Text("OpenCode only")
+                                        .font(.caption2)
+                                        .foregroundStyle(.purple)
+                                case .claudeOrOpencode:
+                                    Text("Claude + OpenCode")
+                                        .font(.caption2)
+                                        .foregroundStyle(.indigo)
+                                case .all:
+                                    Text("All tools")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Label("Add Item", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+        } header: {
             HStack {
                 Text("Row \(rowIndex + 1)")
                     .font(.headline)
-                    .padding(.leading, 4)
+                    .foregroundStyle(.primary)
                 Spacer()
                 Button {
                     touch { $0.rows.swapAt(rowIndex, rowIndex - 1) }
@@ -174,83 +225,6 @@ struct StatusLineConfigLayoutEditor: View {
                 }
                 .buttonStyle(.borderless)
             }
-            VStack(spacing: 0) {
-                ForEach(config.rows[rowIndex].items) { item in
-                    HStack {
-                        Image(systemName: item.sfSymbol)
-                            .frame(width: 16)
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.label)
-                                .font(.system(.body, design: .monospaced))
-                                .fontWeight(.medium)
-                            let desc = itemDescription(for: item.id)
-                            if !desc.isEmpty {
-                                Text(desc)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        availabilityBadge(for: item.availability)
-                        Button(role: .destructive) {
-                            touch {
-                                $0.rows[rowIndex].items.removeAll { $0.id == item.id }
-                            }
-                        } label: {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundStyle(.red)
-                        }
-                        .buttonStyle(.borderless)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    Divider().padding(.leading, 16)
-                }
-                Menu {
-                    if available.isEmpty {
-                        Text(filterCLI == nil ? "All items are already used" : "No more items supported for this CLI")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(available) { item in
-                            Button {
-                                touch {
-                                    $0.rows[rowIndex].items.append(item)
-                                }
-                            } label: {
-                                HStack {
-                                    Text(item.label)
-                                    switch item.availability {
-                                    case .claudeOnly:
-                                        Text("Claude only")
-                                            .font(.caption2)
-                                            .foregroundStyle(.blue)
-                                    case .opencodeOnly:
-                                        Text("OpenCode only")
-                                            .font(.caption2)
-                                            .foregroundStyle(.purple)
-                                    case .claudeOrOpencode:
-                                        Text("Claude + OpenCode")
-                                            .font(.caption2)
-                                            .foregroundStyle(.indigo)
-                                    case .all:
-                                        Text("All tools")
-                                            .font(.caption2)
-                                            .foregroundStyle(.green)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    Label("Add Item", systemImage: "plus")
-                }
-                .buttonStyle(.borderless)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
-            .background(Color(NSColor.controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 
@@ -292,208 +266,150 @@ struct StatusLineContent: View {
 
     var body: some View {
         @Bindable var appSettings = appSettings
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        Form {
+            Section {
                 Text(
                     "Configure the info panel shown at the bottom of each pane. Items marked \"Claude only\" require Claude Code's statusLine hook. Items marked \"OpenCode only\" are populated via the OpenCode HTTP API. All other items work with any tool via git and process data."
                 )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("settings-status-line-description")
-
-                StatusLineConfigLayoutEditor(
-                    config: $appSettings.statusLineConfig,
-                    filterCLI: nil,
-                    phases: .display,
-                    onPersist: {
-                        SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                    })
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("GitHub PR Tracking")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Track pull requests")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Detects the PR for the current git branch and shows its status in the status line. Requires the GitHub CLI (gh) installed and authenticated."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Track pull requests", isOn: $appSettings.githubPRTrackingEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .onChange(of: appSettings.githubPRTrackingEnabled) {
-                                    SettingsPersistence.savePRTracking(appSettings: appSettings)
-                                    NotificationCenter.default.post(
-                                        name: .agentSessionManagerPRTrackingSettingChanged, object: nil)
-                                }
-                                .accessibilityIdentifier("settings-pr-tracking-toggle")
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("PR Polling Interval")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "How often to check for PR updates across all panes (min 15s). Uses a single batched GraphQL request per cycle — the rate limit auto-adjusts at high pane counts."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "30 seconds")
-                            }
-                            Spacer()
-                            HStack(spacing: 4) {
-                                TextField(
-                                    "",
-                                    text: Binding(
-                                        get: { String(appSettings.prPollingIntervalSeconds) },
-                                        set: { newValue in
-                                            if let parsed = Int(newValue) {
-                                                appSettings.prPollingIntervalSeconds = max(15, parsed)
-                                                SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
-                                            }
-                                        }
-                                    )
-                                )
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                                .frame(width: 72)
-                                .accessibilityIdentifier("settings-pr-polling-interval-field")
-                                Text("seconds")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Request Timeout")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Cancel the in-flight request and wait for the next cycle if it takes longer than this (min 5s)."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "15 seconds")
-                            }
-                            Spacer()
-                            HStack(spacing: 4) {
-                                TextField(
-                                    "",
-                                    text: Binding(
-                                        get: { String(appSettings.prRequestTimeoutSeconds) },
-                                        set: { newValue in
-                                            if let parsed = Int(newValue) {
-                                                appSettings.prRequestTimeoutSeconds = max(5, parsed)
-                                                SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
-                                            }
-                                        }
-                                    )
-                                )
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                                .frame(width: 72)
-                                .accessibilityIdentifier("settings-pr-request-timeout-field")
-                                Text("seconds")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Background Refresh")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Keep checking for PR updates while the app is in the background at a reduced rate. Disable to pause all polling when the app is not focused."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Background Refresh", isOn: $appSettings.prBackgroundRefreshEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .onChange(of: appSettings.prBackgroundRefreshEnabled) {
-                                    SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
-                                }
-                                .accessibilityIdentifier("settings-pr-background-refresh-toggle")
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Background Polling Interval")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "How often to check for PR updates while the app is in the background (min 15s)."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "60 seconds")
-                            }
-                            Spacer()
-                            HStack(spacing: 4) {
-                                TextField(
-                                    "",
-                                    text: Binding(
-                                        get: { String(appSettings.prBackgroundPollingIntervalSeconds) },
-                                        set: { newValue in
-                                            if let parsed = Int(newValue) {
-                                                appSettings.prBackgroundPollingIntervalSeconds = max(15, parsed)
-                                                SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
-                                            }
-                                        }
-                                    )
-                                )
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                                .frame(width: 72)
-                                .accessibilityIdentifier("settings-pr-background-interval-field")
-                                Text("seconds")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .opacity(appSettings.prBackgroundRefreshEnabled ? 1 : 0.4)
-                        .disabled(!appSettings.prBackgroundRefreshEnabled)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                StatusLineConfigLayoutEditor(
-                    config: $appSettings.statusLineConfig,
-                    filterCLI: nil,
-                    phases: .rows,
-                    onPersist: {
-                        SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                    })
             }
-            .padding(20)
+            StatusLineConfigLayoutEditor(
+                config: $appSettings.statusLineConfig,
+                filterCLI: nil,
+                phases: .display,
+                onPersist: {
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                })
+            Section("GitHub PR Tracking") {
+                SettingRow(
+                    title: "Track pull requests",
+                    description:
+                        "Detects the PR for the current git branch and shows its status in the status line. "
+                        + "Requires the GitHub CLI (gh) installed and authenticated."
+                ) {
+                    Toggle("Track pull requests", isOn: $appSettings.githubPRTrackingEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .onChange(of: appSettings.githubPRTrackingEnabled) {
+                            SettingsPersistence.savePRTracking(appSettings: appSettings)
+                            NotificationCenter.default.post(
+                                name: .agentSessionManagerPRTrackingSettingChanged, object: nil)
+                        }
+                        .accessibilityIdentifier("settings-pr-tracking-toggle")
+                }
+                SettingRow(
+                    title: "PR Polling Interval",
+                    description:
+                        "How often to check for PR updates across all panes (min 15s). Uses a single batched "
+                        + "GraphQL request per cycle — the rate limit auto-adjusts at high pane counts.",
+                    defaultValue: "30 seconds"
+                ) {
+                    HStack(spacing: 4) {
+                        TextField(
+                            "",
+                            text: Binding(
+                                get: { String(appSettings.prPollingIntervalSeconds) },
+                                set: { newValue in
+                                    if let parsed = Int(newValue) {
+                                        appSettings.prPollingIntervalSeconds = max(15, parsed)
+                                        SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                    }
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 72)
+                        .accessibilityIdentifier("settings-pr-polling-interval-field")
+                        Text("seconds")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                SettingRow(
+                    title: "Request Timeout",
+                    description:
+                        "Cancel the in-flight request and wait for the next cycle if it takes longer "
+                        + "than this (min 5s).",
+                    defaultValue: "15 seconds"
+                ) {
+                    HStack(spacing: 4) {
+                        TextField(
+                            "",
+                            text: Binding(
+                                get: { String(appSettings.prRequestTimeoutSeconds) },
+                                set: { newValue in
+                                    if let parsed = Int(newValue) {
+                                        appSettings.prRequestTimeoutSeconds = max(5, parsed)
+                                        SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                    }
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 72)
+                        .accessibilityIdentifier("settings-pr-request-timeout-field")
+                        Text("seconds")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                SettingRow(
+                    title: "Background Refresh",
+                    description:
+                        "Keep checking for PR updates while the app is in the background at a reduced rate. "
+                        + "Disable to pause all polling when the app is not focused."
+                ) {
+                    Toggle("Background Refresh", isOn: $appSettings.prBackgroundRefreshEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .onChange(of: appSettings.prBackgroundRefreshEnabled) {
+                            SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                        }
+                        .accessibilityIdentifier("settings-pr-background-refresh-toggle")
+                }
+                SettingRow(
+                    title: "Background Polling Interval",
+                    description: "How often to check for PR updates while the app is in the background (min 15s).",
+                    defaultValue: "60 seconds"
+                ) {
+                    HStack(spacing: 4) {
+                        TextField(
+                            "",
+                            text: Binding(
+                                get: { String(appSettings.prBackgroundPollingIntervalSeconds) },
+                                set: { newValue in
+                                    if let parsed = Int(newValue) {
+                                        appSettings.prBackgroundPollingIntervalSeconds = max(15, parsed)
+                                        SettingsPersistence.savePRPollingSettings(appSettings: appSettings)
+                                    }
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 72)
+                        .accessibilityIdentifier("settings-pr-background-interval-field")
+                        Text("seconds")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .opacity(appSettings.prBackgroundRefreshEnabled ? 1 : 0.4)
+                .disabled(!appSettings.prBackgroundRefreshEnabled)
+            }
+            StatusLineConfigLayoutEditor(
+                config: $appSettings.statusLineConfig,
+                filterCLI: nil,
+                phases: .rows,
+                onPersist: {
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                })
         }
+        .formStyle(.grouped)
     }
 }
 
@@ -749,280 +665,160 @@ struct NotificationsContent: View {
 
     var body: some View {
         @Bindable var appSettings = appSettings
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        Form {
+            Section {
                 Text("Configure notification behavior for pane alerts.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("macOS")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Banner Notifications")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Show a system notification when a background pane rings the bell. Requires permission in System Settings."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
-                                .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
-                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                }
+            }
+            Section("macOS") {
+                SettingRow(
+                    title: "Banner Notifications",
+                    description:
+                        "Show a system notification when a background pane rings the bell. "
+                        + "Requires permission in System Settings."
+                ) {
+                    Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
+                        .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Sticky Notifications")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Clear all macOS notifications when Agent Session Manager is focused. For banners to stay on screen until dismissed, set the notification style to \"Alerts\" in System Settings → Notifications."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                Button("Open Notification Settings") {
-                                    // swiftlint:disable:next force_unwrapping
-                                    let url = URL(
-                                        string:
-                                            "x-apple.systempreferences:com.apple.preference.notifications"
-                                    )!
-                                    NSWorkspace.shared.open(url)
-                                }
-                                .font(.caption)
-                                .buttonStyle(.link)
-                            }
-                            Spacer()
-                            Toggle("Sticky Notifications", isOn: $appSettings.isStickyNotificationsEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-sticky-notifications-toggle")
-                                .onChange(of: appSettings.isStickyNotificationsEnabled) {
-                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Claude Code")
-                        .font(.footnote)
+                LabeledContent {
+                    Toggle("Sticky Notifications", isOn: $appSettings.isStickyNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-sticky-notifications-toggle")
+                        .onChange(of: appSettings.isStickyNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Sticky Notifications")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text(
+                            "Clear all macOS notifications when Agent Session Manager is focused. For banners to stay on screen until dismissed, set the notification style to \"Alerts\" in System Settings → Notifications."
+                        )
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Notification hook for attention")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Merge Claude’s Notification hook into each pane’s --settings so permission prompts and other notifies can trigger the same in‑app alerts as a terminal bell, even when no BEL or OSC 777 is sent."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle(
-                                "Notification hook for attention",
-                                isOn: $appSettings.isClaudeNotificationHookAttentionEnabled
-                            )
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-claude-notification-hook-toggle")
-                            .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
-                                SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                NotificationCenter.default.post(
-                                    name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
-                            }
+                        Button("Open Notification Settings") {
+                            // swiftlint:disable:next force_unwrapping
+                            let url = URL(
+                                string: "x-apple.systempreferences:com.apple.preference.notifications"
+                            )!
+                            NSWorkspace.shared.open(url)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                        .font(.caption)
+                        .buttonStyle(.link)
                     }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Cursor")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Stop hook for attention")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Install a Cursor stop hook so the app is notified when the agent finishes a turn (plan ready, task complete, etc.)."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle(
-                                "Stop hook for attention",
-                                isOn: $appSettings.isCursorNotificationHookAttentionEnabled
-                            )
-                            .toggleStyle(.checkbox)
-                            .labelsHidden()
-                            .accessibilityIdentifier("settings-cursor-notification-hook-toggle")
-                            .onChange(of: appSettings.isCursorNotificationHookAttentionEnabled) {
-                                SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Sidebar")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Sidebar Position")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Which side the notification sidebar appears on.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Picker("Sidebar Position", selection: $appSettings.notificationSidebarSide) {
-                                ForEach(SidebarSide.allCases, id: \.self) { side in
-                                    Text(side.displayName).tag(side)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .frame(width: 120)
-                            .accessibilityIdentifier("settings-sidebar-side")
-                            .onChange(of: appSettings.notificationSidebarSide) {
-                                SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Always Show Notifications Bar")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Keep the notifications sidebar visible even when there are no notifications.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Always Show Notifications Bar", isOn: $appSettings.alwaysShowNotificationsSidebar)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-always-show-notifications-bar-toggle")
-                                .onChange(of: appSettings.alwaysShowNotificationsSidebar) {
-                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Priority")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Priority Notifications")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Allow panes to be marked as priority. Priority notifications appear at the top of the sidebar."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Priority Notifications", isOn: $appSettings.isPriorityNotificationsEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-priority-notifications-toggle")
-                                .onChange(of: appSettings.isPriorityNotificationsEnabled) {
-                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("GitHub PR")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("PR Merged Notifications")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Show a sidebar notification and macOS banner when a tracked PR is merged.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("PR Merged Notifications", isOn: $appSettings.isPRMergedNotificationsEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-pr-merged-notifications-toggle")
-                                .onChange(of: appSettings.isPRMergedNotificationsEnabled) {
-                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            .padding(20)
+            Section("Claude Code") {
+                SettingRow(
+                    title: "Notification hook for attention",
+                    description:
+                        "Merge Claude's Notification hook into each pane's --settings so permission prompts "
+                        + "and other notifies can trigger the same in‑app alerts as a terminal bell, "
+                        + "even when no BEL or OSC 777 is sent."
+                ) {
+                    Toggle(
+                        "Notification hook for attention",
+                        isOn: $appSettings.isClaudeNotificationHookAttentionEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-claude-notification-hook-toggle")
+                    .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        NotificationCenter.default.post(
+                            name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
+                    }
+                }
+            }
+            Section("Cursor") {
+                SettingRow(
+                    title: "Stop hook for attention",
+                    description:
+                        "Install a Cursor stop hook so the app is notified when the agent finishes "
+                        + "a turn (plan ready, task complete, etc.)."
+                ) {
+                    Toggle(
+                        "Stop hook for attention",
+                        isOn: $appSettings.isCursorNotificationHookAttentionEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-cursor-notification-hook-toggle")
+                    .onChange(of: appSettings.isCursorNotificationHookAttentionEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+            }
+            Section("Sidebar") {
+                SettingRow(
+                    title: "Sidebar Position",
+                    description: "Which side the notification sidebar appears on."
+                ) {
+                    Picker("Sidebar Position", selection: $appSettings.notificationSidebarSide) {
+                        ForEach(SidebarSide.allCases, id: \.self) { side in
+                            Text(side.displayName).tag(side)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 120)
+                    .accessibilityIdentifier("settings-sidebar-side")
+                    .onChange(of: appSettings.notificationSidebarSide) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+                SettingRow(
+                    title: "Always Show Notifications Bar",
+                    description: "Keep the notifications sidebar visible even when there are no notifications."
+                ) {
+                    Toggle("Always Show Notifications Bar", isOn: $appSettings.alwaysShowNotificationsSidebar)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-always-show-notifications-bar-toggle")
+                        .onChange(of: appSettings.alwaysShowNotificationsSidebar) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+            }
+            Section("Priority") {
+                SettingRow(
+                    title: "Priority Notifications",
+                    description:
+                        "Allow panes to be marked as priority. Priority notifications appear at the top "
+                        + "of the sidebar."
+                ) {
+                    Toggle("Priority Notifications", isOn: $appSettings.isPriorityNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-priority-notifications-toggle")
+                        .onChange(of: appSettings.isPriorityNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+            }
+            Section("GitHub PR") {
+                SettingRow(
+                    title: "PR Merged Notifications",
+                    description: "Show a sidebar notification and macOS banner when a tracked PR is merged."
+                ) {
+                    Toggle("PR Merged Notifications", isOn: $appSettings.isPRMergedNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-pr-merged-notifications-toggle")
+                        .onChange(of: appSettings.isPRMergedNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+            }
         }
+        .formStyle(.grouped)
     }
 }

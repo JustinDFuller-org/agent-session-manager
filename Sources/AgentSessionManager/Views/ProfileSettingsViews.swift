@@ -25,15 +25,16 @@ struct ProfilesContent: View {
 
     var body: some View {
         @Bindable var appSettings = appSettings
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        Form {
+            Section {
                 Text(
                     "Create named profiles to quickly configure panes. Each profile saves the CLI tool, flags, environment variables, and optionally a custom status line. Global CLI Options settings seed new profiles but do not change saved ones."
                 )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-
-                if appSettings.profiles.isEmpty {
+            }
+            if appSettings.profiles.isEmpty {
+                Section {
                     VStack(spacing: 8) {
                         Image(systemName: "person.crop.rectangle.stack")
                             .font(.system(size: 36))
@@ -47,100 +48,87 @@ struct ProfilesContent: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Profiles")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                            .padding(.leading, 4)
-                        VStack(spacing: 0) {
-                            ForEach(Array(appSettings.profiles.enumerated()), id: \.element.id) { index, profile in
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        HStack(spacing: 6) {
-                                            Text(profile.name)
-                                                .font(.system(.body, design: .monospaced))
-                                                .fontWeight(.medium)
-                                            Text(profile.cliType.displayName)
-                                                .font(.caption2)
-                                                .padding(.horizontal, 5)
-                                                .padding(.vertical, 8)
-                                                .background(.quaternary)
-                                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                                                .foregroundStyle(.secondary)
-                                            if profile.statusLineConfig != nil {
-                                                Text("Custom status line")
-                                                    .font(.caption2)
-                                                    .padding(.horizontal, 5)
-                                                    .padding(.vertical, 8)
-                                                    .background(.quaternary)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                        Text(profileSummary(profile))
-                                            .font(.caption)
+                }
+            } else {
+                Section("Profiles") {
+                    ForEach(Array(appSettings.profiles.enumerated()), id: \.element.id) { index, profile in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(profile.name)
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.medium)
+                                    Text(profile.cliType.displayName)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 8)
+                                        .background(.quaternary)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        .foregroundStyle(.secondary)
+                                    if profile.statusLineConfig != nil {
+                                        Text("Custom status line")
+                                            .font(.caption2)
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 8)
+                                            .background(.quaternary)
+                                            .clipShape(RoundedRectangle(cornerRadius: 4))
                                             .foregroundStyle(.secondary)
                                     }
-                                    Spacer()
-                                    Button {
-                                        appSettings.profiles.swapAt(index, index - 1)
-                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                    } label: {
-                                        Image(systemName: "chevron.up")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .foregroundStyle(index == 0 ? .tertiary : .secondary)
-                                    .disabled(index == 0)
-                                    .accessibilityIdentifier("profile-move-up-\(profile.id)")
-
-                                    Button {
-                                        appSettings.profiles.swapAt(index, index + 1)
-                                        SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                    } label: {
-                                        Image(systemName: "chevron.down")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .foregroundStyle(index == appSettings.profiles.count - 1 ? .tertiary : .secondary)
-                                    .disabled(index == appSettings.profiles.count - 1)
-                                    .accessibilityIdentifier("profile-move-down-\(profile.id)")
-
-                                    Menu {
-                                        Button("Edit") {
-                                            editorMode = .edit(profile)
-                                        }
-                                        Button("Duplicate") {
-                                            var copy = profile
-                                            copy.id = UUID()
-                                            copy.name = "\(profile.name) Copy"
-                                            appSettings.profiles.append(copy)
-                                            SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                        }
-                                        Divider()
-                                        Button("Delete", role: .destructive) {
-                                            appSettings.profiles.removeAll { $0.id == profile.id }
-                                            SettingsPersistence.saveProfiles(appSettings: appSettings)
-                                        }
-                                    } label: {
-                                        Image(systemName: "ellipsis.circle")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .menuStyle(.borderlessButton)
-                                    .frame(width: 24)
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                if index < appSettings.profiles.count - 1 {
-                                    Divider().padding(.leading, 16)
-                                }
+                                Text(profileSummary(profile))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
+                            Spacer()
+                            Button {
+                                appSettings.profiles.swapAt(index, index - 1)
+                                SettingsPersistence.saveProfiles(appSettings: appSettings)
+                            } label: {
+                                Image(systemName: "chevron.up")
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(index == 0 ? .tertiary : .secondary)
+                            .disabled(index == 0)
+                            .accessibilityIdentifier("profile-move-up-\(profile.id)")
+
+                            Button {
+                                appSettings.profiles.swapAt(index, index + 1)
+                                SettingsPersistence.saveProfiles(appSettings: appSettings)
+                            } label: {
+                                Image(systemName: "chevron.down")
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(index == appSettings.profiles.count - 1 ? .tertiary : .secondary)
+                            .disabled(index == appSettings.profiles.count - 1)
+                            .accessibilityIdentifier("profile-move-down-\(profile.id)")
+
+                            Menu {
+                                Button("Edit") {
+                                    editorMode = .edit(profile)
+                                }
+                                Button("Duplicate") {
+                                    var copy = profile
+                                    copy.id = UUID()
+                                    copy.name = "\(profile.name) Copy"
+                                    appSettings.profiles.append(copy)
+                                    SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                }
+                                Divider()
+                                Button("Delete", role: .destructive) {
+                                    appSettings.profiles.removeAll { $0.id == profile.id }
+                                    SettingsPersistence.saveProfiles(appSettings: appSettings)
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .menuStyle(.borderlessButton)
+                            .frame(width: 24)
                         }
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
-
+            }
+            Section {
                 Button {
                     editorMode = .new
                 } label: {
@@ -148,8 +136,8 @@ struct ProfilesContent: View {
                 }
                 .buttonStyle(.borderless)
             }
-            .padding(20)
         }
+        .formStyle(.grouped)
         .sheet(item: $editorMode) { mode in
             ProfileEditorSheet(
                 profile: mode.profile,
@@ -309,17 +297,20 @@ private struct ProfileEditorSheet: View {
                     }
 
                     if useCustomStatusLine {
-                        VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text(
                                 "Customize chips and rows for panes created with this profile. GitHub PR tracking still follows Settings → Status Line → GitHub PR Tracking."
                             )
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            StatusLineConfigLayoutEditor(
-                                config: $statusLineConfig,
-                                filterCLI: cliType,
-                                phases: .full,
-                                onPersist: {})
+                            Form {
+                                StatusLineConfigLayoutEditor(
+                                    config: $statusLineConfig,
+                                    filterCLI: cliType,
+                                    phases: .full,
+                                    onPersist: {})
+                            }
+                            .formStyle(.grouped)
                         }
                     }
                 }
