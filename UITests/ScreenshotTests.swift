@@ -39,28 +39,29 @@ final class ScreenshotTests: BaseTestCase {
 
         // 6. Settings — General tab
         app.typeKey(",", modifierFlags: .command)
-        let generalTab = app.buttons["General"]
+        let generalTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-general").firstMatch
         waitFor(generalTab)
         generalTab.click()
         screenshot("settings-general")
 
         // 7. Settings — Notifications tab
-        let notificationsTab = app.buttons["Notifications"]
+        let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
+            .firstMatch
         waitFor(notificationsTab)
         notificationsTab.click()
         screenshot("settings-notifications")
 
         // 8. Remaining settings tabs
-        for (tab, name) in [
-            ("Profiles", "settings-profiles"),
-            ("Tools", "settings-tools"),
-            ("CLI Options", "settings-cli-options"),
-            ("Worktrees", "settings-worktrees"),
-            ("Shortcuts", "settings-shortcuts"),
-            ("Status Line", "settings-status-line"),
-            ("Tracing", "settings-tracing"),
+        for (sidebarID, name) in [
+            ("settings-sidebar-profiles", "settings-profiles"),
+            ("settings-sidebar-tools", "settings-tools"),
+            ("settings-sidebar-cli-options", "settings-cli-options"),
+            ("settings-sidebar-worktrees", "settings-worktrees"),
+            ("settings-sidebar-shortcuts", "settings-shortcuts"),
+            ("settings-sidebar-status-line", "settings-status-line"),
+            ("settings-sidebar-tracing", "settings-tracing"),
         ] {
-            let btn = app.buttons[tab]
+            let btn = app.descendants(matching: .any).matching(identifier: sidebarID).firstMatch
             waitFor(btn)
             btn.click()
             screenshot(name)

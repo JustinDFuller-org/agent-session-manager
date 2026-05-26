@@ -1,38 +1,96 @@
 import SwiftUI
 
+enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
+    case general
+    case profiles
+    case tools
+    case cliOptions = "cli-options"
+    case worktrees
+    case shortcuts
+    case statusLine = "status-line"
+    case notifications
+    case tracing
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .profiles: "Profiles"
+        case .tools: "Tools"
+        case .cliOptions: "CLI Options"
+        case .worktrees: "Worktrees"
+        case .shortcuts: "Shortcuts"
+        case .statusLine: "Status Line"
+        case .notifications: "Notifications"
+        case .tracing: "Tracing"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general: "gear"
+        case .profiles: "person.crop.rectangle.stack"
+        case .tools: "wrench.and.screwdriver"
+        case .cliOptions: "terminal"
+        case .worktrees: "folder.badge.gearshape"
+        case .shortcuts: "keyboard"
+        case .statusLine: "chart.bar"
+        case .notifications: "bell"
+        case .tracing: "waveform"
+        }
+    }
+}
+
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
+    @State private var selection: SettingsSection = .general
 
     var body: some View {
-        TabView {
+        NavigationSplitView {
+            List(SettingsSection.allCases, selection: $selection) { section in
+                Label(section.title, systemImage: section.icon)
+                    .tag(section)
+                    .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
+            }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+        } detail: {
+            detailView(for: selection)
+                .navigationTitle(selection.title)
+        }
+        .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
+    }
+
+    @ViewBuilder
+    private func detailView(for section: SettingsSection) -> some View {
+        switch section {
+        case .general:
             GeneralContent()
                 .environment(appSettings)
-                .tabItem { Label("General", systemImage: "gear") }
+        case .profiles:
             ProfilesContent()
                 .environment(appSettings)
-                .tabItem { Label("Profiles", systemImage: "person.crop.rectangle.stack") }
+        case .tools:
             ToolsContent()
                 .environment(appSettings)
-                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+        case .cliOptions:
             UnifiedCLIOptionsContent()
                 .environment(appSettings)
-                .tabItem { Label("CLI Options", systemImage: "terminal") }
+        case .worktrees:
             WorktreesContent()
                 .environment(appSettings)
-                .tabItem { Label("Worktrees", systemImage: "folder.badge.gearshape") }
+        case .shortcuts:
             KeyboardShortcutsContent()
-                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+        case .statusLine:
             StatusLineContent()
                 .environment(appSettings)
-                .tabItem { Label("Status Line", systemImage: "chart.bar") }
+        case .notifications:
             NotificationsContent()
                 .environment(appSettings)
-                .tabItem { Label("Notifications", systemImage: "bell") }
+        case .tracing:
             TracingView()
                 .environment(appSettings)
-                .tabItem { Label("Tracing", systemImage: "waveform") }
         }
-        .frame(width: 740, height: 580)
     }
 }
 
