@@ -53,6 +53,8 @@ struct SettingsView: View {
                     .tag(section)
                     .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
             }
+            .listStyle(.sidebar)
+            .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
             detailView(for: selection)
