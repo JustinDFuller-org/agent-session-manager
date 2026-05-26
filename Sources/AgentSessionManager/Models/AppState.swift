@@ -44,11 +44,12 @@ final class AppState {
     }
 
     /// True if a pane in that tab already uses this checkout directory.
-    func isCheckoutInUse(directory: URL, checkout: URL) -> Bool {
+    func isCheckoutInUse(directory: URL, checkout: URL, excludingPaneID: UUID? = nil) -> Bool {
         let normalized = checkout.standardizedFileURL
         return tabs.contains { tab in
             guard tab.directory == directory else { return false }
             return tab.panes.contains { pane in
+                if let excludingPaneID, pane.id == excludingPaneID { return false }
                 return pane.worktreePath?.standardizedFileURL == normalized
             }
         }

@@ -465,7 +465,10 @@ struct NewPaneSheet: View {
                 )
 
                 let inUse = await MainActor.run {
-                    appState.isCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL)
+                    appState.isCheckoutInUse(
+                        directory: tab.directory,
+                        checkout: resolved.checkoutURL,
+                        excludingPaneID: pane.id)
                 }
                 if inUse {
                     await MainActor.run {
