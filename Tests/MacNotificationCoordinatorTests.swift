@@ -110,15 +110,6 @@ final class NotificationCoordinatorNavigationTests: XCTestCase {
 
 @MainActor
 final class MacNotificationCoordinatorTests: XCTestCase {
-    func testRemoveAllDeliveredNoopsWhenStickyDisabled() {
-        let settings = AppSettings()
-        settings.isStickyNotificationsEnabled = false
-        MacNotificationCoordinator.shared.bind(appState: AppState(), appSettings: settings)
-        // Guard check: method must return early without error when sticky is disabled.
-        MacNotificationCoordinator.shared.removeAllDeliveredNotificationsIfStickyEnabled()
-        XCTAssertFalse(settings.isStickyNotificationsEnabled)
-    }
-
     func testWillPresentIncludesBannerAndSoundWhenAppForeground() {
         let opts = MacNotificationCoordinator.willPresentPresentationOptions
         XCTAssertTrue(opts.contains(.banner))

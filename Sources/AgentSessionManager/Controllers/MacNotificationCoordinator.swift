@@ -232,17 +232,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         }
     }
 
-    func removeAllDeliveredNotificationsIfStickyEnabled() {
-        guard appSettings?.isStickyNotificationsEnabled == true else { return }
-        guard !AgentSessionManagerApp.isUITesting else { return }
-        Task { @MainActor in
-            let center = UNUserNotificationCenter.current()
-            let settings = await center.notificationSettings()
-            guard settings.authorizationStatus == .authorized else { return }
-            center.removeAllDeliveredNotifications()
-        }
-    }
-
     /// Navigates to the pane identified by `paneIDStr`/`tabIDStr` and, for PR merged
     /// notifications, additionally posts `prMergedActionRequested` so the alert appears.
     /// Extracted for testability — does not call `NSApp.activate`.
