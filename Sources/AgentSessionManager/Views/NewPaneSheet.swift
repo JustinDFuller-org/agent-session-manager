@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct NewPaneSheet: View {
@@ -12,14 +13,7 @@ struct NewPaneSheet: View {
     @State private var selectedProfileID: UUID?
     @State private var optionStates: [String: OptionState] = [:]
     @State private var envVarStates: [String: OptionState] = [:]
-    @State private var isCreating = false
-    @State private var worktreeSetupError: String?
     @State private var isPriority = false
-
-    @State private var showTakeoverDialog = false
-    @State private var pendingResolution: ResolvedWorktree?
-    @State private var pendingExtraArgs: [String] = []
-    @State private var pendingExtraEnvVars: [String: String] = [:]
 
     @State private var showSaveProfileSheet = false
     @State private var saveProfileName = ""
@@ -44,10 +38,6 @@ struct NewPaneSheet: View {
         sessionInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var isBusy: Bool {
-        isCreating
-    }
-
     private var isRefreshing: Bool { refreshingPane != nil }
 
     private var validationError: String? {
@@ -67,7 +57,7 @@ struct NewPaneSheet: View {
     }
 
     private var canSubmit: Bool {
-        guard !activeToolList.isEmpty, !isBusy else { return false }
+        guard !activeToolList.isEmpty else { return false }
         return !trimmedInput.isEmpty && validationError == nil
     }
 
@@ -155,38 +145,6 @@ struct NewPaneSheet: View {
         }
         .padding(24)
         .frame(width: 420)
-        .confirmationDialog(
-            "Manage existing worktree?",
-            isPresented: $showTakeoverDialog,
-            titleVisibility: .visible
-        ) {
-            Button("Manage") {
-                guard let resolved = pendingResolution else { return }
-                finishCreate(
-                    resolved: resolved, managed: true, extraArgs: pendingExtraArgs,
-                    extraEnvVars: pendingExtraEnvVars)
-            }
-            .accessibilityIdentifier("takeover-manage-button")
-            Button("Don't Manage") {
-                guard let resolved = pendingResolution else { return }
-                finishCreate(
-                    resolved: resolved, managed: false, extraArgs: pendingExtraArgs,
-                    extraEnvVars: pendingExtraEnvVars)
-            }
-            .accessibilityIdentifier("takeover-dont-manage-button")
-            Button("Cancel", role: .cancel) {
-                pendingResolution = nil
-                pendingExtraArgs = []
-                pendingExtraEnvVars = [:]
-            }
-            .accessibilityIdentifier("takeover-cancel-button")
-        } message: {
-            if let resolved = pendingResolution {
-                Text(
-                    "A checkout for this repo already exists:\n\(resolved.processDirectory.path)\n\nTake over management so the worktree can be cleaned up later?"
-                )
-            }
-        }
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
                 suggestedName: selectedProfile?.name ?? "",
@@ -245,8 +203,6 @@ struct NewPaneSheet: View {
                 .accessibilityIdentifier("new-pane-profile-picker")
                 .onChange(of: selectedProfileID) { _, _ in
                     applyProfileOrDefaults()
-                    worktreeSetupError = nil
-                    showTakeoverDialog = false
                     isSessionInputFocused = true
                 }
             }
@@ -280,8 +236,6 @@ struct NewPaneSheet: View {
                 .accessibilityIdentifier("new-pane-cli-picker")
                 .onChange(of: selectedCLIType) { _, _ in
                     initializeOptionStatesFromGlobal()
-                    worktreeSetupError = nil
-                    showTakeoverDialog = false
                     isSessionInputFocused = true
                 }
             }
@@ -299,7 +253,7 @@ struct NewPaneSheet: View {
                 .focused($isSessionInputFocused)
                 .onSubmit { create() }
                 .accessibilityIdentifier("new-pane-name-field")
-                .disabled(isBusy || isRefreshing)
+                .disabled(isRefreshing)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Session name, branch ref, or worktree.")
                     .font(.caption)
@@ -312,18 +266,6 @@ struct NewPaneSheet: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                         .accessibilityIdentifier("new-pane-name-error")
-                }
-                if let error = worktreeSetupError {
-                    ScrollView {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .multilineTextAlignment(.leading)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 120)
-                    .accessibilityIdentifier("new-pane-worktree-error")
                 }
             }
         }
@@ -482,8 +424,6 @@ struct NewPaneSheet: View {
         guard canSubmit else { return }
         let trimmed = trimmedInput
         guard !trimmed.isEmpty, validationError == nil else { return }
-        isCreating = true
-        worktreeSetupError = nil
         let extraArgs = buildExtraArgs()
         let extraEnvVars = buildExtraEnvVars()
 
@@ -496,104 +436,116 @@ struct NewPaneSheet: View {
             return
         }
 
+        let pane = tab.addPaneWithLoadingState(
+            name: trimmed,
+            cliType: selectedCLIType,
+            worktreeIsManaged: true,
+            profileID: selectedProfileID
+        )
+        pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: isPriority)
+        appState.setActivePane(id: pane.id)
+        SessionPersistence.save(appState: appState)
+        resetForm()
+        dismiss()
+
+        let defaultBranch: String? = appSettings.isDefaultBranchEnabled ? appSettings.defaultBranch : nil
+        let worktreeBaseRef = appSettings.worktreeBaseRef
+        let existingWorktreeManagement = appSettings.existingWorktreeManagement
+        let autoSetSessionName = appSettings.autoSetSessionName
+        let tabName = tab.name
+        let cliType = selectedCLIType
+        let statusLineOverride = selectedProfile?.statusLineConfig
+
         Task {
             do {
-                let defaultBranch: String? = appSettings.isDefaultBranchEnabled ? appSettings.defaultBranch : nil
                 let resolved = try await tab.resolveOrAttachWorktree(
                     userRef: trimmed,
                     defaultBranch: defaultBranch,
-                    baseRef: appSettings.worktreeBaseRef
+                    baseRef: worktreeBaseRef
+                )
+
+                let inUse = await MainActor.run {
+                    appState.isCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL)
+                }
+                if inUse {
+                    await MainActor.run {
+                        pane.setupState = .failed(error: "A pane with this worktree is already open.")
+                    }
+                    return
+                }
+
+                let managed: Bool
+                if resolved.isExternalTakeover {
+                    switch existingWorktreeManagement {
+                    case .always:
+                        managed = true
+                    case .never:
+                        managed = false
+                    case .ask:
+                        let response = await MainActor.run { () -> NSApplication.ModalResponse in
+                            let alert = NSAlert()
+                            alert.messageText = "Manage existing worktree?"
+                            alert.informativeText =
+                                "A checkout for this repo already exists:\n\(resolved.processDirectory.path)\n\nTake over management so the worktree can be cleaned up later?"
+                            alert.addButton(withTitle: "Manage")
+                            alert.addButton(withTitle: "Don't Manage")
+                            alert.addButton(withTitle: "Cancel")
+                            return alert.runModal()
+                        }
+                        switch response {
+                        case .alertFirstButtonReturn:
+                            managed = true
+                        case .alertSecondButtonReturn:
+                            managed = false
+                        default:
+                            await MainActor.run {
+                                pane.setupState = .failed(error: "Cancelled.")
+                            }
+                            return
+                        }
+                    }
+                } else {
+                    managed = true
+                }
+
+                let effectiveExtraArgs = Tab.applyAutoSessionName(
+                    tabName: tabName,
+                    paneName: resolved.paneTitle,
+                    extraArgs: extraArgs,
+                    cliType: cliType,
+                    enabled: autoSetSessionName
                 )
                 await MainActor.run {
-                    if appState.isCheckoutInUse(directory: tab.directory, checkout: resolved.checkoutURL) {
-                        isCreating = false
-                        worktreeSetupError = "A pane with this worktree is already open."
-                        return
-                    }
-
-                    if resolved.isExternalTakeover {
-                        switch appSettings.existingWorktreeManagement {
-                        case .always:
-                            finishCreate(
-                                resolved: resolved, managed: true, extraArgs: extraArgs,
-                                extraEnvVars: extraEnvVars)
-                        case .ask:
-                            isCreating = false
-                            pendingResolution = resolved
-                            pendingExtraArgs = extraArgs
-                            pendingExtraEnvVars = extraEnvVars
-                            showTakeoverDialog = true
-                        case .never:
-                            finishCreate(
-                                resolved: resolved, managed: false, extraArgs: extraArgs,
-                                extraEnvVars: extraEnvVars)
-                        }
-                    } else {
-                        finishCreate(
-                            resolved: resolved, managed: true, extraArgs: extraArgs,
-                            extraEnvVars: extraEnvVars)
-                    }
+                    tab.completeSetup(
+                        for: pane,
+                        resolved: resolved,
+                        managed: managed,
+                        effectiveExtraArgs: effectiveExtraArgs,
+                        extraEnvVars: extraEnvVars,
+                        statusLineConfigOverride: statusLineOverride
+                    )
+                    SessionPersistence.save(appState: appState)
                 }
             } catch {
                 await MainActor.run {
-                    isCreating = false
-                    applyResolveError(error)
+                    pane.setupState = .failed(error: resolveErrorMessage(error))
                 }
             }
         }
     }
 
-    private func finishCreate(
-        resolved: ResolvedWorktree, managed: Bool, extraArgs: [String],
-        extraEnvVars: [String: String] = [:]
-    ) {
-        pendingResolution = nil
-        pendingExtraArgs = []
-        pendingExtraEnvVars = [:]
-        resetForm()
-
-        let statusLineOverride = selectedProfile?.statusLineConfig
-        let effectiveExtraArgs = Tab.applyAutoSessionName(
-            tabName: tab.name,
-            paneName: resolved.paneTitle,
-            extraArgs: extraArgs,
-            cliType: selectedCLIType,
-            enabled: appSettings.autoSetSessionName
-        )
-
-        tab.addPane(
-            name: resolved.paneTitle,
-            extraArgs: effectiveExtraArgs,
-            cliType: selectedCLIType,
-            worktreeDirectory: resolved.processDirectory,
-            worktreeIsManaged: managed,
-            extraEnvVars: extraEnvVars,
-            profileID: selectedProfileID,
-            statusLineConfigOverride: statusLineOverride
-        )
-        if let pane = tab.panes.last {
-            pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: isPriority)
-        }
-        appState.setActivePane(id: tab.panes.last?.id)
-        SessionPersistence.save(appState: appState)
-        dismiss()
-    }
-
-    private func applyResolveError(_ error: Error) {
+    private func resolveErrorMessage(_ error: Error) -> String {
         if let wre = error as? WorktreeResolutionError {
-            worktreeSetupError = wre.localizedDescription
+            return wre.localizedDescription
         } else if let gitErr = error as? GitCommandError {
-            worktreeSetupError = gitErr.localizedDescription
+            return gitErr.localizedDescription
         } else {
-            worktreeSetupError =
-                (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
     private func resetForm() {
         sessionInput = ""
-        worktreeSetupError = nil
-        isCreating = false
     }
 
     private func buildExtraArgs() -> [String] {

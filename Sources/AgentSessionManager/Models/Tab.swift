@@ -761,3 +761,108 @@ extension Tab {
         return args + " --continue"
     }
 }
+
+extension Tab {
+    /// Creates a pane with a loading overlay; terminal setup is deferred to `completeSetup`.
+    @discardableResult
+    func addPaneWithLoadingState(
+        name: String,
+        cliType: CLIType = .claude,
+        worktreeIsManaged: Bool = false,
+        profileID: UUID? = nil
+    ) -> Pane {
+        TracingService.shared.record(
+            "tab.pane.added",
+            attributes: [
+                "pane.name": name,
+                "tab.name": self.name,
+            ])
+        let pane = Pane(
+            name: name,
+            tab: self,
+            cliType: cliType,
+            worktreeIsManaged: worktreeIsManaged,
+            profileID: profileID
+        )
+        pane.setupState = .loading
+        panes.append(pane)
+        return pane
+    }
+
+    /// Finishes setup of a pane created by `addPaneWithLoadingState`: wires the terminal controller
+    /// and clears the loading state.
+    func completeSetup(
+        for pane: Pane,
+        resolved: ResolvedWorktree,
+        managed: Bool,
+        effectiveExtraArgs: [String],
+        extraEnvVars: [String: String],
+        statusLineConfigOverride: StatusLineConfig?
+    ) {
+        pane.name = resolved.paneTitle
+        pane.worktreeDirectory = resolved.processDirectory
+        pane.worktreeIsManaged = managed
+        pane.extraArgs = effectiveExtraArgs
+
+        TracingService.shared.record(
+            "tab.worktree.resolved",
+            attributes: [
+                "user_ref": pane.name,
+                "result": "dir: \(resolved.processDirectory.path)",
+                "path": resolved.processDirectory.path,
+            ])
+
+        if !AgentSessionManagerApp.isUITesting {
+            let controller = TerminalController()
+            let extra = effectiveExtraArgs.isEmpty ? "" : " " + effectiveExtraArgs.joined(separator: " ")
+            let cwd = resolved.processDirectory.path
+            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingDirectory = cwd
+
+            switch pane.cliType {
+            case .shell:
+                controller.pendingCommand = nil
+            case .claude:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
+                if !extraEnvVars.isEmpty {
+                    controller.pendingEnvironment =
+                        (controller.pendingEnvironment ?? [])
+                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
+                }
+                controller.pendingCommand = Tab.buildClaudeCommand(
+                    settingsPath: monitor.settingsFilePath,
+                    extraArgs: extra
+                )
+            case .codex:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
+                controller.pendingCommand = "codex\(extra)"
+            case .cursor:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
+                controller.pendingEnvironment =
+                    (controller.pendingEnvironment ?? [])
+                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+                controller.pendingCommand = "agent\(extra)"
+            case .opencode:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+                monitor.start()
+                pane.statusLineMonitor = monitor
+                controller.pendingCommand = "opencode\(extra)"
+            }
+            controller.terminalView.telemetryTabName = self.name
+            controller.terminalView.telemetryPaneName = pane.name
+            controller.terminalView.telemetryPaneUUID = pane.id
+            pane.terminalController = controller
+        }
+        pane.setupState = nil
+    }
+}

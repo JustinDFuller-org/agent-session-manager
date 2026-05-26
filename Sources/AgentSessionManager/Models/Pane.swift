@@ -1,6 +1,11 @@
 import Foundation
 import Observation
 
+enum PaneSetupState {
+    case loading
+    case failed(error: String)
+}
+
 enum CLIType: String, Codable, CaseIterable {
     case claude
     case codex
@@ -48,6 +53,7 @@ final class Pane: Identifiable {
     var restartToken = UUID()
     var profileID: UUID?
     var extraArgs: [String] = []
+    var setupState: PaneSetupState?
 
     init(
         id: UUID = UUID(),
