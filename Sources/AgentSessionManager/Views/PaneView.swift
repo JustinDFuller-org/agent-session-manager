@@ -211,11 +211,49 @@ struct PaneView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .layoutPriority(1)
             .id(pane.restartToken)
+        } else if case .failed(let error) = pane.setupState {
+            paneSetupErrorView(error: error)
+        } else if case .loading = pane.setupState {
+            paneLoadingView
         } else {
             Color(nsColor: .textBackgroundColor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
         }
+    }
+
+    @ViewBuilder
+    private var paneLoadingView: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+            Text("Setting up workspace\u{2026}")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("pane-loading-overlay-\(pane.name)")
+    }
+
+    @ViewBuilder
+    private func paneSetupErrorView(error: String) -> some View {
+        VStack(spacing: 12) {
+            Text(error)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+            Button("Remove Pane") { onClosePane(pane) }
+                .buttonStyle(.bordered)
+        }
+        .padding(16)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("pane-error-overlay-\(pane.name)")
     }
 
     @ViewBuilder

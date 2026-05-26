@@ -86,6 +86,7 @@ struct ContentView: View {
                 SessionPersistence.restore(into: appState, appSettings: appSettings)
                 await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
             }
+            AgentSessionManagerApp.applyUITestPaneStateInjection(appState: appState)
             if AgentSessionManagerApp.shouldSimulateBannerClick {
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 MacNotificationCoordinator.shared.simulateLegacyNotificationActivationForUITesting()

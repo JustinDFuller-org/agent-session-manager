@@ -84,4 +84,28 @@ extension AgentSessionManagerApp {
     static var shouldSimulateBannerClick: Bool {
         CommandLine.arguments.contains("--uitesting-simulate-banner-click")
     }
+
+    @MainActor
+    static func applyUITestPaneStateInjection(appState: AppState) {
+        for arg in CommandLine.arguments {
+            if arg.hasPrefix("--inject-pane-loading="),
+                let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-loading=".count)))
+            {
+                for tab in appState.tabs {
+                    if let pane = tab.panes.first(where: { $0.id == id }) {
+                        pane.setupState = .loading
+                    }
+                }
+            }
+            if arg.hasPrefix("--inject-pane-error="),
+                let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-error=".count)))
+            {
+                for tab in appState.tabs {
+                    if let pane = tab.panes.first(where: { $0.id == id }) {
+                        pane.setupState = .failed(error: "Test setup error")
+                    }
+                }
+            }
+        }
+    }
 }
