@@ -122,7 +122,6 @@ final class AppSettings {
     var prRequestTimeoutSeconds: Int = 15
     var prBackgroundRefreshEnabled: Bool = true
     var prBackgroundPollingIntervalSeconds: Int = 60
-    var isStickyNotificationsEnabled: Bool = false
     var scrollbackLines: Int = 500
     var exitBehavior: ExitBehavior = .prompt
     var profiles: [Profile] = []

@@ -772,27 +772,17 @@ struct NotificationsContent: View {
                                 )
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
-                                .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
-                                    SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Sticky Notifications")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
                                 Text(
-                                    "Clear all macOS notifications when Agent Session Manager is focused. For banners to stay on screen until dismissed, set the notification style to \"Alerts\" in System Settings → Notifications."
+                                    "By default, macOS banners auto-dismiss after a few seconds. To keep them on screen until dismissed:"
                                 )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("1. Click Open Notification Settings below.")
+                                    Text("2. Find Agent Session Manager in the list.")
+                                    Text("3. Set Alert Style to Persistent.")
+                                }
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 Button("Open Notification Settings") {
@@ -805,13 +795,14 @@ struct NotificationsContent: View {
                                 }
                                 .font(.caption)
                                 .buttonStyle(.link)
+                                .accessibilityIdentifier("settings-open-notification-settings-button")
                             }
                             Spacer()
-                            Toggle("Sticky Notifications", isOn: $appSettings.isStickyNotificationsEnabled)
+                            Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
                                 .toggleStyle(.checkbox)
                                 .labelsHidden()
-                                .accessibilityIdentifier("settings-sticky-notifications-toggle")
-                                .onChange(of: appSettings.isStickyNotificationsEnabled) {
+                                .accessibilityIdentifier("settings-macos-banner-notifications-toggle")
+                                .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
                                     SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
                                 }
                         }
