@@ -4,7 +4,6 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     case general
     case profiles
     case tools
-    case cliOptions = "cli-options"
     case worktrees
     case shortcuts
     case statusLine = "status-line"
@@ -17,8 +16,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .general: "General"
         case .profiles: "Profiles"
-        case .tools: "Tools"
-        case .cliOptions: "CLI Options"
+        case .tools: "CLI Tools"
         case .worktrees: "Worktrees"
         case .shortcuts: "Shortcuts"
         case .statusLine: "Status Line"
@@ -32,7 +30,6 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .general: "gear"
         case .profiles: "person.crop.rectangle.stack"
         case .tools: "wrench.and.screwdriver"
-        case .cliOptions: "terminal"
         case .worktrees: "folder.badge.gearshape"
         case .shortcuts: "keyboard"
         case .statusLine: "chart.bar"
@@ -86,9 +83,6 @@ struct SettingsView: View {
                 .environment(appSettings)
         case .tools:
             ToolsContent()
-                .environment(appSettings)
-        case .cliOptions:
-            UnifiedCLIOptionsContent()
                 .environment(appSettings)
         case .worktrees:
             WorktreesContent()
@@ -256,37 +250,112 @@ private struct GeneralContent: View {
 
 private struct ToolsContent: View {
     @Environment(AppSettings.self) private var appSettings
+    @State private var selectedTool: CLIType = .claude
+
+    private var configurableTools: [CLIType] {
+        CLIType.allCases.filter { $0 != .shell }
+    }
 
     var body: some View {
-        Form {
-            Section("Available Tools") {
-                ForEach(CLIType.allCases, id: \.self) { tool in
+        VStack(spacing: 0) {
+            Picker("Tool", selection: $selectedTool) {
+                ForEach(configurableTools, id: \.self) { tool in
+                    Text(tool.displayName).tag(tool)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+
+            Form {
+                Section {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(tool.displayName)
-                            Text(tool.cliCommandDescription)
+                            Text(selectedTool.displayName)
+                            Text(selectedTool.cliCommandDescription)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fontDesign(.monospaced)
                         }
                         Spacer()
                         Toggle(
-                            tool.displayName,
+                            selectedTool.displayName,
                             isOn: Binding(
-                                get: { appSettings.isActive(tool) },
+                                get: { appSettings.isActive(selectedTool) },
                                 set: { active in
-                                    appSettings.setActive(tool, active)
+                                    appSettings.setActive(selectedTool, active)
                                     SettingsPersistence.saveActiveTools(appSettings: appSettings)
                                 }
                             )
                         )
                         .toggleStyle(.checkbox)
                         .labelsHidden()
+                        .accessibilityIdentifier("settings-tool-enable-toggle-\(selectedTool.rawValue)")
+                    }
+                    if !appSettings.isActive(selectedTool) {
+                        Text("Enable to configure \(selectedTool.displayName) CLI options.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
+            .formStyle(.grouped)
+
+            if appSettings.isActive(selectedTool) {
+                cliOptionsContent(for: selectedTool)
+            }
         }
-        .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func cliOptionsContent(for tool: CLIType) -> some View {
+        switch tool {
+        case .claude:
+            CLIOptionsContent(
+                options: Binding(
+                    get: { appSettings.cliOptions },
+                    set: { appSettings.cliOptions = $0 }
+                ),
+                onSave: { SettingsPersistence.save(appSettings: appSettings) },
+                customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions.",
+                envVarOptions: Binding(
+                    get: { appSettings.envVarOptions },
+                    set: { appSettings.envVarOptions = $0 }
+                ),
+                onEnvVarSave: { SettingsPersistence.saveEnvVarOptions(appSettings: appSettings) }
+            )
+        case .codex:
+            CLIOptionsContent(
+                options: Binding(
+                    get: { appSettings.codexCliOptions },
+                    set: { appSettings.codexCliOptions = $0 }
+                ),
+                onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
+                customFlagFooter: "Custom flags may not be recognized by all Codex CLI versions."
+            )
+        case .cursor:
+            CLIOptionsContent(
+                options: Binding(
+                    get: { appSettings.cursorCliOptions },
+                    set: { appSettings.cursorCliOptions = $0 }
+                ),
+                onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
+                customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
+            )
+        case .opencode:
+            CLIOptionsContent(
+                options: Binding(
+                    get: { appSettings.opencodeCliOptions },
+                    set: { appSettings.opencodeCliOptions = $0 }
+                ),
+                onSave: { SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings) },
+                customFlagFooter: "Custom flags may not be recognized by all OpenCode CLI versions."
+            )
+        case .shell:
+            EmptyView()
+        }
     }
 }
 
@@ -356,92 +425,6 @@ private struct WorktreesContent: View {
             }
         }
         .formStyle(.grouped)
-    }
-}
-
-private struct UnifiedCLIOptionsContent: View {
-    @Environment(AppSettings.self) private var appSettings
-    @State private var selectedTool: CLIType = .claude
-
-    private var effectiveTool: CLIType {
-        let active = appSettings.activeCLITypes
-        return active.contains(selectedTool) ? selectedTool : (active.first ?? .claude)
-    }
-
-    var body: some View {
-        let active = appSettings.activeCLITypes
-        if active.isEmpty {
-            VStack(spacing: 8) {
-                Text("No CLIs Enabled")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                Text("Enable a CLI in the Tools settings to configure its options.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityIdentifier("settings-cli-options-empty")
-        } else {
-            VStack(spacing: 0) {
-                Picker("Tool", selection: Binding(get: { effectiveTool }, set: { selectedTool = $0 })) {
-                    ForEach(active, id: \.self) { tool in
-                        Text(tool.displayName).tag(tool)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 4)
-
-                switch effectiveTool {
-                case .claude:
-                    CLIOptionsContent(
-                        options: Binding(
-                            get: { appSettings.cliOptions },
-                            set: { appSettings.cliOptions = $0 }
-                        ),
-                        onSave: { SettingsPersistence.save(appSettings: appSettings) },
-                        customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions.",
-                        envVarOptions: Binding(
-                            get: { appSettings.envVarOptions },
-                            set: { appSettings.envVarOptions = $0 }
-                        ),
-                        onEnvVarSave: { SettingsPersistence.saveEnvVarOptions(appSettings: appSettings) }
-                    )
-                case .codex:
-                    CLIOptionsContent(
-                        options: Binding(
-                            get: { appSettings.codexCliOptions },
-                            set: { appSettings.codexCliOptions = $0 }
-                        ),
-                        onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
-                        customFlagFooter: "Custom flags may not be recognized by all Codex CLI versions."
-                    )
-                case .cursor:
-                    CLIOptionsContent(
-                        options: Binding(
-                            get: { appSettings.cursorCliOptions },
-                            set: { appSettings.cursorCliOptions = $0 }
-                        ),
-                        onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
-                        customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
-                    )
-                case .opencode:
-                    CLIOptionsContent(
-                        options: Binding(
-                            get: { appSettings.opencodeCliOptions },
-                            set: { appSettings.opencodeCliOptions = $0 }
-                        ),
-                        onSave: { SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings) },
-                        customFlagFooter: "Custom flags may not be recognized by all OpenCode CLI versions."
-                    )
-                case .shell:
-                    EmptyView()
-                }
-            }
-        }
     }
 }
 

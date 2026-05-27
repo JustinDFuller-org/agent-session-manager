@@ -30,7 +30,7 @@ The pane launches `opencode` in the tab's directory with any configured CLI flag
 
 ## Configuring CLI Flags
 
-OpenCode-specific flags can be enabled or disabled in **Settings → CLI Options → OpenCode**. All flags are hidden by default; enable the ones you use frequently so they appear as toggles in the New Pane sheet.
+OpenCode-specific flags can be enabled or disabled in **Settings → CLI Tools → OpenCode**. Enable OpenCode first, then configure which flags appear as toggles in the New Pane sheet.
 
 ### Available Flags
 

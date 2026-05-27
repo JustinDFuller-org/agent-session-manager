@@ -55,7 +55,6 @@ final class ScreenshotTests: BaseTestCase {
         for (sidebarID, name) in [
             ("settings-sidebar-profiles", "settings-profiles"),
             ("settings-sidebar-tools", "settings-tools"),
-            ("settings-sidebar-cli-options", "settings-cli-options"),
             ("settings-sidebar-worktrees", "settings-worktrees"),
             ("settings-sidebar-shortcuts", "settings-shortcuts"),
             ("settings-sidebar-status-line", "settings-status-line"),

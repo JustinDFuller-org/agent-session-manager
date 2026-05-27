@@ -156,84 +156,46 @@ final class SettingsFlowTests: BaseTestCase {
         verifyTracingAndDashboard()
     }
 
-    func testCLIOptionsRespectsToolsSelection() {
+    func testCLIToolsEnableRevealsOptions() {
         app.typeKey(",", modifierFlags: .command)
 
-        // Start: only Claude active by default — verify CLI Options shows Claude only
-        let cliOptionsTab = app.descendants(matching: .any)
-            .matching(identifier: "settings-sidebar-cli-options").firstMatch
-        waitFor(cliOptionsTab)
-        cliOptionsTab.click()
-
-        let claudeSegment = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == 'Claude Code'")).firstMatch
-        waitFor(claudeSegment)
-
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Codex'")).firstMatch
-                .waitForExistence(timeout: 1),
-            "Codex segment should not appear when Codex is inactive"
-        )
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Cursor'")).firstMatch
-                .waitForExistence(timeout: 1),
-            "Cursor segment should not appear when Cursor is inactive"
-        )
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(NSPredicate(format: "label == 'OpenCode'")).firstMatch
-                .waitForExistence(timeout: 1),
-            "OpenCode segment should not appear when OpenCode is inactive"
-        )
-
-        // Enable Codex + Cursor in Tools, then return to CLI Options
         let toolsTab = app.descendants(matching: .any)
             .matching(identifier: "settings-sidebar-tools").firstMatch
         waitFor(toolsTab)
         toolsTab.click()
 
-        let codexToggle = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == 'Codex'")).element(boundBy: 0)
-        waitFor(codexToggle)
-        codexToggle.click()
-
-        let cursorToggle = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == 'Cursor'")).element(boundBy: 0)
-        waitFor(cursorToggle)
-        cursorToggle.click()
-
-        cliOptionsTab.click()
-
+        // All four CLIs should appear in the picker regardless of enabled state
         let codexSegment = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label == 'Codex'")).firstMatch
         waitFor(codexSegment)
-        let cursorSegment = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == 'Cursor'")).firstMatch
-        waitFor(cursorSegment)
+        codexSegment.click()
 
-        // Disable all tools — CLI Options should show empty state
-        toolsTab.click()
+        // Codex is disabled by default — enable toggle should be off, options hidden
+        let codexEnableToggle = app.checkBoxes["settings-tool-enable-toggle-codex"]
+        waitFor(codexEnableToggle)
+        XCTAssertEqual(codexEnableToggle.value as? Int, 0, "Codex enable toggle should be off by default")
 
-        let claudeToggle = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == 'Claude Code'")).element(boundBy: 0)
-        waitFor(claudeToggle)
-        claudeToggle.click()
+        XCTAssertFalse(
+            app.staticTexts["Not Enabled"].waitForExistence(timeout: 1),
+            "Option sections should not appear while Codex is disabled"
+        )
 
-        let codexToggle2 = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == 'Codex'")).element(boundBy: 0)
-        waitFor(codexToggle2)
-        codexToggle2.click()
+        // Enable Codex — option sections should appear
+        codexEnableToggle.click()
+        XCTAssertEqual(codexEnableToggle.value as? Int, 1, "Codex enable toggle should be on after click")
 
-        let cursorToggle2 = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == 'Cursor'")).element(boundBy: 0)
-        waitFor(cursorToggle2)
-        cursorToggle2.click()
+        let notEnabledSection = app.staticTexts["Not Enabled"]
+        waitFor(notEnabledSection)
+        XCTAssertTrue(notEnabledSection.exists, "Option sections should appear after enabling Codex")
 
-        cliOptionsTab.click()
+        // Disable Codex again — options should disappear
+        codexEnableToggle.click()
+        XCTAssertEqual(codexEnableToggle.value as? Int, 0, "Codex enable toggle should be off after second click")
 
-        let emptyState = app.descendants(matching: .any)
-            .matching(identifier: "settings-cli-options-empty").firstMatch
-        waitFor(emptyState)
-        XCTAssertTrue(emptyState.exists)
+        XCTAssertFalse(
+            app.staticTexts["Not Enabled"].waitForExistence(timeout: 1),
+            "Option sections should disappear after disabling Codex"
+        )
     }
 
     private func verifyTracingAndDashboard() {
