@@ -154,4 +154,9 @@ final class AppSettings {
     func setActive(_ tool: CLIType, _ active: Bool) {
         if active { activeTools.insert(tool.rawValue) } else { activeTools.remove(tool.rawValue) }
     }
+
+    /// User-facing CLI types currently enabled in Tools, in canonical `CLIType.allCases` order.
+    var activeCLITypes: [CLIType] {
+        CLIType.allCases.filter { isActive($0) }
+    }
 }

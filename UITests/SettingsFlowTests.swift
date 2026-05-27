@@ -156,6 +156,86 @@ final class SettingsFlowTests: BaseTestCase {
         verifyTracingAndDashboard()
     }
 
+    func testCLIOptionsRespectsToolsSelection() {
+        app.typeKey(",", modifierFlags: .command)
+
+        // Start: only Claude active by default — verify CLI Options shows Claude only
+        let cliOptionsTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-cli-options").firstMatch
+        waitFor(cliOptionsTab)
+        cliOptionsTab.click()
+
+        let claudeSegment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Claude Code'")).firstMatch
+        waitFor(claudeSegment)
+
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Codex'")).firstMatch
+                .waitForExistence(timeout: 1),
+            "Codex segment should not appear when Codex is inactive"
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Cursor'")).firstMatch
+                .waitForExistence(timeout: 1),
+            "Cursor segment should not appear when Cursor is inactive"
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(NSPredicate(format: "label == 'OpenCode'")).firstMatch
+                .waitForExistence(timeout: 1),
+            "OpenCode segment should not appear when OpenCode is inactive"
+        )
+
+        // Enable Codex + Cursor in Tools, then return to CLI Options
+        let toolsTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-tools").firstMatch
+        waitFor(toolsTab)
+        toolsTab.click()
+
+        let codexToggle = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Codex'")).element(boundBy: 0)
+        waitFor(codexToggle)
+        codexToggle.click()
+
+        let cursorToggle = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Cursor'")).element(boundBy: 0)
+        waitFor(cursorToggle)
+        cursorToggle.click()
+
+        cliOptionsTab.click()
+
+        let codexSegment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Codex'")).firstMatch
+        waitFor(codexSegment)
+        let cursorSegment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Cursor'")).firstMatch
+        waitFor(cursorSegment)
+
+        // Disable all tools — CLI Options should show empty state
+        toolsTab.click()
+
+        let claudeToggle = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Claude Code'")).element(boundBy: 0)
+        waitFor(claudeToggle)
+        claudeToggle.click()
+
+        let codexToggle2 = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Codex'")).element(boundBy: 0)
+        waitFor(codexToggle2)
+        codexToggle2.click()
+
+        let cursorToggle2 = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Cursor'")).element(boundBy: 0)
+        waitFor(cursorToggle2)
+        cursorToggle2.click()
+
+        cliOptionsTab.click()
+
+        let emptyState = app.descendants(matching: .any)
+            .matching(identifier: "settings-cli-options-empty").firstMatch
+        waitFor(emptyState)
+        XCTAssertTrue(emptyState.exists)
+    }
+
     private func verifyTracingAndDashboard() {
         // ── Tracing tab ──────────────────────────────────────────────────────
         let tracingTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tracing").firstMatch
