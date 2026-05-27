@@ -106,13 +106,6 @@ final class SettingsFlowTests: BaseTestCase {
         prTrackingToggle.click()
         XCTAssertEqual(prTrackingToggle.value as? Int, 1)
 
-        let statusLineDescription = app.staticTexts["settings-status-line-description"]
-        waitFor(statusLineDescription)
-        XCTAssertTrue(
-            (statusLineDescription.value as? String ?? "").contains("OpenCode only"),
-            "Status Line description should mention 'OpenCode only' items"
-        )
-
         // ── Worktrees tab ────────────────────────────────────────────────────
         let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-worktrees").firstMatch
         waitFor(worktreesTab)

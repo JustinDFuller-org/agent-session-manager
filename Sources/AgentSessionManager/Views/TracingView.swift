@@ -7,11 +7,6 @@ struct TracingView: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         Form {
-            Section {
-                Text("Configure OpenTelemetry span output.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
             Section("Tracing") {
                 SettingRow(
                     title: "Enable Tracing",

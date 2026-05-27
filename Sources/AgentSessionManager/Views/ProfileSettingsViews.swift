@@ -26,13 +26,6 @@ struct ProfilesContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         Form {
-            Section {
-                Text(
-                    "Create named profiles to quickly configure panes. Each profile saves the CLI tool, flags, environment variables, and optionally a custom status line. Global CLI Options settings seed new profiles but do not change saved ones."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
             if appSettings.profiles.isEmpty {
                 Section {
                     VStack(spacing: 8) {

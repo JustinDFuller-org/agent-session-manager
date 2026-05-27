@@ -61,8 +61,16 @@ struct SettingsView: View {
             }
         } detail: {
             detailView(for: selection)
-                .navigationTitle(selection.title)
-                .toolbarTitleDisplayMode(.inline)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    HStack {
+                        Text(selection.title)
+                            .font(.title.bold())
+                        Spacer()
+                    }
+                    .padding(.top, 28)
+                    .padding(.bottom, 8)
+                    .padding(.horizontal, 20)
+                }
         }
         .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
     }
@@ -141,11 +149,6 @@ private struct GeneralContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         Form {
-            Section {
-                Text("Configure general app behavior.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
             Section("Git") {
                 SettingRow(
                     title: "Default Branch",
@@ -256,13 +259,6 @@ private struct ToolsContent: View {
 
     var body: some View {
         Form {
-            Section {
-                Text(
-                    "Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
             Section("Available Tools") {
                 ForEach(CLIType.allCases, id: \.self) { tool in
                     HStack {
@@ -300,11 +296,6 @@ private struct WorktreesContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         Form {
-            Section {
-                Text("Configure worktree management behavior.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
             Section("Created Worktrees") {
                 SettingRow(
                     title: "Worktree Cleanup",
@@ -457,13 +448,6 @@ private struct CLIOptionsContent: View {
 
     var body: some View {
         Form {
-            Section {
-                Text(
-                    "Configure which CLI options appear when creating a new pane. Options marked as default will be pre-checked in the New Pane dialog."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
             if !enabledOptions.isEmpty {
                 Section("Enabled") {
                     ForEach(enabledOptions, id: \.id) { option in
@@ -604,13 +588,6 @@ private struct KeyboardShortcutsContent: View {
 
     var body: some View {
         Form {
-            Section {
-                Text(
-                    "Customize keyboard shortcuts. Each shortcut uses ⌘ plus the key you specify. Changes take effect immediately."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            }
             Section("Shortcuts") {
                 KeyBindingRow(
                     label: "New Tab", description: "Open the New Tab sheet", modifier: "⌘",
