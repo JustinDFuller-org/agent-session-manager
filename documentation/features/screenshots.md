@@ -4,7 +4,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 
 ## How it works
 
-A dedicated `ScreenshotTests` UI test class captures 6 views:
+`ScreenshotTests` captures 6 main views and `ScreenshotInjectedTests` captures 3 injected views; together they also walk all 9 Settings pages:
 
 | Screenshot | What it shows |
 |---|---|
@@ -12,10 +12,20 @@ A dedicated `ScreenshotTests` UI test class captures 6 views:
 | `main-window-tab` | Main window with one tab open |
 | `new-pane-sheet` | New Pane sheet overlay |
 | `split-panes` | Tab with two panes side by side |
-| `settings-general` | Settings → General tab |
-| `settings-notifications` | Settings → Notifications tab |
+| `pane-status-indicators` | Pane header with status badge |
+| `notification-sidebar` | Notification sidebar open |
+| `pr-merged-alert` | PR merged alert overlay |
+| `settings-general` | Settings → General |
+| `settings-profiles` | Settings → Profiles |
+| `settings-tools` | Settings → Tools |
+| `settings-cli-options` | Settings → CLI Options |
+| `settings-worktrees` | Settings → Worktrees |
+| `settings-shortcuts` | Settings → Shortcuts |
+| `settings-status-line` | Settings → Status Line |
+| `settings-notifications` | Settings → Notifications |
+| `settings-tracing` | Settings → Tracing |
 
-`BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
+`BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui-dev` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
 
 ## Generating screenshots
 
@@ -23,7 +33,7 @@ A dedicated `ScreenshotTests` UI test class captures 6 views:
 make screenshots
 ```
 
-This runs only `ScreenshotTests` and writes PNGs to `screenshots/` in the repo root. The directory is gitignored; the workflow force-adds it before creating a PR.
+This runs both `ScreenshotTests` and `ScreenshotInjectedTests` and writes PNGs to `screenshots/` in the repo root. The directory is gitignored; the workflow force-adds it before creating a PR.
 
 ## Multi-worktree safety
 

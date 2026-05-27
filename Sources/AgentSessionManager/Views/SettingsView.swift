@@ -1,38 +1,110 @@
 import SwiftUI
 
+enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
+    case general
+    case profiles
+    case tools
+    case cliOptions = "cli-options"
+    case worktrees
+    case shortcuts
+    case statusLine = "status-line"
+    case notifications
+    case tracing
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .profiles: "Profiles"
+        case .tools: "Tools"
+        case .cliOptions: "CLI Options"
+        case .worktrees: "Worktrees"
+        case .shortcuts: "Shortcuts"
+        case .statusLine: "Status Line"
+        case .notifications: "Notifications"
+        case .tracing: "Tracing"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general: "gear"
+        case .profiles: "person.crop.rectangle.stack"
+        case .tools: "wrench.and.screwdriver"
+        case .cliOptions: "terminal"
+        case .worktrees: "folder.badge.gearshape"
+        case .shortcuts: "keyboard"
+        case .statusLine: "chart.bar"
+        case .notifications: "bell"
+        case .tracing: "waveform"
+        }
+    }
+}
+
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
+    @State private var selection: SettingsSection = .general
 
     var body: some View {
-        TabView {
+        NavigationSplitView {
+            List(SettingsSection.allCases, selection: $selection) { section in
+                Label(section.title, systemImage: section.icon)
+                    .tag(section)
+                    .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
+            }
+            .listStyle(.sidebar)
+            .toolbar(removing: .sidebarToggle)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: 28)
+            }
+        } detail: {
+            detailView(for: selection)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    HStack {
+                        Text(selection.title)
+                            .font(.title.bold())
+                        Spacer()
+                    }
+                    .padding(.top, 28)
+                    .padding(.bottom, 8)
+                    .padding(.horizontal, 20)
+                }
+        }
+        .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
+    }
+
+    @ViewBuilder
+    private func detailView(for section: SettingsSection) -> some View {
+        switch section {
+        case .general:
             GeneralContent()
                 .environment(appSettings)
-                .tabItem { Label("General", systemImage: "gear") }
+        case .profiles:
             ProfilesContent()
                 .environment(appSettings)
-                .tabItem { Label("Profiles", systemImage: "person.crop.rectangle.stack") }
+        case .tools:
             ToolsContent()
                 .environment(appSettings)
-                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+        case .cliOptions:
             UnifiedCLIOptionsContent()
                 .environment(appSettings)
-                .tabItem { Label("CLI Options", systemImage: "terminal") }
+        case .worktrees:
             WorktreesContent()
                 .environment(appSettings)
-                .tabItem { Label("Worktrees", systemImage: "folder.badge.gearshape") }
+        case .shortcuts:
             KeyboardShortcutsContent()
-                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+        case .statusLine:
             StatusLineContent()
                 .environment(appSettings)
-                .tabItem { Label("Status Line", systemImage: "chart.bar") }
+        case .notifications:
             NotificationsContent()
                 .environment(appSettings)
-                .tabItem { Label("Notifications", systemImage: "bell") }
+        case .tracing:
             TracingView()
                 .environment(appSettings)
-                .tabItem { Label("Tracing", systemImage: "waveform") }
         }
-        .frame(width: 740, height: 580)
     }
 }
 
@@ -46,200 +118,139 @@ struct DefaultValueLabel: View {
     }
 }
 
+struct SettingRow<Control: View>: View {
+    let title: String
+    let description: String
+    var defaultValue: String?
+    @ViewBuilder var control: () -> Control
+
+    var body: some View {
+        LabeledContent {
+            control()
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.medium)
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let defaultValue {
+                    DefaultValueLabel(value: defaultValue)
+                }
+            }
+        }
+    }
+}
+
 private struct GeneralContent: View {
     @Environment(AppSettings.self) private var appSettings
 
     var body: some View {
         @Bindable var appSettings = appSettings
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Configure general app behavior.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Git")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Default Branch")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Automatically fetch and create worktrees from a default branch.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-default-branch-toggle")
-                                .onChange(of: appSettings.isDefaultBranchEnabled) {
-                                    SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
-                                }
+        Form {
+            Section("Git") {
+                SettingRow(
+                    title: "Default Branch",
+                    description: "Automatically fetch and create worktrees from a default branch."
+                ) {
+                    Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-default-branch-toggle")
+                        .onChange(of: appSettings.isDefaultBranchEnabled) {
+                            SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        if appSettings.isDefaultBranchEnabled {
-                            Divider().padding(.leading, 16)
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Branch Name")
-                                        .font(.system(.body, design: .monospaced))
-                                        .fontWeight(.medium)
-                                    Text("Branch used as the base when creating new worktrees.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    DefaultValueLabel(value: "main")
-                                }
-                                Spacer()
-                                TextField("", text: $appSettings.defaultBranch)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(.body, design: .monospaced))
-                                    .frame(width: 120)
-                                    .accessibilityIdentifier("settings-default-branch-field")
-                                    .onChange(of: appSettings.defaultBranch) {
-                                        SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
-                                    }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                        }
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Sessions")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Continue on Restart")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Resume the last conversation when Claude panes reopen after a restart.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-continue-on-restart-toggle")
-                                .onChange(of: appSettings.continueOnRestart) {
-                                    SettingsPersistence.saveRestartSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Auto Session Name")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(
-                                    "Passes --name <tab>/<pane> to Claude so sessions appear by name in claude resume and the terminal title. Skipped if --name is set manually in CLI Options."
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Toggle("Auto Session Name", isOn: $appSettings.autoSetSessionName)
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings-auto-session-name-toggle")
-                                .onChange(of: appSettings.autoSetSessionName) {
-                                    SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
-                                }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Terminal")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("When Process Exits")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(appSettings.exitBehavior.description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "Show Prompt")
-                            }
-                            Spacer()
-                            Picker("When Process Exits", selection: $appSettings.exitBehavior) {
-                                ForEach(ExitBehavior.allCases, id: \.self) { behavior in
-                                    Text(behavior.displayName).tag(behavior)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .frame(width: 240)
-                            .accessibilityIdentifier("settings-exit-behavior-picker")
-                            .onChange(of: appSettings.exitBehavior) {
-                                SettingsPersistence.saveExitBehavior(appSettings: appSettings)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Scrollback Lines")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Number of lines kept in the terminal scroll buffer (100–1,000,000).")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "500")
-                            }
-                            Spacer()
-                            TextField(
-                                "",
-                                text: Binding(
-                                    get: { String(appSettings.scrollbackLines) },
-                                    set: { newValue in
-                                        if let parsed = Int(newValue) {
-                                            appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
-                                            SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
-                                        }
-                                    }
-                                )
-                            )
+                if appSettings.isDefaultBranchEnabled {
+                    SettingRow(
+                        title: "Branch Name",
+                        description: "Branch used as the base when creating new worktrees.",
+                        defaultValue: "main"
+                    ) {
+                        TextField("", text: $appSettings.defaultBranch)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .frame(width: 120)
-                            .accessibilityIdentifier("settings-scrollback-lines-field")
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                            .accessibilityIdentifier("settings-default-branch-field")
+                            .onChange(of: appSettings.defaultBranch) {
+                                SettingsPersistence.saveDefaultBranch(appSettings: appSettings)
+                            }
                     }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            .padding(20)
+            Section("Sessions") {
+                SettingRow(
+                    title: "Continue on Restart",
+                    description: "Resume the last conversation when Claude panes reopen after a restart."
+                ) {
+                    Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-continue-on-restart-toggle")
+                        .onChange(of: appSettings.continueOnRestart) {
+                            SettingsPersistence.saveRestartSettings(appSettings: appSettings)
+                        }
+                }
+                SettingRow(
+                    title: "Auto Session Name",
+                    description:
+                        "Passes --name <tab>/<pane> to Claude so sessions appear by name in claude resume "
+                        + "and the terminal title. Skipped if --name is set manually in CLI Options."
+                ) {
+                    Toggle("Auto Session Name", isOn: $appSettings.autoSetSessionName)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-auto-session-name-toggle")
+                        .onChange(of: appSettings.autoSetSessionName) {
+                            SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
+                        }
+                }
+            }
+            Section("Terminal") {
+                SettingRow(
+                    title: "When Process Exits",
+                    description: appSettings.exitBehavior.description,
+                    defaultValue: "Show Prompt"
+                ) {
+                    Picker("When Process Exits", selection: $appSettings.exitBehavior) {
+                        ForEach(ExitBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-exit-behavior-picker")
+                    .onChange(of: appSettings.exitBehavior) {
+                        SettingsPersistence.saveExitBehavior(appSettings: appSettings)
+                    }
+                }
+                SettingRow(
+                    title: "Scrollback Lines",
+                    description: "Number of lines kept in the terminal scroll buffer (100–1,000,000).",
+                    defaultValue: "500"
+                ) {
+                    TextField(
+                        "",
+                        text: Binding(
+                            get: { String(appSettings.scrollbackLines) },
+                            set: { newValue in
+                                if let parsed = Int(newValue) {
+                                    appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
+                                    SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
+                                }
+                            }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(width: 120)
+                    .accessibilityIdentifier("settings-scrollback-lines-field")
+                }
+            }
         }
+        .formStyle(.grouped)
     }
 }
 
@@ -247,57 +258,35 @@ private struct ToolsContent: View {
     @Environment(AppSettings.self) private var appSettings
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(
-                    "Select which AI tools are available when creating a new pane. Only active tools appear in the New Pane sheet."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Available Tools")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        ForEach(Array(CLIType.allCases.enumerated()), id: \.element) { index, tool in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(tool.displayName)
-                                    Text(tool.cliCommandDescription)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .fontDesign(.monospaced)
-                                }
-                                Spacer()
-                                Toggle(
-                                    tool.displayName,
-                                    isOn: Binding(
-                                        get: { appSettings.isActive(tool) },
-                                        set: { active in
-                                            appSettings.setActive(tool, active)
-                                            SettingsPersistence.saveActiveTools(appSettings: appSettings)
-                                        }
-                                    )
-                                )
-                                .toggleStyle(.checkbox)
-                                .labelsHidden()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            if index < CLIType.allCases.count - 1 {
-                                Divider().padding(.leading, 16)
-                            }
+        Form {
+            Section("Available Tools") {
+                ForEach(CLIType.allCases, id: \.self) { tool in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(tool.displayName)
+                            Text(tool.cliCommandDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fontDesign(.monospaced)
                         }
+                        Spacer()
+                        Toggle(
+                            tool.displayName,
+                            isOn: Binding(
+                                get: { appSettings.isActive(tool) },
+                                set: { active in
+                                    appSettings.setActive(tool, active)
+                                    SettingsPersistence.saveActiveTools(appSettings: appSettings)
+                                }
+                            )
+                        )
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
                     }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            .padding(20)
         }
+        .formStyle(.grouped)
     }
 }
 
@@ -306,117 +295,67 @@ private struct WorktreesContent: View {
 
     var body: some View {
         @Bindable var appSettings = appSettings
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Configure worktree management behavior.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Created Worktrees")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Worktree Cleanup")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(appSettings.worktreeCleanupBehavior.description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "Ask")
-                            }
-                            Spacer()
-                            Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
-                                ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
-                                    Text(behavior.displayName).tag(behavior)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .frame(width: 220)
-                            .accessibilityIdentifier("settings-worktree-cleanup-picker")
-                            .onChange(of: appSettings.worktreeCleanupBehavior) {
-                                SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
-                            }
+        Form {
+            Section("Created Worktrees") {
+                SettingRow(
+                    title: "Worktree Cleanup",
+                    description: appSettings.worktreeCleanupBehavior.description,
+                    defaultValue: "Ask"
+                ) {
+                    Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
+                        ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        Divider().padding(.leading, 16)
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Base Ref")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(appSettings.worktreeBaseRef.description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "Fresh")
-                            }
-                            Spacer()
-                            Picker("Base Ref", selection: $appSettings.worktreeBaseRef) {
-                                ForEach(WorktreeBaseRef.allCases, id: \.self) { option in
-                                    Text(option.displayName).tag(option)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .frame(width: 160)
-                            .accessibilityIdentifier("settings-worktree-base-ref-picker")
-                            .onChange(of: appSettings.worktreeBaseRef) {
-                                SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
                     }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-worktree-cleanup-picker")
+                    .onChange(of: appSettings.worktreeCleanupBehavior) {
+                        SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
+                    }
                 }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Existing Worktrees")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Manage Existing Worktrees")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text(appSettings.existingWorktreeManagement.description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                DefaultValueLabel(value: "Ask")
-                            }
-                            Spacer()
-                            Picker("Manage Existing", selection: $appSettings.existingWorktreeManagement) {
-                                ForEach(ExistingWorktreeManagement.allCases, id: \.self) { behavior in
-                                    Text(behavior.displayName).tag(behavior)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .frame(width: 220)
-                            .accessibilityIdentifier("settings-existing-worktree-management-picker")
-                            .onChange(of: appSettings.existingWorktreeManagement) {
-                                SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
-                            }
+                SettingRow(
+                    title: "Base Ref",
+                    description: appSettings.worktreeBaseRef.description,
+                    defaultValue: "Fresh"
+                ) {
+                    Picker("Base Ref", selection: $appSettings.worktreeBaseRef) {
+                        ForEach(WorktreeBaseRef.allCases, id: \.self) { option in
+                            Text(option.displayName).tag(option)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
                     }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-worktree-base-ref-picker")
+                    .onChange(of: appSettings.worktreeBaseRef) {
+                        SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
+                    }
                 }
             }
-            .padding(20)
+            Section("Existing Worktrees") {
+                SettingRow(
+                    title: "Manage Existing Worktrees",
+                    description: appSettings.existingWorktreeManagement.description,
+                    defaultValue: "Ask"
+                ) {
+                    Picker("Manage Existing", selection: $appSettings.existingWorktreeManagement) {
+                        ForEach(ExistingWorktreeManagement.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-existing-worktree-management-picker")
+                    .onChange(of: appSettings.existingWorktreeManagement) {
+                        SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
+                    }
+                }
+            }
         }
+        .formStyle(.grouped)
     }
 }
 
@@ -508,103 +447,52 @@ private struct CLIOptionsContent: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(
-                    "Configure which CLI options appear when creating a new pane. Options marked as default will be pre-checked in the New Pane dialog."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-                if !enabledOptions.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Enabled")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                            .padding(.leading, 4)
-                        VStack(spacing: 0) {
-                            ForEach(Array(enabledOptions.enumerated()), id: \.element.id) { index, option in
-                                let optIndex = options.firstIndex(where: { $0.id == option.id })!
-                                CLIOptionRow(option: $options[optIndex], onChange: onSave)
-                                    .padding(.horizontal, 16)
-                                if index < enabledOptions.count - 1 {
-                                    Divider().padding(.leading, 16)
-                                }
-                            }
-                        }
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+        Form {
+            if !enabledOptions.isEmpty {
+                Section("Enabled") {
+                    ForEach(enabledOptions, id: \.id) { option in
+                        let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                        CLIOptionRow(option: $options[optIndex], onChange: onSave)
                     }
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Not Enabled")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        ForEach(Array(disabledOptions.enumerated()), id: \.element.id) { index, option in
-                            let optIndex = options.firstIndex(where: { $0.id == option.id })!
-                            CLIOptionRow(option: $options[optIndex], onChange: onSave)
-                                .padding(.horizontal, 16)
-                            if index < disabledOptions.count - 1 {
-                                Divider().padding(.leading, 16)
-                            }
-                        }
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Custom Options")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        ForEach(Array(customOptions.enumerated()), id: \.element.id) { _, option in
-                            let optIndex = options.firstIndex(where: { $0.id == option.id })!
-                            CustomCLIOptionRow(
-                                option: $options[optIndex],
-                                onChange: onSave,
-                                onDelete: {
-                                    options.removeAll { $0.id == option.id }
-                                    onSave()
-                                }
-                            )
-                            .padding(.horizontal, 16)
-                            Divider().padding(.leading, 16)
-                        }
-                        Button {
-                            showAddCustomFlagSheet = true
-                        } label: {
-                            Label("Add Custom Flag", systemImage: "plus")
-                        }
-                        .buttonStyle(.borderless)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    Text(customFlagFooter)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 4)
-                }
-
-                if let envBinding = envVarOptions, let envSave = onEnvVarSave {
-                    EnvVarSections(
-                        options: envBinding,
-                        onSave: envSave,
-                        showAddSheet: $showAddCustomEnvVarSheet
-                    )
                 }
             }
-            .padding(20)
+            Section("Not Enabled") {
+                ForEach(disabledOptions, id: \.id) { option in
+                    let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                    CLIOptionRow(option: $options[optIndex], onChange: onSave)
+                }
+            }
+            Section(
+                header: Text("Custom Options"),
+                footer: Text(customFlagFooter).font(.caption).foregroundStyle(.secondary)
+            ) {
+                ForEach(customOptions, id: \.id) { option in
+                    let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                    CustomCLIOptionRow(
+                        option: $options[optIndex],
+                        onChange: onSave,
+                        onDelete: {
+                            options.removeAll { $0.id == option.id }
+                            onSave()
+                        }
+                    )
+                }
+                Button {
+                    showAddCustomFlagSheet = true
+                } label: {
+                    Label("Add Custom Flag", systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
+            }
+            if let envBinding = envVarOptions, let envSave = onEnvVarSave {
+                EnvVarSections(
+                    options: envBinding,
+                    onSave: envSave,
+                    showAddSheet: $showAddCustomEnvVarSheet
+                )
+            }
         }
+        .formStyle(.grouped)
         .sheet(isPresented: $showAddCustomFlagSheet) {
             AddCustomFlagSheet(existingIDs: options.map(\.id)) { id, isString in
                 options.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
@@ -640,98 +528,51 @@ private struct EnvVarSections: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Environment Variables")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .padding(.leading, 4)
+        Group {
+            Section("Environment Variables") {
                 Text(
                     "Configure which environment variables are set when launching Claude Code. Variables marked as default will be pre-enabled with their default value in the New Pane dialog."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.leading, 4)
             }
-
             if !enabledOptions.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Enabled Env Vars")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        ForEach(Array(enabledOptions.enumerated()), id: \.element.id) { index, option in
-                            let optIndex = options.firstIndex(where: { $0.id == option.id })!
-                            EnvVarOptionRow(option: $options[optIndex], onChange: onSave)
-                                .padding(.horizontal, 16)
-                            if index < enabledOptions.count - 1 {
-                                Divider().padding(.leading, 16)
-                            }
-                        }
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Not Enabled Env Vars")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .padding(.leading, 4)
-                VStack(spacing: 0) {
-                    ForEach(Array(disabledOptions.enumerated()), id: \.element.id) { index, option in
+                Section("Enabled Env Vars") {
+                    ForEach(enabledOptions, id: \.id) { option in
                         let optIndex = options.firstIndex(where: { $0.id == option.id })!
                         EnvVarOptionRow(option: $options[optIndex], onChange: onSave)
-                            .padding(.horizontal, 16)
-                        if index < disabledOptions.count - 1 {
-                            Divider().padding(.leading, 16)
-                        }
                     }
                 }
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Custom Env Vars")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .padding(.leading, 4)
-                VStack(spacing: 0) {
-                    ForEach(Array(customOptions.enumerated()), id: \.element.id) { _, option in
-                        let optIndex = options.firstIndex(where: { $0.id == option.id })!
-                        CustomEnvVarOptionRow(
-                            option: $options[optIndex],
-                            onChange: onSave,
-                            onDelete: {
-                                options.removeAll { $0.id == option.id }
-                                onSave()
-                            }
-                        )
-                        .padding(.horizontal, 16)
-                        Divider().padding(.leading, 16)
-                    }
-                    Button {
-                        showAddSheet = true
-                    } label: {
-                        Label("Add Custom Env Var", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderless)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+            Section("Not Enabled Env Vars") {
+                ForEach(disabledOptions, id: \.id) { option in
+                    let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                    EnvVarOptionRow(option: $options[optIndex], onChange: onSave)
                 }
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                Text("Custom environment variables are passed to the Claude Code process.")
+            }
+            Section(
+                header: Text("Custom Env Vars"),
+                footer: Text("Custom environment variables are passed to the Claude Code process.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
+            ) {
+                ForEach(customOptions, id: \.id) { option in
+                    let optIndex = options.firstIndex(where: { $0.id == option.id })!
+                    CustomEnvVarOptionRow(
+                        option: $options[optIndex],
+                        onChange: onSave,
+                        onDelete: {
+                            options.removeAll { $0.id == option.id }
+                            onSave()
+                        }
+                    )
+                }
+                Button {
+                    showAddSheet = true
+                } label: {
+                    Label("Add Custom Env Var", systemImage: "plus")
+                }
+                .buttonStyle(.borderless)
             }
         }
     }
@@ -746,83 +587,49 @@ private struct KeyboardShortcutsContent: View {
     @AppStorage("keyBinding.refreshPaneKey") var refreshPaneKey = "r"
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(
-                    "Customize keyboard shortcuts. Each shortcut uses ⌘ plus the key you specify. Changes take effect immediately."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Shortcuts")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        KeyBindingRow(
-                            label: "New Tab", description: "Open the New Tab sheet", modifier: "⌘", key: $newTabKey)
-                        Divider().padding(.leading, 16)
-                        KeyBindingRow(
-                            label: "New Pane in Current Tab", description: "Open the New Pane sheet", modifier: "⌘",
-                            key: $newPaneKey)
-                        Divider().padding(.leading, 16)
-                        KeyBindingRow(
-                            label: "Close Active Pane", description: "Close the focused pane", modifier: "⌘",
-                            key: $closePaneKey)
-                        Divider().padding(.leading, 16)
-                        KeyBindingRow(
-                            label: "Close Active Tab", description: "Close the current tab", modifier: "⌘",
-                            key: $closeTabKey)
-                        Divider().padding(.leading, 16)
-                        KeyBindingRow(
-                            label: "Open Shell Here",
-                            description: "Open a new plain shell pane in the same working directory",
-                            modifier: "⌘⇧",
-                            key: $openShellHereKey)
-                        Divider().padding(.leading, 16)
-                        KeyBindingRow(
-                            label: "Refresh Active Pane",
-                            description: "Restart pane with fresh environment",
-                            modifier: "⌘",
-                            key: $refreshPaneKey)
+        Form {
+            Section("Shortcuts") {
+                KeyBindingRow(
+                    label: "New Tab", description: "Open the New Tab sheet", modifier: "⌘",
+                    key: $newTabKey)
+                KeyBindingRow(
+                    label: "New Pane in Current Tab", description: "Open the New Pane sheet",
+                    modifier: "⌘", key: $newPaneKey)
+                KeyBindingRow(
+                    label: "Close Active Pane", description: "Close the focused pane", modifier: "⌘",
+                    key: $closePaneKey)
+                KeyBindingRow(
+                    label: "Close Active Tab", description: "Close the current tab", modifier: "⌘",
+                    key: $closeTabKey)
+                KeyBindingRow(
+                    label: "Open Shell Here",
+                    description: "Open a new plain shell pane in the same working directory",
+                    modifier: "⌘⇧", key: $openShellHereKey)
+                KeyBindingRow(
+                    label: "Refresh Active Pane",
+                    description: "Restart pane with fresh environment",
+                    modifier: "⌘", key: $refreshPaneKey)
+            }
+            Section(
+                header: Text("Fixed Shortcuts"),
+                footer: Text("Tab switching shortcuts are not configurable.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            ) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("⌘1 – ⌘9")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        Text("Switch to tab by index")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Fixed Shortcuts")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.leading, 4)
-                    VStack(spacing: 0) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("⌘1 – ⌘9")
-                                    .font(.system(.body, design: .monospaced))
-                                    .fontWeight(.medium)
-                                Text("Switch to tab by index")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    Text("Tab switching shortcuts are not configurable.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 4)
+                    Spacer()
                 }
             }
-            .padding(20)
         }
+        .formStyle(.grouped)
     }
 }
 
@@ -874,8 +681,7 @@ private struct KeyBindingRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 4)
     }
 }
 

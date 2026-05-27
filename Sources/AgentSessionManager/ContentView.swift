@@ -10,6 +10,7 @@ struct AgentSessionManagerApp: App {
             SettingsView()
                 .environment(appDelegate.appSettings)
         }
+        .windowResizability(.contentSize)
         .commands { AppCommands(appState: appDelegate.appState) }
 
         Window("Trace Dashboard", id: "trace-dashboard") {

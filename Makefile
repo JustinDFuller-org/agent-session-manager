@@ -142,15 +142,6 @@ watch-dev:
 xcodeproj:
 	xcodegen generate
 
-test-ui: xcodeproj
-	rm -rf $(RESULTS_PATH)
-	xcodebuild test \
-		-project $(APP_NAME).xcodeproj \
-		-scheme $(SCHEME) \
-		-destination 'platform=macOS' \
-		-resultBundlePath $(RESULTS_PATH) \
-		-derivedDataPath $(DERIVED_DATA)
-
 test-ui-dev: xcodeproj
 	rm -rf $(RESULTS_PATH)
 	xcodebuild test \
@@ -168,6 +159,7 @@ screenshots: xcodeproj
 	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
+		-configuration Dev \
 		-destination 'platform=macOS' \
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA) \

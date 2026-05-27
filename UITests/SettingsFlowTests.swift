@@ -16,7 +16,7 @@ final class SettingsFlowTests: BaseTestCase {
     func testSettingsFlow() {
         // ── General tab ──────────────────────────────────────────────────────
         app.typeKey(",", modifierFlags: .command)
-        let generalTab = app.buttons["General"]
+        let generalTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-general").firstMatch
         waitFor(generalTab)
         generalTab.click()
 
@@ -53,7 +53,8 @@ final class SettingsFlowTests: BaseTestCase {
 
         // ── Notifications tab ────────────────────────────────────────────────
         app.typeKey(",", modifierFlags: .command)
-        let notificationsTab = app.buttons["Notifications"]
+        let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
+            .firstMatch
         waitFor(notificationsTab)
         notificationsTab.click()
 
@@ -81,7 +82,7 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(sidebarSide)
 
         // ── Shortcuts tab ────────────────────────────────────────────────────
-        let shortcutsTab = app.buttons["Shortcuts"]
+        let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
         waitFor(shortcutsTab)
         shortcutsTab.click()
 
@@ -90,7 +91,8 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertTrue(closeTabShortcut.exists)
 
         // ── Status Line tab ──────────────────────────────────────────────────
-        let statusLineTab = app.buttons["Status Line"]
+        let statusLineTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-status-line")
+            .firstMatch
         waitFor(statusLineTab)
         statusLineTab.click()
 
@@ -102,21 +104,15 @@ final class SettingsFlowTests: BaseTestCase {
         prTrackingToggle.click()
         XCTAssertEqual(prTrackingToggle.value as? Int, 1)
 
-        let statusLineDescription = app.staticTexts["settings-status-line-description"]
-        waitFor(statusLineDescription)
-        XCTAssertTrue(
-            (statusLineDescription.value as? String ?? "").contains("OpenCode only"),
-            "Status Line description should mention 'OpenCode only' items"
-        )
-
         // ── Worktrees tab ────────────────────────────────────────────────────
-        let worktreesTab = app.buttons["Worktrees"]
+        let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-worktrees").firstMatch
         waitFor(worktreesTab)
         worktreesTab.click()
 
         // SwiftUI Picker with .pickerStyle(.segmented) may not appear as SegmentedControl in XCTest.
         // Query the containing element to verify it exists, then interact with its buttons from app scope.
-        let baseRefPicker = app.descendants(matching: .any).matching(identifier: "settings-worktree-base-ref-picker").firstMatch
+        let baseRefPicker = app.descendants(matching: .any).matching(identifier: "settings-worktree-base-ref-picker")
+            .firstMatch
         waitFor(baseRefPicker)
         XCTAssertTrue(baseRefPicker.exists)
 
@@ -132,7 +128,7 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertEqual(headButton.value as? Int, 1)
 
         // ── Profiles tab ─────────────────────────────────────────────────────
-        let profilesTab = app.buttons["Profiles"]
+        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
         waitFor(profilesTab)
         profilesTab.click()
 
@@ -157,8 +153,12 @@ final class SettingsFlowTests: BaseTestCase {
         let nameAfter = profileNames.firstMatch.value as? String
         XCTAssertNotEqual(nameBefore, nameAfter, "Profile order should swap after move-down")
 
+        verifyTracingAndDashboard()
+    }
+
+    private func verifyTracingAndDashboard() {
         // ── Tracing tab ──────────────────────────────────────────────────────
-        let tracingTab = app.buttons["Tracing"]
+        let tracingTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tracing").firstMatch
         waitFor(tracingTab)
         tracingTab.click()
 

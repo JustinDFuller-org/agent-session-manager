@@ -63,7 +63,7 @@ swift test --filter CLIOptionConfigTests/testSpecificTest  # run a single test
 **UI tests** (requires Xcode + xcodegen):
 ```bash
 make xcodeproj    # regenerate if project.yml changed
-make test-ui      # xcodebuild test with UITests scheme
+make test-ui-dev  # xcodebuild test with UITests scheme (Dev build)
 make open-results # open .xcresult bundle to inspect failures
 ```
 
