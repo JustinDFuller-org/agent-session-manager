@@ -58,17 +58,15 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(notificationsTab)
         notificationsTab.click()
 
-        // Regression: both debug and banner toggle reachable from their respective tabs
+        // Regression: banner toggle and open-notification-settings button are reachable
         let bannerToggle = app.checkBoxes["settings-macos-banner-notifications-toggle"]
         waitFor(bannerToggle)
 
+        let openNotifSettingsButton = app.buttons["settings-open-notification-settings-button"]
+        XCTAssertTrue(openNotifSettingsButton.exists)
+
         let stickyToggle = app.checkBoxes["settings-sticky-notifications-toggle"]
-        waitFor(stickyToggle)
-        XCTAssertEqual(stickyToggle.value as? Int, 0)
-        stickyToggle.click()
-        XCTAssertEqual(stickyToggle.value as? Int, 1)
-        stickyToggle.click()
-        XCTAssertEqual(stickyToggle.value as? Int, 0)
+        XCTAssertFalse(stickyToggle.exists)
 
         let alwaysShowToggle = app.checkBoxes["settings-always-show-notifications-bar-toggle"]
         waitFor(alwaysShowToggle)

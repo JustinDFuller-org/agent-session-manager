@@ -96,7 +96,6 @@ struct ContentView: View {
         .onChange(of: appState.activeTabID) { SessionPersistence.save(appState: appState) }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             appState.activePane?.terminalController?.focusTerminal()
-            MacNotificationCoordinator.shared.removeAllDeliveredNotificationsIfStickyEnabled()
         }
         .onReceive(NotificationCenter.default.publisher(for: .newTab)) { _ in
             showingNewTab = true

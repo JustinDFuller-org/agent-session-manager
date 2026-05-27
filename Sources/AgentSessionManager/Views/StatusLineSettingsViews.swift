@@ -659,12 +659,7 @@ struct NotificationsContent: View {
         @Bindable var appSettings = appSettings
         Form {
             Section("macOS") {
-                SettingRow(
-                    title: "Banner Notifications",
-                    description:
-                        "Show a system notification when a background pane rings the bell. "
-                        + "Requires permission in System Settings."
-                ) {
+                LabeledContent {
                     Toggle("Banner Notifications", isOn: $appSettings.isMacOSBannerNotificationsEnabled)
                         .toggleStyle(.checkbox)
                         .labelsHidden()
@@ -672,25 +667,27 @@ struct NotificationsContent: View {
                         .onChange(of: appSettings.isMacOSBannerNotificationsEnabled) {
                             SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
                         }
-                }
-                LabeledContent {
-                    Toggle("Sticky Notifications", isOn: $appSettings.isStickyNotificationsEnabled)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-sticky-notifications-toggle")
-                        .onChange(of: appSettings.isStickyNotificationsEnabled) {
-                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                        }
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Sticky Notifications")
+                        Text("Banner Notifications")
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
                         Text(
-                            "Clear all macOS notifications when Agent Session Manager is focused. For banners to stay on screen until dismissed, set the notification style to \"Alerts\" in System Settings → Notifications."
+                            "Show a system notification when a background pane rings the bell. "
+                            + "Requires permission in System Settings."
                         )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(.secondary)
+                        Text(
+                            "By default, macOS banners auto-dismiss after a few seconds. "
+                            + "To keep them on screen until dismissed:"
+                        )
+                        .font(.caption).foregroundStyle(.secondary).padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("1. Click Open Notification Settings below.")
+                            Text("2. Find Agent Session Manager in the list.")
+                            Text("3. Set Alert Style to Persistent.")
+                        }
+                        .font(.caption).foregroundStyle(.secondary)
                         Button("Open Notification Settings") {
                             // swiftlint:disable:next force_unwrapping
                             let url = URL(
@@ -698,8 +695,8 @@ struct NotificationsContent: View {
                             )!
                             NSWorkspace.shared.open(url)
                         }
-                        .font(.caption)
-                        .buttonStyle(.link)
+                        .font(.caption).buttonStyle(.link)
+                        .accessibilityIdentifier("settings-open-notification-settings-button")
                     }
                 }
             }
