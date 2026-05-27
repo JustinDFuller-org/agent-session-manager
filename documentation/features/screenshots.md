@@ -25,7 +25,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `settings-notifications` | Settings → Notifications |
 | `settings-tracing` | Settings → Tracing |
 
-`BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
+`BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui-dev` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
 
 ## Generating screenshots
 
