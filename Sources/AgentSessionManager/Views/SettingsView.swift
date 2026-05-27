@@ -56,15 +56,13 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: 28)
+            }
         } detail: {
             detailView(for: selection)
                 .navigationTitle(selection.title)
                 .toolbarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .principal) {
-                        Text(selection.title).font(.headline).fontWeight(.regular)
-                    }
-                }
         }
         .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
     }
@@ -219,7 +217,7 @@ private struct GeneralContent: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(width: 240)
+                    .fixedSize()
                     .accessibilityIdentifier("settings-exit-behavior-picker")
                     .onChange(of: appSettings.exitBehavior) {
                         SettingsPersistence.saveExitBehavior(appSettings: appSettings)
@@ -320,7 +318,7 @@ private struct WorktreesContent: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(width: 220)
+                    .fixedSize()
                     .accessibilityIdentifier("settings-worktree-cleanup-picker")
                     .onChange(of: appSettings.worktreeCleanupBehavior) {
                         SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
@@ -338,7 +336,7 @@ private struct WorktreesContent: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(width: 160)
+                    .fixedSize()
                     .accessibilityIdentifier("settings-worktree-base-ref-picker")
                     .onChange(of: appSettings.worktreeBaseRef) {
                         SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
@@ -358,7 +356,7 @@ private struct WorktreesContent: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(width: 220)
+                    .fixedSize()
                     .accessibilityIdentifier("settings-existing-worktree-management-picker")
                     .onChange(of: appSettings.existingWorktreeManagement) {
                         SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
