@@ -300,12 +300,11 @@ private struct ToolsContent: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                if appSettings.isActive(selectedTool) {
+                    cliOptionsContent(for: selectedTool)
+                }
             }
             .formStyle(.grouped)
-
-            if appSettings.isActive(selectedTool) {
-                cliOptionsContent(for: selectedTool)
-            }
         }
     }
 
@@ -450,7 +449,7 @@ private struct CLIOptionsContent: View {
     }
 
     var body: some View {
-        Form {
+        Group {
             if !enabledOptions.isEmpty {
                 Section("Enabled") {
                     ForEach(enabledOptions, id: \.id) { option in
@@ -495,7 +494,6 @@ private struct CLIOptionsContent: View {
                 )
             }
         }
-        .formStyle(.grouped)
         .sheet(isPresented: $showAddCustomFlagSheet) {
             AddCustomFlagSheet(existingIDs: options.map(\.id)) { id, isString in
                 options.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
