@@ -136,6 +136,35 @@ final class ScreenshotInjectedTests: XCTestCase {
         screenshot("pr-merged-alert", app: app)
     }
 
+    func testOnboardingWizardScreenshots() {
+        let support = UITestAppSupport.directory
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting", "--uitesting-skip-restore", "--uitesting-show-onboarding",
+        ]
+        app.launch()
+        app.activate()
+
+        let setupButton = app.buttons["onboarding-setup-button"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        screenshot("onboarding-welcome", app: app)
+
+        setupButton.click()
+
+        let shellPicker = app.popUpButtons["onboarding-shell-picker"]
+        XCTAssertTrue(shellPicker.waitForExistence(timeout: 5))
+        screenshot("onboarding-shell", app: app)
+
+        let continueButton = app.buttons["onboarding-shell-continue-button"]
+        continueButton.click()
+
+        let doneButton = app.buttons["onboarding-done-button"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        screenshot("onboarding-tools", app: app)
+    }
+
     private func writeSupport(json: String) {
         let support = UITestAppSupport.directory
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)

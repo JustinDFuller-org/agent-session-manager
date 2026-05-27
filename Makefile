@@ -176,7 +176,8 @@ reset-app-state:
 	    worktree-cleanup.json existing-worktree-management.json debug-settings.json \
 	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \
 	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
-	    env-var-settings.json profiles.json session-name-settings.json; do \
+	    env-var-settings.json profiles.json session-name-settings.json \
+	    shell-settings.json onboarding-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
 	done
 	@echo "App state reset."
@@ -188,7 +189,8 @@ reset-app-state-dev:
 	    worktree-cleanup.json existing-worktree-management.json debug-settings.json \
 	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \
 	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
-	    env-var-settings.json profiles.json session-name-settings.json; do \
+	    env-var-settings.json profiles.json session-name-settings.json \
+	    shell-settings.json onboarding-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
 		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done

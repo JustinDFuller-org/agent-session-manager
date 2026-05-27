@@ -126,6 +126,9 @@ final class AppSettings {
     var exitBehavior: ExitBehavior = .prompt
     var profiles: [Profile] = []
     var autoSetSessionName: Bool = true
+    /// Persisted shell path; empty string means auto-detect from $SHELL.
+    var preferredShell: String = ""
+    var hasCompletedOnboarding: Bool = false
 
     nonisolated static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
 

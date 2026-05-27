@@ -113,6 +113,8 @@ struct SettingsPersistence {
     private static var envVarSettingsURL: URL { appSupportDir.appending(path: "env-var-settings.json") }
     private static var profilesURL: URL { appSupportDir.appending(path: "profiles.json") }
     private static var sessionNameSettingsURL: URL { appSupportDir.appending(path: "session-name-settings.json") }
+    private static var shellSettingsURL: URL { appSupportDir.appending(path: "shell-settings.json") }
+    private static var onboardingSettingsURL: URL { appSupportDir.appending(path: "onboarding-settings.json") }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -567,5 +569,41 @@ struct SettingsPersistence {
             let value = try? JSONDecoder().decode(Bool.self, from: data)
         else { return }
         appSettings.autoSetSessionName = value
+    }
+
+    private struct ShellSettings: Codable {
+        var preferredShell: String = ""
+    }
+
+    static func saveShellSettings(appSettings: AppSettings) {
+        let payload = ShellSettings(preferredShell: appSettings.preferredShell)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: shellSettingsURL)
+    }
+
+    static func restoreShellSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: shellSettingsURL),
+            let settings = try? JSONDecoder().decode(ShellSettings.self, from: data)
+        else { return }
+        appSettings.preferredShell = settings.preferredShell
+    }
+
+    private struct OnboardingSettings: Codable {
+        var completed: Bool = false
+    }
+
+    static func saveOnboarding(appSettings: AppSettings) {
+        let payload = OnboardingSettings(completed: appSettings.hasCompletedOnboarding)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: onboardingSettingsURL)
+    }
+
+    static func restoreOnboarding(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: onboardingSettingsURL),
+            let settings = try? JSONDecoder().decode(OnboardingSettings.self, from: data)
+        else { return }
+        appSettings.hasCompletedOnboarding = settings.completed
     }
 }

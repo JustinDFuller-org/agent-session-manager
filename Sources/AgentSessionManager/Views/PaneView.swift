@@ -60,7 +60,7 @@ struct PaneView: View {
                 NotificationCenter.default.post(name: .newPane, object: nil)
             }
             Button("Open Shell Here") {
-                pane.tab?.openShellPane(activePane: pane)
+                pane.tab?.openShellPane(activePane: pane, appSettings: appSettings)
             }
             if let pr = pane.statusLineMonitor?.currentData?.pr, let url = URL(string: pr.url) {
                 Button("Go to Pull Request") {

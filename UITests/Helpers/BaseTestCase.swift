@@ -78,6 +78,7 @@ class BaseTestCase: XCTestCase {
             "tracing-settings.json", "pr-polling-settings.json",
             "terminal-settings.json", "worktree-base-ref.json", "exit-behavior.json",
             "env-var-settings.json", "profiles.json", "session-name-settings.json",
+            "shell-settings.json", "onboarding-settings.json",
         ] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
