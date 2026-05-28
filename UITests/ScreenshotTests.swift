@@ -51,20 +51,37 @@ final class ScreenshotTests: BaseTestCase {
         notificationsTab.click()
         screenshot("settings-notifications")
 
-        // 8. Remaining settings tabs
-        for (sidebarID, name) in [
-            ("settings-sidebar-profiles", "settings-profiles"),
-            ("settings-sidebar-tools", "settings-tools"),
-            ("settings-sidebar-worktrees", "settings-worktrees"),
-            ("settings-sidebar-shortcuts", "settings-shortcuts"),
-            ("settings-sidebar-status-line", "settings-status-line"),
-            ("settings-sidebar-tracing", "settings-tracing"),
-        ] {
-            let btn = app.descendants(matching: .any).matching(identifier: sidebarID).firstMatch
-            waitFor(btn)
-            btn.click()
-            screenshot(name)
-        }
+        // 8. Remaining settings tabs — click then screenshot each individually so that
+        //    literal string arguments are visible to the scripts/ship.sh grep invariant.
+        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        profilesTab.click()
+        screenshot("settings-profiles")
+
+        let toolsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tools").firstMatch
+        waitFor(toolsTab)
+        toolsTab.click()
+        screenshot("settings-tools")
+
+        let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-worktrees").firstMatch
+        waitFor(worktreesTab)
+        worktreesTab.click()
+        screenshot("settings-worktrees")
+
+        let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
+        waitFor(shortcutsTab)
+        shortcutsTab.click()
+        screenshot("settings-shortcuts")
+
+        let statusLineTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-status-line").firstMatch
+        waitFor(statusLineTab)
+        statusLineTab.click()
+        screenshot("settings-status-line")
+
+        let tracingTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tracing").firstMatch
+        waitFor(tracingTab)
+        tracingTab.click()
+        screenshot("settings-tracing")
 
         app.typeKey("w", modifierFlags: .command)
     }

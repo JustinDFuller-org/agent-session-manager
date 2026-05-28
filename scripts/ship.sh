@@ -134,8 +134,8 @@ step "build-screenshots"
 EXPECTED_NAMES=()
 while IFS= read -r name; do
     [[ -n "$name" ]] && EXPECTED_NAMES+=("$name.png")
-done < <(grep -hoE 'screenshot\("[^"]+"\)' "$REPO_ROOT"/UITests/Screenshot*.swift | \
-         sed 's/screenshot("//;s/")//' | sort -u)
+done < <(grep -hoE 'screenshot\("[^"]+"' "$REPO_ROOT"/UITests/Screenshot*.swift | \
+         sed 's/screenshot("//;s/"$//' | sort -u)
 
 [[ ${#EXPECTED_NAMES[@]} -gt 0 ]] || \
     die "build-screenshots: no screenshot(...) calls found in UITests/Screenshot*.swift"
