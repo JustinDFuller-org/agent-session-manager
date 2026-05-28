@@ -190,7 +190,7 @@ final class OnboardingWizardTests: BaseTestCase {
         forcedApp.terminate()
     }
 
-    func testResetToDefaultButtonExists() {
+    func testClearButtonShownOnDefaultLayout() {
         app.terminate()
         clearPersistedState()
 
@@ -213,8 +213,43 @@ final class OnboardingWizardTests: BaseTestCase {
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
         doneButton.click()
 
+        let clearButton = forcedApp.buttons["onboarding-statusline-clear-button"]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: 5))
+        XCTAssertFalse(forcedApp.buttons["onboarding-statusline-reset-button"].exists)
+
+        forcedApp.terminate()
+    }
+
+    func testResetButtonShownAfterClearing() {
+        app.terminate()
+        clearPersistedState()
+
+        let forcedApp = XCUIApplication()
+        forcedApp.launchArguments = [
+            "--uitesting", "--uitesting-skip-restore", "--uitesting-show-onboarding",
+        ]
+        forcedApp.launch()
+        forcedApp.activate()
+
+        let setupButton = forcedApp.buttons["onboarding-setup-button"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        setupButton.click()
+
+        let continueButton = forcedApp.buttons["onboarding-shell-continue-button"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 5))
+        continueButton.click()
+
+        let doneButton = forcedApp.buttons["onboarding-done-button"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        doneButton.click()
+
+        let clearButton = forcedApp.buttons["onboarding-statusline-clear-button"]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: 5))
+        clearButton.click()
+
         let resetButton = forcedApp.buttons["onboarding-statusline-reset-button"]
         XCTAssertTrue(resetButton.waitForExistence(timeout: 5))
+        XCTAssertFalse(forcedApp.buttons["onboarding-statusline-clear-button"].exists)
 
         forcedApp.terminate()
     }

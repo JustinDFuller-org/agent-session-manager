@@ -172,6 +172,10 @@ struct OnboardingWizardView: View {
         .padding(32)
     }
 
+    private var isDraftWizardDefault: Bool {
+        draftConfig == StatusLineConfig.wizardDefault()
+    }
+
     private var statusLineStep: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
@@ -195,11 +199,19 @@ struct OnboardingWizardView: View {
             .formStyle(.grouped)
             .frame(maxHeight: 420)
 
-            Button("Reset to Default") {
-                draftConfig = .wizardDefault()
+            if isDraftWizardDefault {
+                Button("Clear") {
+                    draftConfig.rows = []
+                }
+                .buttonStyle(.link)
+                .accessibilityIdentifier("onboarding-statusline-clear-button")
+            } else {
+                Button("Reset to Default") {
+                    draftConfig = .wizardDefault()
+                }
+                .buttonStyle(.link)
+                .accessibilityIdentifier("onboarding-statusline-reset-button")
             }
-            .buttonStyle(.link)
-            .accessibilityIdentifier("onboarding-statusline-reset-button")
 
             HStack {
                 Spacer()

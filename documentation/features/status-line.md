@@ -65,7 +65,7 @@ On first launch the setup wizard presents a **Status Line** step (step 4 of 4) t
 - Row 2: `context`, `contextRemaining`, `inputTokens`, `outputTokens`
 - Row 3: `worktree`, `linesAdded`, `linesRemoved`
 
-**Save** persists this config to `statusline-settings.json`. **Skip** writes an empty `rows` array, which renders no status bar. **Reset to Default** restores the three-row spec during the wizard session without saving.
+**Save** persists this config to `statusline-settings.json`. **Skip** writes an empty `rows` array, which renders no status bar. When the draft equals `wizardDefault()`, a **Clear** button empties all rows; once the layout diverges, the button becomes **Reset to Default** and restores the three-row spec.
 
 The wizard default (`StatusLineConfig.wizardDefault()`) is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default is unchanged and remains the fallback for code paths that skip the wizard (e.g. the welcome-step **Skip** button).
 

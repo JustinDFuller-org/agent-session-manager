@@ -165,6 +165,13 @@ final class ScreenshotInjectedTests: XCTestCase {
         let doneButton = app.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
         screenshot("onboarding-tools", app: app)
+
+        let continueToStatusLine = app.buttons["onboarding-done-button"]
+        continueToStatusLine.click()
+
+        let clearButton = app.buttons["onboarding-statusline-clear-button"]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: 5))
+        screenshot("onboarding-status-line", app: app)
     }
 
     private func writeSupport(json: String) {

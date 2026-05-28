@@ -24,7 +24,7 @@ Pre-fills the three-row wizard default layout (see `StatusLineConfig.wizardDefau
 - Row 2: `context`, `contextRemaining`, `inputTokens`, `outputTokens`
 - Row 3: `worktree`, `linesAdded`, `linesRemoved`
 
-The user can edit inline via `StatusLineConfigLayoutEditor`. **Reset to Default** restores the three-row spec. **Save** writes the draft to `statusline-settings.json` and completes onboarding. **Skip** clears all rows (empty `rows` array = no status bar rendered) and completes onboarding.
+The user can edit inline via `StatusLineConfigLayoutEditor`. When the draft equals `wizardDefault()`, a **Clear** button empties all rows so the user can start from scratch; once the layout diverges from the default, the button becomes **Reset to Default** and restores the three-row spec. **Save** writes the draft to `statusline-settings.json` and completes onboarding. **Skip** clears all rows (empty `rows` array = no status bar rendered) and completes onboarding.
 
 The wizard default layout is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default remains the fallback for code paths that skip the wizard.
 

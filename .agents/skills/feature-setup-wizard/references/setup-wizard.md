@@ -11,7 +11,7 @@ See [documentation/features/setup-wizard.md](../../../../documentation/features/
 - `Sources/AgentSessionManager/Controllers/SettingsPersistence.swift` — `saveShellSettings`, `restoreShellSettings`, `saveStatusLine`, `restoreStatusLine`, `saveOnboarding`, `restoreOnboarding`
 - `Sources/AgentSessionManager/Controllers/TerminalController.swift` — `pendingShell` property
 - `Sources/AgentSessionManager/Models/Tab.swift` — threads `appSettings` through `addPane`, `completeSetup`, `refreshPaneWithArgs`, `openShellPane`; copies `pendingShell` in `restartPane`, `refreshPane`, `openShellInPane`
-- `Sources/AgentSessionManager/Views/OnboardingWizardView.swift` — multi-step wizard sheet (welcome / shell / tools / statusLine steps); `draftConfig` state; Save/Skip/Reset wiring
+- `Sources/AgentSessionManager/Views/OnboardingWizardView.swift` — multi-step wizard sheet (welcome / shell / tools / statusLine steps); `draftConfig` state; Save/Skip wiring; Clear/Reset toggle on draft (Clear when draft equals `wizardDefault()`, Reset to Default otherwise)
 - `Sources/AgentSessionManager/Views/StatusLineSettingsViews.swift` — `StatusLineConfigLayoutEditor` reused in the status line wizard step
 - `Sources/AgentSessionManager/Views/SettingsView.swift` — Shell section + Detect button in `ToolsContent`
 - `Sources/AgentSessionManager/App.swift` — restores + `showOnboarding` trigger
