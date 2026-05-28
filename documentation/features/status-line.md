@@ -31,12 +31,11 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | CLI `--version` flag |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
-| `worktree` | Worktree | All | App-computed from pane working directory |
-| `worktreeBranch` | Worktree Branch | All | `git branch --show-current` |
+| `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
 
 ## Invariants
 
-The status line enforces four invariants that guarantee consistent values regardless of which CLI is in use.
+The status line enforces five invariants that guarantee consistent values regardless of which CLI is in use.
 
 ### I1. Worktree name is the pane's working directory
 
@@ -53,6 +52,10 @@ The old `gitWorktree` item duplicated what `worktree` already shows. It has been
 ### I4. Add Item picker is alphabetical
 
 Items in the Add Item dropdown are sorted by label using `localizedStandardCompare`. The internal `itemOrder` array (which governs default row construction) is unchanged.
+
+### I5. Worktree chip is a single fact (name + branch)
+
+The `worktree` chip renders as `name • branch` when both values are available, or just `name` when branch is absent. The old `worktreeBranch` item, which duplicated the branch half of this fact, has been removed. Saved configurations containing `worktreeBranch` rows are migrated on first load: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped.
 
 ## Configuring Rows
 
@@ -71,3 +74,4 @@ When an invariant is violated, the app records a trace event (see [tracing.md](t
 | `statusline.worktree.name_mismatch` | Claude JSON `worktree.name` or `workspace.git_worktree` disagrees with the app's computed worktree name (I1) |
 | `statusline.lines.source_mismatch` | Claude JSON `cost.total_lines_added`/`total_lines_removed` disagrees with cached `git diff --shortstat HEAD` (I3) |
 | `statusline.migration.gitworktree_dropped` | A saved config row contained `gitWorktree`; it was removed (I2) |
+| `statusline.migration.worktreebranch_merged` | A saved config row contained `worktreeBranch`; it was replaced by `worktree` (`substituted=true`) or dropped (`substituted=false`) (I5) |

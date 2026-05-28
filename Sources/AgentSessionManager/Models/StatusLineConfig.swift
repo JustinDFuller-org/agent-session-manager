@@ -107,7 +107,6 @@ struct StatusLineConfig: Codable, Equatable {
         "vimMode": ("Vim Mode", "keyboard"),
         "agentName": ("Agent", "person.crop.circle"),
         "sessionName": ("Session Name", "tag"),
-        "worktreeBranch": ("Worktree Branch", "arrow.branch"),
         "linesAdded": ("Lines Added", "plus.square"),
         "linesRemoved": ("Lines Removed", "minus.square"),
         "duration": ("Duration", "clock"),
@@ -130,7 +129,6 @@ struct StatusLineConfig: Codable, Equatable {
     static let itemAvailability: [String: ToolAvailability] = [
         // Agnostic — populated by git queries and process tracking
         "worktree": .all,
-        "worktreeBranch": .all,
         "duration": .all,
         "version": .all,
         "pr": .all,
@@ -165,7 +163,7 @@ struct StatusLineConfig: Codable, Equatable {
 
     static let itemOrder: [String] = [
         "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
-        "agentName", "sessionName", "worktreeBranch", "linesAdded",
+        "agentName", "sessionName", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
         "sessionStatus", "openCodeMode",
@@ -205,12 +203,30 @@ struct StatusLineConfig: Codable, Equatable {
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows.enumerated().map { rowIndex, row in
                 var mutableRow = row
+                let rowHasWorktree = row.items.contains { $0.id == "worktree" }
                 mutableRow.items = row.items.enumerated().compactMap { itemIndex, item in
-                    guard item.id == "gitWorktree" else { return item }
-                    TracingService.shared.record(
-                        "statusline.migration.gitworktree_dropped",
-                        attributes: ["row_index": "\(rowIndex)", "position": "\(itemIndex)"])
-                    return nil
+                    if item.id == "gitWorktree" {
+                        TracingService.shared.record(
+                            "statusline.migration.gitworktree_dropped",
+                            attributes: ["row_index": "\(rowIndex)", "position": "\(itemIndex)"])
+                        return nil
+                    }
+                    if item.id == "worktreeBranch" {
+                        let substituted = !rowHasWorktree
+                        TracingService.shared.record(
+                            "statusline.migration.worktreebranch_merged",
+                            attributes: [
+                                "row_index": "\(rowIndex)",
+                                "position": "\(itemIndex)",
+                                "substituted": substituted ? "true" : "false",
+                            ])
+                        if substituted {
+                            let meta = StatusLineConfig.itemMetadata["worktree"]!
+                            return StatusLineItem(id: "worktree", label: meta.label, sfSymbol: meta.symbol)
+                        }
+                        return nil
+                    }
+                    return item
                 }
                 return mutableRow
             }
@@ -418,6 +434,12 @@ struct StatusLineData: Codable {
     struct Worktree: Codable {
         let name: String?
         let branch: String?
+
+        var chipText: String {
+            guard let name else { return "—" }
+            if let branch { return "\(name) • \(branch)" }
+            return name
+        }
     }
 
     struct Effort: Codable {

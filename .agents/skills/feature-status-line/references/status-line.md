@@ -31,8 +31,7 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | CLI `--version` flag |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
-| `worktree` | Worktree | All | App-computed from pane working directory |
-| `worktreeBranch` | Worktree Branch | All | `git branch --show-current` |
+| `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
 
 ## Invariants
 
@@ -63,6 +62,10 @@ Items in the Add Item dropdown are sorted by label using `localizedStandardCompa
 
 **Authoritative source**: `StatusLineConfigLayoutEditor.unusedItemsEligibleForAddition()`.
 
+### I5. Worktree chip is a single fact (name + branch)
+
+The `worktree` chip renders as `name • branch` when both values are available, or just `name` when branch is absent (computed by `StatusLineData.Worktree.chipText`). The old `worktreeBranch` item has been removed from the catalog. Saved configurations containing `worktreeBranch` rows are migrated on first decode: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped. The migration emits `statusline.migration.worktreebranch_merged`.
+
 ## Key Files
 
 | File | Role |
@@ -85,3 +88,4 @@ Items in the Add Item dropdown are sorted by label using `localizedStandardCompa
 | `statusline.worktree.name_mismatch` | `pane.name`, `field`, `computed`, `reported` | I1 violation |
 | `statusline.lines.source_mismatch` | `pane.name`, `computed_added`, `reported_added`, `computed_removed`, `reported_removed` | I3 violation |
 | `statusline.migration.gitworktree_dropped` | `row_index`, `position` | I2 migration |
+| `statusline.migration.worktreebranch_merged` | `row_index`, `position`, `substituted` | I5 migration |

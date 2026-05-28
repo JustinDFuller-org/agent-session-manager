@@ -231,7 +231,7 @@ struct StatusLineConfigLayoutEditor: View {
     private func itemDescription(for id: String) -> String {
         switch id {
         case "model": return "Claude model name"
-        case "worktree": return "Git worktree name"
+        case "worktree": return "Git worktree name and current branch"
         case "cost": return "Total session cost in USD (Claude only)"
         case "context": return "Context window usage with progress bar (Claude only)"
         case "effort": return "Effort level (Claude only)"
@@ -239,7 +239,6 @@ struct StatusLineConfigLayoutEditor: View {
         case "vimMode": return "Vim editor mode (Claude only)"
         case "agentName": return "Agent name (Claude only)"
         case "sessionName": return "Session name (Claude only)"
-        case "worktreeBranch": return "Git branch for the worktree"
         case "linesAdded": return "Lines added vs HEAD (git diff --shortstat HEAD)"
         case "linesRemoved": return "Lines removed vs HEAD (git diff --shortstat HEAD)"
         case "duration": return "Total session duration"

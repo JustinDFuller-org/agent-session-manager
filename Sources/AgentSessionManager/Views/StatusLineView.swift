@@ -194,7 +194,7 @@ struct StatusLineView: View {
         case "model":
             return data?.model?.displayName ?? data?.model?.id ?? "—"
         case "worktree":
-            return data?.worktree?.name ?? "—"
+            return data?.worktree?.chipText ?? "—"
         case "cost":
             return String(format: "$%.4f", data?.cost?.totalCostUsd ?? 0)
         case "effort":
@@ -207,8 +207,6 @@ struct StatusLineView: View {
             return data?.agent?.name ?? "—"
         case "sessionName":
             return data?.sessionName ?? "—"
-        case "worktreeBranch":
-            return data?.worktree?.branch ?? "—"
         case "linesAdded":
             return "+\(data?.cost?.totalLinesAdded ?? 0)"
         case "linesRemoved":

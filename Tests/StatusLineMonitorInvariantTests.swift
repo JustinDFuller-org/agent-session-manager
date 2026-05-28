@@ -16,6 +16,62 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
     // MARK: - I2 Migration
 
+    func testMigrationDropsWorktreeBranchWhenWorktreePresent() throws {
+        let json = Data(
+            """
+            {
+                "rows": [
+                    {
+                        "id": "33333333-3333-3333-3333-333333333333",
+                        "items": [
+                            {"id": "worktree", "label": "Worktree", "sfSymbol": "folder.badge.gearshape"},
+                            {"id": "worktreeBranch", "label": "Worktree Branch", "sfSymbol": "arrow.branch"}
+                        ]
+                    }
+                ],
+                "chipLabelStyle": "labelOnly",
+                "rowAlignment": "leading"
+            }
+            """.utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertFalse(config.usedItemIDs.contains("worktreeBranch"), "worktreeBranch must be migrated out")
+        XCTAssertTrue(config.usedItemIDs.contains("worktree"))
+        let events = TracingService.shared.recordedEventsForTesting
+        let event = events.first { $0.name == "statusline.migration.worktreebranch_merged" }
+        XCTAssertNotNil(event, "Expected migration trace event")
+        XCTAssertEqual(event?.attributes["substituted"], "false")
+        XCTAssertEqual(event?.attributes["row_index"], "0")
+    }
+
+    func testMigrationSubstitutesWorktreeBranchWhenWorktreeAbsent() throws {
+        let json = Data(
+            """
+            {
+                "rows": [
+                    {
+                        "id": "44444444-4444-4444-4444-444444444444",
+                        "items": [
+                            {"id": "model", "label": "Model", "sfSymbol": "cpu"},
+                            {"id": "worktreeBranch", "label": "Worktree Branch", "sfSymbol": "arrow.branch"}
+                        ]
+                    }
+                ],
+                "chipLabelStyle": "labelOnly",
+                "rowAlignment": "leading"
+            }
+            """.utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertFalse(config.usedItemIDs.contains("worktreeBranch"), "worktreeBranch must be migrated out")
+        XCTAssertTrue(config.usedItemIDs.contains("worktree"), "worktree must be substituted in")
+        XCTAssertTrue(config.usedItemIDs.contains("model"))
+        let events = TracingService.shared.recordedEventsForTesting
+        let event = events.first { $0.name == "statusline.migration.worktreebranch_merged" }
+        XCTAssertNotNil(event, "Expected migration trace event")
+        XCTAssertEqual(event?.attributes["substituted"], "true")
+        XCTAssertEqual(event?.attributes["row_index"], "0")
+        XCTAssertEqual(event?.attributes["position"], "1")
+    }
+
     func testMigrationDropsGitWorktreeAndTraces() throws {
         let json = Data(
             """
