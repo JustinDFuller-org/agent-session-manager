@@ -29,9 +29,16 @@ TOKEN=$(gh auth token)
 git clone --quiet "https://${TOKEN}@gist.github.com/${GIST_ID}.git" "$tmpdir/gist"
 cp "$SCREENSHOTS_DIR"/*.png "$tmpdir/gist/"
 cd "$tmpdir/gist"
+
+# Use an orphan commit to squash all history on every push, keeping the
+# gist repo at constant size regardless of how many times this runs.
+git checkout --orphan fresh
 git add .
 git -c user.email="ci@local" -c user.name="screenshots-bot" \
   commit -q -m "screenshots: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-git push --quiet origin HEAD
+
+DEFAULT_BRANCH=$(git -C "$tmpdir/gist" remote show origin | awk '/HEAD branch/ {print $NF}')
+git push --quiet --force origin "HEAD:$DEFAULT_BRANCH"
+
 echo "Pushed screenshots to gist $GIST_ID"
 echo "$GIST_ID"
