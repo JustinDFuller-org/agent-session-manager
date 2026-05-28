@@ -77,6 +77,8 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         let runningDot = app.descendants(matching: .any).matching(identifier: "pane-status-dot-running-pane").firstMatch
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
+        let statusLineRow = app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch
+        XCTAssertTrue(statusLineRow.waitForExistence(timeout: 5))
         screenshot("pane-status-indicators", app: app)
     }
 

@@ -53,6 +53,10 @@ The old `gitWorktree` item duplicated what `worktree` already shows. It has been
 - **ToolAgnosticDataProvider, CursorDataProvider, OpenCodeDataProvider**: call `GitDiffStats.compute` in `refreshNow()` and populate `Cost.totalLinesAdded/Removed`.
 - **StatusLineMonitor (Claude)**: maintains a 15s `gitDiffTimer` whose results are cached in `cachedGitStats`. After decoding Claude JSON, `applyI3Enforcement(to:)` replaces the JSON values with the cached git values and logs `statusline.lines.source_mismatch` on disagreement.
 
+### Empty state
+
+The chip row renders as soon as the user has configured at least one row. Missing fields show `—` until the CLI emits its first status payload. The `currentData != nil` gate was removed from both `StatusLineView.body` and `PaneView.statusLine`; `StatusLineView` now renders whenever `nonEmptyRows` is non-empty, regardless of whether hook data has arrived.
+
 ### I4. Add Item picker is alphabetical
 
 Items in the Add Item dropdown are sorted by label using `localizedStandardCompare`. The internal `itemOrder` array (which governs default row construction) is unchanged.
