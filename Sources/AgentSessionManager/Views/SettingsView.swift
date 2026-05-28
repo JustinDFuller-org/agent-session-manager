@@ -67,6 +67,7 @@ struct SettingsView: View {
                     .padding(.top, 28)
                     .padding(.bottom, 8)
                     .padding(.horizontal, 20)
+                    .background(.bar)
                 }
         }
         .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
@@ -243,12 +244,10 @@ private struct GeneralContent: View {
                     .frame(width: 120)
                     .accessibilityIdentifier("settings-scrollback-lines-field")
                 }
-            }
-            Section("Shell") {
                 SettingRow(
-                    title: "shell",
+                    title: "Shell",
                     description:
-                        "Shell used to launch agents. Interactive mode (-i) loads PATH from shell init scripts (nvm, homebrew, etc.).",
+                        "The command-line shell used to start agents. Its startup files load first so tools you've installed (such as Node or Homebrew packages) are found. Leave on Auto-detect unless an agent can't locate a tool.",
                     defaultValue: "Auto-detect"
                 ) {
                     Picker("Shell", selection: $shellPickerSelection) {
