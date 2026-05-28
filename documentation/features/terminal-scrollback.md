@@ -14,7 +14,7 @@ The default scrollback is **500 lines**, matching SwiftTerm's built-in default.
 
 ## How to Change
 
-1. Open **Settings → General → Terminal**.
+1. Open **Settings → Panes → Terminal**.
 2. Edit the **Scrollback Lines** field.
 3. The new value takes effect immediately in every open terminal pane — no restart required.
 4. The setting persists across app launches.

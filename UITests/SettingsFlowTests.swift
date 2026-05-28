@@ -14,9 +14,9 @@ final class SettingsFlowTests: BaseTestCase {
     }
 
     func testSettingsFlow() {
-        // ── General tab ──────────────────────────────────────────────────────
+        // ── Panes tab ────────────────────────────────────────────────────────
         app.typeKey(",", modifierFlags: .command)
-        let generalTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-general").firstMatch
+        let generalTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
         waitFor(generalTab)
         generalTab.click()
 
@@ -51,7 +51,7 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(autoSessionNameToggle)
         XCTAssertTrue(autoSessionNameToggle.exists)
 
-        // Shell picker is in General (not CLI Tools)
+        // Shell picker is in Panes (not CLI Tools)
         let shellPicker = app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
         waitFor(shellPicker)
         XCTAssertTrue(shellPicker.exists, "Shell picker should exist under General tab")
@@ -109,8 +109,8 @@ final class SettingsFlowTests: BaseTestCase {
         prTrackingToggle.click()
         XCTAssertEqual(prTrackingToggle.value as? Int, 1)
 
-        // ── Worktrees tab ────────────────────────────────────────────────────
-        let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-worktrees").firstMatch
+        // ── Panes tab (base ref picker) ──────────────────────────────────────
+        let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
         waitFor(worktreesTab)
         worktreesTab.click()
 

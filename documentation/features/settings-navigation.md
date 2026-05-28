@@ -4,14 +4,13 @@ The Settings window uses a **sidebar navigation** layout (Xcode-style) rather th
 
 ## Sections
 
-All eight sections are enumerated in `SettingsSection` (`SettingsView.swift`). Each case carries a `title` string and an SF Symbols `icon` name:
+All seven sections are enumerated in `SettingsSection` (`SettingsView.swift`). Each case carries a `title` string and an SF Symbols `icon` name:
 
 | Case | Title | Icon |
 |------|-------|------|
-| `.general` | General | `gear` |
+| `.panes` | Panes | `square.split.2x1` |
 | `.profiles` | Profiles | `person.crop.rectangle.stack` |
 | `.tools` | CLI Tools | `wrench.and.screwdriver` |
-| `.worktrees` | Worktrees | `folder.badge.gearshape` |
 | `.shortcuts` | Shortcuts | `keyboard` |
 | `.statusLine` | Status Line | `chart.bar` |
 | `.notifications` | Notifications | `bell` |

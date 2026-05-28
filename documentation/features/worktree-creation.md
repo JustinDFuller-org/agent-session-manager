@@ -68,7 +68,7 @@ So old sessions can still restore if only the legacy path exists; reused externa
 
 ## Base ref for new worktrees
 
-When Agent Session Manager creates a new worktree from the default branch (the path under step 4 in *Resolution order* above), you can control what commit that worktree starts from via **Settings → Worktrees → Base Ref**:
+When Agent Session Manager creates a new worktree from the default branch (the path under step 4 in *Resolution order* above), you can control what commit that worktree starts from via **Settings → Panes → New Pane** (the **Starting Point** control):
 
 | Option | Starting point | When to use |
 |--------|---------------|-------------|
