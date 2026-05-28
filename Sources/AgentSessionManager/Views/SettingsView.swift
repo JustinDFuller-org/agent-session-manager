@@ -1,10 +1,9 @@
 import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
-    case general
+    case panes
     case profiles
     case tools
-    case worktrees
     case shortcuts
     case statusLine = "status-line"
     case notifications
@@ -14,10 +13,9 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
-        case .general: "General"
+        case .panes: "Panes"
         case .profiles: "Profiles"
         case .tools: "CLI Tools"
-        case .worktrees: "Worktrees"
         case .shortcuts: "Shortcuts"
         case .statusLine: "Status Line"
         case .notifications: "Notifications"
@@ -27,10 +25,9 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
     var icon: String {
         switch self {
-        case .general: "gear"
+        case .panes: "square.split.2x1"
         case .profiles: "person.crop.rectangle.stack"
         case .tools: "wrench.and.screwdriver"
-        case .worktrees: "folder.badge.gearshape"
         case .shortcuts: "keyboard"
         case .statusLine: "chart.bar"
         case .notifications: "bell"
@@ -41,7 +38,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
-    @State private var selection: SettingsSection = .general
+    @State private var selection: SettingsSection = .panes
 
     var body: some View {
         NavigationSplitView {
@@ -76,17 +73,14 @@ struct SettingsView: View {
     @ViewBuilder
     private func detailView(for section: SettingsSection) -> some View {
         switch section {
-        case .general:
-            GeneralContent()
+        case .panes:
+            PanesContent()
                 .environment(appSettings)
         case .profiles:
             ProfilesContent()
                 .environment(appSettings)
         case .tools:
             ToolsContent()
-                .environment(appSettings)
-        case .worktrees:
-            WorktreesContent()
                 .environment(appSettings)
         case .shortcuts:
             KeyboardShortcutsContent()
@@ -138,17 +132,17 @@ struct SettingRow<Control: View>: View {
     }
 }
 
-private struct GeneralContent: View {
+private struct PanesContent: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var shellPickerSelection: String = ""
 
     var body: some View {
         @Bindable var appSettings = appSettings
         Form {
-            Section("Git") {
+            Section("New Pane") {
                 SettingRow(
                     title: "Default Branch",
-                    description: "Automatically fetch and create worktrees from a default branch."
+                    description: "Start new panes from a specific branch by default."
                 ) {
                     Toggle("Default Branch", isOn: $appSettings.isDefaultBranchEnabled)
                         .toggleStyle(.checkbox)
@@ -174,76 +168,44 @@ private struct GeneralContent: View {
                             }
                     }
                 }
-            }
-            Section("Sessions") {
                 SettingRow(
-                    title: "Continue on Restart",
-                    description: "Resume the last conversation when Claude panes reopen after a restart."
+                    title: "Starting Point",
+                    description: appSettings.worktreeBaseRef.description,
+                    defaultValue: "Fresh"
                 ) {
-                    Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-continue-on-restart-toggle")
-                        .onChange(of: appSettings.continueOnRestart) {
-                            SettingsPersistence.saveRestartSettings(appSettings: appSettings)
+                    Picker("Starting Point", selection: $appSettings.worktreeBaseRef) {
+                        ForEach(WorktreeBaseRef.allCases, id: \.self) { option in
+                            Text(option.displayName).tag(option)
                         }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-worktree-base-ref-picker")
+                    .onChange(of: appSettings.worktreeBaseRef) {
+                        SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
+                    }
                 }
                 SettingRow(
-                    title: "Auto Session Name",
-                    description:
-                        "Passes --name <tab>/<pane> to Claude so sessions appear by name in claude resume "
-                        + "and the terminal title. Skipped if --name is set manually in CLI Options."
+                    title: "If Branch Exists",
+                    description: appSettings.existingWorktreeManagement.description,
+                    defaultValue: "Ask"
                 ) {
-                    Toggle("Auto Session Name", isOn: $appSettings.autoSetSessionName)
-                        .toggleStyle(.checkbox)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings-auto-session-name-toggle")
-                        .onChange(of: appSettings.autoSetSessionName) {
-                            SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
-                        }
-                }
-            }
-            Section("Terminal") {
-                SettingRow(
-                    title: "When Process Exits",
-                    description: appSettings.exitBehavior.description,
-                    defaultValue: "Show Prompt"
-                ) {
-                    Picker("When Process Exits", selection: $appSettings.exitBehavior) {
-                        ForEach(ExitBehavior.allCases, id: \.self) { behavior in
+                    Picker("If Branch Exists", selection: $appSettings.existingWorktreeManagement) {
+                        ForEach(ExistingWorktreeManagement.allCases, id: \.self) { behavior in
                             Text(behavior.displayName).tag(behavior)
                         }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .fixedSize()
-                    .accessibilityIdentifier("settings-exit-behavior-picker")
-                    .onChange(of: appSettings.exitBehavior) {
-                        SettingsPersistence.saveExitBehavior(appSettings: appSettings)
+                    .accessibilityIdentifier("settings-existing-worktree-management-picker")
+                    .onChange(of: appSettings.existingWorktreeManagement) {
+                        SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
                     }
                 }
-                SettingRow(
-                    title: "Scrollback Lines",
-                    description: "Number of lines kept in the terminal scroll buffer (100–1,000,000).",
-                    defaultValue: "500"
-                ) {
-                    TextField(
-                        "",
-                        text: Binding(
-                            get: { String(appSettings.scrollbackLines) },
-                            set: { newValue in
-                                if let parsed = Int(newValue) {
-                                    appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
-                                    SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
-                                }
-                            }
-                        )
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(width: 120)
-                    .accessibilityIdentifier("settings-scrollback-lines-field")
-                }
+            }
+            Section("Terminal") {
                 SettingRow(
                     title: "Shell",
                     description:
@@ -281,6 +243,92 @@ private struct GeneralContent: View {
                                 SettingsPersistence.saveShellSettings(appSettings: appSettings)
                             }
                     }
+                }
+                SettingRow(
+                    title: "Scrollback Lines",
+                    description: "Number of lines kept in the terminal scroll buffer (100–1,000,000).",
+                    defaultValue: "500"
+                ) {
+                    TextField(
+                        "",
+                        text: Binding(
+                            get: { String(appSettings.scrollbackLines) },
+                            set: { newValue in
+                                if let parsed = Int(newValue) {
+                                    appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
+                                    SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
+                                }
+                            }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(width: 120)
+                    .accessibilityIdentifier("settings-scrollback-lines-field")
+                }
+                SettingRow(
+                    title: "Auto Session Name",
+                    description:
+                        "Passes --name <tab>/<pane> to Claude so sessions appear by name in claude resume "
+                        + "and the terminal title. Skipped if --name is set manually in CLI Options."
+                ) {
+                    Toggle("Auto Session Name", isOn: $appSettings.autoSetSessionName)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-auto-session-name-toggle")
+                        .onChange(of: appSettings.autoSetSessionName) {
+                            SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
+                        }
+                }
+                SettingRow(
+                    title: "When Process Exits",
+                    description: appSettings.exitBehavior.description,
+                    defaultValue: "Show Prompt"
+                ) {
+                    Picker("When Process Exits", selection: $appSettings.exitBehavior) {
+                        ForEach(ExitBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-exit-behavior-picker")
+                    .onChange(of: appSettings.exitBehavior) {
+                        SettingsPersistence.saveExitBehavior(appSettings: appSettings)
+                    }
+                }
+            }
+            Section("Cleanup") {
+                SettingRow(
+                    title: "Worktree Cleanup",
+                    description: appSettings.worktreeCleanupBehavior.description,
+                    defaultValue: "Ask"
+                ) {
+                    Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
+                        ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-worktree-cleanup-picker")
+                    .onChange(of: appSettings.worktreeCleanupBehavior) {
+                        SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
+                    }
+                }
+                SettingRow(
+                    title: "Continue on Restart",
+                    description: "Resume the last conversation when Claude panes reopen after a restart."
+                ) {
+                    Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-continue-on-restart-toggle")
+                        .onChange(of: appSettings.continueOnRestart) {
+                            SettingsPersistence.saveRestartSettings(appSettings: appSettings)
+                        }
                 }
             }
         }
@@ -408,75 +456,6 @@ private struct ToolsContent: View {
         case .shell:
             EmptyView()
         }
-    }
-}
-
-private struct WorktreesContent: View {
-    @Environment(AppSettings.self) private var appSettings
-
-    var body: some View {
-        @Bindable var appSettings = appSettings
-        Form {
-            Section("Created Worktrees") {
-                SettingRow(
-                    title: "Worktree Cleanup",
-                    description: appSettings.worktreeCleanupBehavior.description,
-                    defaultValue: "Ask"
-                ) {
-                    Picker("Worktree Cleanup", selection: $appSettings.worktreeCleanupBehavior) {
-                        ForEach(WorktreeCleanupBehavior.allCases, id: \.self) { behavior in
-                            Text(behavior.displayName).tag(behavior)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    .accessibilityIdentifier("settings-worktree-cleanup-picker")
-                    .onChange(of: appSettings.worktreeCleanupBehavior) {
-                        SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
-                    }
-                }
-                SettingRow(
-                    title: "Base Ref",
-                    description: appSettings.worktreeBaseRef.description,
-                    defaultValue: "Fresh"
-                ) {
-                    Picker("Base Ref", selection: $appSettings.worktreeBaseRef) {
-                        ForEach(WorktreeBaseRef.allCases, id: \.self) { option in
-                            Text(option.displayName).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    .accessibilityIdentifier("settings-worktree-base-ref-picker")
-                    .onChange(of: appSettings.worktreeBaseRef) {
-                        SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
-                    }
-                }
-            }
-            Section("Existing Worktrees") {
-                SettingRow(
-                    title: "Manage Existing Worktrees",
-                    description: appSettings.existingWorktreeManagement.description,
-                    defaultValue: "Ask"
-                ) {
-                    Picker("Manage Existing", selection: $appSettings.existingWorktreeManagement) {
-                        ForEach(ExistingWorktreeManagement.allCases, id: \.self) { behavior in
-                            Text(behavior.displayName).tag(behavior)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    .accessibilityIdentifier("settings-existing-worktree-management-picker")
-                    .onChange(of: appSettings.existingWorktreeManagement) {
-                        SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
     }
 }
 

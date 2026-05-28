@@ -4,7 +4,7 @@ When the app relaunches and restores a saved session, Claude panes automatically
 
 ## Configuration
 
-Open **Settings → General**. In the **Sessions** section:
+Open **Settings → Panes → Cleanup**:
 
 - **Continue on Restart** — Checkbox toggle. Default: on. Persisted to `restart-settings.json` when changed.
 

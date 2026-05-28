@@ -4,7 +4,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 
 ## How it works
 
-`ScreenshotTests` captures 6 main views and `ScreenshotInjectedTests` captures 3 injected views; together they also walk all 8 Settings pages:
+`ScreenshotTests` captures 6 main views and `ScreenshotInjectedTests` captures 3 injected views; together they also walk all 7 Settings pages:
 
 | Screenshot | What it shows |
 |---|---|
@@ -15,10 +15,9 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `pane-status-indicators` | Pane header with status badge |
 | `notification-sidebar` | Notification sidebar open |
 | `pr-merged-alert` | PR merged alert overlay |
-| `settings-general` | Settings → General |
+| `settings-panes` | Settings → Panes |
 | `settings-profiles` | Settings → Profiles |
 | `settings-tools` | Settings → CLI Tools |
-| `settings-worktrees` | Settings → Worktrees |
 | `settings-shortcuts` | Settings → Shortcuts |
 | `settings-status-line` | Settings → Status Line |
 | `settings-notifications` | Settings → Notifications |

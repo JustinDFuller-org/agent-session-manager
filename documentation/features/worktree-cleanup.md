@@ -9,7 +9,7 @@ When closing a pane that uses a worktree **created by Agent Session Manager** (u
 
 ## How cleanup works
 
-When you close a pane with ⌘W or the pane's close button, the app checks whether the worktree is managed. The behavior depends on the **Worktree Cleanup** setting in Settings → General:
+When you close a pane with ⌘W or the pane's close button, the app checks whether the worktree is managed. The behavior depends on the **Worktree Cleanup** setting in Settings → Panes → Cleanup:
 
 - **Ask** (default) — A dialog appears with three options:
   - **Delete Worktree** — Closes the pane and runs `git worktree remove <path>` to delete the worktree directory and unregister it from Git.
@@ -20,7 +20,7 @@ When you close a pane with ⌘W or the pane's close button, the app checks wheth
 
 ## Configuration
 
-Open **Settings → General** and look for the **Worktree Cleanup** segmented control under the **Sessions** section. The setting is persisted in `~/Library/Application Support/agent-session-manager/worktree-cleanup.json`.
+Open **Settings → Panes → Cleanup** and look for the **Worktree Cleanup** segmented control. The setting is persisted in `~/Library/Application Support/agent-session-manager/worktree-cleanup.json`.
 
 ## What cleanup actually runs
 

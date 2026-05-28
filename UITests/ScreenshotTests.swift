@@ -37,12 +37,12 @@ final class ScreenshotTests: BaseTestCase {
         createPane(named: "feature-a")
         screenshot("split-panes")
 
-        // 6. Settings — General tab
+        // 6. Settings — Panes tab
         app.typeKey(",", modifierFlags: .command)
-        let generalTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-general").firstMatch
-        waitFor(generalTab)
-        generalTab.click()
-        screenshot("settings-general")
+        let panesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
+        waitFor(panesTab)
+        panesTab.click()
+        screenshot("settings-panes")
 
         // 7. Settings — Notifications tab
         let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
@@ -63,17 +63,13 @@ final class ScreenshotTests: BaseTestCase {
         toolsTab.click()
         screenshot("settings-tools")
 
-        let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-worktrees").firstMatch
-        waitFor(worktreesTab)
-        worktreesTab.click()
-        screenshot("settings-worktrees")
-
         let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
         waitFor(shortcutsTab)
         shortcutsTab.click()
         screenshot("settings-shortcuts")
 
-        let statusLineTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-status-line").firstMatch
+        let statusLineTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-status-line").firstMatch
         waitFor(statusLineTab)
         statusLineTab.click()
         screenshot("settings-status-line")

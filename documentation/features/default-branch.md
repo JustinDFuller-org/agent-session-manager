@@ -1,10 +1,10 @@
 # Default branch (Settings)
 
-The **General → Git** section in Settings exposes a **Default Branch** toggle and optional **branch name** field. Values are persisted so they survive app restarts.
+The **Panes → New Pane** section in Settings exposes a **Default Branch** toggle and optional **branch name** field. Values are persisted so they survive app restarts.
 
 ## Configuration
 
-Open **Settings → General**. In the **Git** section:
+Open **Settings → Panes → New Pane**:
 
 - **Default Branch** — Checkbox-style toggle. When on, the branch name field is shown. Persisted to `default-branch.json` when changed.
 - **Branch Name** — Short name such as `main`, `master`, or `develop`. Default in code is `main`.
