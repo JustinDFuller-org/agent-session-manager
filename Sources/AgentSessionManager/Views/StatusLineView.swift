@@ -12,11 +12,15 @@ struct StatusLineView: View {
         config.rows.filter { !$0.items.isEmpty }
     }
 
+    private var maxRowItemCount: Int {
+        nonEmptyRows.map(\.items.count).max() ?? 0
+    }
+
     var body: some View {
         if let data = monitor.currentData, !nonEmptyRows.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(nonEmptyRows) { row in
-                    chipRow(items: row.items, data: data)
+                    chipRow(items: row.items, data: data, maxCount: maxRowItemCount)
                 }
             }
             .padding(.horizontal, 8)
@@ -27,7 +31,7 @@ struct StatusLineView: View {
     }
 
     @ViewBuilder
-    private func chipRow(items: [StatusLineItem], data: StatusLineData) -> some View {
+    private func chipRow(items: [StatusLineItem], data: StatusLineData, maxCount: Int) -> some View {
         switch config.rowAlignment {
         case .leading:
             HStack(spacing: 12) {
@@ -41,6 +45,10 @@ struct StatusLineView: View {
                 ForEach(items) { item in
                     chipView(item: item, data: data)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                ForEach(0..<(maxCount - items.count), id: \.self) { _ in
+                    Spacer()
+                        .frame(maxWidth: .infinity)
                 }
             }
         }

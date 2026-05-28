@@ -195,14 +195,14 @@ struct StatusLineConfig: Codable, Equatable {
                 return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
             }
         rows = [StatusLineRow(items: defaultItems)]
-        chipLabelStyle = .symbolOnly
-        rowAlignment = .leading
+        chipLabelStyle = .labelOnly
+        rowAlignment = .spaceBetween
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .symbolOnly
-        rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .leading
+        chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .labelOnly
+        rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows
