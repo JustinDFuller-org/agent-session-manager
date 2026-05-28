@@ -51,6 +51,11 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(autoSessionNameToggle)
         XCTAssertTrue(autoSessionNameToggle.exists)
 
+        // Shell picker is in General (not CLI Tools)
+        let shellPicker = app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
+        waitFor(shellPicker)
+        XCTAssertTrue(shellPicker.exists, "Shell picker should exist under General tab")
+
         // ── Notifications tab ────────────────────────────────────────────────
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
@@ -154,6 +159,60 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertNotEqual(nameBefore, nameAfter, "Profile order should swap after move-down")
 
         verifyTracingAndDashboard()
+    }
+
+    func testCLIToolsEnableRevealsOptions() {
+        app.typeKey(",", modifierFlags: .command)
+
+        let toolsTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-tools").firstMatch
+        waitFor(toolsTab)
+        toolsTab.click()
+
+        // Shell picker and detect button must not appear in CLI Tools
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
+                .waitForExistence(timeout: 1),
+            "Shell picker should not exist under CLI Tools tab"
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "settings-detect-tools-button").firstMatch
+                .waitForExistence(timeout: 1),
+            "Detect Installed Tools button should not exist anywhere in Settings"
+        )
+
+        // All four CLIs should appear in the picker regardless of enabled state
+        let codexSegment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Codex'")).firstMatch
+        waitFor(codexSegment)
+        codexSegment.click()
+
+        // Codex is disabled by default — enable toggle should be off, options hidden
+        let codexEnableToggle = app.checkBoxes["settings-tool-enable-toggle-codex"]
+        waitFor(codexEnableToggle)
+        XCTAssertEqual(codexEnableToggle.value as? Int, 0, "Codex enable toggle should be off by default")
+
+        XCTAssertFalse(
+            app.staticTexts["Not Enabled"].waitForExistence(timeout: 1),
+            "Option sections should not appear while Codex is disabled"
+        )
+
+        // Enable Codex — option sections should appear
+        codexEnableToggle.click()
+        XCTAssertEqual(codexEnableToggle.value as? Int, 1, "Codex enable toggle should be on after click")
+
+        let notEnabledSection = app.staticTexts["Not Enabled"]
+        waitFor(notEnabledSection)
+        XCTAssertTrue(notEnabledSection.exists, "Option sections should appear after enabling Codex")
+
+        // Disable Codex again — options should disappear
+        codexEnableToggle.click()
+        XCTAssertEqual(codexEnableToggle.value as? Int, 0, "Codex enable toggle should be off after second click")
+
+        XCTAssertFalse(
+            app.staticTexts["Not Enabled"].waitForExistence(timeout: 1),
+            "Option sections should disappear after disabling Codex"
+        )
     }
 
     private func verifyTracingAndDashboard() {

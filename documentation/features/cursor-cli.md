@@ -28,7 +28,7 @@ The pane launches `cursor` in the tab's directory with any configured CLI flags 
 
 ## Configuring CLI Flags
 
-Cursor-specific flags can be enabled or disabled in **Settings → CLI Options → Cursor**. All flags are hidden by default; enable the ones you use frequently so they appear as toggles in the New Pane sheet.
+Cursor-specific flags can be enabled or disabled in **Settings → CLI Tools → Cursor**. Enable Cursor first, then configure which flags appear as toggles in the New Pane sheet.
 
 ### Available Flags
 

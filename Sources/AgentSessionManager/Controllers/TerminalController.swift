@@ -104,6 +104,7 @@ final class TerminalController: NSObject {
     var pendingCommand: String?
     var pendingDirectory: String?
     var pendingEnvironment: [String]?
+    var pendingShell: String?
     @ObservationIgnored var onBell: (() -> Void)?
 
     enum ProcessState: Equatable {
@@ -122,7 +123,7 @@ final class TerminalController: NSObject {
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
     func startProcess() {
-        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        let shell = pendingShell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         if let cmd = pendingCommand {
             // Args evolution:
             // - Removed -l (login shell) because it causes zsh to source /etc/zprofile,

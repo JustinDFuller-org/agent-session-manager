@@ -28,7 +28,7 @@ The pane launches `codex` in the tab's directory with any configured CLI flags a
 
 ## Configuring CLI Flags
 
-Codex-specific flags can be enabled or disabled in **Settings → CLI Options → Codex**. All flags are hidden by default; enable the ones you use frequently so they appear as toggles or text fields in the New Pane sheet.
+Codex-specific flags can be enabled or disabled in **Settings → CLI Tools → Codex**. Enable Codex first, then configure which flags appear as toggles or text fields in the New Pane sheet.
 
 ### Available Flags
 

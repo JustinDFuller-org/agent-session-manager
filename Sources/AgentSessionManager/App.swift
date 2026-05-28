@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var showRefreshSheet = false
     @State private var paneToRefresh: Pane?
     @State private var showRefreshSettingsSheet = false
+    @State private var showOnboarding = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -82,6 +83,8 @@ struct ContentView: View {
                 SettingsPersistence.restoreProfiles(into: appSettings)
                 SettingsPersistence.restoreSessionNameSettings(into: appSettings)
                 SettingsPersistence.restoreTracingSettings(into: appSettings)
+                SettingsPersistence.restoreShellSettings(into: appSettings)
+                SettingsPersistence.restoreOnboarding(into: appSettings)
                 TracingService.shared.configure(from: appSettings)
                 SessionPersistence.restore(into: appState, appSettings: appSettings)
                 await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
@@ -90,6 +93,11 @@ struct ContentView: View {
             if AgentSessionManagerApp.shouldSimulateBannerClick {
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 MacNotificationCoordinator.shared.simulateLegacyNotificationActivationForUITesting()
+            }
+            if !AgentSessionManagerApp.isUITesting
+                || CommandLine.arguments.contains("--uitesting-show-onboarding")
+            {
+                showOnboarding = !appSettings.hasCompletedOnboarding
             }
         }
         .onChange(of: appState.tabs.count) { SessionPersistence.save(appState: appState) }
@@ -102,7 +110,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openShellHere)) { _ in
             guard let tab = appState.activeTab else { return }
-            tab.openShellPane(activePane: appState.activePane)
+            tab.openShellPane(activePane: appState.activePane, appSettings: appSettings)
         }
         .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
             closeActiveTab()
@@ -129,6 +137,10 @@ struct ContentView: View {
                 onRefreshPane: refreshActivePane
             )
         )
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingWizardView()
+                .environment(appSettings)
+        }
         .sheet(isPresented: $showingNewTab) {
             NewTabSheet()
         }

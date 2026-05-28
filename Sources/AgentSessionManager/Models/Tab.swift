@@ -502,7 +502,8 @@ final class Tab: Identifiable {
         id: UUID? = nil,
         extraEnvVars: [String: String] = [:],
         profileID: UUID? = nil,
-        statusLineConfigOverride: StatusLineConfig? = nil
+        statusLineConfigOverride: StatusLineConfig? = nil,
+        appSettings: AppSettings? = nil
     ) -> Pane {
         if let wd = worktreeDirectory {
             TracingService.shared.record(
@@ -535,6 +536,7 @@ final class Tab: Identifiable {
             let cwd = worktreeDirectory?.path ?? directory.path
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
+            controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
             switch cliType {
             case .shell:
@@ -591,6 +593,7 @@ final class Tab: Identifiable {
         new.pendingCommand = old.pendingCommand
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = old.pendingEnvironment
+        new.pendingShell = old.pendingShell
         old.terminate()
         pane.terminalController = new
         pane.restartToken = UUID()
@@ -603,6 +606,7 @@ final class Tab: Identifiable {
         new.pendingCommand = Tab.injectContinueFlag(into: old.pendingCommand ?? "")
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        new.pendingShell = old.pendingShell
         old.terminate()
         pane.statusLineMonitor?.stop()
         let cwd = new.pendingDirectory ?? directory.path
@@ -621,7 +625,8 @@ final class Tab: Identifiable {
 
     /// Refreshes a pane with a fresh environment and new CLI args (from the settings sheet).
     func refreshPaneWithArgs(
-        _ pane: Pane, extraArgs: [String], cliType: CLIType, extraEnvVars: [String: String] = [:]
+        _ pane: Pane, extraArgs: [String], cliType: CLIType, extraEnvVars: [String: String] = [:],
+        appSettings: AppSettings? = nil
     ) {
         guard let old = pane.terminalController else { return }
         old.terminate()
@@ -632,6 +637,7 @@ final class Tab: Identifiable {
         let controller = TerminalController()
         controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
         controller.pendingDirectory = cwd
+        controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
         switch cliType {
         case .shell:
@@ -684,6 +690,7 @@ final class Tab: Identifiable {
         new.pendingCommand = nil
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = old.pendingEnvironment
+        new.pendingShell = old.pendingShell
         old.terminate()
         pane.statusLineMonitor?.stop()
         pane.statusLineMonitor = nil
@@ -693,12 +700,13 @@ final class Tab: Identifiable {
     }
 
     /// Opens a new plain shell pane in this tab, in the same working directory as the active pane.
-    func openShellPane(activePane: Pane?) {
+    func openShellPane(activePane: Pane?, appSettings: AppSettings? = nil) {
         let cwd = activePane?.terminalController?.pendingDirectory
         addPane(
             name: "shell",
             cliType: .shell,
-            worktreeDirectory: cwd.map { URL(filePath: $0) }
+            worktreeDirectory: cwd.map { URL(filePath: $0) },
+            appSettings: appSettings
         )
     }
 
@@ -797,7 +805,8 @@ extension Tab {
         managed: Bool,
         effectiveExtraArgs: [String],
         extraEnvVars: [String: String],
-        statusLineConfigOverride: StatusLineConfig?
+        statusLineConfigOverride: StatusLineConfig?,
+        appSettings: AppSettings? = nil
     ) {
         pane.name = resolved.paneTitle
         pane.worktreeDirectory = resolved.processDirectory
@@ -818,6 +827,7 @@ extension Tab {
             let cwd = resolved.processDirectory.path
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
+            controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
             switch pane.cliType {
             case .shell:

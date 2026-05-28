@@ -126,6 +126,9 @@ final class AppSettings {
     var exitBehavior: ExitBehavior = .prompt
     var profiles: [Profile] = []
     var autoSetSessionName: Bool = true
+    /// Persisted shell path; empty string means auto-detect from $SHELL.
+    var preferredShell: String = ""
+    var hasCompletedOnboarding: Bool = false
 
     nonisolated static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
 
@@ -153,5 +156,10 @@ final class AppSettings {
 
     func setActive(_ tool: CLIType, _ active: Bool) {
         if active { activeTools.insert(tool.rawValue) } else { activeTools.remove(tool.rawValue) }
+    }
+
+    /// User-facing CLI types currently enabled in Tools, in canonical `CLIType.allCases` order.
+    var activeCLITypes: [CLIType] {
+        CLIType.allCases.filter { isActive($0) }
     }
 }

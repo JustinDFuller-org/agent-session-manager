@@ -4,14 +4,13 @@ The Settings window uses a **sidebar navigation** layout (Xcode-style) rather th
 
 ## Sections
 
-All nine sections are enumerated in `SettingsSection` (`SettingsView.swift`). Each case carries a `title` string and an SF Symbols `icon` name that match the original tab labels verbatim:
+All eight sections are enumerated in `SettingsSection` (`SettingsView.swift`). Each case carries a `title` string and an SF Symbols `icon` name:
 
 | Case | Title | Icon |
 |------|-------|------|
 | `.general` | General | `gear` |
 | `.profiles` | Profiles | `person.crop.rectangle.stack` |
-| `.tools` | Tools | `wrench.and.screwdriver` |
-| `.cliOptions` | CLI Options | `terminal` |
+| `.tools` | CLI Tools | `wrench.and.screwdriver` |
 | `.worktrees` | Worktrees | `folder.badge.gearshape` |
 | `.shortcuts` | Shortcuts | `keyboard` |
 | `.statusLine` | Status Line | `chart.bar` |
@@ -20,7 +19,7 @@ All nine sections are enumerated in `SettingsSection` (`SettingsView.swift`). Ea
 
 ## Accessibility identifiers
 
-Each sidebar row carries the accessibility identifier `settings-sidebar-<rawValue>`, where `rawValue` is the kebab-case enum raw value (e.g. `settings-sidebar-cli-options`). UI tests use `app.descendants(matching: .any).matching(identifier: "settings-sidebar-<rawValue>").firstMatch` to navigate sections.
+Each sidebar row carries the accessibility identifier `settings-sidebar-<rawValue>`, where `rawValue` is the kebab-case enum raw value (e.g. `settings-sidebar-tools`). UI tests use `app.descendants(matching: .any).matching(identifier: "settings-sidebar-<rawValue>").firstMatch` to navigate sections.
 
 ## Window resizability
 

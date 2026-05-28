@@ -705,6 +705,36 @@ final class AppSettingsDefaultBranchTests: XCTestCase {
 }
 
 @MainActor
+final class AppSettingsActiveCLITypesTests: XCTestCase {
+    func testDefaultActiveCLITypes() {
+        let settings = AppSettings()
+        XCTAssertEqual(settings.activeCLITypes, [.claude])
+    }
+
+    func testAllEnabledActiveCLITypes() {
+        let settings = AppSettings()
+        settings.setActive(.codex, true)
+        settings.setActive(.cursor, true)
+        settings.setActive(.opencode, true)
+        XCTAssertEqual(settings.activeCLITypes, [.claude, .codex, .cursor, .opencode])
+    }
+
+    func testSubsetActiveCLITypesCanonicalOrder() {
+        let settings = AppSettings()
+        settings.setActive(.claude, false)
+        settings.setActive(.codex, true)
+        settings.setActive(.cursor, true)
+        XCTAssertEqual(settings.activeCLITypes, [.codex, .cursor])
+    }
+
+    func testEmptyActiveCLITypes() {
+        let settings = AppSettings()
+        settings.setActive(.claude, false)
+        XCTAssertEqual(settings.activeCLITypes, [])
+    }
+}
+
+@MainActor
 final class AppSettingsActiveToolsTests: XCTestCase {
     func testClaudeActiveByDefault() {
         let settings = AppSettings()

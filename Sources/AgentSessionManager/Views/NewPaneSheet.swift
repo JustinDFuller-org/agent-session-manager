@@ -429,7 +429,8 @@ struct NewPaneSheet: View {
 
         if let pane = refreshingPane {
             tab.refreshPaneWithArgs(
-                pane, extraArgs: extraArgs, cliType: selectedCLIType, extraEnvVars: extraEnvVars)
+                pane, extraArgs: extraArgs, cliType: selectedCLIType, extraEnvVars: extraEnvVars,
+                appSettings: appSettings)
             pane.profileID = selectedProfileID
             resetForm()
             dismiss()
@@ -525,7 +526,8 @@ struct NewPaneSheet: View {
                         managed: managed,
                         effectiveExtraArgs: effectiveExtraArgs,
                         extraEnvVars: extraEnvVars,
-                        statusLineConfigOverride: statusLineOverride
+                        statusLineConfigOverride: statusLineOverride,
+                        appSettings: appSettings
                     )
                     SessionPersistence.save(appState: appState)
                 }
