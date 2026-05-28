@@ -108,7 +108,6 @@ struct StatusLineConfig: Codable, Equatable {
         "agentName": ("Agent", "person.crop.circle"),
         "sessionName": ("Session Name", "tag"),
         "worktreeBranch": ("Worktree Branch", "arrow.branch"),
-        "gitWorktree": ("Git Worktree", "internaldrive"),
         "linesAdded": ("Lines Added", "plus.square"),
         "linesRemoved": ("Lines Removed", "minus.square"),
         "duration": ("Duration", "clock"),
@@ -132,10 +131,11 @@ struct StatusLineConfig: Codable, Equatable {
         // Agnostic — populated by git queries and process tracking
         "worktree": .all,
         "worktreeBranch": .all,
-        "gitWorktree": .all,
         "duration": .all,
         "version": .all,
         "pr": .all,
+        "linesAdded": .all,
+        "linesRemoved": .all,
         // Model — Claude, OpenCode, and Cursor (via afterAgentResponse hook)
         "model": .all,
         // Claude + OpenCode — populated by both via their respective APIs
@@ -149,8 +149,6 @@ struct StatusLineConfig: Codable, Equatable {
         "vimMode": .claudeOnly,
         "agentName": .claudeOnly,
         "sessionName": .claudeOnly,
-        "linesAdded": .claudeOnly,
-        "linesRemoved": .claudeOnly,
         "contextRemaining": .claudeOnly,
         "rate5h": .claudeOnly,
         "rate7d": .claudeOnly,
@@ -167,7 +165,7 @@ struct StatusLineConfig: Codable, Equatable {
 
     static let itemOrder: [String] = [
         "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
-        "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
+        "agentName", "sessionName", "worktreeBranch", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
         "sessionStatus", "openCodeMode",
@@ -205,7 +203,17 @@ struct StatusLineConfig: Codable, Equatable {
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
-            rows = savedRows
+            rows = savedRows.enumerated().map { rowIndex, row in
+                var mutableRow = row
+                mutableRow.items = row.items.enumerated().compactMap { itemIndex, item in
+                    guard item.id == "gitWorktree" else { return item }
+                    TracingService.shared.record(
+                        "statusline.migration.gitworktree_dropped",
+                        attributes: ["row_index": "\(rowIndex)", "position": "\(itemIndex)"])
+                    return nil
+                }
+                return mutableRow
+            }
         } else if let legacyItems = try container.decodeIfPresent([LegacyStatusLineItem].self, forKey: .items) {
             let visibleItems =
                 legacyItems
@@ -439,10 +447,10 @@ struct StatusLineData: Codable {
     }
 
     let model: Model?
-    let cost: Cost?
+    var cost: Cost?
     let contextWindow: ContextWindow?
     let rateLimits: RateLimits?
-    let worktree: Worktree?
+    var worktree: Worktree?
     let workspace: Workspace?
     let effort: Effort?
     let thinking: Thinking?

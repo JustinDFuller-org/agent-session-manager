@@ -156,14 +156,15 @@ final class CursorDataProvider: StatusLineDataProvider {
             let branch = await self.runShell("git branch --show-current 2>/dev/null")?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let wd = self.workingDirectory
+            let gitStats = await GitDiffStats.compute(in: wd)
 
             let data = StatusLineData(
                 model: self.lastHookModel,
                 cost: StatusLineData.Cost(
                     totalCostUsd: nil,
                     totalDurationMs: self.currentDurationMs,
-                    totalLinesAdded: nil,
-                    totalLinesRemoved: nil
+                    totalLinesAdded: gitStats?.added,
+                    totalLinesRemoved: gitStats?.removed
                 ),
                 contextWindow: nil,
                 rateLimits: nil,

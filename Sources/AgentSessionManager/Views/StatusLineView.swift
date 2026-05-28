@@ -208,8 +208,6 @@ struct StatusLineView: View {
             return data.sessionName ?? "—"
         case "worktreeBranch":
             return data.worktree?.branch ?? "—"
-        case "gitWorktree":
-            return data.workspace?.gitWorktree ?? "—"
         case "linesAdded":
             return "+\(data.cost?.totalLinesAdded ?? 0)"
         case "linesRemoved":

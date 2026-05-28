@@ -19,7 +19,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 28)
+        XCTAssertEqual(StatusLineConfig.allItems.count, 27)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -151,17 +151,59 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testAgnosticItemsAreCorrect() {
         let agnosticIds: Set<String> = [
-            "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "profileName",
+            "worktree", "worktreeBranch", "duration", "version", "pr", "profileName",
+            "linesAdded", "linesRemoved",
         ]
         for id in agnosticIds {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .all, "\(id) should be .all")
         }
     }
 
+    func testGitWorktreeIsAbsent() {
+        XCTAssertNil(StatusLineConfig.itemMetadata["gitWorktree"], "gitWorktree must not appear in itemMetadata")
+        XCTAssertNil(StatusLineConfig.itemAvailability["gitWorktree"], "gitWorktree must not appear in itemAvailability")
+        XCTAssertFalse(StatusLineConfig.itemOrder.contains("gitWorktree"), "gitWorktree must not appear in itemOrder")
+    }
+
+    func testLinesAddedAndRemovedAreAll() {
+        XCTAssertEqual(StatusLineConfig.itemAvailability["linesAdded"], .all)
+        XCTAssertEqual(StatusLineConfig.itemAvailability["linesRemoved"], .all)
+    }
+
+    func testMigrationDropsGitWorktreeRow() throws {
+        let json = Data(
+            """
+            {
+                "rows": [
+                    {
+                        "id": "11111111-1111-1111-1111-111111111111",
+                        "items": [
+                            {"id": "model", "label": "Model", "sfSymbol": "cpu"},
+                            {"id": "gitWorktree", "label": "Git Worktree", "sfSymbol": "internaldrive"},
+                            {"id": "worktree", "label": "Worktree", "sfSymbol": "folder.badge.gearshape"}
+                        ]
+                    }
+                ],
+                "chipLabelStyle": "labelOnly",
+                "rowAlignment": "leading"
+            }
+            """.utf8)
+        TracingService.shared.enableTestCapture()
+        defer { TracingService.shared.resetForTesting() }
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertFalse(config.usedItemIDs.contains("gitWorktree"), "gitWorktree must be migrated out")
+        XCTAssertTrue(config.usedItemIDs.contains("model"))
+        XCTAssertTrue(config.usedItemIDs.contains("worktree"))
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(
+            events.contains { $0.name == "statusline.migration.gitworktree_dropped" },
+            "Expected migration trace event")
+    }
+
     func testClaudeOnlyItemsAreAllOtherItems() {
         let agnosticIds: Set<String> = [
-            "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "model",
-            "profileName",
+            "worktree", "worktreeBranch", "duration", "version", "pr", "model",
+            "profileName", "linesAdded", "linesRemoved",
         ]
         let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
         let claudeOrOpencodeIds: Set<String> = ["cost", "inputTokens", "outputTokens"]
@@ -192,8 +234,8 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testSupportedByNonClaudeReturnsOnlyAgnostic() {
         let agnosticIds: Set<String> = [
-            "worktree", "worktreeBranch", "gitWorktree", "duration", "version", "pr", "model",
-            "profileName",
+            "worktree", "worktreeBranch", "duration", "version", "pr", "model",
+            "profileName", "linesAdded", "linesRemoved",
         ]
         let opencodeIds: Set<String> = [
             "sessionStatus", "openCodeMode", "cost", "inputTokens", "outputTokens",

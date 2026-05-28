@@ -29,8 +29,27 @@ final class TracingService: @unchecked Sendable {
     private let lock = NSLock()
     private var _isEnabled = false
     private var _tracer: (any Tracer)?
+    private var _testCaptureEnabled = false
+    private var _recordedEventsForTesting: [(name: String, attributes: [String: String])] = []
 
     private init() {}
+
+    // MARK: - Test Capture
+
+    var recordedEventsForTesting: [(name: String, attributes: [String: String])] {
+        lock.withLock { _recordedEventsForTesting }
+    }
+
+    func enableTestCapture() {
+        lock.withLock { _testCaptureEnabled = true }
+    }
+
+    func resetForTesting() {
+        lock.withLock {
+            _testCaptureEnabled = false
+            _recordedEventsForTesting = []
+        }
+    }
 
     var isEnabled: Bool {
         lock.withLock { _isEnabled }
@@ -102,7 +121,11 @@ final class TracingService: @unchecked Sendable {
     /// Emits a zero-duration span (instantaneous event). Pass a `parent` handle to make
     /// this span a child of an in-progress trace.
     func record(_ name: String, parent: SpanHandle? = nil, attributes: [String: String] = [:]) {
-        guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return }
+        let (tracer, captureEnabled) = lock.withLock { (_isEnabled ? _tracer : nil, _testCaptureEnabled) }
+        if captureEnabled {
+            lock.withLock { _recordedEventsForTesting.append((name: name, attributes: attributes)) }
+        }
+        guard let tracer else { return }
         let builder = tracer.spanBuilder(spanName: name)
         if let parent { _ = builder.setParent(parent.span.context) }
         let span = builder.startSpan()

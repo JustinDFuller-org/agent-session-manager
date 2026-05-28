@@ -39,6 +39,7 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
         let branch = await runShell("git branch --show-current 2>/dev/null")?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let wd = workingDirectory
+        let gitStats = await GitDiffStats.compute(in: wd)
 
         var modelInfo: StatusLineData.Model?
         var contextWindow: StatusLineData.ContextWindow?
@@ -61,8 +62,8 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
                 costInfo = StatusLineData.Cost(
                     totalCostUsd: result.totalCost,
                     totalDurationMs: currentDurationMs,
-                    totalLinesAdded: nil,
-                    totalLinesRemoved: nil
+                    totalLinesAdded: gitStats?.added,
+                    totalLinesRemoved: gitStats?.removed
                 )
             }
             if let modelID = result.modelID {
@@ -80,8 +81,8 @@ final class OpenCodeDataProvider: StatusLineDataProvider {
                 ?? StatusLineData.Cost(
                     totalCostUsd: nil,
                     totalDurationMs: currentDurationMs,
-                    totalLinesAdded: nil,
-                    totalLinesRemoved: nil
+                    totalLinesAdded: gitStats?.added,
+                    totalLinesRemoved: gitStats?.removed
                 ),
             contextWindow: contextWindow,
             rateLimits: nil,

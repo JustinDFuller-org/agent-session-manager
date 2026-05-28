@@ -1,21 +1,25 @@
 # OpenCode Status Line
 
-Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. For OpenCode panes, the app queries the OpenCode local HTTP server to populate richer metrics than the baseline (version, branch, duration, PR).
+> For the general status line feature (item catalog, invariants, row configuration), see [status-line.md](status-line.md).
 
-## What Is Shown
+Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. For OpenCode panes, the app queries the OpenCode SQLite database to populate richer metrics than the baseline (version, worktree, branch, duration, lines added/removed, PR).
 
-When OpenCode is running and its server is reachable, the following status line items are available in addition to the tool-agnostic fields (version, worktree, branch, duration, PR):
+## OpenCode-Specific Items
 
-| Item | Description |
-|---|---|
-| **Model** | The provider and model ID (e.g., `anthropic/claude-sonnet-4-5`) |
-| **Input Tokens** | Total input tokens across all messages in the active session |
-| **Output Tokens** | Total output tokens across all messages in the active session |
-| **Cost** | Total cost in USD across all messages in the active session |
-| **Status** | Current session state: `Idle`, `Busy`, or `Retry` |
-| **Mode** | The mode of the latest message (e.g., `code`, `ask`, `architect`) |
+The following items are exclusive to OpenCode panes or shared with Claude Code:
 
-**Model**, **Input Tokens**, **Output Tokens**, and **Cost** are marked **Claude + OpenCode** in Settings → Status Line — they work in both Claude Code and OpenCode panes. **Status** and **Mode** are marked **OpenCode only** — they are exclusive to OpenCode.
+| Item | Availability | Description |
+|---|---|---|
+| **Model** | Claude + OpenCode | The provider and model ID (e.g., `anthropic/claude-sonnet-4-5`) |
+| **Input Tokens** | Claude + OpenCode | Total input tokens across all messages in the active session |
+| **Output Tokens** | Claude + OpenCode | Total output tokens across all messages in the active session |
+| **Cost** | Claude + OpenCode | Total cost in USD across all messages in the active session |
+| **Status** | OpenCode only | Current session state: `Idle`, `Busy`, or `Retry` |
+| **Mode** | OpenCode only | The mode of the latest message (e.g., `code`, `ask`, `architect`) |
+
+Items marked **Claude + OpenCode** (indigo badge) work in both Claude Code and OpenCode panes. Items marked **OpenCode only** (purple badge) are exclusive to OpenCode.
+
+**Lines Added** and **Lines Removed** are app-computed from `git diff --shortstat HEAD` for all pane types including OpenCode — see [status-line.md](status-line.md#i3-lines-addedremoved-means-vs-head).
 
 ## How It Works
 

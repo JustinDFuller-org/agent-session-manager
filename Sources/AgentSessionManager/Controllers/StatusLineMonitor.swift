@@ -32,6 +32,8 @@ final class StatusLineMonitor {
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
     private var agnosticProvider: (any StatusLineDataProvider)?
+    private var gitDiffTimer: Timer?
+    private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: (() -> Void)?
@@ -101,16 +103,23 @@ final class StatusLineMonitor {
                     let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
                 else { return }
                 Task { @MainActor [weak self] in
-                    var merged = parsed
-                    if let existing = self?.currentData?.pr {
-                        merged.pr = existing
+                    guard let self else { return }
+                    var enforced = parsed
+                    if let existing = self.currentData?.pr {
+                        enforced.pr = existing
                     }
-                    self?.currentData = merged
+                    self.applyI1Enforcement(to: &enforced)
+                    self.applyI3Enforcement(to: &enforced)
+                    self.currentData = enforced
                 }
             }
             src.setCancelHandler { close(fd) }
             src.resume()
             source = src
+
+            if let cwd = workingDirectory {
+                scheduleGitDiffPolling(workingDirectory: cwd)
+            }
 
             restartAttentionWatcherIfEligible()
         } else {
@@ -151,6 +160,8 @@ final class StatusLineMonitor {
     func stop() {
         source?.cancel()
         source = nil
+        gitDiffTimer?.invalidate()
+        gitDiffTimer = nil
         TracingService.shared.record(
             "statusline.monitor.stopped",
             attributes: ["pane.name": String(paneID.uuidString.prefix(8))])
@@ -163,6 +174,80 @@ final class StatusLineMonitor {
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
+    }
+
+    private func scheduleGitDiffPolling(workingDirectory: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            if let stats = await GitDiffStats.compute(in: workingDirectory) {
+                await MainActor.run { self.cachedGitStats = stats }
+            }
+        }
+        gitDiffTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task {
+                if let stats = await GitDiffStats.compute(in: workingDirectory) {
+                    await MainActor.run { self.cachedGitStats = stats }
+                }
+            }
+        }
+    }
+
+    private func applyI1Enforcement(to data: inout StatusLineData) {
+        guard let cwd = workingDirectory else { return }
+        let wantedName = URL(filePath: cwd).lastPathComponent
+        let pane = String(paneID.uuidString.prefix(8))
+
+        if let reported = data.worktree?.name, reported != wantedName {
+            TracingService.shared.record(
+                "statusline.worktree.name_mismatch",
+                attributes: [
+                    "pane.name": pane,
+                    "field": "worktree.name",
+                    "computed": wantedName,
+                    "reported": reported,
+                ])
+        }
+        if let reported = data.workspace?.gitWorktree, reported != cwd,
+            URL(filePath: reported).lastPathComponent != wantedName
+        {
+            TracingService.shared.record(
+                "statusline.worktree.name_mismatch",
+                attributes: [
+                    "pane.name": pane,
+                    "field": "workspace.git_worktree",
+                    "computed": wantedName,
+                    "reported": reported,
+                ])
+        }
+        data.worktree = StatusLineData.Worktree(name: wantedName, branch: data.worktree?.branch)
+    }
+
+    private func applyI3Enforcement(to data: inout StatusLineData) {
+        let pane = String(paneID.uuidString.prefix(8))
+        let computedAdded = cachedGitStats.added
+        let computedRemoved = cachedGitStats.removed
+
+        if let reportedAdded = data.cost?.totalLinesAdded,
+            let reportedRemoved = data.cost?.totalLinesRemoved,
+            (reportedAdded != computedAdded || reportedRemoved != computedRemoved)
+        {
+            TracingService.shared.record(
+                "statusline.lines.source_mismatch",
+                attributes: [
+                    "pane.name": pane,
+                    "computed_added": "\(computedAdded)",
+                    "reported_added": "\(reportedAdded)",
+                    "computed_removed": "\(computedRemoved)",
+                    "reported_removed": "\(reportedRemoved)",
+                ])
+        }
+        data.cost = StatusLineData.Cost(
+            totalCostUsd: data.cost?.totalCostUsd,
+            totalDurationMs: data.cost?.totalDurationMs,
+            totalLinesAdded: computedAdded,
+            totalLinesRemoved: computedRemoved
+        )
     }
 
     private func writeSettingsFile() {
@@ -305,6 +390,24 @@ final class StatusLineMonitor {
     @MainActor
     func simulatePRUpdateForTesting(_ data: Data) {
         applyPROutputIfValid(data)
+    }
+
+    /// For testing only: directly invokes I1 enforcement on a mutable StatusLineData.
+    @MainActor
+    func testApplyI1Enforcement(to data: inout StatusLineData) {
+        applyI1Enforcement(to: &data)
+    }
+
+    /// For testing only: directly invokes I3 enforcement on a mutable StatusLineData.
+    @MainActor
+    func testApplyI3Enforcement(to data: inout StatusLineData) {
+        applyI3Enforcement(to: &data)
+    }
+
+    /// For testing only: injects cached git stats.
+    @MainActor
+    func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
+        cachedGitStats = stats
     }
 
     /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus optional `hooks`) for tests and tooling.
