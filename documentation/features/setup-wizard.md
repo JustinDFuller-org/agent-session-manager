@@ -29,7 +29,7 @@ Both files are written under the Application Support subdirectory (`agent-sessio
 
 ## Re-running detection / changing the shell
 
-In **Settings ▸ CLI Tools**, the **Shell** section exposes the same picker. The **Detect Installed Tools** button re-runs detection with the current shell preference and additively enables any newly found tools.
+In **Settings ▸ General**, the **Shell** section exposes the same picker to change the preferred shell after onboarding. Tool auto-detection runs only during the onboarding wizard; there is no persistent "Detect Installed Tools" button in Settings.
 
 ## Key classes
 

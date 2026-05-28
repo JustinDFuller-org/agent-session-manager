@@ -139,6 +139,7 @@ struct SettingRow<Control: View>: View {
 
 private struct GeneralContent: View {
     @Environment(AppSettings.self) private var appSettings
+    @State private var shellPickerSelection: String = ""
 
     var body: some View {
         @Bindable var appSettings = appSettings
@@ -243,16 +244,66 @@ private struct GeneralContent: View {
                     .accessibilityIdentifier("settings-scrollback-lines-field")
                 }
             }
+            Section("Shell") {
+                SettingRow(
+                    title: "shell",
+                    description:
+                        "Shell used to launch agents. Interactive mode (-i) loads PATH from shell init scripts (nvm, homebrew, etc.).",
+                    defaultValue: "Auto-detect"
+                ) {
+                    Picker("Shell", selection: $shellPickerSelection) {
+                        Text("Auto-detect (\(ShellResolver.detectedLoginShell()))").tag("")
+                        ForEach(ShellResolver.commonShells, id: \.self) { shell in
+                            Text(shell).tag(shell)
+                        }
+                        Text("Other\u{2026}").tag("__other__")
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 280)
+                    .accessibilityIdentifier("settings-shell-picker")
+                    .onChange(of: shellPickerSelection) {
+                        if shellPickerSelection != "__other__" {
+                            appSettings.preferredShell = shellPickerSelection
+                            SettingsPersistence.saveShellSettings(appSettings: appSettings)
+                        }
+                    }
+                }
+                if shellPickerSelection == "__other__" {
+                    SettingRow(
+                        title: "Custom Path",
+                        description: "Full path to the shell executable."
+                    ) {
+                        TextField("/bin/zsh", text: $appSettings.preferredShell)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(width: 280)
+                            .accessibilityIdentifier("settings-shell-custom-path-field")
+                            .onChange(of: appSettings.preferredShell) {
+                                SettingsPersistence.saveShellSettings(appSettings: appSettings)
+                            }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
+        .onAppear { initShellPickerSelection() }
+    }
+
+    private func initShellPickerSelection() {
+        let preferred = appSettings.preferredShell
+        if preferred.isEmpty {
+            shellPickerSelection = ""
+        } else if ShellResolver.commonShells.contains(preferred) {
+            shellPickerSelection = preferred
+        } else {
+            shellPickerSelection = "__other__"
+        }
     }
 }
 
 private struct ToolsContent: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var selectedTool: CLIType = .claude
-    @State private var shellPickerSelection: String = ""
-    @State private var isDetecting: Bool = false
 
     private var configurableTools: [CLIType] {
         CLIType.allCases.filter { $0 != .shell }
@@ -273,58 +324,6 @@ private struct ToolsContent: View {
             .padding(.bottom, 4)
 
             Form {
-                Section("Shell") {
-                    SettingRow(
-                        title: "shell",
-                        description:
-                            "Shell used to launch agents. Interactive mode (-i) loads PATH from shell init scripts (nvm, homebrew, etc.).",
-                        defaultValue: "Auto-detect"
-                    ) {
-                        Picker("Shell", selection: $shellPickerSelection) {
-                            Text("Auto-detect (\(ShellResolver.detectedLoginShell()))").tag("")
-                            ForEach(ShellResolver.commonShells, id: \.self) { shell in
-                                Text(shell).tag(shell)
-                            }
-                            Text("Other\u{2026}").tag("__other__")
-                        }
-                        .pickerStyle(.menu)
-                        .frame(width: 280)
-                        .accessibilityIdentifier("settings-shell-picker")
-                        .onChange(of: shellPickerSelection) {
-                            if shellPickerSelection != "__other__" {
-                                appSettings.preferredShell = shellPickerSelection
-                                SettingsPersistence.saveShellSettings(appSettings: appSettings)
-                            }
-                        }
-                    }
-                    if shellPickerSelection == "__other__" {
-                        SettingRow(
-                            title: "Custom Path",
-                            description: "Full path to the shell executable."
-                        ) {
-                            TextField("/bin/zsh", text: $appSettings.preferredShell)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                                .frame(width: 280)
-                                .accessibilityIdentifier("settings-shell-custom-path-field")
-                                .onChange(of: appSettings.preferredShell) {
-                                    SettingsPersistence.saveShellSettings(appSettings: appSettings)
-                                }
-                        }
-                    }
-                    HStack {
-                        Spacer()
-                        if isDetecting {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .padding(.trailing, 4)
-                        }
-                        Button("Detect Installed Tools") { detectTools() }
-                            .buttonStyle(.bordered)
-                            .disabled(isDetecting)
-                            .accessibilityIdentifier("settings-detect-tools-button")
-                    }
-                }
                 Section {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -360,31 +359,6 @@ private struct ToolsContent: View {
                 }
             }
             .formStyle(.grouped)
-        }
-        .onAppear { initShellPickerSelection() }
-    }
-
-    private func initShellPickerSelection() {
-        let preferred = appSettings.preferredShell
-        if preferred.isEmpty {
-            shellPickerSelection = ""
-        } else if ShellResolver.commonShells.contains(preferred) {
-            shellPickerSelection = preferred
-        } else {
-            shellPickerSelection = "__other__"
-        }
-    }
-
-    private func detectTools() {
-        isDetecting = true
-        let shell = ShellResolver.resolved(appSettings)
-        Task {
-            let found = await CLIToolDetector.detectInstalled(shell: shell)
-            for tool in found {
-                appSettings.setActive(tool, true)
-            }
-            SettingsPersistence.saveActiveTools(appSettings: appSettings)
-            isDetecting = false
         }
     }
 

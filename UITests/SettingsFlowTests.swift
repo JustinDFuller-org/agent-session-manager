@@ -51,6 +51,11 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(autoSessionNameToggle)
         XCTAssertTrue(autoSessionNameToggle.exists)
 
+        // Shell picker is in General (not CLI Tools)
+        let shellPicker = app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
+        waitFor(shellPicker)
+        XCTAssertTrue(shellPicker.exists, "Shell picker should exist under General tab")
+
         // ── Notifications tab ────────────────────────────────────────────────
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
@@ -163,6 +168,18 @@ final class SettingsFlowTests: BaseTestCase {
             .matching(identifier: "settings-sidebar-tools").firstMatch
         waitFor(toolsTab)
         toolsTab.click()
+
+        // Shell picker and detect button must not appear in CLI Tools
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
+                .waitForExistence(timeout: 1),
+            "Shell picker should not exist under CLI Tools tab"
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "settings-detect-tools-button").firstMatch
+                .waitForExistence(timeout: 1),
+            "Detect Installed Tools button should not exist anywhere in Settings"
+        )
 
         // All four CLIs should appear in the picker regardless of enabled state
         let codexSegment = app.descendants(matching: .any)
