@@ -66,11 +66,17 @@ Items in the Add Item dropdown are sorted by label using `localizedStandardCompa
 
 The `worktree` chip renders as `name • branch` when both values are available, or just `name` when branch is absent (computed by `StatusLineData.Worktree.chipText`). The old `worktreeBranch` item has been removed from the catalog. Saved configurations containing `worktreeBranch` rows are migrated on first decode: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped. The migration emits `statusline.migration.worktreebranch_merged`.
 
+## Defaults
+
+`StatusLineConfig()` (catalog default): single row — `model`, `worktree`, `cost`, `context`. Used when no saved config exists and when the onboarding wizard is skipped from the welcome step.
+
+`StatusLineConfig.wizardDefault()` (wizard default): three rows — Row 1: `pr`/`profileName`/`model`; Row 2: `context`/`contextRemaining`/`inputTokens`/`outputTokens`; Row 3: `worktree`/`linesAdded`/`linesRemoved`. Used exclusively by the onboarding wizard status line step and its Reset button.
+
 ## Key Files
 
 | File | Role |
 |------|------|
-| `Sources/.../Models/StatusLineConfig.swift` | Item catalog, availability, order, decoder migration |
+| `Sources/.../Models/StatusLineConfig.swift` | Item catalog, availability, order, decoder migration, `wizardDefault()` factory |
 | `Sources/.../Controllers/GitDiffStats.swift` | `git diff --shortstat HEAD` runner and parser |
 | `Sources/.../Controllers/StatusLineMonitor.swift` | I1/I3 enforcement for Claude panes, git diff polling |
 | `Sources/.../Controllers/ToolAgnosticDataProvider.swift` | Git stats for non-Claude/non-OpenCode panes |

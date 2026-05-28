@@ -195,6 +195,23 @@ struct StatusLineConfig: Codable, Equatable {
         rowAlignment = .spaceBetween
     }
 
+    static func wizardDefault() -> StatusLineConfig {
+        func item(_ id: String) -> StatusLineItem {
+            let meta = itemMetadata[id]!
+            return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
+        }
+        var config = StatusLineConfig()
+        config.chipLabelStyle = .labelOnly
+        config.rowAlignment = .spaceBetween
+        config.rows = [
+            StatusLineRow(items: [item("pr"), item("profileName"), item("model")]),
+            StatusLineRow(
+                items: [item("context"), item("contextRemaining"), item("inputTokens"), item("outputTokens")]),
+            StatusLineRow(items: [item("worktree"), item("linesAdded"), item("linesRemoved")]),
+        ]
+        return config
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .labelOnly

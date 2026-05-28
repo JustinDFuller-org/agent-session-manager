@@ -107,7 +107,7 @@ final class OnboardingWizardTests: BaseTestCase {
         forcedApp.launch()
         forcedApp.activate()
 
-        // Walk through: Welcome → Shell → Tools → Done
+        // Walk through: Welcome → Shell → Tools → Status Line → Save
         let setupButton = forcedApp.buttons["onboarding-setup-button"]
         XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
         setupButton.click()
@@ -120,7 +120,101 @@ final class OnboardingWizardTests: BaseTestCase {
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
         doneButton.click()
 
-        XCTAssertFalse(forcedApp.buttons["onboarding-done-button"].waitForExistence(timeout: 2))
+        let saveButton = forcedApp.buttons["onboarding-statusline-save-button"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5))
+        saveButton.click()
+
+        XCTAssertFalse(forcedApp.buttons["onboarding-statusline-save-button"].waitForExistence(timeout: 2))
+
+        forcedApp.terminate()
+    }
+
+    func testStatusLineStepAppearsAfterTools() {
+        app.terminate()
+        clearPersistedState()
+
+        let forcedApp = XCUIApplication()
+        forcedApp.launchArguments = [
+            "--uitesting", "--uitesting-skip-restore", "--uitesting-show-onboarding",
+        ]
+        forcedApp.launch()
+        forcedApp.activate()
+
+        let setupButton = forcedApp.buttons["onboarding-setup-button"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        setupButton.click()
+
+        let continueButton = forcedApp.buttons["onboarding-shell-continue-button"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 5))
+        continueButton.click()
+
+        let doneButton = forcedApp.buttons["onboarding-done-button"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        doneButton.click()
+
+        let skipButton = forcedApp.buttons["onboarding-statusline-skip-button"]
+        XCTAssertTrue(skipButton.waitForExistence(timeout: 5))
+
+        forcedApp.terminate()
+    }
+
+    func testWizardSkipStatusLineDismissesWizard() {
+        app.terminate()
+        clearPersistedState()
+
+        let forcedApp = XCUIApplication()
+        forcedApp.launchArguments = [
+            "--uitesting", "--uitesting-skip-restore", "--uitesting-show-onboarding",
+        ]
+        forcedApp.launch()
+        forcedApp.activate()
+
+        let setupButton = forcedApp.buttons["onboarding-setup-button"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        setupButton.click()
+
+        let continueButton = forcedApp.buttons["onboarding-shell-continue-button"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 5))
+        continueButton.click()
+
+        let doneButton = forcedApp.buttons["onboarding-done-button"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        doneButton.click()
+
+        let skipButton = forcedApp.buttons["onboarding-statusline-skip-button"]
+        XCTAssertTrue(skipButton.waitForExistence(timeout: 5))
+        skipButton.click()
+
+        XCTAssertFalse(forcedApp.buttons["onboarding-statusline-skip-button"].waitForExistence(timeout: 2))
+
+        forcedApp.terminate()
+    }
+
+    func testResetToDefaultButtonExists() {
+        app.terminate()
+        clearPersistedState()
+
+        let forcedApp = XCUIApplication()
+        forcedApp.launchArguments = [
+            "--uitesting", "--uitesting-skip-restore", "--uitesting-show-onboarding",
+        ]
+        forcedApp.launch()
+        forcedApp.activate()
+
+        let setupButton = forcedApp.buttons["onboarding-setup-button"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        setupButton.click()
+
+        let continueButton = forcedApp.buttons["onboarding-shell-continue-button"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 5))
+        continueButton.click()
+
+        let doneButton = forcedApp.buttons["onboarding-done-button"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        doneButton.click()
+
+        let resetButton = forcedApp.buttons["onboarding-statusline-reset-button"]
+        XCTAssertTrue(resetButton.waitForExistence(timeout: 5))
 
         forcedApp.terminate()
     }

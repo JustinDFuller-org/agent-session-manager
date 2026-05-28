@@ -57,6 +57,20 @@ Items in the Add Item dropdown are sorted by label using `localizedStandardCompa
 
 The `worktree` chip renders as `name • branch` when both values are available, or just `name` when branch is absent. The old `worktreeBranch` item, which duplicated the branch half of this fact, has been removed. Saved configurations containing `worktreeBranch` rows are migrated on first load: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped.
 
+## Onboarding
+
+On first launch the setup wizard presents a **Status Line** step (step 4 of 4) that pre-fills the wizard default layout:
+
+- Row 1: `pr`, `profileName`, `model`
+- Row 2: `context`, `contextRemaining`, `inputTokens`, `outputTokens`
+- Row 3: `worktree`, `linesAdded`, `linesRemoved`
+
+**Save** persists this config to `statusline-settings.json`. **Skip** writes an empty `rows` array, which renders no status bar. **Reset to Default** restores the three-row spec during the wizard session without saving.
+
+The wizard default (`StatusLineConfig.wizardDefault()`) is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default is unchanged and remains the fallback for code paths that skip the wizard (e.g. the welcome-step **Skip** button).
+
+See [setup-wizard.md](setup-wizard.md) for the full wizard flow.
+
 ## Configuring Rows
 
 1. Open **Settings → Status Line**
