@@ -5,46 +5,33 @@ description: "Commit, push, ensure a PR exists, capture screenshots, and attach 
 
 # Ship
 
-Commit, push, ensure a PR exists, capture screenshots, and attach them to the PR.
+This skill is a thin wrapper over `scripts/ship.sh`. Do not perform the steps the script performs — invoke the script and let it drive.
 
-## Step 1: Gather info
+## Step 1: Gather state
 
-Run these commands to understand current state:
+Run these in parallel:
 
 ```bash
 git status
 git diff HEAD
 git log --oneline -10
 git branch --show-current
+gh pr view --json url,state 2>/dev/null || true
 ```
 
-## Step 2: Commit
+## Step 2: Draft commit message (if needed)
 
-If there are no staged or unstaged changes, skip to Step 3.
-
-Stage all relevant changes (be specific — avoid `git add .` if sensitive files are present). Draft a conventional commit message in present tense that focuses on "why" over "what", following the repository's existing commit style. End the message with:
+If the working tree has staged or unstaged changes, draft a conventional-commit message in present tense that focuses on "why" over "what", following the repository's existing commit style. End the message with:
 
 ```
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ```
 
-Run the commit. The pre-commit hook runs unit tests, swift-format, and swiftlint — if it fails, fix the issue and recommit.
+Write it to `.ship-commit-msg` (gitignored).
 
-## Step 3: Push
+## Step 3: Draft PR title and body (if needed)
 
-```bash
-git push -u origin $(git branch --show-current)
-```
-
-Never force-push. The pre-push hook runs UI smoke tests — if it fails, fix the issue before retrying.
-
-## Step 4: Ensure a PR exists
-
-```bash
-gh pr view --json url,state 2>/dev/null || true
-```
-
-If no PR exists, create a draft PR using this body template:
+If no PR exists for the current branch, draft a PR title and body using this template:
 
 ```
 > [!NOTE]
@@ -65,26 +52,41 @@ One or two sentence overview.
 Screenshots go here instead of a comment
 ```
 
-Create it with:
+Write the body to `.ship-pr-body.md` (gitignored).
+
+## Step 4: Invoke the script
+
+Build the `bash scripts/ship.sh` invocation from what you gathered:
+
+- Include `--commit-msg-file .ship-commit-msg` only if there were changes to commit.
+- Include `--pr-title "..."` and `--pr-body-file .ship-pr-body.md` only if no PR existed.
+- Include `--screenshots-only` only if no commit is needed and a PR already exists.
+
+Example (commit + new PR):
 ```bash
-gh pr create --draft --title "<type>: brief summary" --body "<body>"
+bash scripts/ship.sh \
+  --commit-msg-file .ship-commit-msg \
+  --pr-title "feat: brief summary" \
+  --pr-body-file .ship-pr-body.md
 ```
 
-## Step 5: Capture and attach screenshots
-
+Example (already committed and PR exists):
 ```bash
-make pr-screenshots
+bash scripts/ship.sh --screenshots-only
 ```
 
-This runs both screenshot test classes, captures all 11 PNGs in `./screenshots/`, uploads them to the configured gist, and rewrites the `## Example` section of the PR body. It takes several minutes — the app must build and UI tests must run.
+## Step 5: Handle failure
+
+If the script exits non-zero, read the `INVARIANT VIOLATED:` line it printed. Investigate the named root cause — for example, if `build-screenshots` failed, read the Xcode test logs from `$RESULTS_PATH`. Fix the root cause, then re-invoke `scripts/ship.sh` with the same flags.
+
+**Do not** silently retry, bypass the invariant, or improvise an alternative path.
 
 ## Step 6: Report
 
-Print the PR URL and confirm which screenshots were attached. Note that `/ship` does not replace full `make test-ui-dev` verification.
+Print the PR URL the script printed on its final line.
 
 ## Rules
 
 - Never force-push
 - Never commit files that likely contain secrets (.env, credentials, keys)
-- If there are no changes to commit and the branch is already pushed, skip straight to Step 4
-- Do not deviate from the PR body template — the `## Example` anchor is required for the screenshot script
+- Never skip the script and perform steps by hand

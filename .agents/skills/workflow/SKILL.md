@@ -94,7 +94,11 @@ When a new settings file is added to the app, update it in **two places**:
 
 Screenshots are captured by `UITests/ScreenshotTests.swift` (normal flow) and `UITests/ScreenshotInjectedTests.swift` (state-injected views). The `make screenshots` target runs both classes; `make pr-screenshots` runs them and uploads to a gist, then rewrites the `## Example` section of the open PR.
 
-When adding or removing a screenshot, update **three places**:
+The `## Example` section is auto-generated from the PNGs actually produced — no manifest to keep in sync.
+
+When adding or removing a screenshot, update **one place**:
 1. `UITests/ScreenshotTests.swift` or `UITests/ScreenshotInjectedTests.swift` — add/remove the `screenshot(...)` call
-2. `Makefile` — if adding a new test class, add `-only-testing:AgentSessionManagerUITests/<ClassName>` to the `screenshots` target
-3. `scripts/pr-screenshots.sh` — add/remove the corresponding `![name](...)` entry in the `example_section` heredoc so the PR body stays in sync
+
+If adding a **new test class** (rare), also add `-only-testing:AgentSessionManagerUITests/<ClassName>` to the `screenshots` target in the `Makefile`.
+
+`scripts/ship.sh` verifies that the set of PNGs produced by `make screenshots` exactly matches the set of `screenshot(...)` calls in the UITest source files, and hard-fails with a diagnostic if they diverge.

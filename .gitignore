@@ -162,3 +162,7 @@ AgentSessionManager.xcodeproj/
 
 # UI test screenshots (committed per-PR via git add -f)
 screenshots/
+
+# Temporary files written by scripts/ship.sh
+.ship-commit-msg
+.ship-pr-body.md
