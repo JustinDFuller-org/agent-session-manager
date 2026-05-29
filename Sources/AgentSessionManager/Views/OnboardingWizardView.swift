@@ -8,6 +8,7 @@ struct OnboardingWizardView: View {
         case welcome
         case shell
         case tools
+        case statusLine
     }
 
     @State private var step: Step = .welcome
@@ -16,6 +17,7 @@ struct OnboardingWizardView: View {
     @State private var isDetecting: Bool = false
     @State private var checkedTools: Set<CLIType> = []
     @State private var detectionRan: Bool = false
+    @State private var draftConfig: StatusLineConfig = .wizardDefault()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,9 +28,11 @@ struct OnboardingWizardView: View {
                 shellStep
             case .tools:
                 toolsStep
+            case .statusLine:
+                statusLineStep
             }
         }
-        .frame(width: 480)
+        .frame(width: 520)
         .onChange(of: step) { _, newStep in
             if newStep == .tools, !detectionRan {
                 Task { await runDetection() }
@@ -159,10 +163,70 @@ struct OnboardingWizardView: View {
 
             HStack {
                 Spacer()
-                Button("Done") { finish() }
+                Button("Continue") { step = .statusLine }
                     .buttonStyle(.borderedProminent)
                     .disabled(isDetecting)
                     .accessibilityIdentifier("onboarding-done-button")
+            }
+        }
+        .padding(32)
+    }
+
+    private var isDraftWizardDefault: Bool {
+        let def = StatusLineConfig.wizardDefault()
+        return draftConfig.chipLabelStyle == def.chipLabelStyle
+            && draftConfig.rowAlignment == def.rowAlignment
+            && draftConfig.rows.map(\.items) == def.rows.map(\.items)
+    }
+
+    private var statusLineStep: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Status Line")
+                    .font(.title2.bold())
+                Text(
+                    "Customize the bottom-of-pane status bar. Skip to turn it off — you can configure it later in Settings."
+                )
+                .font(.body)
+                .foregroundStyle(.secondary)
+            }
+
+            Form {
+                StatusLineConfigLayoutEditor(
+                    config: $draftConfig,
+                    filterCLI: nil,
+                    phases: .full,
+                    onPersist: {}
+                )
+            }
+            .formStyle(.grouped)
+            .frame(maxHeight: 420)
+
+            if isDraftWizardDefault {
+                Button("Clear") {
+                    draftConfig.rows = []
+                }
+                .buttonStyle(.link)
+                .accessibilityIdentifier("onboarding-statusline-clear-button")
+            } else {
+                Button("Reset to Default") {
+                    draftConfig = .wizardDefault()
+                }
+                .buttonStyle(.link)
+                .accessibilityIdentifier("onboarding-statusline-reset-button")
+            }
+
+            HStack {
+                Spacer()
+                Button("Skip") {
+                    draftConfig.rows = []
+                    finish()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("onboarding-statusline-skip-button")
+                Button("Save") { finish() }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("onboarding-statusline-save-button")
             }
         }
         .padding(32)
@@ -203,6 +267,9 @@ struct OnboardingWizardView: View {
             appSettings.setActive(.claude, true)
         }
         SettingsPersistence.saveActiveTools(appSettings: appSettings)
+
+        appSettings.statusLineConfig = draftConfig
+        SettingsPersistence.saveStatusLine(appSettings: appSettings)
 
         appSettings.hasCompletedOnboarding = true
         SettingsPersistence.saveOnboarding(appSettings: appSettings)

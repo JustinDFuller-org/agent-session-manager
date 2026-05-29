@@ -530,10 +530,18 @@ final class Tab: Identifiable {
             profileID: profileID
         )
         pane.extraArgs = extraArgs
+        let cwd = worktreeDirectory?.path ?? directory.path
+
+        if cliType != .shell {
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+            monitor.start()
+            pane.statusLineMonitor = monitor
+        }
+
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            let cwd = worktreeDirectory?.path ?? directory.path
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
@@ -542,39 +550,23 @@ final class Tab: Identifiable {
             case .shell:
                 controller.pendingCommand = nil
             case .claude:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 if !extraEnvVars.isEmpty {
                     controller.pendingEnvironment =
                         (controller.pendingEnvironment ?? [])
                         + extraEnvVars.map { "\($0.key)=\($0.value)" }
                 }
                 controller.pendingCommand = Tab.buildClaudeCommand(
-                    settingsPath: monitor.settingsFilePath,
+                    settingsPath: pane.statusLineMonitor!.settingsFilePath,
                     extraArgs: extra
                 )
             case .codex:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 controller.pendingCommand = "codex\(extra)"
             case .cursor:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 controller.pendingCommand = "opencode\(extra)"
             }
             pane.terminalController = controller
@@ -821,10 +813,18 @@ extension Tab {
                 "path": resolved.processDirectory.path,
             ])
 
+        let cwd = resolved.processDirectory.path
+
+        if pane.cliType != .shell {
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+            monitor.start()
+            pane.statusLineMonitor = monitor
+        }
+
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = effectiveExtraArgs.isEmpty ? "" : " " + effectiveExtraArgs.joined(separator: " ")
-            let cwd = resolved.processDirectory.path
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
@@ -833,39 +833,23 @@ extension Tab {
             case .shell:
                 controller.pendingCommand = nil
             case .claude:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 if !extraEnvVars.isEmpty {
                     controller.pendingEnvironment =
                         (controller.pendingEnvironment ?? [])
                         + extraEnvVars.map { "\($0.key)=\($0.value)" }
                 }
                 controller.pendingCommand = Tab.buildClaudeCommand(
-                    settingsPath: monitor.settingsFilePath,
+                    settingsPath: pane.statusLineMonitor!.settingsFilePath,
                     extraArgs: extra
                 )
             case .codex:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 controller.pendingCommand = "codex\(extra)"
             case .cursor:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
-                monitor.start()
-                pane.statusLineMonitor = monitor
                 controller.pendingCommand = "opencode\(extra)"
             }
             controller.terminalView.telemetryTabName = self.name

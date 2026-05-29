@@ -77,6 +77,8 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         let runningDot = app.descendants(matching: .any).matching(identifier: "pane-status-dot-running-pane").firstMatch
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
+        let statusLineRow = app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch
+        XCTAssertTrue(statusLineRow.waitForExistence(timeout: 5))
         screenshot("pane-status-indicators", app: app)
     }
 
@@ -162,7 +164,17 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         let doneButton = app.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        // Detection runs async with interactive shells; wait for it to finish before screenshotting
+        // or clicking (the button is disabled while detecting).
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: doneButton)
+        wait(for: [enabled], timeout: 15)
         screenshot("onboarding-tools", app: app)
+
+        doneButton.click()
+
+        let skipButton = app.buttons["onboarding-statusline-skip-button"]
+        XCTAssertTrue(skipButton.waitForExistence(timeout: 10))
+        screenshot("onboarding-status-line", app: app)
     }
 
     private func writeSupport(json: String) {

@@ -1,0 +1,411 @@
+import XCTest
+
+@testable import AgentSessionManager
+
+@MainActor
+final class StatusLineMonitorInvariantTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        TracingService.shared.enableTestCapture()
+    }
+
+    override func tearDown() {
+        super.tearDown()
+        TracingService.shared.resetForTesting()
+    }
+
+    // MARK: - I2 Migration
+
+    func testMigrationDropsWorktreeBranchWhenWorktreePresent() throws {
+        let json = Data(
+            """
+            {
+                "rows": [
+                    {
+                        "id": "33333333-3333-3333-3333-333333333333",
+                        "items": [
+                            {"id": "worktree", "label": "Worktree", "sfSymbol": "folder.badge.gearshape"},
+                            {"id": "worktreeBranch", "label": "Worktree Branch", "sfSymbol": "arrow.branch"}
+                        ]
+                    }
+                ],
+                "chipLabelStyle": "labelOnly",
+                "rowAlignment": "leading"
+            }
+            """.utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertFalse(config.usedItemIDs.contains("worktreeBranch"), "worktreeBranch must be migrated out")
+        XCTAssertTrue(config.usedItemIDs.contains("worktree"))
+        let events = TracingService.shared.recordedEventsForTesting
+        let event = events.first { $0.name == "statusline.migration.worktreebranch_merged" }
+        XCTAssertNotNil(event, "Expected migration trace event")
+        XCTAssertEqual(event?.attributes["substituted"], "false")
+        XCTAssertEqual(event?.attributes["row_index"], "0")
+    }
+
+    func testMigrationSubstitutesWorktreeBranchWhenWorktreeAbsent() throws {
+        let json = Data(
+            """
+            {
+                "rows": [
+                    {
+                        "id": "44444444-4444-4444-4444-444444444444",
+                        "items": [
+                            {"id": "model", "label": "Model", "sfSymbol": "cpu"},
+                            {"id": "worktreeBranch", "label": "Worktree Branch", "sfSymbol": "arrow.branch"}
+                        ]
+                    }
+                ],
+                "chipLabelStyle": "labelOnly",
+                "rowAlignment": "leading"
+            }
+            """.utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertFalse(config.usedItemIDs.contains("worktreeBranch"), "worktreeBranch must be migrated out")
+        XCTAssertTrue(config.usedItemIDs.contains("worktree"), "worktree must be substituted in")
+        XCTAssertTrue(config.usedItemIDs.contains("model"))
+        let events = TracingService.shared.recordedEventsForTesting
+        let event = events.first { $0.name == "statusline.migration.worktreebranch_merged" }
+        XCTAssertNotNil(event, "Expected migration trace event")
+        XCTAssertEqual(event?.attributes["substituted"], "true")
+        XCTAssertEqual(event?.attributes["row_index"], "0")
+        XCTAssertEqual(event?.attributes["position"], "1")
+    }
+
+    func testMigrationDropsGitWorktreeAndTraces() throws {
+        let json = Data(
+            """
+            {
+                "rows": [
+                    {
+                        "id": "22222222-2222-2222-2222-222222222222",
+                        "items": [
+                            {"id": "model", "label": "Model", "sfSymbol": "cpu"},
+                            {"id": "gitWorktree", "label": "Git Worktree", "sfSymbol": "internaldrive"}
+                        ]
+                    }
+                ],
+                "chipLabelStyle": "labelOnly",
+                "rowAlignment": "leading"
+            }
+            """.utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertFalse(config.usedItemIDs.contains("gitWorktree"))
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(events.contains { $0.name == "statusline.migration.gitworktree_dropped" })
+    }
+
+    // MARK: - I1: Worktree Name
+
+    func testI1WorktreeNameMismatchIsLogged() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("right-name")
+            .path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let paneID = UUID()
+        let monitor = StatusLineMonitor(
+            paneID: paneID,
+            workingDirectory: workDir,
+            cliType: .claude
+        )
+
+        let json = Data(
+            """
+            {"worktree": {"name": "wrong-name", "branch": "main"}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        var enforced = parsed
+
+        monitor.testApplyI1Enforcement(to: &enforced)
+
+        XCTAssertEqual(enforced.worktree?.name, "right-name")
+        let events = TracingService.shared.recordedEventsForTesting
+        let mismatch = events.first { $0.name == "statusline.worktree.name_mismatch" }
+        XCTAssertNotNil(mismatch, "Expected worktree.name_mismatch trace event")
+        XCTAssertEqual(mismatch?.attributes["field"], "worktree.name")
+        XCTAssertEqual(mismatch?.attributes["computed"], "right-name")
+        XCTAssertEqual(mismatch?.attributes["reported"], "wrong-name")
+    }
+
+    func testI1WorktreeNameMatchDoesNotLog() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("right-name")
+            .path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            cliType: .claude
+        )
+
+        let json = Data(
+            """
+            {"worktree": {"name": "right-name", "branch": "main"}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        var enforced = parsed
+
+        monitor.testApplyI1Enforcement(to: &enforced)
+
+        XCTAssertEqual(enforced.worktree?.name, "right-name")
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertFalse(events.contains { $0.name == "statusline.worktree.name_mismatch" })
+    }
+
+    func testI1WorkspaceGitWorktreeMismatchIsLogged() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("right-name")
+            .path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            cliType: .claude
+        )
+
+        let json = Data(
+            """
+            {"workspace": {"git_worktree": "/some/completely/different-name"}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        var enforced = parsed
+
+        monitor.testApplyI1Enforcement(to: &enforced)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let mismatch = events.first { $0.name == "statusline.worktree.name_mismatch" && $0.attributes["field"] == "workspace.git_worktree" }
+        XCTAssertNotNil(mismatch, "Expected workspace.git_worktree mismatch event")
+        XCTAssertEqual(mismatch?.attributes["computed"], "right-name")
+    }
+
+    // MARK: - I3: Lines Added/Removed
+
+    func testI3LinesMismatchIsLoggedAndOverwritten() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            cliType: .claude
+        )
+        monitor.testSetCachedGitStats((added: 5, removed: 0))
+
+        let json = Data(
+            """
+            {"cost": {"total_cost_usd": 0.01, "total_duration_ms": 1000, "total_lines_added": 999, "total_lines_removed": 0}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        var enforced = parsed
+
+        monitor.testApplyI3Enforcement(to: &enforced)
+
+        XCTAssertEqual(enforced.cost?.totalLinesAdded, 5)
+        XCTAssertEqual(enforced.cost?.totalLinesRemoved, 0)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let mismatch = events.first { $0.name == "statusline.lines.source_mismatch" }
+        XCTAssertNotNil(mismatch, "Expected lines.source_mismatch trace event")
+        XCTAssertEqual(mismatch?.attributes["computed_added"], "5")
+        XCTAssertEqual(mismatch?.attributes["reported_added"], "999")
+        XCTAssertEqual(mismatch?.attributes["computed_removed"], "0")
+        XCTAssertEqual(mismatch?.attributes["reported_removed"], "0")
+    }
+
+    // MARK: - I6: Liveness
+
+    func testI6FreshnessRecoveryAppliesLatestPayload() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let earlyPayload = Data("""
+            {"cost": {"total_cost_usd": 0.0}}
+            """.utf8)
+        try earlyPayload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 0.0)
+
+        // Simulate Claude writing a newer payload without firing the vnode handler
+        let laterPayload = Data("""
+            {"cost": {"total_cost_usd": 5.28}, "context_window": {"used_percentage": 8}}
+            """.utf8)
+        try laterPayload.write(to: URL(filePath: monitor.filePath))
+        // Force mtime to be strictly newer
+        let future = Date().addingTimeInterval(1)
+        try FileManager.default.setAttributes([.modificationDate: future], ofItemAtPath: monitor.filePath)
+
+        monitor.testCheckPayloadFreshness()
+
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 5.28)
+        XCTAssertEqual(monitor.currentData?.contextWindow?.usedPercentage, 8)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(
+            events.contains { $0.name == "statusline.payload.stale_recovered" },
+            "Expected stale_recovered trace event")
+        XCTAssertTrue(
+            events.contains { $0.name == "statusline.payload.applied" && $0.attributes["reason"] == "freshness_recovery" },
+            "Expected applied event with reason freshness_recovery")
+    }
+
+    func testI6FreshnessNoRecoveryWhenUpToDate() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let payload = Data("""
+            {"cost": {"total_cost_usd": 1.23}}
+            """.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        TracingService.shared.resetForTesting()
+
+        // Freshness check with no new writes — should be a no-op
+        monitor.testCheckPayloadFreshness()
+
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertFalse(
+            events.contains { $0.name == "statusline.payload.stale_recovered" },
+            "stale_recovered must not fire when already up to date")
+    }
+
+    // MARK: - I7: Integrity
+
+    func testI7ValidPayloadRecordsApplied() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let payload = Data("""
+            {"cost": {"total_cost_usd": 2.50}, "context_window": {"used_percentage": 15}}
+            """.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        XCTAssertNotNil(monitor.currentData)
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 2.50)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let applied = events.first { $0.name == "statusline.payload.applied" }
+        XCTAssertNotNil(applied, "Expected payload.applied trace event")
+        XCTAssertEqual(applied?.attributes["reason"], "test")
+        XCTAssertEqual(applied?.attributes["cost_usd"], "2.5000")
+        XCTAssertEqual(applied?.attributes["used_pct"], "15")
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.decode_failed" })
+    }
+
+    func testI7MalformedPayloadRecordsDecodeFailedAndPreservesState() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        // Apply a good payload first so currentData has a known value
+        let good = Data("""
+            {"cost": {"total_cost_usd": 1.00}}
+            """.utf8)
+        try good.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+
+        let bad = Data("NOT JSON AT ALL !!!".utf8)
+        try bad.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        // currentData must be preserved from the last good payload
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 1.00)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let failed = events.first { $0.name == "statusline.payload.decode_failed" }
+        XCTAssertNotNil(failed, "Expected payload.decode_failed trace event")
+        XCTAssertEqual(failed?.attributes["reason"], "test")
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.applied" })
+    }
+
+    func testI7EmptyFileSkippedWithoutClobbering() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let good = Data("""
+            {"cost": {"total_cost_usd": 3.75}}
+            """.utf8)
+        try good.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        TracingService.shared.resetForTesting()
+
+        try Data().write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "empty")
+
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 3.75, "empty write must not clobber currentData")
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.decode_failed" })
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.applied" })
+    }
+
+    func testI7ContextWindowToleratesDoublePercentage() throws {
+        // 14.000000000000002 is the real-world case from rate_limits; truncates to 14
+        // 85.999999999999998 rounds to 86.0 in IEEE 754 double, so Int(86.0) == 86
+        let json = Data("""
+            {"context_window": {"used_percentage": 14.000000000000002, "remaining_percentage": 85.999999999999998, "total_input_tokens": 140000, "total_output_tokens": 5}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertEqual(parsed.contextWindow?.usedPercentage, 14)
+        XCTAssertEqual(parsed.contextWindow?.remainingPercentage, 86)
+        XCTAssertEqual(parsed.contextWindow?.totalInputTokens, 140000)
+        XCTAssertEqual(parsed.contextWindow?.totalOutputTokens, 5)
+    }
+
+    func testI3LinesMatchDoesNotLog() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            cliType: .claude
+        )
+        monitor.testSetCachedGitStats((added: 3, removed: 1))
+
+        let json = Data(
+            """
+            {"cost": {"total_cost_usd": 0.01, "total_duration_ms": 1000, "total_lines_added": 3, "total_lines_removed": 1}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        var enforced = parsed
+
+        monitor.testApplyI3Enforcement(to: &enforced)
+
+        XCTAssertEqual(enforced.cost?.totalLinesAdded, 3)
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertFalse(events.contains { $0.name == "statusline.lines.source_mismatch" })
+    }
+}

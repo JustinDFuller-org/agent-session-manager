@@ -12,22 +12,27 @@ struct StatusLineView: View {
         config.rows.filter { !$0.items.isEmpty }
     }
 
+    private var maxRowItemCount: Int {
+        nonEmptyRows.map(\.items.count).max() ?? 0
+    }
+
     var body: some View {
-        if let data = monitor.currentData, !nonEmptyRows.isEmpty {
+        if !nonEmptyRows.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(nonEmptyRows) { row in
-                    chipRow(items: row.items, data: data)
+                    chipRow(items: row.items, data: monitor.currentData, maxCount: maxRowItemCount)
                 }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(nsColor: .windowBackgroundColor))
+            .accessibilityIdentifier("status-line-row")
         }
     }
 
     @ViewBuilder
-    private func chipRow(items: [StatusLineItem], data: StatusLineData) -> some View {
+    private func chipRow(items: [StatusLineItem], data: StatusLineData?, maxCount: Int) -> some View {
         switch config.rowAlignment {
         case .leading:
             HStack(spacing: 12) {
@@ -42,15 +47,19 @@ struct StatusLineView: View {
                     chipView(item: item, data: data)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                ForEach(0..<(maxCount - items.count), id: \.self) { _ in
+                    Spacer()
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
     }
 
     @ViewBuilder
-    private func chipView(item: StatusLineItem, data: StatusLineData) -> some View {
+    private func chipView(item: StatusLineItem, data: StatusLineData?) -> some View {
         let content = HStack(spacing: 4) {
             if config.chipLabelStyle != .labelOnly {
-                if item.id == "pr", let pr = data.pr {
+                if item.id == "pr", let pr = data?.pr {
                     Image(systemName: pr.stateIconName)
                         .font(.system(size: 10))
                         .foregroundStyle(AnyShapeStyle(prCircleColor(pr: pr)))
@@ -67,7 +76,7 @@ struct StatusLineView: View {
             }
             chipContent(for: item.id, data: data)
         }
-        if item.id == "pr", data.pr != nil {
+        if item.id == "pr", data?.pr != nil {
             Button {
                 showPRPopover.toggle()
             } label: {
@@ -77,7 +86,7 @@ struct StatusLineView: View {
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .popover(isPresented: $showPRPopover, arrowEdge: .bottom) {
-                if let pr = data.pr {
+                if let pr = data?.pr {
                     PRPopoverContent(pr: pr)
                         .padding()
                 }
@@ -87,11 +96,11 @@ struct StatusLineView: View {
         }
     }
 
-    private func iconTint(itemID: String, data: StatusLineData) -> AnyShapeStyle {
-        if itemID == "exceeds200k", data.exceeds200kTokens == true {
+    private func iconTint(itemID: String, data: StatusLineData?) -> AnyShapeStyle {
+        if itemID == "exceeds200k", data?.exceeds200kTokens == true {
             return AnyShapeStyle(.orange)
         }
-        if itemID == "sessionStatus", let state = data.sessionStatus?.state {
+        if itemID == "sessionStatus", let state = data?.sessionStatus?.state {
             switch state {
             case "idle": return AnyShapeStyle(.green)
             case "busy": return AnyShapeStyle(.yellow)
@@ -99,58 +108,67 @@ struct StatusLineView: View {
             default: break
             }
         }
-        if itemID == "pr", let pr = data.pr {
+        if itemID == "pr", let pr = data?.pr {
             return AnyShapeStyle(prCircleColor(pr: pr))
         }
         return AnyShapeStyle(.tertiary)
     }
 
     @ViewBuilder
-    private func chipContent(for itemID: String, data: StatusLineData) -> some View {
+    private func chipContent(for itemID: String, data: StatusLineData?) -> some View {
         switch itemID {
         case "context":
-            let pct = data.contextWindow?.usedPercentage ?? 0
-            HStack(spacing: 4) {
-                ProgressView(value: Double(pct), total: 100)
-                    .progressViewStyle(.linear)
-                    .frame(width: 44)
-                    .tint(progressTint(pct))
-                Text("\(pct)%")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let pct = data?.contextWindow?.usedPercentage {
+                HStack(spacing: 4) {
+                    ProgressView(value: Double(pct), total: 100)
+                        .progressViewStyle(.linear)
+                        .frame(width: 44)
+                        .tint(progressTint(pct))
+                    Text("\(pct)%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "rate5h":
-            let pct = data.rateLimits?.fiveHour?.usedPercentage ?? 0
-            HStack(spacing: 4) {
-                ProgressView(value: pct, total: 100)
-                    .progressViewStyle(.linear)
-                    .frame(width: 32)
-                    .tint(progressTint(Int(pct)))
-                Text(String(format: "%.0f%%", pct))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let pct = data?.rateLimits?.fiveHour?.usedPercentage {
+                HStack(spacing: 4) {
+                    ProgressView(value: pct, total: 100)
+                        .progressViewStyle(.linear)
+                        .frame(width: 32)
+                        .tint(progressTint(Int(pct)))
+                    Text(String(format: "%.0f%%", pct))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "rate7d":
-            let pct = data.rateLimits?.sevenDay?.usedPercentage ?? 0
-            HStack(spacing: 4) {
-                ProgressView(value: pct, total: 100)
-                    .progressViewStyle(.linear)
-                    .frame(width: 32)
-                    .tint(progressTint(Int(pct)))
-                Text(String(format: "%.0f%%", pct))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let pct = data?.rateLimits?.sevenDay?.usedPercentage {
+                HStack(spacing: 4) {
+                    ProgressView(value: pct, total: 100)
+                        .progressViewStyle(.linear)
+                        .frame(width: 32)
+                        .tint(progressTint(Int(pct)))
+                    Text(String(format: "%.0f%%", pct))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "exceeds200k":
-            Text(data.exceeds200kTokens == true ? "200k+" : "—")
+            Text(data?.exceeds200kTokens == true ? "200k+" : "—")
                 .font(.caption)
-                .foregroundStyle(data.exceeds200kTokens == true ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                .foregroundStyle(data?.exceeds200kTokens == true ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
         case "sessionStatus":
-            Text((data.sessionStatus?.state ?? "—").capitalized)
+            Text((data?.sessionStatus?.state ?? "—").capitalized)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case "pr":
-            if let pr = data.pr {
+            if let pr = data?.pr {
                 HStack(spacing: 4) {
                     Circle()
                         .fill(prCircleColor(pr: pr))
@@ -180,56 +198,52 @@ struct StatusLineView: View {
         pct < 70 ? .green : pct < 90 ? .orange : .red
     }
 
-    private func textValue(for itemID: String, data: StatusLineData) -> String {
+    private func textValue(for itemID: String, data: StatusLineData?) -> String {
         switch itemID {
         case "model":
-            return data.model?.displayName ?? data.model?.id ?? "—"
+            return data?.model?.displayName ?? data?.model?.id ?? "—"
         case "worktree":
-            return data.worktree?.name ?? "—"
+            return data?.worktree?.chipText ?? "—"
         case "cost":
-            return String(format: "$%.4f", data.cost?.totalCostUsd ?? 0)
+            return data?.cost?.totalCostUsd.map { String(format: "$%.4f", $0) } ?? "—"
         case "effort":
-            return data.effort?.level ?? "—"
+            return data?.effort?.level ?? "—"
         case "thinking":
-            return data.thinking?.enabled == true ? "on" : "off"
+            return data?.thinking?.enabled == true ? "on" : "off"
         case "vimMode":
-            return data.vim?.mode ?? "—"
+            return data?.vim?.mode ?? "—"
         case "agentName":
-            return data.agent?.name ?? "—"
+            return data?.agent?.name ?? "—"
         case "sessionName":
-            return data.sessionName ?? "—"
-        case "worktreeBranch":
-            return data.worktree?.branch ?? "—"
-        case "gitWorktree":
-            return data.workspace?.gitWorktree ?? "—"
+            return data?.sessionName ?? "—"
         case "linesAdded":
-            return "+\(data.cost?.totalLinesAdded ?? 0)"
+            return data?.cost?.totalLinesAdded.map { "+\($0)" } ?? "—"
         case "linesRemoved":
-            return "-\(data.cost?.totalLinesRemoved ?? 0)"
+            return data?.cost?.totalLinesRemoved.map { "-\($0)" } ?? "—"
         case "duration":
-            return formatDuration(ms: data.cost?.totalDurationMs ?? 0)
+            return data?.cost?.totalDurationMs.map { formatDuration(ms: $0) } ?? "—"
         case "contextRemaining":
-            return "\(data.contextWindow?.remainingPercentage ?? 0)%"
+            return data?.contextWindow?.remainingPercentage.map { "\($0)%" } ?? "—"
         case "inputTokens":
-            return "\(data.contextWindow?.totalInputTokens ?? 0)"
+            return data?.contextWindow?.totalInputTokens.map { "\($0)" } ?? "—"
         case "outputTokens":
-            return "\(data.contextWindow?.totalOutputTokens ?? 0)"
+            return data?.contextWindow?.totalOutputTokens.map { "\($0)" } ?? "—"
         case "rate5hReset":
-            if let ts = data.rateLimits?.fiveHour?.resetsAt {
+            if let ts = data?.rateLimits?.fiveHour?.resetsAt {
                 return formatResetTime(ts)
             }
             return "—"
         case "rate7dReset":
-            if let ts = data.rateLimits?.sevenDay?.resetsAt {
+            if let ts = data?.rateLimits?.sevenDay?.resetsAt {
                 return formatResetTime(ts)
             }
             return "—"
         case "version":
-            return data.version ?? "—"
+            return data?.version ?? "—"
         case "outputStyle":
-            return data.outputStyle?.name ?? "—"
+            return data?.outputStyle?.name ?? "—"
         case "openCodeMode":
-            return data.openCodeMode ?? "—"
+            return data?.openCodeMode ?? "—"
         case "profileName":
             return profileName ?? "—"
         default:

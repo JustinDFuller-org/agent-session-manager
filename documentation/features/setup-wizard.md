@@ -1,11 +1,11 @@
 # First-Launch Setup Wizard
 
-On true first launch the app shows a three-step wizard that configures the shell and detects installed CLI tools. It runs exactly once, gated by `hasCompletedOnboarding` in `AppSettings`.
+On true first launch the app shows a four-step wizard that configures the shell, detects installed CLI tools, and pre-populates the status line. It runs exactly once, gated by `hasCompletedOnboarding` in `AppSettings`.
 
 ## Steps
 
 ### 1. Welcome / Consent
-Brief explanation of what the wizard does. **Set Up** proceeds; **Skip** marks onboarding complete and leaves defaults untouched (Claude only, auto-detect shell).
+Brief explanation of what the wizard does. **Set Up** proceeds; **Skip** marks onboarding complete and leaves defaults untouched (Claude only, auto-detect shell, single-row catalog default for the status line).
 
 ### 2. Shell
 Shows the auto-detected shell (`$SHELL` env var, fallback `/bin/zsh`). The user can:
@@ -16,7 +16,17 @@ Shows the auto-detected shell (`$SHELL` env var, fallback `/bin/zsh`). The user 
 The selection is persisted in `shell-settings.json` as `preferredShell`.
 
 ### 3. Tools
-Runs `CLIToolDetector.detectInstalled(shell:)` in the user's chosen interactive shell (`-i -c "which <binary>"`). Each `CLIType` (claude, codex, cursor/agent, opencode) is probed concurrently. Detected tools appear pre-checked; the user may toggle. **Done** enables all checked tools (additive — never removes existing active tools). If nothing is checked and no tools were already active, Claude is force-enabled as a fallback.
+Runs `CLIToolDetector.detectInstalled(shell:)` in the user's chosen interactive shell (`-i -c "which <binary>"`). Each `CLIType` (claude, codex, cursor/agent, opencode) is probed concurrently. Detected tools appear pre-checked; the user may toggle. **Continue** proceeds to the Status Line step.
+
+### 4. Status Line
+Pre-fills the three-row wizard default layout (see `StatusLineConfig.wizardDefault()`):
+- Row 1: `pr`, `profileName`, `model`
+- Row 2: `context`, `contextRemaining`, `inputTokens`, `outputTokens`
+- Row 3: `worktree`, `linesAdded`, `linesRemoved`
+
+The user can edit inline via `StatusLineConfigLayoutEditor`. When the draft equals `wizardDefault()`, a **Clear** button empties all rows so the user can start from scratch; once the layout diverges from the default, the button becomes **Reset to Default** and restores the three-row spec. **Save** writes the draft to `statusline-settings.json` and completes onboarding. **Skip** clears all rows (empty `rows` array = no status bar rendered) and completes onboarding.
+
+The wizard default layout is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default remains the fallback for code paths that skip the wizard.
 
 ## Persistence files
 
@@ -24,8 +34,9 @@ Runs `CLIToolDetector.detectInstalled(shell:)` in the user's chosen interactive 
 |---|---|
 | `shell-settings.json` | `{"preferredShell": "/bin/bash"}` — empty string = auto-detect |
 | `onboarding-settings.json` | `{"completed": true}` |
+| `statusline-settings.json` | Status line config written on **Save**; see [status-line.md](status-line.md) for schema |
 
-Both files are written under the Application Support subdirectory (`agent-session-manager` / `agent-session-manager.dev`).
+All files are written under the Application Support subdirectory (`agent-session-manager` / `agent-session-manager.dev`).
 
 ## Re-running detection / changing the shell
 
@@ -35,8 +46,10 @@ In **Settings ▸ General**, the **Shell** section exposes the same picker to ch
 
 - `ShellResolver` — static helpers: `detectedLoginShell()`, `resolved(_:)`, `commonShells`
 - `CLIToolDetector` — `detectInstalled(shell:runner:)` async, injectable runner for unit tests
-- `OnboardingWizardView` — multi-step sheet, presented from `ContentView`
+- `OnboardingWizardView` — multi-step sheet (welcome / shell / tools / statusLine), presented from `ContentView`
+- `StatusLineConfig.wizardDefault()` — three-row spec used by the wizard status line step
 - `SettingsPersistence.saveShellSettings` / `restoreShellSettings`
+- `SettingsPersistence.saveStatusLine` / `restoreStatusLine`
 - `SettingsPersistence.saveOnboarding` / `restoreOnboarding`
 
 ## UI-test gating
@@ -45,4 +58,4 @@ The wizard is suppressed when `AgentSessionManagerApp.isUITesting` is true (i.e.
 
 ## State clearing
 
-`make reset-app-state` and `make reset-app-state-dev` delete both `shell-settings.json` and `onboarding-settings.json`. `UITests/Helpers/BaseTestCase.clearPersistedState()` does the same for the test App Support directory.
+`make reset-app-state` and `make reset-app-state-dev` delete `shell-settings.json`, `onboarding-settings.json`, and `statusline-settings.json`. `UITests/Helpers/BaseTestCase.clearPersistedState()` does the same for the test App Support directory.

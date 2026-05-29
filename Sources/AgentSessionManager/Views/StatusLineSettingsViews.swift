@@ -87,8 +87,8 @@ struct StatusLineConfigLayoutEditor: View {
 
     private func unusedItemsEligibleForAddition() -> [StatusLineItem] {
         let base = StatusLineConfig.allItems.filter { !config.usedItemIDs.contains($0.id) }
-        guard let cli = filterCLI else { return base }
-        return base.filter { $0.supportedBy(cli) }
+        let filtered = filterCLI.map { cli in base.filter { $0.supportedBy(cli) } } ?? base
+        return filtered.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
     }
 
     @ViewBuilder
@@ -231,7 +231,7 @@ struct StatusLineConfigLayoutEditor: View {
     private func itemDescription(for id: String) -> String {
         switch id {
         case "model": return "Claude model name"
-        case "worktree": return "Git worktree name"
+        case "worktree": return "Git worktree name and current branch"
         case "cost": return "Total session cost in USD (Claude only)"
         case "context": return "Context window usage with progress bar (Claude only)"
         case "effort": return "Effort level (Claude only)"
@@ -239,10 +239,8 @@ struct StatusLineConfigLayoutEditor: View {
         case "vimMode": return "Vim editor mode (Claude only)"
         case "agentName": return "Agent name (Claude only)"
         case "sessionName": return "Session name (Claude only)"
-        case "worktreeBranch": return "Git branch for the worktree"
-        case "gitWorktree": return "Git worktree path"
-        case "linesAdded": return "Total lines added this session (Claude only)"
-        case "linesRemoved": return "Total lines removed this session (Claude only)"
+        case "linesAdded": return "Lines added vs HEAD (git diff --shortstat HEAD)"
+        case "linesRemoved": return "Lines removed vs HEAD (git diff --shortstat HEAD)"
         case "duration": return "Total session duration"
         case "contextRemaining": return "Context window remaining percentage (Claude only)"
         case "inputTokens": return "Total input tokens used (Claude only)"

@@ -49,6 +49,10 @@ Each span is one JSON object on its own line (JSON-Lines):
 | `statusline.settings_file.written` | `path`, `bytes` |
 | `statusline.attention.received` | `pane.name` |
 | `statusline.pr_transition` | `old_state`, `new_state` |
+| `statusline.worktree.name_mismatch` | `pane.name`, `field` (`worktree.name`\|`workspace.git_worktree`), `computed`, `reported` |
+| `statusline.lines.source_mismatch` | `pane.name`, `computed_added`, `reported_added`, `computed_removed`, `reported_removed` |
+| `statusline.migration.gitworktree_dropped` | `row_index`, `position` |
+| `statusline.migration.worktreebranch_merged` | `row_index`, `position`, `substituted` |
 
 ### Notifications
 | Span | Key Attributes |

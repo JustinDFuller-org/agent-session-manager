@@ -107,8 +107,6 @@ struct StatusLineConfig: Codable, Equatable {
         "vimMode": ("Vim Mode", "keyboard"),
         "agentName": ("Agent", "person.crop.circle"),
         "sessionName": ("Session Name", "tag"),
-        "worktreeBranch": ("Worktree Branch", "arrow.branch"),
-        "gitWorktree": ("Git Worktree", "internaldrive"),
         "linesAdded": ("Lines Added", "plus.square"),
         "linesRemoved": ("Lines Removed", "minus.square"),
         "duration": ("Duration", "clock"),
@@ -131,11 +129,11 @@ struct StatusLineConfig: Codable, Equatable {
     static let itemAvailability: [String: ToolAvailability] = [
         // Agnostic — populated by git queries and process tracking
         "worktree": .all,
-        "worktreeBranch": .all,
-        "gitWorktree": .all,
         "duration": .all,
         "version": .all,
         "pr": .all,
+        "linesAdded": .all,
+        "linesRemoved": .all,
         // Model — Claude, OpenCode, and Cursor (via afterAgentResponse hook)
         "model": .all,
         // Claude + OpenCode — populated by both via their respective APIs
@@ -149,8 +147,6 @@ struct StatusLineConfig: Codable, Equatable {
         "vimMode": .claudeOnly,
         "agentName": .claudeOnly,
         "sessionName": .claudeOnly,
-        "linesAdded": .claudeOnly,
-        "linesRemoved": .claudeOnly,
         "contextRemaining": .claudeOnly,
         "rate5h": .claudeOnly,
         "rate7d": .claudeOnly,
@@ -167,7 +163,7 @@ struct StatusLineConfig: Codable, Equatable {
 
     static let itemOrder: [String] = [
         "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
-        "agentName", "sessionName", "worktreeBranch", "gitWorktree", "linesAdded",
+        "agentName", "sessionName", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
         "sessionStatus", "openCodeMode",
@@ -195,17 +191,62 @@ struct StatusLineConfig: Codable, Equatable {
                 return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
             }
         rows = [StatusLineRow(items: defaultItems)]
-        chipLabelStyle = .symbolOnly
-        rowAlignment = .leading
+        chipLabelStyle = .labelOnly
+        rowAlignment = .spaceBetween
+    }
+
+    static func wizardDefault() -> StatusLineConfig {
+        func item(_ id: String) -> StatusLineItem {
+            let meta = itemMetadata[id]!
+            return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
+        }
+        var config = StatusLineConfig()
+        config.chipLabelStyle = .labelOnly
+        config.rowAlignment = .spaceBetween
+        config.rows = [
+            StatusLineRow(items: [item("pr"), item("profileName"), item("model")]),
+            StatusLineRow(
+                items: [item("context"), item("contextRemaining"), item("inputTokens"), item("outputTokens")]),
+            StatusLineRow(items: [item("worktree"), item("linesAdded"), item("linesRemoved")]),
+        ]
+        return config
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .symbolOnly
-        rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .leading
+        chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .labelOnly
+        rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
-            rows = savedRows
+            rows = savedRows.enumerated().map { rowIndex, row in
+                var mutableRow = row
+                let rowHasWorktree = row.items.contains { $0.id == "worktree" }
+                mutableRow.items = row.items.enumerated().compactMap { itemIndex, item in
+                    if item.id == "gitWorktree" {
+                        TracingService.shared.record(
+                            "statusline.migration.gitworktree_dropped",
+                            attributes: ["row_index": "\(rowIndex)", "position": "\(itemIndex)"])
+                        return nil
+                    }
+                    if item.id == "worktreeBranch" {
+                        let substituted = !rowHasWorktree
+                        TracingService.shared.record(
+                            "statusline.migration.worktreebranch_merged",
+                            attributes: [
+                                "row_index": "\(rowIndex)",
+                                "position": "\(itemIndex)",
+                                "substituted": substituted ? "true" : "false",
+                            ])
+                        if substituted {
+                            let meta = StatusLineConfig.itemMetadata["worktree"]!
+                            return StatusLineItem(id: "worktree", label: meta.label, sfSymbol: meta.symbol)
+                        }
+                        return nil
+                    }
+                    return item
+                }
+                return mutableRow
+            }
         } else if let legacyItems = try container.decodeIfPresent([LegacyStatusLineItem].self, forKey: .items) {
             let visibleItems =
                 legacyItems
@@ -374,11 +415,33 @@ struct StatusLineData: Codable {
         let remainingPercentage: Int?
         let totalInputTokens: Int?
         let totalOutputTokens: Int?
+
         enum CodingKeys: String, CodingKey {
             case usedPercentage = "used_percentage"
             case remainingPercentage = "remaining_percentage"
             case totalInputTokens = "total_input_tokens"
             case totalOutputTokens = "total_output_tokens"
+        }
+
+        init(usedPercentage: Int?, remainingPercentage: Int?, totalInputTokens: Int?, totalOutputTokens: Int?) {
+            self.usedPercentage = usedPercentage
+            self.remainingPercentage = remainingPercentage
+            self.totalInputTokens = totalInputTokens
+            self.totalOutputTokens = totalOutputTokens
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            usedPercentage = Self.flexInt(c, key: .usedPercentage)
+            remainingPercentage = Self.flexInt(c, key: .remainingPercentage)
+            totalInputTokens = Self.flexInt(c, key: .totalInputTokens)
+            totalOutputTokens = Self.flexInt(c, key: .totalOutputTokens)
+        }
+
+        private static func flexInt(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int? {
+            if let v = try? c.decodeIfPresent(Int.self, forKey: key) { return v }
+            if let v = try? c.decodeIfPresent(Double.self, forKey: key) { return Int(v) }
+            return nil
         }
     }
 
@@ -410,6 +473,12 @@ struct StatusLineData: Codable {
     struct Worktree: Codable {
         let name: String?
         let branch: String?
+
+        var chipText: String {
+            guard let name else { return "—" }
+            if let branch { return "\(name) • \(branch)" }
+            return name
+        }
     }
 
     struct Effort: Codable {
@@ -439,10 +508,10 @@ struct StatusLineData: Codable {
     }
 
     let model: Model?
-    let cost: Cost?
+    var cost: Cost?
     let contextWindow: ContextWindow?
     let rateLimits: RateLimits?
-    let worktree: Worktree?
+    var worktree: Worktree?
     let workspace: Workspace?
     let effort: Effort?
     let thinking: Thinking?

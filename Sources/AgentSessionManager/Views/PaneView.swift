@@ -178,7 +178,7 @@ struct PaneView: View {
 
     @ViewBuilder
     private var statusLine: some View {
-        if let monitor = pane.statusLineMonitor, monitor.currentData != nil {
+        if let monitor = pane.statusLineMonitor {
             Divider()
             let config = resolvedStatusLineConfig
             StatusLineView(monitor: monitor, config: config, profileName: resolvedProfileName)

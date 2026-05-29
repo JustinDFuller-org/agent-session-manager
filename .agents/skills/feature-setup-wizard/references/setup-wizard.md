@@ -5,21 +5,24 @@ See [documentation/features/setup-wizard.md](../../../../documentation/features/
 ## Critical files
 
 - `Sources/AgentSessionManager/Models/AppSettings.swift` — `preferredShell`, `hasCompletedOnboarding`
+- `Sources/AgentSessionManager/Models/StatusLineConfig.swift` — `wizardDefault()` factory (three-row spec for wizard step)
 - `Sources/AgentSessionManager/Controllers/ShellResolver.swift` — shell detection and resolution
 - `Sources/AgentSessionManager/Controllers/CLIToolDetector.swift` — async tool detection
-- `Sources/AgentSessionManager/Controllers/SettingsPersistence.swift` — `saveShellSettings`, `restoreShellSettings`, `saveOnboarding`, `restoreOnboarding`
+- `Sources/AgentSessionManager/Controllers/SettingsPersistence.swift` — `saveShellSettings`, `restoreShellSettings`, `saveStatusLine`, `restoreStatusLine`, `saveOnboarding`, `restoreOnboarding`
 - `Sources/AgentSessionManager/Controllers/TerminalController.swift` — `pendingShell` property
 - `Sources/AgentSessionManager/Models/Tab.swift` — threads `appSettings` through `addPane`, `completeSetup`, `refreshPaneWithArgs`, `openShellPane`; copies `pendingShell` in `restartPane`, `refreshPane`, `openShellInPane`
-- `Sources/AgentSessionManager/Views/OnboardingWizardView.swift` — multi-step wizard sheet
+- `Sources/AgentSessionManager/Views/OnboardingWizardView.swift` — multi-step wizard sheet (welcome / shell / tools / statusLine steps); `draftConfig` state; Save/Skip wiring; Clear/Reset toggle on draft (Clear when draft equals `wizardDefault()`, Reset to Default otherwise)
+- `Sources/AgentSessionManager/Views/StatusLineSettingsViews.swift` — `StatusLineConfigLayoutEditor` reused in the status line wizard step
 - `Sources/AgentSessionManager/Views/SettingsView.swift` — Shell section + Detect button in `ToolsContent`
 - `Sources/AgentSessionManager/App.swift` — restores + `showOnboarding` trigger
-- `UITests/OnboardingWizardTests.swift` — UI tests
-- `Tests/ShellResolverTests.swift`, `Tests/CLIToolDetectorTests.swift`, `Tests/SettingsPersistenceOnboardingTests.swift` — unit tests
+- `UITests/OnboardingWizardTests.swift` — UI tests (includes status line step tests)
+- `Tests/ShellResolverTests.swift`, `Tests/CLIToolDetectorTests.swift`, `Tests/SettingsPersistenceOnboardingTests.swift`, `Tests/StatusLineConfigWizardDefaultTests.swift` — unit tests
 
 ## Persistence files
 
 - `shell-settings.json` — `{"preferredShell": ""}` 
 - `onboarding-settings.json` — `{"completed": false}`
+- `statusline-settings.json` — written by wizard on Save; see status-line feature for schema
 
 ## UI-test gating
 
