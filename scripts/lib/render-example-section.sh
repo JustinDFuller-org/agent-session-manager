@@ -37,6 +37,8 @@ ORDER=(
     onboarding-shell.png
     onboarding-tools.png
     onboarding-status-line.png
+    onboarding-cli-flags.png
+    onboarding-profiles.png
     # 2. App opens to its empty state
     empty-state.png
     # 3. Create and use a tab
