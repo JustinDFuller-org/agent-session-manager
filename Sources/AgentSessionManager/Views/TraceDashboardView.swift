@@ -303,6 +303,7 @@ struct TraceListView: View {
                     TraceListRow(summary: summary, rowIndex: index)
                         .contentShape(Rectangle())
                         .onTapGesture { onSelect(summary.traceId) }
+                        .accessibilityIdentifier("trace-dashboard-list-row")
                     Divider().padding(.leading, 16)
                 }
             }

@@ -121,5 +121,18 @@ final class ScreenshotTests: BaseTestCase {
         waitFor(filterField, timeout: 10)
 
         screenshot("trace-dashboard")
+
+        // 7. Click the first trace row to open the waterfall
+        let traceRow = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-list-row").firstMatch
+        waitFor(traceRow, timeout: 10)
+        traceRow.click()
+
+        // 8. Wait for the waterfall to render
+        let waterfall = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-waterfall").firstMatch
+        waitFor(waterfall, timeout: 10)
+
+        screenshot("trace-waterfall")
     }
 }
