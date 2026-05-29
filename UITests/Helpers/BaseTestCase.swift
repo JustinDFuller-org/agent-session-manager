@@ -82,5 +82,6 @@ class BaseTestCase: XCTestCase {
         ] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }
+        try? FileManager.default.removeItem(at: support.appending(path: "traces"))
     }
 }

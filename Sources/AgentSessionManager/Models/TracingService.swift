@@ -1,15 +1,6 @@
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
-import StdoutExporter
-
-/// Output target for span data.
-enum TracingOutputTarget: String, Codable, CaseIterable {
-    case stdout
-    case file
-
-    var displayName: String { rawValue.capitalized }
-}
 
 /// Opaque handle to a live span. Callers hold this to add child spans or end the span
 /// at a time they control — necessary for callback-based async flows where withSpan
@@ -67,22 +58,14 @@ final class TracingService: @unchecked Sendable {
             return
         }
 
-        let exporter: any SpanExporter
-        switch settings.tracingOutputTarget {
-        case .stdout:
-            exporter = StdoutSpanExporter(isDebug: false)
-        case .file:
-            exporter = FileSpanExporter(
-                fileURL: settings.resolvedTracingFileURL,
-                maxBytes: settings.tracingFileMaxBytes
-            )
-        }
+        let exporter: any SpanExporter = PerPaneSpanExporter(
+            tracesDirectory: settings.resolvedTracingDirectoryURL,
+            maxBytesPerFile: settings.tracingFileMaxBytes
+        )
 
         let processor = SimpleSpanProcessor(spanExporter: exporter)
-        let memoryProcessor = SimpleSpanProcessor(spanExporter: MemorySpanExporter())
         let provider = TracerProviderBuilder()
             .add(spanProcessor: processor)
-            .add(spanProcessor: memoryProcessor)
             .build()
 
         let tracer = provider.get(

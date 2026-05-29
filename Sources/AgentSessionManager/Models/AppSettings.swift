@@ -111,11 +111,9 @@ final class AppSettings {
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
     var worktreeBaseRef: WorktreeBaseRef = .fresh
     var tracingEnabled: Bool = false
-    var tracingOutputTarget: TracingOutputTarget = .stdout
-    /// Empty string means the default file under Application Support.
+    /// Empty string means the default traces/ directory under Application Support.
     var tracingFilePath: String = ""
     var tracingFileMaxBytes: Int = AppSettings.defaultTracingFileMaxBytes
-    var traceDashboardMaxSpans: Int = 500
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30
@@ -132,14 +130,15 @@ final class AppSettings {
 
     nonisolated static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
 
-    /// Resolved trace file URL (creates the Application Support parent directory when using the default).
-    var resolvedTracingFileURL: URL {
-        let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
-        let defaultURL = dir.appending(path: "traces.jsonl")
+    /// Resolved traces directory URL.
+    var resolvedTracingDirectoryURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let defaultDir = appSupport
+            .appending(path: PersistenceHelpers.appSupportSubdirectory)
+            .appending(path: "traces")
         let raw = tracingFilePath.trimmingCharacters(in: .whitespacesAndNewlines)
         if raw.isEmpty {
-            return defaultURL.standardizedFileURL
+            return defaultDir.standardizedFileURL
         }
         let expanded = (raw as NSString).expandingTildeInPath
         return URL(fileURLWithPath: expanded).standardizedFileURL

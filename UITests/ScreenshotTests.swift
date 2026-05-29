@@ -81,4 +81,58 @@ final class ScreenshotTests: BaseTestCase {
 
         app.typeKey("w", modifierFlags: .command)
     }
+
+    func testTraceDashboard() {
+        // 1. Enable tracing
+        app.typeKey(",", modifierFlags: .command)
+        let tracingTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-tracing").firstMatch
+        waitFor(tracingTab)
+        tracingTab.click()
+        let tracingToggle = app.checkBoxes["settings-tracing-enabled-toggle"]
+        waitFor(tracingToggle)
+        if tracingToggle.value as? Int == 0 {
+            tracingToggle.click()
+        }
+        app.typeKey("w", modifierFlags: .command)
+
+        // 2. Create a tab and pane to generate real trace data
+        createTab(named: "trace-demo")
+        createPane(named: "worker")
+
+        // 3. Open the trace dashboard
+        app.typeKey("d", modifierFlags: [.command, .shift])
+        let dashboard = app.windows["Trace Dashboard"]
+        waitFor(dashboard)
+
+        // 4. Refresh so the dashboard reads the per-pane files written during step 2
+        let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
+        waitFor(refreshButton)
+        refreshButton.click()
+
+        // 5. Select the first pane row so the detail view loads
+        let paneRow = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-pane-row").firstMatch
+        waitFor(paneRow, timeout: 10)
+        paneRow.click()
+
+        // 6. Wait for the per-pane trace list to appear
+        let filterField = dashboard.textFields["trace-dashboard-filter-field"]
+        waitFor(filterField, timeout: 10)
+
+        screenshot("trace-dashboard")
+
+        // 7. Click the first trace row to open the waterfall
+        let traceRow = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-list-row").firstMatch
+        waitFor(traceRow, timeout: 10)
+        traceRow.click()
+
+        // 8. Wait for the waterfall to render
+        let waterfall = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-waterfall").firstMatch
+        waitFor(waterfall, timeout: 10)
+
+        screenshot("trace-waterfall")
+    }
 }
