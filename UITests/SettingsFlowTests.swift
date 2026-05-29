@@ -251,6 +251,88 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertTrue(spanCount.exists)
     }
 
+    func testProfileEditorShowAllOptions() {
+        app.typeKey(",", modifierFlags: .command)
+
+        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        profilesTab.click()
+
+        let newProfileButton = app.buttons["New Profile"]
+        waitFor(newProfileButton)
+        newProfileButton.click()
+
+        let nameField = app.textFields["profile-editor-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("Hidden Option Test")
+
+        let showAllButton = app.buttons["profile-editor-show-hidden-options-button"]
+        waitFor(showAllButton)
+        showAllButton.click()
+
+        let verboseToggle = app.checkBoxes.matching(
+            NSPredicate(format: "label CONTAINS '--verbose'")
+        ).firstMatch
+        waitFor(verboseToggle)
+        XCTAssertTrue(verboseToggle.exists, "Hidden option --verbose should appear after Show all options")
+        verboseToggle.click()
+
+        let showInAllProfilesButton = app.buttons.matching(
+            NSPredicate(format: "label == 'Show in all profiles'")
+        ).firstMatch
+        waitFor(showInAllProfilesButton)
+        XCTAssertTrue(
+            showInAllProfilesButton.exists,
+            "Show in all profiles button should appear when option is enabled"
+        )
+
+        let saveButton = app.buttons["Save"]
+        waitFor(saveButton)
+        saveButton.click()
+
+        let alpha = app.staticTexts.matching(
+            NSPredicate(format: "value == 'Hidden Option Test'")
+        ).firstMatch
+        waitFor(alpha)
+
+        let ellipsisMenu = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'profile-'")
+        ).firstMatch
+        _ = ellipsisMenu
+
+        let profileMenuButtons = app.buttons.matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH 'profile-move-up-' OR identifier BEGINSWITH 'profile-move-down-'")
+        )
+        if profileMenuButtons.count > 0 {
+            let menuButton = app.buttons.matching(
+                NSPredicate(format: "label == 'More'")
+            ).firstMatch
+            if menuButton.waitForExistence(timeout: 1) {
+                menuButton.click()
+                let editButton = app.menuItems["Edit"]
+                if editButton.waitForExistence(timeout: 1) {
+                    editButton.click()
+
+                    let showHiddenAgain = app.buttons["profile-editor-show-hidden-options-button"]
+                    if showHiddenAgain.waitForExistence(timeout: 2) {
+                        let label = showHiddenAgain.label
+                        XCTAssertEqual(
+                            label, "Fewer options",
+                            "Show all options button should auto-expand because profile has hidden-but-enabled option"
+                        )
+                    }
+
+                    let cancelButton = app.buttons["Cancel"]
+                    if cancelButton.waitForExistence(timeout: 1) {
+                        cancelButton.click()
+                    }
+                }
+            }
+        }
+    }
+
     private func createProfile(named name: String) {
         let newProfileButton = app.buttons["New Profile"]
         waitFor(newProfileButton)
