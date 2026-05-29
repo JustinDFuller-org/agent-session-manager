@@ -176,7 +176,11 @@ final class ScreenshotInjectedTests: XCTestCase {
         XCTAssertTrue(statusLineSkipButton.waitForExistence(timeout: 10))
         screenshot("onboarding-status-line", app: app)
 
-        statusLineSkipButton.click()
+        // Use Save (not Skip) so the wizard-default rows are persisted to disk.
+        // Skip would write an empty config, breaking testPaneStatusScreenshot which
+        // relies on a non-empty status line appearing in a subsequent test.
+        let statusLineSaveButton = app.buttons["onboarding-statusline-save-button"]
+        statusLineSaveButton.click()
 
         let cliFlagsSaveButton = app.buttons["onboarding-cliflags-save-button"]
         XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
