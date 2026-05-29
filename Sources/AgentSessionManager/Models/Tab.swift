@@ -505,6 +505,7 @@ final class Tab: Identifiable {
         statusLineConfigOverride: StatusLineConfig? = nil,
         appSettings: AppSettings? = nil
     ) -> Pane {
+        let paneID = id ?? UUID()
         if let wd = worktreeDirectory {
             TracingService.shared.record(
                 "tab.worktree.resolved",
@@ -512,16 +513,22 @@ final class Tab: Identifiable {
                     "user_ref": name,
                     "result": "dir: \(wd.path)",
                     "path": wd.path,
+                    "pane.name": name,
+                    "pane.id": paneID.uuidString,
+                    "tab.id": self.id.uuidString,
+                    "tab.name": self.name,
                 ])
         }
         TracingService.shared.record(
             "tab.pane.added",
             attributes: [
                 "pane.name": name,
+                "pane.id": paneID.uuidString,
+                "tab.id": self.id.uuidString,
                 "tab.name": self.name,
             ])
         let pane = Pane(
-            id: id ?? UUID(),
+            id: paneID,
             name: name,
             tab: self,
             cliType: cliType,
@@ -534,7 +541,9 @@ final class Tab: Identifiable {
 
         if cliType != .shell {
             let monitor = StatusLineMonitor(
-                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
         }
@@ -570,7 +579,8 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "opencode\(extra)"
             }
             pane.terminalController = controller
-            controller.terminalView.telemetryTabName = name
+            controller.terminalView.telemetryTabName = self.name
+            controller.terminalView.telemetryTabUUID = self.id
             controller.terminalView.telemetryPaneName = pane.name
             controller.terminalView.telemetryPaneUUID = pane.id
         }
@@ -603,7 +613,9 @@ final class Tab: Identifiable {
         pane.statusLineMonitor?.stop()
         let cwd = new.pendingDirectory ?? directory.path
         let monitor = StatusLineMonitor(
-            paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+            paneID: pane.id, paneName: pane.name,
+            workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date(),
+            tabID: self.id, tabName: self.name)
         monitor.start()
         pane.statusLineMonitor = monitor
         if pane.cliType == .claude {
@@ -637,7 +649,9 @@ final class Tab: Identifiable {
             pane.statusLineMonitor = nil
         case .claude:
             let monitor = StatusLineMonitor(
-                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
             if !extraEnvVars.isEmpty {
@@ -649,13 +663,17 @@ final class Tab: Identifiable {
                 settingsPath: monitor.settingsFilePath, extraArgs: extra)
         case .codex:
             let monitor = StatusLineMonitor(
-                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
             controller.pendingCommand = "codex\(extra)"
         case .cursor:
             let monitor = StatusLineMonitor(
-                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
             controller.pendingEnvironment =
@@ -664,7 +682,9 @@ final class Tab: Identifiable {
             controller.pendingCommand = "agent\(extra)"
         case .opencode:
             let monitor = StatusLineMonitor(
-                paneID: pane.id, workingDirectory: cwd, cliType: cliType, processStartTime: Date())
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
             controller.pendingCommand = "opencode\(extra)"
@@ -811,13 +831,19 @@ extension Tab {
                 "user_ref": pane.name,
                 "result": "dir: \(resolved.processDirectory.path)",
                 "path": resolved.processDirectory.path,
+                "pane.name": pane.name,
+                "pane.id": pane.id.uuidString,
+                "tab.id": self.id.uuidString,
+                "tab.name": self.name,
             ])
 
         let cwd = resolved.processDirectory.path
 
         if pane.cliType != .shell {
             let monitor = StatusLineMonitor(
-                paneID: pane.id, workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date())
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date(),
+                tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
         }
@@ -853,6 +879,7 @@ extension Tab {
                 controller.pendingCommand = "opencode\(extra)"
             }
             controller.terminalView.telemetryTabName = self.name
+            controller.terminalView.telemetryTabUUID = self.id
             controller.terminalView.telemetryPaneName = pane.name
             controller.terminalView.telemetryPaneUUID = pane.id
             pane.terminalController = controller

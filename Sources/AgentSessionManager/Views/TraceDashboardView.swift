@@ -84,12 +84,138 @@ func buildTraceSummaries(from spans: [StoredSpan]) -> [TraceSummary] {
 // MARK: - Root dashboard view
 
 struct TraceDashboardView: View {
-    @Environment(TraceStore.self) private var store
+    @State private var repository: TraceRepository
+    @State private var selectedPaneID: String?
+
+    init(tracesDirectory: URL) {
+        _repository = State(initialValue: TraceRepository(tracesDirectory: tracesDirectory))
+    }
+
+    var body: some View {
+        NavigationSplitView {
+            TracePaneSidebarView(
+                repository: repository,
+                selectedPaneID: $selectedPaneID,
+                onSelectPane: { pane in
+                    selectedPaneID = pane.id
+                    repository.selectPane(pane.fileURL)
+                }
+            )
+            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
+        } detail: {
+            if repository.selectedPaneURL != nil {
+                TracePaneDetailView(
+                    spans: repository.selectedPaneSpans
+                )
+            } else {
+                traceEmptyDetail
+            }
+        }
+        .frame(minWidth: 700, minHeight: 400)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .task {
+            repository.refresh()
+        }
+    }
+
+    private var traceEmptyDetail: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 36))
+                .foregroundStyle(.quaternary)
+            Text("Select a pane to view its spans.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("trace-dashboard-empty-detail")
+    }
+}
+
+// MARK: - Sidebar: tab → pane tree
+
+struct TracePaneSidebarView: View {
+    let repository: TraceRepository
+    @Binding var selectedPaneID: String?
+    let onSelectPane: (TracePane) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            sidebarToolbar
+            Divider()
+            if repository.tabs.isEmpty {
+                sidebarEmptyState
+            } else {
+                sidebarList
+            }
+        }
+    }
+
+    private var sidebarToolbar: some View {
+        HStack {
+            Text("Panes")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            Spacer()
+            Button {
+                repository.refresh()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.borderless)
+            .help("Refresh pane list")
+            .accessibilityIdentifier("trace-dashboard-refresh-button")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var sidebarEmptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "tray")
+                .font(.system(size: 28))
+                .foregroundStyle(.quaternary)
+            Text("No trace files found.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("Enable tracing with File output and use the app.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("trace-dashboard-sidebar-empty-state")
+    }
+
+    private var sidebarList: some View {
+        List(selection: $selectedPaneID) {
+            ForEach(repository.tabs) { tab in
+                Section(tab.name) {
+                    ForEach(tab.panes) { pane in
+                        Text(pane.name)
+                            .font(.system(size: 12, design: .monospaced))
+                            .tag(pane.id)
+                            .onTapGesture { onSelectPane(pane) }
+                    }
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .accessibilityIdentifier("trace-dashboard-sidebar-list")
+    }
+}
+
+// MARK: - Detail: spans for a selected pane
+
+struct TracePaneDetailView: View {
+    let spans: [StoredSpan]
     @State private var selectedTraceId: String?
     @State private var filterText = ""
 
     private var summaries: [TraceSummary] {
-        let all = buildTraceSummaries(from: store.spans)
+        let all = buildTraceSummaries(from: spans)
         guard !filterText.isEmpty else { return all }
         return all.filter { $0.rootName.localizedCaseInsensitiveContains(filterText) }
     }
@@ -97,7 +223,7 @@ struct TraceDashboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             if let traceId = selectedTraceId {
-                let traceSpans = store.spans.filter { $0.traceId == traceId }
+                let traceSpans = spans.filter { $0.traceId == traceId }
                 TraceDetailView(
                     summary: summaries.first { $0.traceId == traceId }
                         ?? TraceSummary(
@@ -109,14 +235,11 @@ struct TraceDashboardView: View {
                 TraceListView(
                     summaries: summaries,
                     filterText: $filterText,
-                    totalSpanCount: store.spans.count,
-                    onSelect: { selectedTraceId = $0 },
-                    onClear: { store.clear() }
+                    totalSpanCount: spans.count,
+                    onSelect: { selectedTraceId = $0 }
                 )
             }
         }
-        .frame(minWidth: 700, minHeight: 400)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -127,7 +250,6 @@ struct TraceListView: View {
     @Binding var filterText: String
     let totalSpanCount: Int
     let onSelect: (String) -> Void
-    let onClear: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -152,8 +274,6 @@ struct TraceListView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("trace-dashboard-span-count")
-            Button("Clear") { onClear() }
-                .accessibilityIdentifier("trace-dashboard-clear-button")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -165,12 +285,9 @@ struct TraceListView: View {
             Image(systemName: "waveform.path.ecg")
                 .font(.system(size: 36))
                 .foregroundStyle(.quaternary)
-            Text("No spans captured.")
+            Text("No spans in this pane's file.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text("Enable tracing in Settings → Tracing and use the app.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("trace-dashboard-empty-state")

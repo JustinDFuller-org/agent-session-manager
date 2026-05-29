@@ -72,17 +72,15 @@ final class TracingService: @unchecked Sendable {
         case .stdout:
             exporter = StdoutSpanExporter(isDebug: false)
         case .file:
-            exporter = FileSpanExporter(
-                fileURL: settings.resolvedTracingFileURL,
-                maxBytes: settings.tracingFileMaxBytes
+            exporter = PerPaneSpanExporter(
+                tracesDirectory: settings.resolvedTracingDirectoryURL,
+                maxBytesPerFile: settings.tracingFileMaxBytes
             )
         }
 
         let processor = SimpleSpanProcessor(spanExporter: exporter)
-        let memoryProcessor = SimpleSpanProcessor(spanExporter: MemorySpanExporter())
         let provider = TracerProviderBuilder()
             .add(spanProcessor: processor)
-            .add(spanProcessor: memoryProcessor)
             .build()
 
         let tracer = provider.get(

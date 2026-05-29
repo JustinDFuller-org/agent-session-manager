@@ -4,6 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
+    @State private var traceCleanupService: TraceCleanupService?
     @State private var showingNewTab = false
     @State private var showCleanupAlert = false
     @State private var pendingCleanupPane: Pane?
@@ -86,6 +87,9 @@ struct ContentView: View {
                 SettingsPersistence.restoreShellSettings(into: appSettings)
                 SettingsPersistence.restoreOnboarding(into: appSettings)
                 TracingService.shared.configure(from: appSettings)
+                let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
+                cleanup.start()
+                traceCleanupService = cleanup
                 SessionPersistence.restore(into: appState, appSettings: appSettings)
                 await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
             }

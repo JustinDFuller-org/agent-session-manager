@@ -5,7 +5,6 @@ import XCTest
 @MainActor
 final class TracingServiceTests: XCTestCase {
     private var testTraceDir: URL!
-    private var testTraceURL: URL!
     private var appSettings: AppSettings!
 
     override func setUp() async throws {
@@ -13,7 +12,6 @@ final class TracingServiceTests: XCTestCase {
         testTraceDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("tracing-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: testTraceDir, withIntermediateDirectories: true)
-        testTraceURL = testTraceDir.appendingPathComponent("traces.jsonl")
         appSettings = AppSettings()
         appSettings.tracingEnabled = false
         TracingService.shared.configure(from: appSettings)
@@ -30,16 +28,27 @@ final class TracingServiceTests: XCTestCase {
 
     func testNoOutputWhenDisabled() throws {
         TracingService.shared.record("test.event", attributes: ["key": "value"])
-        XCTAssertFalse(FileManager.default.fileExists(atPath: testTraceURL.path))
+        // No files should exist in the test dir
+        let contents = (try? FileManager.default.contentsOfDirectory(atPath: testTraceDir.path)) ?? []
+        XCTAssertTrue(contents.isEmpty)
     }
 
     func testRecordWritesFileWhenEnabled() throws {
         appSettings.tracingEnabled = true
         appSettings.tracingOutputTarget = .file
-        appSettings.tracingFilePath = testTraceURL.path
+        appSettings.tracingFilePath = testTraceDir.path
         TracingService.shared.configure(from: appSettings)
 
-        TracingService.shared.record("test.event", attributes: ["foo": "bar"])
+        // Emit a span with pane.id so it routes to a named pane file
+        TracingService.shared.record(
+            "test.event",
+            attributes: [
+                "foo": "bar",
+                "pane.id": "test-pane-uuid",
+                "pane.name": "testpane",
+                "tab.id": "test-tab-uuid",
+                "tab.name": "testtab",
+            ])
 
         let expectation = XCTestExpectation(description: "trace file written")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -47,11 +56,41 @@ final class TracingServiceTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: testTraceURL.path))
-        let content = try String(contentsOf: testTraceURL, encoding: .utf8)
-        XCTAssertTrue(content.contains("test.event"))
-        XCTAssertTrue(content.contains("foo"))
-        XCTAssertTrue(content.contains("bar"))
+        // Should have at least one JSONL file somewhere under testTraceDir
+        var foundContent: String?
+        let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
+        while let file = enumerator?.nextObject() as? URL {
+            if file.pathExtension == "jsonl" {
+                foundContent = try? String(contentsOf: file, encoding: .utf8)
+                break
+            }
+        }
+        XCTAssertNotNil(foundContent, "Expected a JSONL file under testTraceDir")
+        XCTAssertTrue(foundContent?.contains("test.event") ?? false)
+        XCTAssertTrue(foundContent?.contains("foo") ?? false)
+        XCTAssertTrue(foundContent?.contains("bar") ?? false)
+    }
+
+    func testGlobalFileWrittenForSpansWithoutPaneId() throws {
+        appSettings.tracingEnabled = true
+        appSettings.tracingOutputTarget = .file
+        appSettings.tracingFilePath = testTraceDir.path
+        TracingService.shared.configure(from: appSettings)
+
+        TracingService.shared.record("global.event", attributes: ["key": "value"])
+
+        let expectation = XCTestExpectation(description: "global file written")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2)
+
+        let globalFile = testTraceDir
+            .appendingPathComponent("_global")
+            .appendingPathComponent("global.jsonl")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: globalFile.path))
+        let content = try String(contentsOf: globalFile, encoding: .utf8)
+        XCTAssertTrue(content.contains("global.event"))
     }
 
     func testWithSpanSyncExecutesBody() throws {
@@ -77,7 +116,7 @@ final class TracingServiceTests: XCTestCase {
     func testReconfigureDisablesOutput() throws {
         appSettings.tracingEnabled = true
         appSettings.tracingOutputTarget = .file
-        appSettings.tracingFilePath = testTraceURL.path
+        appSettings.tracingFilePath = testTraceDir.path
         TracingService.shared.configure(from: appSettings)
         XCTAssertTrue(TracingService.shared.isEnabled)
 
@@ -89,33 +128,13 @@ final class TracingServiceTests: XCTestCase {
         let wait = XCTestExpectation(description: "give async writes time")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { wait.fulfill() }
         self.wait(for: [wait], timeout: 1)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: testTraceURL.path))
-    }
 
-    func testFileSpanExporterTrimming() throws {
-        let smallURL = testTraceDir.appendingPathComponent("small-traces.jsonl")
-        let exporter = FileSpanExporter(fileURL: smallURL, maxBytes: 200)
-
-        let longLine = String(repeating: "x", count: 80)
-        let data = Data((longLine + "\n" + longLine + "\n" + longLine + "\n").utf8)
-
-        let handle = FileHandle.nullDevice
-        _ = handle
-
-        FileManager.default.createFile(atPath: smallURL.path, contents: data)
-
-        let moreData = Data((longLine + "\n").utf8)
-        let writeHandle = try FileHandle(forWritingTo: smallURL)
-        try writeHandle.seekToEnd()
-        try writeHandle.write(contentsOf: moreData)
-        try writeHandle.close()
-
-        let expectation = XCTestExpectation(description: "file written")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { expectation.fulfill() }
-        wait(for: [expectation], timeout: 1)
-
-        let content = try String(contentsOf: smallURL, encoding: .utf8)
-        XCTAssertLessThanOrEqual(content.utf8.count, 450)
-        _ = exporter
+        // No JSONL files should exist
+        var foundFile = false
+        let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
+        while let file = enumerator?.nextObject() as? URL {
+            if file.pathExtension == "jsonl" { foundFile = true; break }
+        }
+        XCTAssertFalse(foundFile)
     }
 }

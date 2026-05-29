@@ -7,6 +7,7 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onUserInput: (() -> Void)?
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryTabName: String = ""
+    var telemetryTabUUID: UUID?
     var telemetryPaneName: String = ""
     var telemetryPaneUUID: UUID?
     private var osc777HookInstalled = false
@@ -58,13 +59,14 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
         super.bell(source: source)
         onBell?()
         Task { @MainActor in
-            TracingService.shared.record(
-                "terminal.attention.delivered",
-                attributes: [
-                    "source": "bell",
-                    "pane.name": self.telemetryPaneName,
-                    "tab.name": self.telemetryTabName,
-                ])
+            var attrs: [String: String] = [
+                "source": "bell",
+                "pane.name": self.telemetryPaneName,
+                "tab.name": self.telemetryTabName,
+            ]
+            if let id = self.telemetryPaneUUID { attrs["pane.id"] = id.uuidString }
+            if let id = self.telemetryTabUUID { attrs["tab.id"] = id.uuidString }
+            TracingService.shared.record("terminal.attention.delivered", attributes: attrs)
         }
     }
 
@@ -83,13 +85,14 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
                 guard let self else { return }
                 self.onBell?()
                 Task { @MainActor in
-                    TracingService.shared.record(
-                        "terminal.attention.delivered",
-                        attributes: [
-                            "source": "osc777",
-                            "pane.name": self.telemetryPaneName,
-                            "tab.name": self.telemetryTabName,
-                        ])
+                    var attrs: [String: String] = [
+                        "source": "osc777",
+                        "pane.name": self.telemetryPaneName,
+                        "tab.name": self.telemetryTabName,
+                    ]
+                    if let id = self.telemetryPaneUUID { attrs["pane.id"] = id.uuidString }
+                    if let id = self.telemetryTabUUID { attrs["tab.id"] = id.uuidString }
+                    TracingService.shared.record("terminal.attention.delivered", attributes: attrs)
                 }
             }
         }
@@ -147,16 +150,19 @@ final class TerminalController: NSObject {
             )
             let tracePaneName = terminalView.telemetryPaneName
             let traceTabName = terminalView.telemetryTabName
+            let tracePaneUUID = terminalView.telemetryPaneUUID
+            let traceTabUUID = terminalView.telemetryTabUUID
             Task(priority: .utility) { @MainActor in
-                TracingService.shared.record(
-                    "terminal.process.started",
-                    attributes: [
-                        "executable": shell,
-                        "args": args.joined(separator: " "),
-                        "working_directory": cwd ?? "",
-                        "pane.name": tracePaneName,
-                        "tab.name": traceTabName,
-                    ])
+                var attrs: [String: String] = [
+                    "executable": shell,
+                    "args": args.joined(separator: " "),
+                    "working_directory": cwd ?? "",
+                    "pane.name": tracePaneName,
+                    "tab.name": traceTabName,
+                ]
+                if let id = tracePaneUUID { attrs["pane.id"] = id.uuidString }
+                if let id = traceTabUUID { attrs["tab.id"] = id.uuidString }
+                TracingService.shared.record("terminal.process.started", attributes: attrs)
             }
         } else {
             let env = pendingEnvironment
@@ -168,16 +174,19 @@ final class TerminalController: NSObject {
             )
             let tracePaneName = terminalView.telemetryPaneName
             let traceTabName = terminalView.telemetryTabName
+            let tracePaneUUID = terminalView.telemetryPaneUUID
+            let traceTabUUID = terminalView.telemetryTabUUID
             Task(priority: .utility) { @MainActor in
-                TracingService.shared.record(
-                    "terminal.process.started",
-                    attributes: [
-                        "executable": shell,
-                        "args": "",
-                        "working_directory": cwd ?? "",
-                        "pane.name": tracePaneName,
-                        "tab.name": traceTabName,
-                    ])
+                var attrs: [String: String] = [
+                    "executable": shell,
+                    "args": "",
+                    "working_directory": cwd ?? "",
+                    "pane.name": tracePaneName,
+                    "tab.name": traceTabName,
+                ]
+                if let id = tracePaneUUID { attrs["pane.id"] = id.uuidString }
+                if let id = traceTabUUID { attrs["tab.id"] = id.uuidString }
+                TracingService.shared.record("terminal.process.started", attributes: attrs)
             }
         }
         let pid = terminalView.process.shellPid
@@ -225,13 +234,14 @@ extension TerminalController: LocalProcessTerminalViewDelegate {
     nonisolated func processTerminated(source: TerminalView, exitCode: Int32?) {
         Task { @MainActor in
             self.processState = .exited(code: exitCode)
-            TracingService.shared.record(
-                "terminal.process.exited",
-                attributes: [
-                    "exit_code": exitCode.map(String.init) ?? "nil",
-                    "pane.name": self.terminalView.telemetryPaneName,
-                    "tab.name": self.terminalView.telemetryTabName,
-                ])
+            var attrs: [String: String] = [
+                "exit_code": exitCode.map(String.init) ?? "nil",
+                "pane.name": self.terminalView.telemetryPaneName,
+                "tab.name": self.terminalView.telemetryTabName,
+            ]
+            if let id = self.terminalView.telemetryPaneUUID { attrs["pane.id"] = id.uuidString }
+            if let id = self.terminalView.telemetryTabUUID { attrs["tab.id"] = id.uuidString }
+            TracingService.shared.record("terminal.process.exited", attributes: attrs)
         }
     }
 
