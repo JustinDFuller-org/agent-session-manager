@@ -141,6 +141,22 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertTrue(app.buttons["Cancel"].firstMatch.exists)
     }
 
+    func testWorktreeDeleteFlowClosesImmediately() {
+        createManagedWorktreePane(folder: "wt-immediate")
+
+        let paneLabel = app.staticTexts.matching(identifier: "pane-name-wt-immediate").firstMatch
+        XCTAssertTrue(paneLabel.waitForExistence(timeout: paneWait))
+
+        app.descendants(matching: .any).matching(identifier: "pane-close-wt-immediate").firstMatch.click()
+
+        let deleteButton = app.buttons["Delete Worktree"].firstMatch
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 5))
+        deleteButton.click()
+
+        // Pane must vanish within 2 seconds — confirming it didn't block on git I/O.
+        XCTAssertFalse(paneLabel.waitForExistence(timeout: 2))
+    }
+
     private func openPrimaryCheckoutPane() {
         app.typeKey("p", modifierFlags: .command)
         let field = app.textFields["new-pane-name-field"]

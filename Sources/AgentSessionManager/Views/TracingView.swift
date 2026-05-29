@@ -21,47 +21,8 @@ struct TracingView: View {
                             TracingService.shared.configure(from: appSettings)
                         }
                 }
-                if appSettings.tracingEnabled {
-                    SettingRow(
-                        title: "Output",
-                        description: "Where to write spans."
-                    ) {
-                        Picker("Output", selection: $appSettings.tracingOutputTarget) {
-                            ForEach(TracingOutputTarget.allCases, id: \.self) { target in
-                                Text(target.displayName).tag(target)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 160)
-                        .labelsHidden()
-                        .onChange(of: appSettings.tracingOutputTarget) {
-                            SettingsPersistence.saveTracingSettings(appSettings: appSettings)
-                            TracingService.shared.configure(from: appSettings)
-                        }
-                    }
-                    SettingRow(
-                        title: "Dashboard Buffer",
-                        description: "Max spans kept in memory for the in-app dashboard."
-                    ) {
-                        HStack(spacing: 4) {
-                            TextField("", value: $appSettings.traceDashboardMaxSpans, format: .number)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 72)
-                                .accessibilityIdentifier("settings-tracing-dashboard-max-spans-field")
-                                .onChange(of: appSettings.traceDashboardMaxSpans) {
-                                    let clamped = max(1, appSettings.traceDashboardMaxSpans)
-                                    appSettings.traceDashboardMaxSpans = clamped
-                                    TraceStore.shared.maxSpans = clamped
-                                    SettingsPersistence.saveTracingSettings(appSettings: appSettings)
-                                }
-                            Text("spans")
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
             }
-            if appSettings.tracingEnabled && appSettings.tracingOutputTarget == .file {
+            if appSettings.tracingEnabled {
                 Section("File") {
                     LabeledContent {
                         TextField("", text: $appSettings.tracingFilePath)
@@ -74,13 +35,13 @@ struct TracingView: View {
                             }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("File Path")
+                            Text("Traces Directory")
                                 .font(.system(.body, design: .monospaced))
                                 .fontWeight(.medium)
-                            Text("Leave empty to use the default path in Application Support.")
+                            Text("Leave empty to use the default directory in Application Support.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Text("Default: \(appSettings.resolvedTracingFileURL.path)")
+                            Text("Default: \(appSettings.resolvedTracingDirectoryURL.path)")
                                 .font(.system(.caption2, design: .monospaced))
                                 .foregroundStyle(.tertiary)
                         }
@@ -99,10 +60,10 @@ struct TracingView: View {
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Max File Size")
+                            Text("Max File Size (per pane)")
                                 .font(.system(.body, design: .monospaced))
                                 .fontWeight(.medium)
-                            Text("Older spans are trimmed when this limit is reached.")
+                            Text("Older spans are trimmed per pane file when this limit is reached.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Text("Default: 10 MB")
@@ -115,24 +76,24 @@ struct TracingView: View {
                             Button("Copy Path") {
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(
-                                    appSettings.resolvedTracingFileURL.path,
+                                    appSettings.resolvedTracingDirectoryURL.path,
                                     forType: .string
                                 )
                             }
                             .buttonStyle(.bordered)
                             Button("Reveal in Finder") {
                                 NSWorkspace.shared.activateFileViewerSelecting([
-                                    appSettings.resolvedTracingFileURL
+                                    appSettings.resolvedTracingDirectoryURL
                                 ])
                             }
                             .buttonStyle(.bordered)
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Resolved Path")
+                            Text("Resolved Directory")
                                 .font(.system(.body, design: .monospaced))
                                 .fontWeight(.medium)
-                            Text(appSettings.resolvedTracingFileURL.path)
+                            Text(appSettings.resolvedTracingDirectoryURL.path)
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
@@ -143,7 +104,7 @@ struct TracingView: View {
             }
             Section {
                 Text(
-                    "Spans are written in OpenTelemetry JSON-Lines format. Use `jq` or an OTel viewer to inspect."
+                    "Spans are written as JSON-Lines, one file per pane, under the traces/ directory. Files are auto-deleted after 1 day. Use `jq` or an OTel viewer to inspect."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

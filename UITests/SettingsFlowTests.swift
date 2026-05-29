@@ -227,9 +227,10 @@ final class SettingsFlowTests: BaseTestCase {
             tracingToggle.click()
         }
 
-        let maxSpansField = app.textFields["settings-tracing-dashboard-max-spans-field"]
-        waitFor(maxSpansField)
-        XCTAssertTrue(maxSpansField.exists)
+        // File section controls appear when tracing is enabled
+        let fileSection = app.staticTexts["File"]
+        waitFor(fileSection)
+        XCTAssertTrue(fileSection.exists)
 
         app.typeKey("w", modifierFlags: .command)
 
@@ -238,17 +239,14 @@ final class SettingsFlowTests: BaseTestCase {
         let dashboard = app.windows["Trace Dashboard"]
         waitFor(dashboard)
 
-        let filterField = dashboard.textFields["trace-dashboard-filter-field"]
-        waitFor(filterField)
-        XCTAssertTrue(filterField.exists)
+        let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
+        waitFor(refreshButton)
+        XCTAssertTrue(refreshButton.exists)
 
-        let clearButton = dashboard.buttons["trace-dashboard-clear-button"]
-        waitFor(clearButton)
-        XCTAssertTrue(clearButton.isEnabled)
-
-        let spanCount = dashboard.staticTexts["trace-dashboard-span-count"]
-        waitFor(spanCount)
-        XCTAssertTrue(spanCount.exists)
+        XCTAssertTrue(
+            dashboard.descendants(matching: .any)
+                .matching(identifier: "trace-dashboard-sidebar-list").firstMatch.exists
+        )
     }
 
     func testProfileEditorShowAllOptions() {

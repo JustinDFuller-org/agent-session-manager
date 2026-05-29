@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct AgentSessionManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var cleanupService: TraceCleanupService?
 
     var body: some Scene {
         Settings {
@@ -14,9 +15,11 @@ struct AgentSessionManagerApp: App {
         .commands { AppCommands(appState: appDelegate.appState) }
 
         Window("Trace Dashboard", id: "trace-dashboard") {
-            TraceDashboardView()
-                .environment(TraceStore.shared)
+            TraceDashboardView(
+                tracesDirectory: appDelegate.appSettings.resolvedTracingDirectoryURL
+            )
         }
+        .defaultSize(width: 900, height: 600)
     }
 }
 

@@ -19,6 +19,9 @@ final class StatusLineMonitor {
     private(set) var currentData: StatusLineData?
 
     private let paneID: UUID
+    private let paneName: String
+    private let tabID: UUID
+    private let tabName: String
     let filePath: String
     let settingsFilePath: String
     /// Written by Claude Code `Notification` hook stdin when `isClaudeHookAttentionEnabled` is on.
@@ -44,8 +47,19 @@ final class StatusLineMonitor {
     private var lastKnownPRState: String?
     private var hasFiredMergedNotification = false
 
-    init(paneID: UUID, workingDirectory: String? = nil, cliType: CLIType, processStartTime: Date = Date()) {
+    init(
+        paneID: UUID,
+        paneName: String = "",
+        workingDirectory: String? = nil,
+        cliType: CLIType,
+        processStartTime: Date = Date(),
+        tabID: UUID = UUID(),
+        tabName: String = ""
+    ) {
         self.paneID = paneID
+        self.paneName = paneName.isEmpty ? String(paneID.uuidString.prefix(8)) : paneName
+        self.tabID = tabID
+        self.tabName = tabName
         self.workingDirectory = workingDirectory
         self.cliType = cliType
         self.isClaude = cliType == .claude
@@ -88,7 +102,12 @@ final class StatusLineMonitor {
             writeSettingsFile()
             TracingService.shared.record(
                 "statusline.monitor.started",
-                attributes: ["pane.name": String(paneID.uuidString.prefix(8))])
+                attributes: [
+                    "pane.name": paneName,
+                    "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString,
+                    "tab.name": tabName,
+                ])
             FileManager.default.createFile(atPath: filePath, contents: nil)
 
             startStatusWatcher()
@@ -140,7 +159,12 @@ final class StatusLineMonitor {
         gitDiffTimer = nil
         TracingService.shared.record(
             "statusline.monitor.stopped",
-            attributes: ["pane.name": String(paneID.uuidString.prefix(8))])
+            attributes: [
+                "pane.name": paneName,
+                "pane.id": paneID.uuidString,
+                "tab.id": tabID.uuidString,
+                "tab.name": tabName,
+            ])
         stopAttentionWatcher()
         agnosticProvider?.stop()
         agnosticProvider = nil
@@ -203,7 +227,6 @@ final class StatusLineMonitor {
 
     @MainActor
     private func applyLatestPayload(reason: String) {
-        let pane = String(paneID.uuidString.prefix(8))
         let url = URL(filePath: filePath)
         let attrs = try? FileManager.default.attributesOfItem(atPath: filePath)
         let mtime = attrs?[.modificationDate] as? Date
@@ -215,7 +238,9 @@ final class StatusLineMonitor {
             TracingService.shared.record(
                 "statusline.payload.decode_failed",
                 attributes: [
-                    "pane.name": pane, "reason": reason,
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
+                    "reason": reason,
                     "error": "read_failed:\(error.localizedDescription)", "byte_count": "0",
                 ])
             return
@@ -231,7 +256,9 @@ final class StatusLineMonitor {
             TracingService.shared.record(
                 "statusline.payload.decode_failed",
                 attributes: [
-                    "pane.name": pane, "reason": reason,
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
+                    "reason": reason,
                     "error": error.localizedDescription,
                     "byte_count": "\(rawData.count)",
                     "payload_prefix": prefix,
@@ -252,7 +279,9 @@ final class StatusLineMonitor {
         TracingService.shared.record(
             "statusline.payload.applied",
             attributes: [
-                "pane.name": pane, "reason": reason,
+                "pane.name": paneName, "pane.id": paneID.uuidString,
+                "tab.id": tabID.uuidString, "tab.name": tabName,
+                "reason": reason,
                 "cost_usd": enforced.cost?.totalCostUsd.map { String(format: "%.4f", $0) } ?? "nil",
                 "used_pct": enforced.contextWindow?.usedPercentage.map { "\($0)" } ?? "nil",
                 "inode": inode.map { "\($0)" } ?? "unknown",
@@ -261,7 +290,6 @@ final class StatusLineMonitor {
 
     @MainActor
     private func checkPayloadFreshness() {
-        let pane = String(paneID.uuidString.prefix(8))
         guard let mtime = (try? FileManager.default.attributesOfItem(atPath: filePath))?[.modificationDate] as? Date
         else { return }
         guard let lastApplied = lastAppliedModificationDate else {
@@ -273,7 +301,8 @@ final class StatusLineMonitor {
         TracingService.shared.record(
             "statusline.payload.stale_recovered",
             attributes: [
-                "pane.name": pane,
+                "pane.name": paneName, "pane.id": paneID.uuidString,
+                "tab.id": tabID.uuidString, "tab.name": tabName,
                 "file_mtime": String(format: "%.3f", mtime.timeIntervalSince1970),
                 "stale_age_seconds": String(format: "%.1f", staleAge),
             ])
@@ -283,13 +312,13 @@ final class StatusLineMonitor {
     private func applyI1Enforcement(to data: inout StatusLineData) {
         guard let cwd = workingDirectory else { return }
         let wantedName = URL(filePath: cwd).lastPathComponent
-        let pane = String(paneID.uuidString.prefix(8))
 
         if let reported = data.worktree?.name, reported != wantedName {
             TracingService.shared.record(
                 "statusline.worktree.name_mismatch",
                 attributes: [
-                    "pane.name": pane,
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
                     "field": "worktree.name",
                     "computed": wantedName,
                     "reported": reported,
@@ -301,7 +330,8 @@ final class StatusLineMonitor {
             TracingService.shared.record(
                 "statusline.worktree.name_mismatch",
                 attributes: [
-                    "pane.name": pane,
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
                     "field": "workspace.git_worktree",
                     "computed": wantedName,
                     "reported": reported,
@@ -311,7 +341,6 @@ final class StatusLineMonitor {
     }
 
     private func applyI3Enforcement(to data: inout StatusLineData) {
-        let pane = String(paneID.uuidString.prefix(8))
         let computedAdded = cachedGitStats.added
         let computedRemoved = cachedGitStats.removed
 
@@ -322,7 +351,8 @@ final class StatusLineMonitor {
             TracingService.shared.record(
                 "statusline.lines.source_mismatch",
                 attributes: [
-                    "pane.name": pane,
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
                     "computed_added": "\(computedAdded)",
                     "reported_added": "\(reportedAdded)",
                     "computed_removed": "\(computedRemoved)",
@@ -422,7 +452,10 @@ final class StatusLineMonitor {
                 self.lastAttentionPayloadFingerprint = fingerprint
                 TracingService.shared.record(
                     "statusline.attention.received",
-                    attributes: ["pane.name": String(self.paneID.uuidString.prefix(8))])
+                    attributes: [
+                        "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                        "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                    ])
                 self.onClaudeHookAttention?()
             }
         }
@@ -458,7 +491,8 @@ final class StatusLineMonitor {
             TracingService.shared.record(
                 "statusline.pr_transition",
                 attributes: [
-                    "pane.name": String(paneID.uuidString.prefix(8)),
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
                     "old_state": lastKnownPRState ?? "nil",
                     "new_state": newState,
                 ])
