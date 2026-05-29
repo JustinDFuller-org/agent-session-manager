@@ -156,7 +156,7 @@ struct NewPaneSheet: View {
             actionButtons
         }
         .padding(24)
-        .frame(width: 480)
+        .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
                 suggestedName: selectedProfile?.name ?? "",
@@ -763,8 +763,8 @@ private struct CLIOptionToggleRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(option.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Group {
@@ -776,7 +776,7 @@ private struct CLIOptionToggleRow: View {
                     Color.clear
                 }
             }
-            .frame(width: 110)
+            .frame(maxWidth: .infinity)
         }
     }
 }
@@ -789,14 +789,14 @@ private struct EnvVarToggleRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(envVar.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(width: 110)
+                .frame(maxWidth: .infinity)
         }
     }
 }
@@ -810,8 +810,8 @@ private struct HiddenCLIOptionToggleRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(option.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -824,7 +824,7 @@ private struct HiddenCLIOptionToggleRow: View {
                     Color.clear
                 }
             }
-            .frame(width: 110)
+            .frame(maxWidth: .infinity)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
@@ -844,15 +844,15 @@ private struct HiddenEnvVarToggleRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(envVar.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(width: 110)
+                .frame(maxWidth: .infinity)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)

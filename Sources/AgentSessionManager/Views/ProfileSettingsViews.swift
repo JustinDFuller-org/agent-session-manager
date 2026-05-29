@@ -245,11 +245,14 @@ private struct ProfileEditorSheet: View {
                             Text("CLI Options")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
+                            Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             if !available.isEmpty {
                                 HStack(spacing: 8) {
                                     Spacer()
-                                    Color.clear.frame(width: 110)
-                                    Text("On create")
+                                    Color.clear.frame(maxWidth: .infinity)
+                                    Text("Show on new pane")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .help(
@@ -304,11 +307,14 @@ private struct ProfileEditorSheet: View {
                                 Text("Environment Variables")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
+                                Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                                 if !availableEnvVars.isEmpty {
                                     HStack(spacing: 8) {
                                         Spacer()
-                                        Color.clear.frame(width: 110)
-                                        Text("On create")
+                                        Color.clear.frame(maxWidth: .infinity)
+                                        Text("Show on new pane")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                             .help(
@@ -394,7 +400,7 @@ private struct ProfileEditorSheet: View {
                     }
                 }
                 .padding(24)
-                .frame(width: 480)
+                .frame(maxWidth: .infinity)
             }
 
             Divider()
@@ -409,7 +415,7 @@ private struct ProfileEditorSheet: View {
             }
             .padding(24)
         }
-        .frame(width: 480)
+        .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
         .onAppear {
             if let existing = profile {
                 name = existing.name
@@ -583,8 +589,8 @@ private struct ProfileEditorOptionRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(option.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Group {
@@ -596,8 +602,8 @@ private struct ProfileEditorOptionRow: View {
                     Color.clear
                 }
             }
-            .frame(width: 110)
-            Toggle("On create", isOn: $state.showOnPaneCreate)
+            .frame(maxWidth: .infinity)
+            Toggle("Show on new pane", isOn: $state.showOnPaneCreate)
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .help(
@@ -615,15 +621,15 @@ private struct ProfileEditorEnvVarRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(envVar.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(width: 110)
-            Toggle("On create", isOn: $state.showOnPaneCreate)
+                .frame(maxWidth: .infinity)
+            Toggle("Show on new pane", isOn: $state.showOnPaneCreate)
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .help(
@@ -642,8 +648,8 @@ private struct ProfileEditorHiddenOptionRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(option.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -656,7 +662,7 @@ private struct ProfileEditorHiddenOptionRow: View {
                     Color.clear
                 }
             }
-            .frame(width: 110)
+            .frame(maxWidth: .infinity)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
@@ -676,15 +682,15 @@ private struct ProfileEditorHiddenEnvVarRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(envVar.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(width: 110)
+                .frame(maxWidth: .infinity)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
