@@ -156,7 +156,7 @@ struct NewPaneSheet: View {
             actionButtons
         }
         .padding(24)
-        .frame(width: 420)
+        .frame(width: 480)
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
                 suggestedName: selectedProfile?.name ?? "",
@@ -766,12 +766,17 @@ private struct CLIOptionToggleRow: View {
                     .font(.system(.body, design: .monospaced))
                     .font(.caption)
             }
-            if case .string(let placeholder) = option.optionType {
-                TextField(placeholder, text: $state.value)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(!state.enabled)
-                    .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
             }
+            .frame(width: 110)
         }
     }
 }
@@ -787,10 +792,11 @@ private struct EnvVarToggleRow: View {
                     .font(.system(.body, design: .monospaced))
                     .font(.caption)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(maxWidth: .infinity)
+                .frame(width: 110)
         }
     }
 }
@@ -808,12 +814,17 @@ private struct HiddenCLIOptionToggleRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            if case .string(let placeholder) = option.optionType {
-                TextField(placeholder, text: $state.value)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(!state.enabled)
-                    .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
             }
+            .frame(width: 110)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
@@ -837,10 +848,11 @@ private struct HiddenEnvVarToggleRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(maxWidth: .infinity)
+                .frame(width: 110)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)

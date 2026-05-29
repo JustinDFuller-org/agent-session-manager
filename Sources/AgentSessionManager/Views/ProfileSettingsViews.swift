@@ -246,6 +246,16 @@ private struct ProfileEditorSheet: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                             if !available.isEmpty {
+                                HStack(spacing: 8) {
+                                    Spacer()
+                                    Color.clear.frame(width: 110)
+                                    Text("On create")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .help(
+                                            "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
+                                        )
+                                }
                                 ScrollView {
                                     VStack(alignment: .leading, spacing: 6) {
                                         ForEach(available) { option in
@@ -295,6 +305,16 @@ private struct ProfileEditorSheet: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 if !availableEnvVars.isEmpty {
+                                    HStack(spacing: 8) {
+                                        Spacer()
+                                        Color.clear.frame(width: 110)
+                                        Text("On create")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .help(
+                                                "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
+                                            )
+                                    }
                                     ScrollView {
                                         VStack(alignment: .leading, spacing: 6) {
                                             ForEach(availableEnvVars) { envVar in
@@ -374,7 +394,7 @@ private struct ProfileEditorSheet: View {
                     }
                 }
                 .padding(24)
-                .frame(width: 420)
+                .frame(width: 480)
             }
 
             Divider()
@@ -389,7 +409,7 @@ private struct ProfileEditorSheet: View {
             }
             .padding(24)
         }
-        .frame(width: 420)
+        .frame(width: 480)
         .onAppear {
             if let existing = profile {
                 name = existing.name
@@ -566,20 +586,23 @@ private struct ProfileEditorOptionRow: View {
                     .font(.system(.body, design: .monospaced))
                     .font(.caption)
             }
-            if case .string(let placeholder) = option.optionType {
-                TextField(placeholder, text: $state.value)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(!state.enabled)
-                    .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
             }
-            HStack(spacing: 4) {
-                Text("Show")
-                    .font(.caption)
-                Toggle("Show", isOn: $state.showOnPaneCreate)
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .help("Show this option in the New Pane sheet when this profile is selected.")
-            }
+            .frame(width: 110)
+            Toggle("On create", isOn: $state.showOnPaneCreate)
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .help(
+                    "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
+                )
         }
     }
 }
@@ -595,18 +618,17 @@ private struct ProfileEditorEnvVarRow: View {
                     .font(.system(.body, design: .monospaced))
                     .font(.caption)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(maxWidth: .infinity)
-            HStack(spacing: 4) {
-                Text("Show")
-                    .font(.caption)
-                Toggle("Show", isOn: $state.showOnPaneCreate)
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .help("Show this option in the New Pane sheet when this profile is selected.")
-            }
+                .frame(width: 110)
+            Toggle("On create", isOn: $state.showOnPaneCreate)
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .help(
+                    "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
+                )
         }
     }
 }
@@ -624,12 +646,17 @@ private struct ProfileEditorHiddenOptionRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            if case .string(let placeholder) = option.optionType {
-                TextField(placeholder, text: $state.value)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(!state.enabled)
-                    .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
             }
+            .frame(width: 110)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
@@ -653,10 +680,11 @@ private struct ProfileEditorHiddenEnvVarRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
-                .frame(maxWidth: .infinity)
+                .frame(width: 110)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
