@@ -167,4 +167,27 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
 
         try await tab.cleanupWorktree(for: pane)
     }
+
+    func testCleanupWorktreeWorksAfterClosePane() async throws {
+        let repo = try makeGitRepo()
+        let tab = Tab(name: "CleanupTab", directory: repo)
+        let rel = Tab.gitWorktreeAddPath(name: "after-close-wt")
+        try runGit(["worktree", "add", rel, "-b", "after-close-branch", "cleanup-test"], cwd: repo)
+
+        let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: "after-close-wt")
+        let pane = Pane(
+            name: "after-close-wt", tab: tab, cliType: .claude,
+            worktreeDirectory: worktreeURL, worktreeIsManaged: true)
+        tab.panes.append(pane)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktreeURL.path))
+
+        tab.closePane(pane)
+        XCTAssertFalse(tab.panes.contains(where: { $0.id == pane.id }))
+
+        // Pane is gone from the tab but the pane object still holds worktreeDirectory and
+        // worktreeIsManaged — cleanup must still run correctly.
+        try await tab.cleanupWorktree(for: pane)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktreeURL.path))
+    }
 }

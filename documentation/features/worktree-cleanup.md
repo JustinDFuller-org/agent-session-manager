@@ -12,11 +12,11 @@ When closing a pane that uses a worktree **created by Agent Session Manager** (u
 When you close a pane with ⌘W or the pane's close button, the app checks whether the worktree is managed. The behavior depends on the **Worktree Cleanup** setting in Settings → Panes → Cleanup:
 
 - **Ask** (default) — A dialog appears with three options:
-  - **Delete Worktree** — Closes the pane and runs `git worktree remove <path>` to delete the worktree directory and unregister it from Git.
+  - **Delete Worktree** — Removes the pane from the UI immediately, then runs `git worktree remove <path>` in the background to delete the worktree directory and unregister it from Git.
   - **Keep Worktree** — Closes the pane but leaves the worktree on disk. You can reopen it later from the New Pane sheet.
   - **Cancel** — Keeps the pane open.
 - **Always Keep** — Closes the pane without asking and never deletes the worktree.
-- **Always Delete** — Closes the pane and always runs `git worktree remove` without asking.
+- **Always Delete** — Removes the pane from the UI immediately, then runs `git worktree remove` in the background without asking.
 
 ## Configuration
 

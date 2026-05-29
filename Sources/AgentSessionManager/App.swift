@@ -175,13 +175,9 @@ struct ContentView: View {
                 guard let pane = pendingCleanupPane, let tab = pendingCleanupTab else { return }
                 pendingCleanupPane = nil
                 pendingCleanupTab = nil
-                Task {
-                    try? await tab.cleanupWorktree(for: pane)
-                    await MainActor.run {
-                        tab.closePane(pane)
-                        SessionPersistence.save(appState: appState)
-                    }
-                }
+                tab.closePane(pane)
+                SessionPersistence.save(appState: appState)
+                Task { try? await tab.cleanupWorktree(for: pane) }
             }
             Button("Cancel", role: .cancel) {
                 pendingCleanupPane = nil
@@ -206,13 +202,9 @@ struct ContentView: View {
                 pendingPRMergedPane = nil
                 pendingPRMergedTab = nil
                 appState.clearNotification(paneID: pane.id)
-                Task {
-                    try? await tab.cleanupWorktree(for: pane)
-                    await MainActor.run {
-                        tab.closePane(pane)
-                        SessionPersistence.save(appState: appState)
-                    }
-                }
+                tab.closePane(pane)
+                SessionPersistence.save(appState: appState)
+                Task { try? await tab.cleanupWorktree(for: pane) }
             }
             Button("Cancel", role: .cancel) {
                 if let pane = pendingPRMergedPane, let tab = pendingPRMergedTab {
@@ -263,13 +255,9 @@ struct ContentView: View {
             pendingCleanupTab = tab
             showCleanupAlert = true
         case .delete where pane.worktreeIsManaged:
-            Task {
-                try? await tab.cleanupWorktree(for: pane)
-                await MainActor.run {
-                    tab.closePane(pane)
-                    SessionPersistence.save(appState: appState)
-                }
-            }
+            tab.closePane(pane)
+            SessionPersistence.save(appState: appState)
+            Task { try? await tab.cleanupWorktree(for: pane) }
         default:
             tab.closePane(pane)
             SessionPersistence.save(appState: appState)
