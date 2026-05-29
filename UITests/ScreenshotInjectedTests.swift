@@ -164,13 +164,16 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         let doneButton = app.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        // Detection runs async with interactive shells; wait for it to finish before screenshotting
+        // or clicking (the button is disabled while detecting).
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: doneButton)
+        wait(for: [enabled], timeout: 15)
         screenshot("onboarding-tools", app: app)
 
-        let continueToStatusLine = app.buttons["onboarding-done-button"]
-        continueToStatusLine.click()
+        doneButton.click()
 
-        let clearButton = app.buttons["onboarding-statusline-clear-button"]
-        XCTAssertTrue(clearButton.waitForExistence(timeout: 5))
+        let skipButton = app.buttons["onboarding-statusline-skip-button"]
+        XCTAssertTrue(skipButton.waitForExistence(timeout: 10))
         screenshot("onboarding-status-line", app: app)
     }
 

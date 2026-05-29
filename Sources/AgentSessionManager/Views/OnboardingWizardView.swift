@@ -173,7 +173,10 @@ struct OnboardingWizardView: View {
     }
 
     private var isDraftWizardDefault: Bool {
-        draftConfig == StatusLineConfig.wizardDefault()
+        let def = StatusLineConfig.wizardDefault()
+        return draftConfig.chipLabelStyle == def.chipLabelStyle
+            && draftConfig.rowAlignment == def.rowAlignment
+            && draftConfig.rows.map(\.items) == def.rows.map(\.items)
     }
 
     private var statusLineStep: some View {
