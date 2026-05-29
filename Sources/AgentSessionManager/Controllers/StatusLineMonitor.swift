@@ -34,6 +34,7 @@ final class StatusLineMonitor {
     private var agnosticProvider: (any StatusLineDataProvider)?
     private var gitDiffTimer: Timer?
     private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
+    private var lastAppliedModificationDate: Date?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: (() -> Void)?
@@ -90,32 +91,7 @@ final class StatusLineMonitor {
                 attributes: ["pane.name": String(paneID.uuidString.prefix(8))])
             FileManager.default.createFile(atPath: filePath, contents: nil)
 
-            let fd = open(filePath, O_EVTONLY)
-            guard fd >= 0 else { return }
-
-            let src = DispatchSource.makeFileSystemObjectSource(
-                fileDescriptor: fd,
-                eventMask: [.write, .extend],
-                queue: .global(qos: .utility)
-            )
-            src.setEventHandler { [weak self, filePath] in
-                guard let data = try? Data(contentsOf: URL(filePath: filePath)),
-                    let parsed = try? JSONDecoder().decode(StatusLineData.self, from: data)
-                else { return }
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    var enforced = parsed
-                    if let existing = self.currentData?.pr {
-                        enforced.pr = existing
-                    }
-                    self.applyI1Enforcement(to: &enforced)
-                    self.applyI3Enforcement(to: &enforced)
-                    self.currentData = enforced
-                }
-            }
-            src.setCancelHandler { close(fd) }
-            src.resume()
-            source = src
+            startStatusWatcher()
 
             if let cwd = workingDirectory {
                 scheduleGitDiffPolling(workingDirectory: cwd)
@@ -185,12 +161,123 @@ final class StatusLineMonitor {
         }
         gitDiffTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             guard let self else { return }
-            Task {
+            Task { [weak self] in
+                guard let self else { return }
                 if let stats = await GitDiffStats.compute(in: workingDirectory) {
                     await MainActor.run { self.cachedGitStats = stats }
                 }
+                await MainActor.run { self.checkPayloadFreshness() }
             }
         }
+    }
+
+    private func startStatusWatcher() {
+        source?.cancel()
+        source = nil
+        let fd = open(filePath, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let newSource = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend, .delete, .rename, .revoke],
+            queue: .global(qos: .utility)
+        )
+        newSource.setEventHandler { [weak self, weak newSource] in
+            guard let self else { return }
+            let inodeLost = newSource?.data.intersection([.delete, .rename, .revoke]).isEmpty == false
+            if inodeLost {
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.startStatusWatcher()
+                    self.applyLatestPayload(reason: "vnode_reopen")
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.applyLatestPayload(reason: "vnode_write")
+                }
+            }
+        }
+        newSource.setCancelHandler { close(fd) }
+        newSource.resume()
+        source = newSource
+    }
+
+    @MainActor
+    private func applyLatestPayload(reason: String) {
+        let pane = String(paneID.uuidString.prefix(8))
+        let url = URL(filePath: filePath)
+        let attrs = try? FileManager.default.attributesOfItem(atPath: filePath)
+        let mtime = attrs?[.modificationDate] as? Date
+
+        let rawData: Data
+        do {
+            rawData = try Data(contentsOf: url)
+        } catch {
+            TracingService.shared.record(
+                "statusline.payload.decode_failed",
+                attributes: [
+                    "pane.name": pane, "reason": reason,
+                    "error": "read_failed:\(error.localizedDescription)", "byte_count": "0",
+                ])
+            return
+        }
+
+        guard !rawData.isEmpty else { return }
+
+        let parsed: StatusLineData
+        do {
+            parsed = try JSONDecoder().decode(StatusLineData.self, from: rawData)
+        } catch {
+            let prefix = String(decoding: rawData.prefix(120), as: UTF8.self)
+            TracingService.shared.record(
+                "statusline.payload.decode_failed",
+                attributes: [
+                    "pane.name": pane, "reason": reason,
+                    "error": error.localizedDescription,
+                    "byte_count": "\(rawData.count)",
+                    "payload_prefix": prefix,
+                ])
+            return
+        }
+
+        var enforced = parsed
+        if let existing = currentData?.pr {
+            enforced.pr = existing
+        }
+        applyI1Enforcement(to: &enforced)
+        applyI3Enforcement(to: &enforced)
+        currentData = enforced
+        lastAppliedModificationDate = mtime ?? Date()
+
+        let inode = attrs?[.systemFileNumber] as? Int
+        TracingService.shared.record(
+            "statusline.payload.applied",
+            attributes: [
+                "pane.name": pane, "reason": reason,
+                "cost_usd": enforced.cost?.totalCostUsd.map { String(format: "%.4f", $0) } ?? "nil",
+                "used_pct": enforced.contextWindow?.usedPercentage.map { "\($0)" } ?? "nil",
+                "inode": inode.map { "\($0)" } ?? "unknown",
+            ])
+    }
+
+    @MainActor
+    private func checkPayloadFreshness() {
+        let pane = String(paneID.uuidString.prefix(8))
+        guard let mtime = (try? FileManager.default.attributesOfItem(atPath: filePath))?[.modificationDate] as? Date
+        else { return }
+        guard let lastApplied = lastAppliedModificationDate else {
+            applyLatestPayload(reason: "freshness_initial")
+            return
+        }
+        guard mtime > lastApplied else { return }
+        let staleAge = -mtime.timeIntervalSinceNow
+        TracingService.shared.record(
+            "statusline.payload.stale_recovered",
+            attributes: [
+                "pane.name": pane,
+                "file_mtime": String(format: "%.3f", mtime.timeIntervalSince1970),
+                "stale_age_seconds": String(format: "%.1f", staleAge),
+            ])
+        applyLatestPayload(reason: "freshness_recovery")
     }
 
     private func applyI1Enforcement(to data: inout StatusLineData) {
@@ -408,6 +495,18 @@ final class StatusLineMonitor {
     @MainActor
     func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
         cachedGitStats = stats
+    }
+
+    /// For testing only: invokes `applyLatestPayload` directly (reads from `filePath`).
+    @MainActor
+    func testApplyLatestPayload(reason: String) {
+        applyLatestPayload(reason: reason)
+    }
+
+    /// For testing only: invokes `checkPayloadFreshness` directly.
+    @MainActor
+    func testCheckPayloadFreshness() {
+        checkPayloadFreshness()
     }
 
     /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus optional `hooks`) for tests and tooling.

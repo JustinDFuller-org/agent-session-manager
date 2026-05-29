@@ -118,37 +118,46 @@ struct StatusLineView: View {
     private func chipContent(for itemID: String, data: StatusLineData?) -> some View {
         switch itemID {
         case "context":
-            let pct = data?.contextWindow?.usedPercentage ?? 0
-            HStack(spacing: 4) {
-                ProgressView(value: Double(pct), total: 100)
-                    .progressViewStyle(.linear)
-                    .frame(width: 44)
-                    .tint(progressTint(pct))
-                Text("\(pct)%")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let pct = data?.contextWindow?.usedPercentage {
+                HStack(spacing: 4) {
+                    ProgressView(value: Double(pct), total: 100)
+                        .progressViewStyle(.linear)
+                        .frame(width: 44)
+                        .tint(progressTint(pct))
+                    Text("\(pct)%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "rate5h":
-            let pct = data?.rateLimits?.fiveHour?.usedPercentage ?? 0
-            HStack(spacing: 4) {
-                ProgressView(value: pct, total: 100)
-                    .progressViewStyle(.linear)
-                    .frame(width: 32)
-                    .tint(progressTint(Int(pct)))
-                Text(String(format: "%.0f%%", pct))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let pct = data?.rateLimits?.fiveHour?.usedPercentage {
+                HStack(spacing: 4) {
+                    ProgressView(value: pct, total: 100)
+                        .progressViewStyle(.linear)
+                        .frame(width: 32)
+                        .tint(progressTint(Int(pct)))
+                    Text(String(format: "%.0f%%", pct))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "rate7d":
-            let pct = data?.rateLimits?.sevenDay?.usedPercentage ?? 0
-            HStack(spacing: 4) {
-                ProgressView(value: pct, total: 100)
-                    .progressViewStyle(.linear)
-                    .frame(width: 32)
-                    .tint(progressTint(Int(pct)))
-                Text(String(format: "%.0f%%", pct))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if let pct = data?.rateLimits?.sevenDay?.usedPercentage {
+                HStack(spacing: 4) {
+                    ProgressView(value: pct, total: 100)
+                        .progressViewStyle(.linear)
+                        .frame(width: 32)
+                        .tint(progressTint(Int(pct)))
+                    Text(String(format: "%.0f%%", pct))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "exceeds200k":
             Text(data?.exceeds200kTokens == true ? "200k+" : "—")
@@ -196,7 +205,7 @@ struct StatusLineView: View {
         case "worktree":
             return data?.worktree?.chipText ?? "—"
         case "cost":
-            return String(format: "$%.4f", data?.cost?.totalCostUsd ?? 0)
+            return data?.cost?.totalCostUsd.map { String(format: "$%.4f", $0) } ?? "—"
         case "effort":
             return data?.effort?.level ?? "—"
         case "thinking":
@@ -208,17 +217,17 @@ struct StatusLineView: View {
         case "sessionName":
             return data?.sessionName ?? "—"
         case "linesAdded":
-            return "+\(data?.cost?.totalLinesAdded ?? 0)"
+            return data?.cost?.totalLinesAdded.map { "+\($0)" } ?? "—"
         case "linesRemoved":
-            return "-\(data?.cost?.totalLinesRemoved ?? 0)"
+            return data?.cost?.totalLinesRemoved.map { "-\($0)" } ?? "—"
         case "duration":
-            return formatDuration(ms: data?.cost?.totalDurationMs ?? 0)
+            return data?.cost?.totalDurationMs.map { formatDuration(ms: $0) } ?? "—"
         case "contextRemaining":
-            return "\(data?.contextWindow?.remainingPercentage ?? 0)%"
+            return data?.contextWindow?.remainingPercentage.map { "\($0)%" } ?? "—"
         case "inputTokens":
-            return "\(data?.contextWindow?.totalInputTokens ?? 0)"
+            return data?.contextWindow?.totalInputTokens.map { "\($0)" } ?? "—"
         case "outputTokens":
-            return "\(data?.contextWindow?.totalOutputTokens ?? 0)"
+            return data?.contextWindow?.totalOutputTokens.map { "\($0)" } ?? "—"
         case "rate5hReset":
             if let ts = data?.rateLimits?.fiveHour?.resetsAt {
                 return formatResetTime(ts)

@@ -221,6 +221,166 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(mismatch?.attributes["reported_removed"], "0")
     }
 
+    // MARK: - I6: Liveness
+
+    func testI6FreshnessRecoveryAppliesLatestPayload() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let earlyPayload = Data("""
+            {"cost": {"total_cost_usd": 0.0}}
+            """.utf8)
+        try earlyPayload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 0.0)
+
+        // Simulate Claude writing a newer payload without firing the vnode handler
+        let laterPayload = Data("""
+            {"cost": {"total_cost_usd": 5.28}, "context_window": {"used_percentage": 8}}
+            """.utf8)
+        try laterPayload.write(to: URL(filePath: monitor.filePath))
+        // Force mtime to be strictly newer
+        let future = Date().addingTimeInterval(1)
+        try FileManager.default.setAttributes([.modificationDate: future], ofItemAtPath: monitor.filePath)
+
+        monitor.testCheckPayloadFreshness()
+
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 5.28)
+        XCTAssertEqual(monitor.currentData?.contextWindow?.usedPercentage, 8)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(
+            events.contains { $0.name == "statusline.payload.stale_recovered" },
+            "Expected stale_recovered trace event")
+        XCTAssertTrue(
+            events.contains { $0.name == "statusline.payload.applied" && $0.attributes["reason"] == "freshness_recovery" },
+            "Expected applied event with reason freshness_recovery")
+    }
+
+    func testI6FreshnessNoRecoveryWhenUpToDate() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let payload = Data("""
+            {"cost": {"total_cost_usd": 1.23}}
+            """.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        TracingService.shared.resetForTesting()
+
+        // Freshness check with no new writes — should be a no-op
+        monitor.testCheckPayloadFreshness()
+
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertFalse(
+            events.contains { $0.name == "statusline.payload.stale_recovered" },
+            "stale_recovered must not fire when already up to date")
+    }
+
+    // MARK: - I7: Integrity
+
+    func testI7ValidPayloadRecordsApplied() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let payload = Data("""
+            {"cost": {"total_cost_usd": 2.50}, "context_window": {"used_percentage": 15}}
+            """.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        XCTAssertNotNil(monitor.currentData)
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 2.50)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let applied = events.first { $0.name == "statusline.payload.applied" }
+        XCTAssertNotNil(applied, "Expected payload.applied trace event")
+        XCTAssertEqual(applied?.attributes["reason"], "test")
+        XCTAssertEqual(applied?.attributes["cost_usd"], "2.5000")
+        XCTAssertEqual(applied?.attributes["used_pct"], "15")
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.decode_failed" })
+    }
+
+    func testI7MalformedPayloadRecordsDecodeFailedAndPreservesState() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        // Apply a good payload first so currentData has a known value
+        let good = Data("""
+            {"cost": {"total_cost_usd": 1.00}}
+            """.utf8)
+        try good.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+
+        let bad = Data("NOT JSON AT ALL !!!".utf8)
+        try bad.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        // currentData must be preserved from the last good payload
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 1.00)
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let failed = events.first { $0.name == "statusline.payload.decode_failed" }
+        XCTAssertNotNil(failed, "Expected payload.decode_failed trace event")
+        XCTAssertEqual(failed?.attributes["reason"], "test")
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.applied" })
+    }
+
+    func testI7EmptyFileSkippedWithoutClobbering() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+
+        let good = Data("""
+            {"cost": {"total_cost_usd": 3.75}}
+            """.utf8)
+        try good.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "initial")
+        TracingService.shared.resetForTesting()
+
+        try Data().write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "empty")
+
+        XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 3.75, "empty write must not clobber currentData")
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.decode_failed" })
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.applied" })
+    }
+
+    func testI7ContextWindowToleratesDoublePercentage() throws {
+        // 14.000000000000002 is the real-world case from rate_limits; truncates to 14
+        // 85.999999999999998 rounds to 86.0 in IEEE 754 double, so Int(86.0) == 86
+        let json = Data("""
+            {"context_window": {"used_percentage": 14.000000000000002, "remaining_percentage": 85.999999999999998, "total_input_tokens": 140000, "total_output_tokens": 5}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertEqual(parsed.contextWindow?.usedPercentage, 14)
+        XCTAssertEqual(parsed.contextWindow?.remainingPercentage, 86)
+        XCTAssertEqual(parsed.contextWindow?.totalInputTokens, 140000)
+        XCTAssertEqual(parsed.contextWindow?.totalOutputTokens, 5)
+    }
+
     func testI3LinesMatchDoesNotLog() async throws {
         let workDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
