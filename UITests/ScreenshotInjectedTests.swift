@@ -172,9 +172,23 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         doneButton.click()
 
-        let skipButton = app.buttons["onboarding-statusline-skip-button"]
-        XCTAssertTrue(skipButton.waitForExistence(timeout: 10))
+        let statusLineSkipButton = app.buttons["onboarding-statusline-skip-button"]
+        XCTAssertTrue(statusLineSkipButton.waitForExistence(timeout: 10))
         screenshot("onboarding-status-line", app: app)
+
+        statusLineSkipButton.click()
+
+        let cliFlagsSaveButton = app.buttons["onboarding-cliflags-save-button"]
+        XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+        screenshot("onboarding-cli-flags", app: app)
+
+        cliFlagsSaveButton.click()
+
+        let finishButton = app.buttons["onboarding-profiles-finish-button"]
+        XCTAssertTrue(finishButton.waitForExistence(timeout: 5))
+        screenshot("onboarding-profiles", app: app)
+
+        finishButton.click()
     }
 
     private func writeSupport(json: String) {

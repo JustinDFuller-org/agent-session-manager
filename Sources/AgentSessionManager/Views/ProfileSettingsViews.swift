@@ -128,6 +128,7 @@ struct ProfilesContent: View {
                     Label("New Profile", systemImage: "plus")
                 }
                 .buttonStyle(.borderless)
+                .accessibilityIdentifier("profile-new-button")
             }
         }
         .formStyle(.grouped)

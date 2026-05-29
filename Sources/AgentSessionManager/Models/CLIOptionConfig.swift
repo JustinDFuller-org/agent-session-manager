@@ -472,4 +472,32 @@ struct CLIOptionConfig: Identifiable, Codable {
             id: "--session", label: "Session", description: "Session ID to continue", isAvailable: false,
             isDefaultEnabled: false),
     ]
+
+    static func recommendedDefaults(for cli: CLIType) -> [CLIOptionConfig] {
+        let catalog: [CLIOptionConfig]
+        let recommendedIDs: Set<String>
+
+        switch cli {
+        case .claude:
+            catalog = all
+            recommendedIDs = ["--continue", "--resume", "--model", "--permission-mode"]
+        case .codex:
+            catalog = codexAll
+            recommendedIDs = ["--model", "--ask-for-approval", "--sandbox", "--search"]
+        case .cursor:
+            catalog = cursorAll
+            recommendedIDs = ["--model", "--resume", "--mode"]
+        case .opencode:
+            catalog = opencodeAll
+            recommendedIDs = ["--continue", "--model", "--agent", "--session"]
+        case .shell:
+            return []
+        }
+
+        return catalog.map { option in
+            var copy = option
+            copy.isAvailable = recommendedIDs.contains(option.id)
+            return copy
+        }
+    }
 }

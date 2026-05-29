@@ -459,7 +459,7 @@ private struct ToolsContent: View {
     }
 }
 
-private struct CLIOptionsContent: View {
+struct CLIOptionsContent: View {
     @Binding var options: [CLIOptionConfig]
     let onSave: () -> Void
     let customFlagFooter: String
