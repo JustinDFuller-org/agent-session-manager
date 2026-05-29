@@ -35,7 +35,6 @@ final class TracingServiceTests: XCTestCase {
 
     func testRecordWritesFileWhenEnabled() throws {
         appSettings.tracingEnabled = true
-        appSettings.tracingOutputTarget = .file
         appSettings.tracingFilePath = testTraceDir.path
         TracingService.shared.configure(from: appSettings)
 
@@ -73,7 +72,6 @@ final class TracingServiceTests: XCTestCase {
 
     func testGlobalFileWrittenForSpansWithoutPaneId() throws {
         appSettings.tracingEnabled = true
-        appSettings.tracingOutputTarget = .file
         appSettings.tracingFilePath = testTraceDir.path
         TracingService.shared.configure(from: appSettings)
 
@@ -115,7 +113,6 @@ final class TracingServiceTests: XCTestCase {
 
     func testReconfigureDisablesOutput() throws {
         appSettings.tracingEnabled = true
-        appSettings.tracingOutputTarget = .file
         appSettings.tracingFilePath = testTraceDir.path
         TracingService.shared.configure(from: appSettings)
         XCTAssertTrue(TracingService.shared.isEnabled)

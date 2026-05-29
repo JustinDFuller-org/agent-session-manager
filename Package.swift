@@ -15,7 +15,6 @@ let package = Package(
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "OpenTelemetryApi", package: "opentelemetry-swift"),
                 .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift"),
-                .product(name: "StdoutExporter", package: "opentelemetry-swift"),
             ],
             path: "Sources/AgentSessionManager",
             linkerSettings: [.linkedLibrary("sqlite3")]

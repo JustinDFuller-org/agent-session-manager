@@ -197,6 +197,7 @@ struct TracePaneSidebarView: View {
                         Text(pane.name)
                             .font(.system(size: 12, design: .monospaced))
                             .tag(pane.id)
+                            .accessibilityIdentifier("trace-dashboard-pane-row")
                             .onTapGesture { onSelectPane(pane) }
                     }
                 }

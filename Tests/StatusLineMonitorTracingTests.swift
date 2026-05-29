@@ -10,7 +10,6 @@ final class StatusLineMonitorTracingTests: XCTestCase {
         try await super.setUp()
         appSettings = AppSettings()
         appSettings.tracingEnabled = true
-        appSettings.tracingOutputTarget = .stdout
         TracingService.shared.configure(from: appSettings)
         TracingService.shared.enableTestCapture()
     }

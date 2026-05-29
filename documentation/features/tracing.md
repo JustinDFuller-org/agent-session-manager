@@ -4,18 +4,46 @@ Agent Session Manager emits OpenTelemetry spans for all I/O operations. Tracing 
 
 ## Configuration
 
-- **Enable Tracing** — master switch (default: off)
-- **Output** — `stdout` or `file`
-- **File Path** — custom path (empty = `~/Library/Application Support/agent-session-manager/traces.jsonl`)
-- **Max File Size** — trim threshold (default: 10 MB)
+- **Enable Tracing** — master switch (default: off). Spans are written to files immediately on enable.
+- **Traces Directory** — custom directory path (empty = `~/Library/Application Support/agent-session-manager/traces/`)
+- **Max File Size (per pane)** — trim threshold per pane file (default: 10 MB)
 
-## Output Format
+## File Layout
 
-Each span is one JSON object on its own line (JSON-Lines):
+Spans are written as JSON-Lines files, organized by tab and pane:
+
+```
+traces/
+  <tab-name>-<tab-id8>/
+    <pane-name>-<pane-id8>.jsonl   ← per-pane span file
+  _global/
+    global.jsonl                   ← spans without a pane.id
+```
+
+Each file begins with a metadata header line:
 
 ```json
-{"name":"tab.pane.added","traceId":"...","spanId":"...","startEpochMs":1716000000000,"endEpochMs":1716000000001,"durationMs":1,"attributes":{"pane.name":"my-feature","tab.name":"my-repo"}}
+{"_type":"metadata","tabId":"...","tabName":"...","paneId":"...","paneName":"...","createdAt":"..."}
 ```
+
+Subsequent lines are span objects (JSON-Lines format):
+
+```json
+{"name":"tab.pane.added","traceId":"...","spanId":"...","startEpochMs":1716000000000,"endEpochMs":1716000000001,"durationMs":1,"attributes":{"pane.id":"...","pane.name":"my-feature","tab.id":"...","tab.name":"my-repo"}}
+```
+
+## Retention
+
+Files older than **1 day** are automatically deleted by `TraceCleanupService` on app launch. The `trace.cleanup.ran` span is emitted to the `_global` file after each cleanup run.
+
+## Span Routing
+
+Spans are routed to files by `pane.id` and `tab.id` attributes:
+
+| Attributes present | Destination |
+|--------------------|-------------|
+| `pane.id` + `tab.id` | `traces/<tab-name>-<tab-id8>/<pane-name>-<pane-id8>.jsonl` |
+| neither | `traces/_global/global.jsonl` |
 
 ## Span Catalog
 
@@ -25,31 +53,32 @@ Each span is one JSON object on its own line (JSON-Lines):
 | `app.started` | `os.version`, `app.version`, `cpu.arch` |
 | `tab.added` | `tab.name`, `tab.directory` |
 | `tab.closed` | `tab.name` |
-| `pane.activated` | `pane.name`, `tab.name` |
-| `pane.notification.added` | `pane.name`, `tab.name`, `notification.kind` |
+| `pane.activated` | `pane.id`, `pane.name`, `tab.id`, `tab.name` |
+| `pane.notification.added` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `notification.kind` |
+| `trace.cleanup.ran` | `deleted_count`, `retained_count` |
 
 ### Terminal
 | Span | Key Attributes |
 |------|---------------|
-| `terminal.process.started` | `executable`, `args`, `pane.name`, `tab.name` |
-| `terminal.process.exited` | `exit_code`, `pane.name` |
-| `terminal.attention.delivered` | `source` (`bell`/`osc777`), `pane.name` |
+| `terminal.process.started` | `executable`, `args`, `pane.id`, `pane.name`, `tab.id`, `tab.name` |
+| `terminal.process.exited` | `exit_code`, `pane.id`, `pane.name` |
+| `terminal.attention.delivered` | `source` (`bell`/`osc777`), `pane.id`, `pane.name` |
 
 ### Git / Worktrees
 | Span | Key Attributes |
 |------|---------------|
 | `tab.git.command` | `cwd`, `args` |
 | `tab.worktree.resolved` | `user_ref`, `path` |
-| `tab.pane.added` | `pane.name`, `tab.name` |
+| `tab.pane.added` | `pane.id`, `pane.name`, `tab.id`, `tab.name` |
 
 ### Status Line
 | Span | Key Attributes |
 |------|---------------|
-| `statusline.monitor.started` | `pane.name` |
+| `statusline.monitor.started` | `pane.id`, `pane.name` |
 | `statusline.settings_file.written` | `path`, `bytes` |
-| `statusline.attention.received` | `pane.name` |
+| `statusline.attention.received` | `pane.id`, `pane.name` |
 | `statusline.pr_transition` | `old_state`, `new_state` |
-| `statusline.worktree.name_mismatch` | `pane.name`, `field` (`worktree.name`\|`workspace.git_worktree`), `computed`, `reported` |
+| `statusline.worktree.name_mismatch` | `pane.name`, `field`, `computed`, `reported` |
 | `statusline.lines.source_mismatch` | `pane.name`, `computed_added`, `reported_added`, `computed_removed`, `reported_removed` |
 | `statusline.migration.gitworktree_dropped` | `row_index`, `position` |
 | `statusline.migration.worktreebranch_merged` | `row_index`, `position`, `substituted` |
@@ -75,16 +104,18 @@ Each span is one JSON object on its own line (JSON-Lines):
 
 ## Viewing Traces
 
-With output set to **file**, open the file with `jq`:
+Use `jq` to inspect a pane's file:
 
 ```bash
-cat ~/Library/Application\ Support/agent-session-manager/traces.jsonl | jq '.'
+TRACES=~/Library/Application\ Support/agent-session-manager/traces
+# List all pane files
+find "$TRACES" -name '*.jsonl'
+
+# Pretty-print spans from a specific pane file (skipping the metadata header)
+jq 'select(._type != "metadata")' "$TRACES/<tab-dir>/<pane-file>.jsonl"
+
+# Filter by span name
+jq 'select(.name == "terminal.process.started")' "$TRACES/<tab-dir>/<pane-file>.jsonl"
 ```
 
-Filter by span name:
-
-```bash
-cat traces.jsonl | jq 'select(.name == "terminal.process.started")'
-```
-
-With output set to **stdout**, spans appear in the console when running `make run`.
+Or open the in-app **Trace Dashboard** (⌘⇧D) for a visual waterfall view.

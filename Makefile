@@ -180,6 +180,7 @@ reset-app-state:
 	    shell-settings.json onboarding-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
 	done
+	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager/traces"
 	@echo "App state reset."
 
 reset-app-state-dev:
@@ -194,6 +195,8 @@ reset-app-state-dev:
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
 		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done
+	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager.dev/traces"
+	@rm -rf "$(HOME)/Library/Application Support/dev/traces"
 	@echo "Dev app state reset."
 
 open-results:

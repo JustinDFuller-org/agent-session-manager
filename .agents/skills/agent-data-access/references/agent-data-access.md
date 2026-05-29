@@ -56,24 +56,34 @@ jq '.' "$BASE/tracing-settings.json"
 
 ## Traces
 
-Traces are **off by default**. The user must enable them in **Settings → Tracing** and set the output target to **file**.
+Traces are **off by default**. The user must enable them in **Settings → Tracing**.
 
-**Check if file tracing is enabled:**
+**Check if tracing is enabled:**
 
 ```bash
-jq '{enabled: .enabled, output: .outputTarget}' \
+jq '.enabled' \
   ~/Library/Application\ Support/agent-session-manager/tracing-settings.json
 ```
 
-File tracing is active when `enabled` is `true` and `outputTarget` is `"file"`.
-
-**Default file path:**
+**Default traces directory:**
 
 ```
-~/Library/Application Support/agent-session-manager/traces.jsonl
+~/Library/Application Support/agent-session-manager/traces/
 ```
 
-(The user may have configured a custom path; check `filePath` in `tracing-settings.json`.)
+(The user may have configured a custom directory; check `filePath` in `tracing-settings.json`.)
+
+**Directory layout:**
+
+```
+traces/
+  <tab-name>-<tab-id8>/
+    <pane-name>-<pane-id8>.jsonl   ← per-pane span file
+  _global/
+    global.jsonl                   ← spans without a pane.id
+```
+
+Each file begins with a `{"_type":"metadata",…}` header line followed by JSON-Lines span objects.
 
 ### Format
 
@@ -158,22 +168,25 @@ Schema:
 ### Example jq Queries
 
 ```bash
-TRACES=~/Library/Application\ Support/agent-session-manager/traces.jsonl
+TRACES=~/Library/Application\ Support/agent-session-manager/traces
 
-# All spans, pretty-printed
-jq '.' "$TRACES"
+# List all pane files
+find "$TRACES" -name '*.jsonl'
 
-# Filter to a specific span name
-jq 'select(.name == "terminal.process.started")' "$TRACES"
+# Pretty-print spans from a pane file (skip the metadata header)
+jq 'select(._type != "metadata")' "$TRACES/<tab-dir>/<pane-file>.jsonl"
 
-# Show only span name and duration, sorted by duration descending
-jq -s 'sort_by(-.durationMs) | .[] | {name, durationMs}' "$TRACES"
+# Filter to a specific span name across all pane files
+find "$TRACES" -name '*.jsonl' -exec \
+  jq 'select(._type != "metadata" and .name == "terminal.process.started")' {} \;
 
-# Show all process launches (executable + args)
-jq 'select(.name == "terminal.process.started") | .attributes | {executable, args}' "$TRACES"
+# Show only span name and duration, sorted by duration descending (single file)
+jq -s '[.[] | select(._type != "metadata")] | sort_by(-.durationMs) | .[] | {name, durationMs}' \
+  "$TRACES/<tab-dir>/<pane-file>.jsonl"
 
-# Count spans by name
-jq -s 'group_by(.name) | map({name: .[0].name, count: length}) | sort_by(-.count)[]' "$TRACES"
+# Count spans by name (single file)
+jq -s '[.[] | select(._type != "metadata")] | group_by(.name) | map({name: .[0].name, count: length}) | sort_by(-.count)[]' \
+  "$TRACES/<tab-dir>/<pane-file>.jsonl"
 ```
 
 See `feature-tracing` for deeper tracing documentation.

@@ -111,7 +111,6 @@ final class AppSettings {
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
     var worktreeBaseRef: WorktreeBaseRef = .fresh
     var tracingEnabled: Bool = false
-    var tracingOutputTarget: TracingOutputTarget = .file
     /// Empty string means the default traces/ directory under Application Support.
     var tracingFilePath: String = ""
     var tracingFileMaxBytes: Int = AppSettings.defaultTracingFileMaxBytes

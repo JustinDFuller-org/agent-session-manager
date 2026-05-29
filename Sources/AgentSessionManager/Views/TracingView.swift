@@ -21,27 +21,8 @@ struct TracingView: View {
                             TracingService.shared.configure(from: appSettings)
                         }
                 }
-                if appSettings.tracingEnabled {
-                    SettingRow(
-                        title: "Output",
-                        description: "Where to write spans."
-                    ) {
-                        Picker("Output", selection: $appSettings.tracingOutputTarget) {
-                            ForEach(TracingOutputTarget.allCases, id: \.self) { target in
-                                Text(target.displayName).tag(target)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 160)
-                        .labelsHidden()
-                        .onChange(of: appSettings.tracingOutputTarget) {
-                            SettingsPersistence.saveTracingSettings(appSettings: appSettings)
-                            TracingService.shared.configure(from: appSettings)
-                        }
-                    }
-                }
             }
-            if appSettings.tracingEnabled && appSettings.tracingOutputTarget == .file {
+            if appSettings.tracingEnabled {
                 Section("File") {
                     LabeledContent {
                         TextField("", text: $appSettings.tracingFilePath)
