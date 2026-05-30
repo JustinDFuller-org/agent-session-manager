@@ -156,6 +156,7 @@ Skills are stored in `.agents/skills/`. Load them when working on relevant featu
 - `git-worktree-documentation` — Git worktree official doc index; **load before implementing any git worktree feature**, worktree creation, listing, removal, locking, pruning, repair, or any git worktree CLI behavior — do not guess at behavior.
 - `opentelemetry-swift-documentation` — OpenTelemetry Swift official doc index; **load before implementing any OpenTelemetry feature**, tracing, metrics, logging, instrumentation, exporters, or context propagation — do not guess at behavior.
 - `agents-documentation` — AGENTS.md and Agent Skills official doc index; **load before implementing any AGENTS.md or Agent Skills feature**, SKILL.md format, frontmatter fields, skill creation, client integration, skills-ref validation, or the agentskills.io spec — do not guess at behavior.
+- `dictionary` — glossary of project domain terms (Tab, Pane, Worktree, Profile, Status line, Chip, CLI options, Tracing, Terminal Purity, …); load when you need a definition
 
 ## Feature Skills
 
