@@ -12,7 +12,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `main-window-tab` | Main window with one tab open |
 | `new-pane-sheet` | New Pane sheet overlay |
 | `split-panes` | Tab with two panes side by side |
-| `pane-status-indicators` | Pane header with status badge and empty-state chip row (em-dash placeholders) |
+| `pane-status-indicators` | Pane header with status badge and empty-state fact row (em-dash placeholders) |
 | `notification-sidebar` | Notification sidebar open |
 | `pr-merged-alert` | PR merged alert overlay |
 | `settings-panes` | Settings → Panes |

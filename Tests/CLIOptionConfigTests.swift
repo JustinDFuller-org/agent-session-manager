@@ -58,7 +58,7 @@ final class StatusLineConfigTests: XCTestCase {
                     {"id": "cost", "label": "Cost", "sfSymbol": "dollarsign.circle", "isVisible": false},
                     {"id": "worktree", "label": "Worktree", "sfSymbol": "folder.badge.gearshape", "isVisible": true}
                 ],
-                "chipLabelStyle": "symbolOnly",
+                "factLabelStyle": "symbolOnly",
                 "rowAlignment": "leading"
             }
             """.utf8)
@@ -184,7 +184,7 @@ final class StatusLineConfigTests: XCTestCase {
                         ]
                     }
                 ],
-                "chipLabelStyle": "labelOnly",
+                "factLabelStyle": "labelOnly",
                 "rowAlignment": "leading"
             }
             """.utf8)
@@ -242,10 +242,10 @@ final class StatusLineConfigTests: XCTestCase {
         ]
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
-            for cliType: CLIType in [.codex, .cursor] {
+            for harness: Harness in [.codex, .cursor] {
                 let expected = agnosticIds.contains(id)
                 XCTAssertEqual(
-                    item.supportedBy(cliType), expected, "\(id) supportedBy \(cliType) should be \(expected)")
+                    item.supportedBy(harness), expected, "\(id) supportedBy \(harness) should be \(expected)")
             }
             // OpenCode supports agnostic items, its own specific items, and shared Claude+OpenCode items
             let expectedForOpencode = agnosticIds.contains(id) || opencodeIds.contains(id)
@@ -568,67 +568,67 @@ final class OpenCodeCLIOptionConfigTests: XCTestCase {
     }
 }
 
-final class CLITypeTests: XCTestCase {
-    func testCLITypeRoundTrip() throws {
-        let encoded = try JSONEncoder().encode(CLIType.codex)
-        let decoded = try JSONDecoder().decode(CLIType.self, from: encoded)
+final class HarnessTests: XCTestCase {
+    func testHarnessRoundTrip() throws {
+        let encoded = try JSONEncoder().encode(Harness.codex)
+        let decoded = try JSONDecoder().decode(Harness.self, from: encoded)
         XCTAssertEqual(decoded, .codex)
     }
 
-    func testCLITypeRawValues() {
-        XCTAssertEqual(CLIType.claude.rawValue, "claude")
-        XCTAssertEqual(CLIType.codex.rawValue, "codex")
-        XCTAssertEqual(CLIType.cursor.rawValue, "cursor")
-        XCTAssertEqual(CLIType.opencode.rawValue, "opencode")
+    func testHarnessRawValues() {
+        XCTAssertEqual(Harness.claude.rawValue, "claude")
+        XCTAssertEqual(Harness.codex.rawValue, "codex")
+        XCTAssertEqual(Harness.cursor.rawValue, "cursor")
+        XCTAssertEqual(Harness.opencode.rawValue, "opencode")
     }
 
-    func testCLITypeDisplayNames() {
-        XCTAssertEqual(CLIType.claude.displayName, "Claude Code")
-        XCTAssertEqual(CLIType.codex.displayName, "Codex")
-        XCTAssertEqual(CLIType.cursor.displayName, "Cursor")
-        XCTAssertEqual(CLIType.opencode.displayName, "OpenCode")
+    func testHarnessDisplayNames() {
+        XCTAssertEqual(Harness.claude.displayName, "Claude Code")
+        XCTAssertEqual(Harness.codex.displayName, "Codex")
+        XCTAssertEqual(Harness.cursor.displayName, "Cursor")
+        XCTAssertEqual(Harness.opencode.displayName, "OpenCode")
     }
 
-    func testAllCLITypeCases() {
-        XCTAssertEqual(CLIType.allCases.count, 4)
-        XCTAssertTrue(CLIType.allCases.contains(.claude))
-        XCTAssertTrue(CLIType.allCases.contains(.codex))
-        XCTAssertTrue(CLIType.allCases.contains(.cursor))
-        XCTAssertTrue(CLIType.allCases.contains(.opencode))
+    func testAllHarnessCases() {
+        XCTAssertEqual(Harness.allCases.count, 4)
+        XCTAssertTrue(Harness.allCases.contains(.claude))
+        XCTAssertTrue(Harness.allCases.contains(.codex))
+        XCTAssertTrue(Harness.allCases.contains(.cursor))
+        XCTAssertTrue(Harness.allCases.contains(.opencode))
     }
 }
 
 final class PersistedPaneBackwardCompatTests: XCTestCase {
-    func testDecodesWithoutCLITypeDefaultsToClaude() throws {
+    func testDecodesWithoutHarnessDefaultsToClaude() throws {
         let json = Data(
             """
             {"id":"A78E5B1C-0000-0000-0000-000000000001","name":"my-pane"}
             """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertEqual(decoded.name, "my-pane")
-        XCTAssertEqual(decoded.cliType, .claude)
+        XCTAssertEqual(decoded.harness, .claude)
         XCTAssertNil(decoded.worktreeDirectory)
         XCTAssertFalse(decoded.worktreeIsManaged)
     }
 
-    func testDecodesCodexCLIType() throws {
+    func testDecodesCodexHarness() throws {
         let json = Data(
             """
-            {"id":"A78E5B1C-0000-0000-0000-000000000002","name":"codex-pane","cliType":"codex"}
+            {"id":"A78E5B1C-0000-0000-0000-000000000002","name":"codex-pane","harness":"codex"}
             """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertEqual(decoded.name, "codex-pane")
-        XCTAssertEqual(decoded.cliType, .codex)
+        XCTAssertEqual(decoded.harness, .codex)
         XCTAssertNil(decoded.worktreeDirectory)
         XCTAssertFalse(decoded.worktreeIsManaged)
     }
 
     func testRoundTrip() throws {
-        let pane = PersistedPane(id: UUID(), name: "test", cliType: .codex, isPriority: false)
+        let pane = PersistedPane(id: UUID(), name: "test", harness: .codex, isPriority: false)
         let encoded = try JSONEncoder().encode(pane)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
         XCTAssertEqual(decoded.name, "test")
-        XCTAssertEqual(decoded.cliType, .codex)
+        XCTAssertEqual(decoded.harness, .codex)
         XCTAssertNil(decoded.worktreeDirectory)
         XCTAssertFalse(decoded.worktreeIsManaged)
     }
@@ -637,7 +637,7 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
         let pane = PersistedPane(
             id: UUID(),
             name: "ext",
-            cliType: .claude,
+            harness: .claude,
             worktreeDirectory: "/tmp/sibling-wt",
             worktreeIsManaged: true
         )
@@ -747,32 +747,32 @@ final class AppSettingsDefaultBranchTests: XCTestCase {
 }
 
 @MainActor
-final class AppSettingsActiveCLITypesTests: XCTestCase {
-    func testDefaultActiveCLITypes() {
+final class AppSettingsActiveHarnessesTests: XCTestCase {
+    func testDefaultActiveHarnesses() {
         let settings = AppSettings()
-        XCTAssertEqual(settings.activeCLITypes, [.claude])
+        XCTAssertEqual(settings.activeHarnesses, [.claude])
     }
 
-    func testAllEnabledActiveCLITypes() {
+    func testAllEnabledActiveHarnesses() {
         let settings = AppSettings()
         settings.setActive(.codex, true)
         settings.setActive(.cursor, true)
         settings.setActive(.opencode, true)
-        XCTAssertEqual(settings.activeCLITypes, [.claude, .codex, .cursor, .opencode])
+        XCTAssertEqual(settings.activeHarnesses, [.claude, .codex, .cursor, .opencode])
     }
 
-    func testSubsetActiveCLITypesCanonicalOrder() {
+    func testSubsetActiveHarnessesCanonicalOrder() {
         let settings = AppSettings()
         settings.setActive(.claude, false)
         settings.setActive(.codex, true)
         settings.setActive(.cursor, true)
-        XCTAssertEqual(settings.activeCLITypes, [.codex, .cursor])
+        XCTAssertEqual(settings.activeHarnesses, [.codex, .cursor])
     }
 
-    func testEmptyActiveCLITypes() {
+    func testEmptyActiveHarnesses() {
         let settings = AppSettings()
         settings.setActive(.claude, false)
-        XCTAssertEqual(settings.activeCLITypes, [])
+        XCTAssertEqual(settings.activeHarnesses, [])
     }
 }
 
@@ -809,7 +809,7 @@ final class AppSettingsActiveToolsTests: XCTestCase {
 
     func testRestoreDropsUnknownRawValues() {
         let settings = AppSettings()
-        let knownRaws = Set(CLIType.allCases.map(\.rawValue))
+        let knownRaws = Set(Harness.allCases.map(\.rawValue))
         let saved: Set<String> = ["claude", "cursor", "unknowntool"]
         settings.activeTools = saved.intersection(knownRaws)
         XCTAssertTrue(settings.activeTools.contains("claude"))

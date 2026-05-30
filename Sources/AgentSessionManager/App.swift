@@ -242,7 +242,7 @@ struct ContentView: View {
     private func refreshActivePane() {
         guard let tab = appState.activeTab else { return }
         let pane = appState.activePane ?? tab.panes.last
-        guard let pane, pane.cliType != .shell else { return }
+        guard let pane, pane.harness != .shell else { return }
         handleRefreshPane(pane)
     }
 

@@ -86,7 +86,7 @@ final class PaneLoadingTests: XCTestCase {
                 {
                   "id": "\(paneID)",
                   "name": "\(paneName)",
-                  "cliType": "claude",
+                  "harness": "claude",
                   "isPriority": false,
                   "isMerged": false,
                   "worktreeDirectory": "\(workspaceDir)",

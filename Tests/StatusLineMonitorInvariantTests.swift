@@ -29,7 +29,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
                         ]
                     }
                 ],
-                "chipLabelStyle": "labelOnly",
+                "factLabelStyle": "labelOnly",
                 "rowAlignment": "leading"
             }
             """.utf8)
@@ -56,7 +56,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
                         ]
                     }
                 ],
-                "chipLabelStyle": "labelOnly",
+                "factLabelStyle": "labelOnly",
                 "rowAlignment": "leading"
             }
             """.utf8)
@@ -85,7 +85,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
                         ]
                     }
                 ],
-                "chipLabelStyle": "labelOnly",
+                "factLabelStyle": "labelOnly",
                 "rowAlignment": "leading"
             }
             """.utf8)
@@ -108,7 +108,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: paneID,
             workingDirectory: workDir,
-            cliType: .claude
+            harness: .claude
         )
 
         let json = Data(
@@ -139,7 +139,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: UUID(),
             workingDirectory: workDir,
-            cliType: .claude
+            harness: .claude
         )
 
         let json = Data(
@@ -166,7 +166,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: UUID(),
             workingDirectory: workDir,
-            cliType: .claude
+            harness: .claude
         )
 
         let json = Data(
@@ -196,7 +196,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: UUID(),
             workingDirectory: workDir,
-            cliType: .claude
+            harness: .claude
         )
         monitor.testSetCachedGitStats((added: 5, removed: 0))
 
@@ -229,7 +229,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: workDir) }
 
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
 
         let earlyPayload = Data("""
             {"cost": {"total_cost_usd": 0.0}}
@@ -267,7 +267,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: workDir) }
 
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
 
         let payload = Data("""
             {"cost": {"total_cost_usd": 1.23}}
@@ -293,7 +293,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: workDir) }
 
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
 
         let payload = Data("""
             {"cost": {"total_cost_usd": 2.50}, "context_window": {"used_percentage": 15}}
@@ -319,7 +319,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: workDir) }
 
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
 
         // Apply a good payload first so currentData has a known value
         let good = Data("""
@@ -350,7 +350,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: workDir) }
 
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
 
         let good = Data("""
             {"cost": {"total_cost_usd": 3.75}}
@@ -391,7 +391,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: UUID(),
             workingDirectory: workDir,
-            cliType: .claude
+            harness: .claude
         )
         monitor.testSetCachedGitStats((added: 3, removed: 1))
 

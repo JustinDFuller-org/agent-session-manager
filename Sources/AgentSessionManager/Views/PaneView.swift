@@ -51,7 +51,7 @@ struct PaneView: View {
             Button("Close This Pane") {
                 onClosePane(pane)
             }
-            if pane.cliType != .shell {
+            if pane.harness != .shell {
                 Button("Refresh Pane\u{2026}") {
                     onRefreshPane(pane)
                 }

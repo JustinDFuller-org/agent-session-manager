@@ -9,7 +9,7 @@ final class IsCheckoutInUseTests: XCTestCase {
         let tab = Tab(name: "repo", directory: URL(filePath: "/repo"))
         state.tabs.append(tab)
 
-        let pane = tab.addPaneWithLoadingState(name: "feature", cliType: .claude, worktreeIsManaged: true)
+        let pane = tab.addPaneWithLoadingState(name: "feature", harness: .claude, worktreeIsManaged: true)
         let checkout = Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: "feature")
 
         XCTAssertFalse(
@@ -23,7 +23,7 @@ final class IsCheckoutInUseTests: XCTestCase {
         let tab = Tab(name: "repo", directory: URL(filePath: "/repo"))
         state.tabs.append(tab)
 
-        let pane = tab.addPaneWithLoadingState(name: "feature", cliType: .claude, worktreeIsManaged: true)
+        let pane = tab.addPaneWithLoadingState(name: "feature", harness: .claude, worktreeIsManaged: true)
         let checkout = Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: "feature")
         let unrelatedID = UUID()
 
@@ -39,7 +39,7 @@ final class IsCheckoutInUseTests: XCTestCase {
         let tab = Tab(name: "repo", directory: URL(filePath: "/repo"))
         state.tabs.append(tab)
 
-        let pane = tab.addPaneWithLoadingState(name: "feature", cliType: .claude, worktreeIsManaged: true)
+        let pane = tab.addPaneWithLoadingState(name: "feature", harness: .claude, worktreeIsManaged: true)
         let checkout = Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: "feature")
 
         XCTAssertTrue(

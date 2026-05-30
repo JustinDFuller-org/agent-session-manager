@@ -183,7 +183,7 @@ final class NotificationTests: XCTestCase {
     // MARK: - PersistedPane isPriority round-trip
 
     func testPersistedPaneIsPriorityRoundTrip() throws {
-        let pane = PersistedPane(id: UUID(), name: "test", cliType: .claude, isPriority: true)
+        let pane = PersistedPane(id: UUID(), name: "test", harness: .claude, isPriority: true)
         let data = try JSONEncoder().encode(pane)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
         XCTAssertTrue(decoded.isPriority)
@@ -192,7 +192,7 @@ final class NotificationTests: XCTestCase {
     func testPersistedPaneIsPriorityDefaultsFalse() throws {
         let json = Data(
             """
-            {"id":"00000000-0000-0000-0000-000000000001","name":"test","cliType":"claude"}
+            {"id":"00000000-0000-0000-0000-000000000001","name":"test","harness":"claude"}
             """.utf8)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertFalse(decoded.isPriority)

@@ -2,25 +2,25 @@ import XCTest
 
 @testable import AgentSessionManager
 
-final class StatusLineWorktreeChipTests: XCTestCase {
-    func testChipTextWithNameAndBranch() {
+final class StatusLineWorktreeFactTests: XCTestCase {
+    func testFactTextWithNameAndBranch() {
         let worktree = StatusLineData.Worktree(name: "foo", branch: "main")
-        XCTAssertEqual(worktree.chipText, "foo • main")
+        XCTAssertEqual(worktree.factText, "foo • main")
     }
 
-    func testChipTextWithNameOnly() {
+    func testFactTextWithNameOnly() {
         let worktree = StatusLineData.Worktree(name: "foo", branch: nil)
-        XCTAssertEqual(worktree.chipText, "foo")
+        XCTAssertEqual(worktree.factText, "foo")
     }
 
-    func testChipTextWithNilName() {
+    func testFactTextWithNilName() {
         let worktree = StatusLineData.Worktree(name: nil, branch: "main")
-        XCTAssertEqual(worktree.chipText, "—")
+        XCTAssertEqual(worktree.factText, "—")
     }
 
-    func testChipTextWithBothNil() {
+    func testFactTextWithBothNil() {
         let worktree = StatusLineData.Worktree(name: nil, branch: nil)
-        XCTAssertEqual(worktree.chipText, "—")
+        XCTAssertEqual(worktree.factText, "—")
     }
 
     func testWorktreeBranchIsAbsentFromCatalog() {

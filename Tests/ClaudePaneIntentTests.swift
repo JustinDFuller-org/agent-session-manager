@@ -66,7 +66,7 @@ final class WorktreeResolutionTests: XCTestCase {
             for: Pane(
                 name: slug,
                 tab: tab,
-                cliType: .claude,
+                harness: .claude,
                 worktreeDirectory: resolved.processDirectory,
                 worktreeIsManaged: true
             ))
@@ -97,7 +97,7 @@ final class WorktreeResolutionTests: XCTestCase {
             for: Pane(
                 name: "loose-branch",
                 tab: tab,
-                cliType: .claude,
+                harness: .claude,
                 worktreeDirectory: resolved.processDirectory,
                 worktreeIsManaged: true
             ))
@@ -130,7 +130,7 @@ final class WorktreeResolutionTests: XCTestCase {
             for: Pane(
                 name: "wt-sidecar",
                 tab: tab,
-                cliType: .claude,
+                harness: .claude,
                 worktreeDirectory: resolved.processDirectory,
                 worktreeIsManaged: true
             ))

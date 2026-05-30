@@ -6,13 +6,13 @@ import XCTest
 final class PaneSetupStateTests: XCTestCase {
     func testPaneInitializesWithNilSetupState() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         XCTAssertNil(pane.setupState)
     }
 
     func testAddPaneWithLoadingStateReturnsLoadingPane() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = tab.addPaneWithLoadingState(name: "feature", cliType: .claude)
+        let pane = tab.addPaneWithLoadingState(name: "feature", harness: .claude)
         guard case .loading = pane.setupState else {
             XCTFail("Expected .loading, got \(String(describing: pane.setupState))")
             return
@@ -23,20 +23,20 @@ final class PaneSetupStateTests: XCTestCase {
     func testAddPaneWithLoadingStateAppendsToTab() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         XCTAssertEqual(tab.panes.count, 0)
-        tab.addPaneWithLoadingState(name: "feature", cliType: .claude)
+        tab.addPaneWithLoadingState(name: "feature", harness: .claude)
         XCTAssertEqual(tab.panes.count, 1)
     }
 
-    func testAddPaneWithLoadingStateSetsNameAndCLIType() {
+    func testAddPaneWithLoadingStateSetsNameAndHarness() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = tab.addPaneWithLoadingState(name: "my-branch", cliType: .codex, profileID: nil)
+        let pane = tab.addPaneWithLoadingState(name: "my-branch", harness: .codex, profileID: nil)
         XCTAssertEqual(pane.name, "my-branch")
-        XCTAssertEqual(pane.cliType, .codex)
+        XCTAssertEqual(pane.harness, .codex)
     }
 
     func testCompleteSetupClearsSetupState() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = tab.addPaneWithLoadingState(name: "feature", cliType: .claude)
+        let pane = tab.addPaneWithLoadingState(name: "feature", harness: .claude)
 
         guard case .loading = pane.setupState else {
             XCTFail("Expected .loading before completeSetup")
@@ -63,7 +63,7 @@ final class PaneSetupStateTests: XCTestCase {
 
     func testCompleteSetupUpdatesPane() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = tab.addPaneWithLoadingState(name: "original-name", cliType: .claude)
+        let pane = tab.addPaneWithLoadingState(name: "original-name", harness: .claude)
 
         let resolved = ResolvedWorktree(
             paneTitle: "resolved-name",
@@ -88,7 +88,7 @@ final class PaneSetupStateTests: XCTestCase {
 
     func testPaneSetupStateFailedStoresError() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = tab.addPaneWithLoadingState(name: "broken", cliType: .claude)
+        let pane = tab.addPaneWithLoadingState(name: "broken", harness: .claude)
         pane.setupState = .failed(error: "git fetch failed")
         guard case .failed(let msg) = pane.setupState else {
             XCTFail("Expected .failed")

@@ -9,7 +9,7 @@ struct ProfileTests {
     func buildArgsBooleanFlags() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--verbose", isEnabled: true, value: nil),
                 ProfileCLIOption(id: "--continue", isEnabled: false, value: nil),
@@ -24,7 +24,7 @@ struct ProfileTests {
     func buildArgsStringFlags() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-opus-4-6"),
                 ProfileCLIOption(id: "--effort", isEnabled: true, value: "high"),
@@ -39,7 +39,7 @@ struct ProfileTests {
     func buildArgsEmptyStringValue() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--model", isEnabled: true, value: ""),
                 ProfileCLIOption(id: "--verbose", isEnabled: true, value: nil),
@@ -53,7 +53,7 @@ struct ProfileTests {
     func buildArgsEscapesSingleQuotes() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--system-prompt", isEnabled: true, value: "don't stop")
             ]
@@ -66,7 +66,7 @@ struct ProfileTests {
     func buildArgsNothingEnabled() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil),
                 ProfileCLIOption(id: "--model", isEnabled: false, value: "opus"),
@@ -80,7 +80,7 @@ struct ProfileTests {
     func buildEnvVars() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             envVars: [
                 ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: "opus"),
                 ProfileEnvVar(id: "DEBUG", isEnabled: false, value: "1"),
@@ -95,7 +95,7 @@ struct ProfileTests {
     func buildEnvVarsSkipsEmpty() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             envVars: [
                 ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: "")
             ]
@@ -108,7 +108,7 @@ struct ProfileTests {
     func jsonRoundTrip() throws {
         let original = Profile(
             name: "Complex Task",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-opus-4-6"),
                 ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil),
@@ -126,10 +126,10 @@ struct ProfileTests {
     @Test("Profile with custom status line round-trips")
     func jsonRoundTripWithStatusLine() throws {
         var slc = StatusLineConfig()
-        slc.chipLabelStyle = .labelOnly
+        slc.factLabelStyle = .labelOnly
         let original = Profile(
             name: "Custom SL",
-            cliType: .cursor,
+            harness: .cursor,
             cliOptions: [],
             envVars: [],
             statusLineConfig: slc
@@ -137,16 +137,16 @@ struct ProfileTests {
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(Profile.self, from: data)
         #expect(decoded.statusLineConfig != nil)
-        #expect(decoded.statusLineConfig?.chipLabelStyle == .labelOnly)
+        #expect(decoded.statusLineConfig?.factLabelStyle == .labelOnly)
         #expect(decoded.name == "Custom SL")
-        #expect(decoded.cliType == .cursor)
+        #expect(decoded.harness == .cursor)
     }
 
     @Test("Profile with nil status line inherits global")
     func nilStatusLineInheritsGlobal() {
         let profile = Profile(
             name: "No Override",
-            cliType: .claude,
+            harness: .claude,
             statusLineConfig: nil
         )
         #expect(profile.statusLineConfig == nil)
@@ -158,7 +158,7 @@ struct ProfileTests {
         let original = PersistedPane(
             id: UUID(),
             name: "test",
-            cliType: .claude,
+            harness: .claude,
             profileID: profileID
         )
         let data = try JSONEncoder().encode(original)
@@ -169,7 +169,7 @@ struct ProfileTests {
     @Test("PersistedPane without profileID decodes as nil")
     func persistedPaneNilProfileID() throws {
         let json = """
-            {"id":"00000000-0000-0000-0000-000000000001","name":"test","cliType":"claude","isPriority":false,"isMerged":false,"worktreeIsManaged":false}
+            {"id":"00000000-0000-0000-0000-000000000001","name":"test","harness":"claude","isPriority":false,"isMerged":false,"worktreeIsManaged":false}
             """
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: Data(json.utf8))
         #expect(decoded.profileID == nil)
@@ -177,8 +177,8 @@ struct ProfileTests {
 
     @Test("Profiles container round-trips preserving order")
     func profilesContainerRoundTrip() throws {
-        let profile1 = Profile(name: "A", cliType: .claude)
-        let profile2 = Profile(name: "B", cliType: .cursor)
+        let profile1 = Profile(name: "A", harness: .claude)
+        let profile2 = Profile(name: "B", harness: .cursor)
 
         struct Container: Codable {
             var profiles: [Profile]
@@ -192,21 +192,21 @@ struct ProfileTests {
     }
 
     @Test("Different CLI types preserved in profiles")
-    func cliTypePreserved() throws {
-        for cliType in [CLIType.claude, .codex, .cursor, .opencode] {
-            let profile = Profile(name: "Test", cliType: cliType)
+    func harnessPreserved() throws {
+        for harness in [Harness.claude, .codex, .cursor, .opencode] {
+            let profile = Profile(name: "Test", harness: harness)
             let data = try JSONEncoder().encode(profile)
             let decoded = try JSONDecoder().decode(Profile.self, from: data)
-            #expect(decoded.cliType == cliType)
+            #expect(decoded.harness == harness)
         }
     }
 
     @Test("Move up swaps profiles")
     func testMoveUpSwapsProfiles() {
         var profiles = [
-            Profile(name: "A", cliType: .claude),
-            Profile(name: "B", cliType: .claude),
-            Profile(name: "C", cliType: .claude),
+            Profile(name: "A", harness: .claude),
+            Profile(name: "B", harness: .claude),
+            Profile(name: "C", harness: .claude),
         ]
         let originalFirst = profiles[0].id
         let originalSecond = profiles[1].id
@@ -218,9 +218,9 @@ struct ProfileTests {
     @Test("Move down swaps profiles")
     func testMoveDownSwapsProfiles() {
         var profiles = [
-            Profile(name: "A", cliType: .claude),
-            Profile(name: "B", cliType: .claude),
-            Profile(name: "C", cliType: .claude),
+            Profile(name: "A", harness: .claude),
+            Profile(name: "B", harness: .claude),
+            Profile(name: "C", harness: .claude),
         ]
         let originalFirst = profiles[0].id
         let originalSecond = profiles[1].id
@@ -232,8 +232,8 @@ struct ProfileTests {
     @Test("Move up disabled at top — index 0 has no valid swap")
     func testMoveUpDisabledAtTop() {
         let profiles = [
-            Profile(name: "A", cliType: .claude),
-            Profile(name: "B", cliType: .claude),
+            Profile(name: "A", harness: .claude),
+            Profile(name: "B", harness: .claude),
         ]
         let selectedIndex = 0
         let isDisabled = selectedIndex <= 0 || profiles.isEmpty
@@ -243,8 +243,8 @@ struct ProfileTests {
     @Test("Move down disabled at bottom — last index has no valid swap")
     func testMoveDownDisabledAtBottom() {
         let profiles = [
-            Profile(name: "A", cliType: .claude),
-            Profile(name: "B", cliType: .claude),
+            Profile(name: "A", harness: .claude),
+            Profile(name: "B", harness: .claude),
         ]
         let lastIndex = profiles.count - 1
         let isDisabled = lastIndex == profiles.count - 1
@@ -260,7 +260,7 @@ struct ProfileTests {
 
     @Test("ProfileEditorMode.edit carries profile and uses UUID as id")
     func profileEditorModeEdit() {
-        let profile = Profile(name: "MyProfile", cliType: .claude)
+        let profile = Profile(name: "MyProfile", harness: .claude)
         let mode = ProfileEditorMode.edit(profile)
         #expect(mode.profile?.id == profile.id)
         #expect(mode.id == profile.id.uuidString)
@@ -269,12 +269,12 @@ struct ProfileTests {
     @Test("New pane pre-selects first ranked profile matching CLI type")
     func testNewPanePreselectsFirstRankedProfile() {
         let profiles = [
-            Profile(name: "First", cliType: .claude),
-            Profile(name: "Second", cliType: .claude),
-            Profile(name: "Codex One", cliType: .codex),
+            Profile(name: "First", harness: .claude),
+            Profile(name: "Second", harness: .claude),
+            Profile(name: "Codex One", harness: .codex),
         ]
-        let activeToolList: [CLIType] = [.claude]
-        let filtered = profiles.filter { activeToolList.contains($0.cliType) }
+        let activeToolList: [Harness] = [.claude]
+        let filtered = profiles.filter { activeToolList.contains($0.harness) }
         let selectedID = filtered.first?.id
         #expect(selectedID == profiles[0].id)
     }

@@ -58,7 +58,7 @@ final class SessionPersistenceNotificationTests: XCTestCase {
 
     func testIsMergedPersistedAndRestored() throws {
         let persisted = PersistedPane(
-            id: UUID(), name: "p", cliType: .claude, isPriority: false, isMerged: true,
+            id: UUID(), name: "p", harness: .claude, isPriority: false, isMerged: true,
             worktreeDirectory: nil, worktreeIsManaged: false
         )
         let data = try JSONEncoder().encode(persisted)
@@ -72,7 +72,7 @@ final class SessionPersistenceNotificationTests: XCTestCase {
             {
               "id": "00000000-0000-0000-0000-000000000001",
               "name": "p",
-              "cliType": "claude",
+              "harness": "claude",
               "isPriority": false,
               "worktreeIsManaged": false
             }
@@ -89,7 +89,7 @@ final class SessionPersistenceNotificationTests: XCTestCase {
 
     func testExtraArgsRoundTripInPersistedPane() throws {
         let persisted = PersistedPane(
-            id: UUID(), name: "p", cliType: .claude,
+            id: UUID(), name: "p", harness: .claude,
             extraArgs: ["--model", "claude-opus-4-5"]
         )
         let data = try JSONEncoder().encode(persisted)
@@ -103,7 +103,7 @@ final class SessionPersistenceNotificationTests: XCTestCase {
             {
               "id": "00000000-0000-0000-0000-000000000001",
               "name": "p",
-              "cliType": "claude",
+              "harness": "claude",
               "isPriority": false,
               "worktreeIsManaged": false
             }
@@ -114,12 +114,12 @@ final class SessionPersistenceNotificationTests: XCTestCase {
 
     func testRestoreCombinesExtraArgsWithContinue() throws {
         let pane = PersistedPane(
-            id: UUID(), name: "p", cliType: .claude,
+            id: UUID(), name: "p", harness: .claude,
             extraArgs: ["--model", "claude-opus-4-5"]
         )
         var extraArgs = pane.extraArgs
         let continueOnRestart = true
-        if pane.cliType == .claude && continueOnRestart && !extraArgs.contains("--continue") {
+        if pane.harness == .claude && continueOnRestart && !extraArgs.contains("--continue") {
             extraArgs.append("--continue")
         }
         XCTAssertEqual(extraArgs, ["--model", "claude-opus-4-5", "--continue"])

@@ -1,6 +1,6 @@
 # Profiles
 
-Profiles let you save a named set of CLI flags, environment variables, CLI type, and (optionally) a custom status line configuration. When you create a new pane, selecting a profile pre-fills all of those settings automatically.
+Profiles let you save a named set of CLI flags, environment variables, harness, and (optionally) a custom status line configuration. When you create a new pane, selecting a profile pre-fills all of those settings automatically.
 
 ## Creating a Profile
 
@@ -8,7 +8,7 @@ Open **Settings → Profiles** and click **+**. You can also click **Save Profil
 
 ## Editing a Profile
 
-In **Settings → Profiles**, select a profile and click **Edit**. Every available CLI flag and environment variable for the selected CLI type is shown. For each option you can:
+In **Settings → Profiles**, select a profile and click **Edit**. Every available CLI flag and environment variable for the selected harness is shown. For each option you can:
 
 - **Enable/disable** the option (the checkbox on the left) — controls whether the flag is passed to Claude when the pane starts.
 - **Set a value** — for string flags like `--model`, type the value in the text field.
@@ -24,10 +24,10 @@ Options hidden from the New Pane sheet are still passed to Claude exactly as con
 
 ## Applying a Profile
 
-In the New Pane sheet, choose a profile from the **Profile** picker. The CLI type is locked to the profile's type. Only options marked **Show** in the profile are displayed. All other profile options are applied silently.
+In the New Pane sheet, choose a profile from the **Profile** picker. The harness is locked to the profile's harness. Only options marked **Show** in the profile are displayed. All other profile options are applied silently.
 
 If you change any option while a profile is selected, the picker label updates to show **(modified)**. You can click **Save Profile & Create** to save the modified form as a new or updated profile before creating the pane.
 
 ## Profile Ordering
 
-Profiles appear in the order defined in **Settings → Profiles**. Use the up/down arrows to reorder them. The first profile that matches the active CLI type is pre-selected when the New Pane sheet opens.
+Profiles appear in the order defined in **Settings → Profiles**. Use the up/down arrows to reorder them. The first profile that matches the active harness is pre-selected when the New Pane sheet opens.

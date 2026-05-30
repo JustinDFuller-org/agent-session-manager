@@ -219,7 +219,7 @@ struct SettingsPersistence {
             let data = try? Data(contentsOf: activeToolsURL),
             let saved = try? JSONDecoder().decode([String].self, from: data)
         else { return }
-        let knownRaws = Set(CLIType.allCases.map(\.rawValue))
+        let knownRaws = Set(Harness.allCases.map(\.rawValue))
         appSettings.activeTools = Set(saved).intersection(knownRaws)
     }
 

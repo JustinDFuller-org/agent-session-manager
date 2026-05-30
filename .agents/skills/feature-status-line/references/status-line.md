@@ -1,6 +1,6 @@
 # Status Line
 
-Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of chips; each chip displays one fact about the running session.
+Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
 ## Item Catalog
 
@@ -37,11 +37,11 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 
 ### I1. Worktree name is the pane's working directory
 
-The `worktree` chip always shows `URL(filePath: workingDirectory).lastPathComponent`. The app owns this fact; it does not rely on what a CLI reports. If the CLI sends a different name, the app logs a `statusline.worktree.name_mismatch` trace event and uses its own value.
+The `worktree` fact always shows `URL(filePath: workingDirectory).lastPathComponent`. The app owns this fact; it does not rely on what a CLI reports. If the CLI sends a different name, the app logs a `statusline.worktree.name_mismatch` trace event and uses its own value.
 
 **Authoritative source**: `StatusLineMonitor.applyI1Enforcement(to:)`, called on every Claude JSON decode.
 
-### I2. Each fact has exactly one chip
+### I2. Each fact is shown once
 
 The old `gitWorktree` item duplicated what `worktree` already shows. It has been removed from the catalog. Saved configurations containing `gitWorktree` rows are silently migrated on first decode, emitting `statusline.migration.gitworktree_dropped`.
 
@@ -54,7 +54,7 @@ The old `gitWorktree` item duplicated what `worktree` already shows. It has been
 
 ### Empty state
 
-The chip row renders as soon as the user has configured at least one row. Missing fields show `—` until the CLI emits its first status payload. The `currentData != nil` gate was removed from both `StatusLineView.body` and `PaneView.statusLine`; `StatusLineView` now renders whenever `nonEmptyRows` is non-empty, regardless of whether hook data has arrived.
+The fact row renders as soon as the user has configured at least one row. Missing fields show `—` until the harness emits its first status payload. The `currentData != nil` gate was removed from both `StatusLineView.body` and `PaneView.statusLine`; `StatusLineView` now renders whenever `nonEmptyRows` is non-empty, regardless of whether hook data has arrived.
 
 ### I4. Add Item picker is alphabetical
 
@@ -76,9 +76,9 @@ Errors during payload processing are never silently dropped. `applyLatestPayload
 
 **View corollary**: missing numeric fields render as `—`, never as `0`/`$0.0000`, so a frozen or early payload shows visibly-missing data rather than masquerading as real zeros.
 
-### I5. Worktree chip is a single fact (name + branch)
+### I5. Worktree fact is a single item (name + branch)
 
-The `worktree` chip renders as `name • branch` when both values are available, or just `name` when branch is absent (computed by `StatusLineData.Worktree.chipText`). The old `worktreeBranch` item has been removed from the catalog. Saved configurations containing `worktreeBranch` rows are migrated on first decode: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped. The migration emits `statusline.migration.worktreebranch_merged`.
+The `worktree` fact renders as `name • branch` when both values are available, or just `name` when branch is absent (computed by `StatusLineData.Worktree.factText`). The old `worktreeBranch` item has been removed from the catalog. Saved configurations containing `worktreeBranch` rows are migrated on first decode: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped. The migration emits `statusline.migration.worktreebranch_merged`.
 
 ## Defaults
 
