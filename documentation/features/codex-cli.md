@@ -1,10 +1,10 @@
 # Codex CLI Support
 
-Agent Session Manager supports [Codex](https://developers.openai.com/codex) as an alternative CLI tool alongside Claude Code and Cursor.
+Agent Session Manager supports [Codex](https://developers.openai.com/codex) alongside Claude Code, Cursor, and OpenCode.
 
 ## What It Does
 
-When you create a pane with the Codex CLI selected, the app launches `codex` in your tab's working directory with any CLI flags you have enabled. Each pane runs an independent `codex` session.
+When you create a pane with Codex selected, the app resolves or creates a worktree through the shared New Pane flow and launches `codex` in that checkout with any enabled CLI flags.
 
 ## How to Enable
 
@@ -24,7 +24,7 @@ Once enabled, "Codex" appears as an option in the CLI picker when creating a new
 4. Enter a session name
 5. Click **Open**
 
-The pane launches `codex` in the tab's directory with any configured CLI flags appended.
+The pane launches `codex` in the resolved checkout with any configured CLI flags appended.
 
 ## Configuring CLI Flags
 
@@ -49,8 +49,10 @@ Codex-specific flags can be enabled or disabled in **Settings → CLI Tools → 
 
 ## Status Line
 
-Codex does not have documented status line hook support. The status bar is not populated for Codex panes. If Codex adds status line support in a future release, this can be wired up similarly to Claude's `StatusLineMonitor`.
+Codex uses the tool-agnostic status provider. Worktree, branch, duration, changed lines, version, profile, and PR data can populate. Codex model data is currently missing because the provider does not expose it.
 
 ## Session Persistence
 
-Codex pane names and settings are saved alongside Claude and Cursor panes in `sessions.json`. On relaunch, Codex panes are restored and `codex` is restarted in the tab's directory.
+Codex pane names, options, and resolved checkout paths are saved in `sessions.json`. On relaunch, Codex panes are restored when their checkout still exists.
+
+See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the cross-harness audit.

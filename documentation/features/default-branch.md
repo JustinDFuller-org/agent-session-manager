@@ -1,26 +1,19 @@
-# Default branch (Settings)
+# Default Branch
 
-The **Panes → New Pane** section in Settings exposes a **Default Branch** toggle and optional **branch name** field. Values are persisted so they survive app restarts.
-
-## Configuration
-
-Open **Settings → Panes → New Pane**:
-
-- **Default Branch** — Checkbox-style toggle. When on, the branch name field is shown. Persisted to `default-branch.json` when changed.
-- **Branch Name** — Short name such as `main`, `master`, or `develop`. Default in code is `main`.
-
-Accessibility identifiers: `settings-default-branch-toggle`, `settings-default-branch-field`.
-
-## Persistence
-
-Settings are stored in:
+Settings → Panes → New Pane exposes a **Default Branch** toggle and branch-name field. The values are persisted to:
 
 `~/Library/Application Support/agent-session-manager/default-branch.json`
 
-Implementation: `SettingsPersistence.saveDefaultBranch` / load on startup in `AppSettings`.
+## Behavior
 
-## Relationship to New Pane (Claude) worktrees
+The setting is wired into the shared New Pane worktree flow for Claude Code, Cursor, Codex, and OpenCode.
 
-[worktree-creation.md](worktree-creation.md) documents how **Claude Code** panes resolve input: `classifyClaudePaneIntent`, `peekExistingResolvedWorktree`, and `resolveOrAttachWorktree` (including `git fetch origin <ref>` when creating a new managed tree).
+- When enabled, a plain name that does not resolve to an existing checkout or ref creates a new linked worktree from the configured default branch.
+- When disabled, unresolved input fails with a ref-not-found error.
+- The default branch name is `main`.
 
-That resolution path uses **what you type in the New Pane field** and Git’s view of the repo. It does **not** currently read `defaultBranch` or `isDefaultBranchEnabled` from `AppSettings` when attaching or creating worktrees. So the Settings copy describes a **stored preference** for the product; end-to-end wiring of that preference into `Tab` worktree creation is not implemented in the current codebase. For accurate behavior of Claude panes, rely on [worktree-creation.md](worktree-creation.md).
+The **Starting Point** setting controls whether fallback creation starts from freshly fetched `origin/<default-branch>` or local `HEAD`.
+
+Implementation: `NewPaneSheet.create`, `Tab.resolveOrAttachWorktree`, and `SettingsPersistence.saveDefaultBranch` / `restoreDefaultBranch`.
+
+See [worktree-creation.md](worktree-creation.md) for the full resolution order.

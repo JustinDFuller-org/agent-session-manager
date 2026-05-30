@@ -1,6 +1,6 @@
 # Panes
 
-A **pane** is a terminal session inside a tab. Each pane runs an AI agent CLI (Claude Code or Codex). For Claude Code, the app can attach to existing git checkouts or create **managed** trees under `.agent-session-manager/worktrees/<name>` inside the tab’s repository—see [worktree-creation.md](worktree-creation.md) for the full routing behavior.
+A **pane** is a terminal session inside a tab. Each pane runs an AI agent CLI: Claude Code, Cursor, Codex, or OpenCode. All four harnesses use the shared worktree flow: the app can attach to existing git checkouts or create **managed** trees under `.agent-session-manager/worktrees/<name>` inside the tab’s repository. See [worktree-creation.md](worktree-creation.md).
 
 ## Creating a pane
 
@@ -10,7 +10,7 @@ Use **⌘P** (default; configurable under **Settings → Shortcuts → New Pane 
 
 **CLI** — Pick the tool to launch. Only tools enabled in **Settings → CLI Tools** appear.
 
-**Session / name field** — One text field, shared across tools. Switching tools preserves whatever was typed. For Claude Code it accepts a session name, branch ref, or existing worktree path (classification and confirmation dialogs are described in [worktree-creation.md](worktree-creation.md)); there is no separate “branch” row. For Codex it accepts a session name only; git worktree resolution does not apply.
+**Session / name field** — One text field, shared across tools. Switching tools preserves whatever was typed. It accepts a session name, branch ref, or existing worktree name and routes every harness through the same app-owned Git resolution path.
 
 **CLI options** — Flags enabled in **Settings → CLI Tools** appear as toggles and fields. Options marked default-on in Settings start checked.
 
@@ -62,4 +62,4 @@ macOS stores TCC decisions per app bundle. If permissions don't stick:
 | ⌘K | Close active tab |
 | ⌘1–⌘9 | Switch to tab by index |
 
-For **default branch** settings (stored in Settings but not the same as per-ref resolution in the New Pane flow), see [default-branch.md](default-branch.md).
+For fallback creation from the configured **default branch**, see [default-branch.md](default-branch.md).

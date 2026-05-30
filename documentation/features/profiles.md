@@ -1,6 +1,6 @@
 # Profiles
 
-Profiles let you save a named set of CLI flags, environment variables, CLI type, and (optionally) a custom status line configuration. When you create a new pane, selecting a profile pre-fills all of those settings automatically.
+Profiles let you save a named harness type, harness-specific CLI flags, Claude-specific environment variables, and (optionally) a custom status line configuration. When you create a new pane, selecting a profile pre-fills the applicable settings automatically.
 
 ## Creating a Profile
 
@@ -8,9 +8,9 @@ Open **Settings → Profiles** and click **+**. You can also click **Save Profil
 
 ## Editing a Profile
 
-In **Settings → Profiles**, select a profile and click **Edit**. Every available CLI flag and environment variable for the selected CLI type is shown. For each option you can:
+In **Settings → Profiles**, select a profile and click **Edit**. Every available CLI flag for the selected harness is shown. Claude Code profiles also show the environment-variable catalog. For each option you can:
 
-- **Enable/disable** the option (the checkbox on the left) — controls whether the flag is passed to Claude when the pane starts.
+- **Enable/disable** the option (the checkbox on the left) — controls whether the flag or Claude environment variable is passed when the pane starts.
 - **Set a value** — for string flags like `--model`, type the value in the text field.
 - **Show on create** — tick the **Show** checkbox on the right to make the option visible in the New Pane sheet whenever this profile is selected (see below).
 
@@ -20,7 +20,7 @@ By default, when a profile is selected in the New Pane sheet, no individual opti
 
 Marking an option **Show** means it will appear as an editable toggle or text field in the New Pane sheet. This is useful for options you want to decide on per-pane, like `--continue` or `--resume`, while keeping fixed options like `--model` or `ANTHROPIC_API_KEY` out of the way.
 
-Options hidden from the New Pane sheet are still passed to Claude exactly as configured in the profile.
+Options hidden from the New Pane sheet are still passed to the selected harness exactly as configured in the profile.
 
 ## Applying a Profile
 

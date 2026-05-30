@@ -2,7 +2,7 @@
 
 > For the general status line feature (item catalog, invariants, row configuration), see [status-line.md](status-line.md).
 
-Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. For OpenCode panes, the app queries the OpenCode SQLite database to populate richer metrics than the baseline (version, worktree, branch, duration, lines added/removed, PR).
+Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. For OpenCode panes, the app queries the OpenCode SQLite database to populate richer metrics than the baseline (worktree, branch, duration, lines added/removed, profile, PR).
 
 ## OpenCode-Specific Items
 
@@ -14,7 +14,7 @@ The following items are exclusive to OpenCode panes or shared with Claude Code:
 | **Input Tokens** | Claude + OpenCode | Total input tokens across all messages in the active session |
 | **Output Tokens** | Claude + OpenCode | Total output tokens across all messages in the active session |
 | **Cost** | Claude + OpenCode | Total cost in USD across all messages in the active session |
-| **Status** | OpenCode only | Current session state: `Idle`, `Busy`, or `Retry` |
+| **Status** | OpenCode only | Current session state: `Idle` or `Busy` |
 | **Mode** | OpenCode only | The mode of the latest message (e.g., `code`, `ask`, `architect`) |
 
 Items marked **Claude + OpenCode** (indigo badge) work in both Claude Code and OpenCode panes. Items marked **OpenCode only** (purple badge) are exclusive to OpenCode.
@@ -27,7 +27,7 @@ OpenCode stores all session data in a SQLite database at `~/.local/share/opencod
 
 Token counts and cost are aggregated across all assistant messages in the session. Session status (idle/busy) is determined by whether the most recent assistant message has a completion timestamp.
 
-If the database does not exist or no session matches the working directory, the status bar gracefully falls back to showing only the tool-agnostic data (branch, duration, PR).
+If the database does not exist or no session matches the working directory, the status bar gracefully falls back to tool-agnostic data such as branch, duration, changed lines, profile, and PR.
 
 ## Enabling Status Items
 
@@ -39,4 +39,6 @@ If the database does not exist or no session matches the working directory, the 
 ## Known Limitations
 
 - **Context window percentage**: OpenCode does not store the model's maximum context window size, so the context percentage field is not available (only raw token counts are shown).
+- **Version**: the OpenCode provider does not currently populate the version chip.
+- **Retry status**: the renderer recognizes `retry`, but the OpenCode provider currently emits only `idle` or `busy`.
 - **Session matching**: When multiple OpenCode sessions exist for the same directory, the most recently updated session is used.

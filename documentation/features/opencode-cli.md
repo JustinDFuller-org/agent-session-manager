@@ -4,7 +4,7 @@ Agent Session Manager supports [OpenCode](https://opencode.ai) as an alternative
 
 ## What It Does
 
-When you create a pane with the OpenCode CLI selected, the app launches `opencode` in your tab's working directory with any CLI flags you have enabled. Each pane runs an independent `opencode` TUI session.
+When you create a pane with OpenCode selected, the app resolves or creates a worktree through the shared New Pane flow and launches `opencode` in that checkout with any enabled CLI flags.
 
 OpenCode is an open-source terminal agent that can be used with many different model providers.
 
@@ -26,7 +26,7 @@ Once enabled, "OpenCode" appears as an option in the CLI picker when creating a 
 4. Enter a session name
 5. Click **Open**
 
-The pane launches `opencode` in the tab's directory with any configured CLI flags appended.
+The pane launches `opencode` in the resolved checkout with any configured CLI flags appended.
 
 ## Configuring CLI Flags
 
@@ -50,14 +50,16 @@ OpenCode-specific flags can be enabled or disabled in **Settings â†’ CLI Tools â
 
 ## Status Line
 
-Agent Session Manager queries the OpenCode HTTP server to populate the status bar for OpenCode panes. See [opencode-status-line.md](opencode-status-line.md) for the full list of available items and how port discovery works.
+Agent Session Manager queries OpenCode's SQLite database to populate the status bar. See [opencode-status-line.md](opencode-status-line.md).
 
-Items available for OpenCode panes include: model, input/output token counts, session cost, session status (idle/busy/retry), mode (code/ask/architect), version, worktree branch, duration, and PR.
+OpenCode can populate model, input/output token counts, session cost, session status (`idle` / `busy`), mode, worktree branch, duration, changed lines, profile, and PR. Version is currently missing, and the provider does not emit `retry`.
 
 ## Worktrees
 
-OpenCode panes do not create or manage git worktrees. The `opencode` process runs with its working directory set to the tab's root directory. If you need per-pane isolation, create a worktree via a Claude pane first, then open it as an existing worktree in an OpenCode pane.
+OpenCode uses the same worktree resolution, external attachment, and cleanup flow as the other harnesses.
 
 ## Session Persistence
 
-OpenCode pane names are saved alongside Claude, Codex, and Cursor panes in `sessions.json`. On relaunch, OpenCode panes are restored and `opencode` is restarted in the tab's directory. The `--continue` flag is not automatically applied on restart.
+OpenCode pane names, options, and resolved checkout paths are saved in `sessions.json`. On relaunch, OpenCode panes are restored when their checkout still exists. The `--continue` flag is not automatically applied on restart.
+
+See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the cross-harness audit.
