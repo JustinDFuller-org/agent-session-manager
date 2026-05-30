@@ -74,25 +74,25 @@ final class ScreenshotTests: BaseTestCase {
         statusLineTab.click()
         screenshot("settings-status-line")
 
-        let tracingTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tracing").firstMatch
-        waitFor(tracingTab)
-        tracingTab.click()
-        screenshot("settings-tracing")
+        let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
+        waitFor(debugTab)
+        debugTab.click()
+        screenshot("settings-debug")
 
         app.typeKey("w", modifierFlags: .command)
     }
 
     func testTraceDashboard() {
-        // 1. Enable tracing
+        // 1. Enable Debug mode
         app.typeKey(",", modifierFlags: .command)
-        let tracingTab = app.descendants(matching: .any)
-            .matching(identifier: "settings-sidebar-tracing").firstMatch
-        waitFor(tracingTab)
-        tracingTab.click()
-        let tracingToggle = app.checkBoxes["settings-tracing-enabled-toggle"]
-        waitFor(tracingToggle)
-        if tracingToggle.value as? Int == 0 {
-            tracingToggle.click()
+        let debugTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-debug").firstMatch
+        waitFor(debugTab)
+        debugTab.click()
+        let debugToggle = app.checkBoxes["settings-debug-mode-toggle"]
+        waitFor(debugToggle)
+        if debugToggle.value as? Int == 0 {
+            debugToggle.click()
         }
         app.typeKey("w", modifierFlags: .command)
 

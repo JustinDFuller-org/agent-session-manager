@@ -79,13 +79,18 @@ See [setup-wizard.md](setup-wizard.md) for the full wizard flow.
 4. Click the minus icon to remove an item
 5. Use the up/down arrows to reorder rows
 
-## Invariant Violation Trace Events
+## Invariant Violations
 
-When an invariant is violated, the app records a trace event (see [tracing.md](tracing.md)) and uses the authoritative value. These events are the primary signal that an upstream contract has changed.
+When an invariant is violated, the app reports it through `InvariantReporter`, records the preserved trace event (see [tracing.md](tracing.md)), and uses the authoritative value. With Debug mode enabled, occurrences are also appended to `invariants/invariants.jsonl` and shown in the Invariant Dashboard.
+
+| Invariant ID | Preserved trace event | When emitted |
+|-------|-------------|---|
+| `statusline.worktree.name` | `statusline.worktree.name_mismatch` | Claude JSON `worktree.name` or `workspace.git_worktree` disagrees with the app's computed worktree name (I1) |
+| `statusline.lines.source` | `statusline.lines.source_mismatch` | Claude JSON `cost.total_lines_added`/`total_lines_removed` disagrees with cached `git diff --shortstat HEAD` (I3) |
+
+Migration-only events remain trace events:
 
 | Event | When emitted |
 |-------|-------------|
-| `statusline.worktree.name_mismatch` | Claude JSON `worktree.name` or `workspace.git_worktree` disagrees with the app's computed worktree name (I1) |
-| `statusline.lines.source_mismatch` | Claude JSON `cost.total_lines_added`/`total_lines_removed` disagrees with cached `git diff --shortstat HEAD` (I3) |
 | `statusline.migration.gitworktree_dropped` | A saved config row contained `gitWorktree`; it was removed (I2) |
 | `statusline.migration.worktreebranch_merged` | A saved config row contained `worktreeBranch`; it was replaced by `worktree` (`substituted=true`) or dropped (`substituted=false`) (I5) |

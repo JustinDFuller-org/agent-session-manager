@@ -9,13 +9,13 @@ final class StatusLineMonitorTracingTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         appSettings = AppSettings()
-        appSettings.tracingEnabled = true
+        appSettings.debugModeEnabled = true
         TracingService.shared.configure(from: appSettings)
         TracingService.shared.enableTestCapture()
     }
 
     override func tearDown() async throws {
-        appSettings.tracingEnabled = false
+        appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
         TracingService.shared.resetForTesting()
         try await super.tearDown()

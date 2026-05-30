@@ -7,7 +7,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     case shortcuts
     case statusLine = "status-line"
     case notifications
-    case tracing
+    case debug
 
     var id: String { rawValue }
 
@@ -19,7 +19,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .shortcuts: "Shortcuts"
         case .statusLine: "Status Line"
         case .notifications: "Notifications"
-        case .tracing: "Tracing"
+        case .debug: "Debug"
         }
     }
 
@@ -31,7 +31,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .shortcuts: "keyboard"
         case .statusLine: "chart.bar"
         case .notifications: "bell"
-        case .tracing: "waveform"
+        case .debug: "ladybug"
         }
     }
 }
@@ -90,8 +90,8 @@ struct SettingsView: View {
         case .notifications:
             NotificationsContent()
                 .environment(appSettings)
-        case .tracing:
-            TracingView()
+        case .debug:
+            DebugView()
                 .environment(appSettings)
         }
     }

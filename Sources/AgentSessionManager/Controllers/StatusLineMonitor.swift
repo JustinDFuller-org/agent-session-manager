@@ -314,9 +314,9 @@ final class StatusLineMonitor {
         let wantedName = URL(filePath: cwd).lastPathComponent
 
         if let reported = data.worktree?.name, reported != wantedName {
-            TracingService.shared.record(
-                "statusline.worktree.name_mismatch",
-                attributes: [
+            InvariantReporter.shared.violated(
+                .statusLineWorktreeName,
+                context: [
                     "pane.name": paneName, "pane.id": paneID.uuidString,
                     "tab.id": tabID.uuidString, "tab.name": tabName,
                     "field": "worktree.name",
@@ -327,9 +327,9 @@ final class StatusLineMonitor {
         if let reported = data.workspace?.gitWorktree, reported != cwd,
             URL(filePath: reported).lastPathComponent != wantedName
         {
-            TracingService.shared.record(
-                "statusline.worktree.name_mismatch",
-                attributes: [
+            InvariantReporter.shared.violated(
+                .statusLineWorktreeName,
+                context: [
                     "pane.name": paneName, "pane.id": paneID.uuidString,
                     "tab.id": tabID.uuidString, "tab.name": tabName,
                     "field": "workspace.git_worktree",
@@ -346,11 +346,11 @@ final class StatusLineMonitor {
 
         if let reportedAdded = data.cost?.totalLinesAdded,
             let reportedRemoved = data.cost?.totalLinesRemoved,
-            (reportedAdded != computedAdded || reportedRemoved != computedRemoved)
+            reportedAdded != computedAdded || reportedRemoved != computedRemoved
         {
-            TracingService.shared.record(
-                "statusline.lines.source_mismatch",
-                attributes: [
+            InvariantReporter.shared.violated(
+                .statusLineLinesSource,
+                context: [
                     "pane.name": paneName, "pane.id": paneID.uuidString,
                     "tab.id": tabID.uuidString, "tab.name": tabName,
                     "computed_added": "\(computedAdded)",

@@ -1,12 +1,12 @@
 # Tracing
 
-Agent Session Manager emits OpenTelemetry spans for all I/O operations. Tracing is off by default and can be enabled in **Settings → Tracing**.
+Agent Session Manager emits OpenTelemetry spans for all I/O operations. Tracing is off by default and can be enabled in **Settings → Debug**.
 
 ## Configuration
 
-- **Enable Tracing** — master switch (default: off). Spans are written to files immediately on enable.
-- **Traces Directory** — custom directory path (empty = `~/Library/Application Support/agent-session-manager/traces/`)
-- **Max File Size (per pane)** — trim threshold per pane file (default: 10 MB)
+- **Enable Debug Mode** — master switch (default: off). Spans are written to files immediately on enable.
+- **Traces Directory** — fixed at `~/Library/Application Support/agent-session-manager/traces/`
+- **Max File Size (per pane)** — fixed 10 MB trim threshold per pane file
 
 ## File Layout
 

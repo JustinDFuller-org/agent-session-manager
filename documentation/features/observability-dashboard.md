@@ -4,8 +4,8 @@ Agent Session Manager includes an in-app trace dashboard that visualizes OpenTel
 
 ## Enabling
 
-1. Open **Settings → Tracing**.
-2. Toggle on **Enable Tracing**.
+1. Open **Settings → Debug**.
+2. Toggle on **Enable Debug Mode**.
 
 Spans are written to per-pane JSONL files under `traces/` immediately. No output target selection is required — file output is the only mode.
 

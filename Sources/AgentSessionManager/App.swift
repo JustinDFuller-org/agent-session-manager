@@ -83,10 +83,11 @@ struct ContentView: View {
                 SettingsPersistence.restoreEnvVarOptions(into: appSettings)
                 SettingsPersistence.restoreProfiles(into: appSettings)
                 SettingsPersistence.restoreSessionNameSettings(into: appSettings)
-                SettingsPersistence.restoreTracingSettings(into: appSettings)
+                SettingsPersistence.restoreDebugSettings(into: appSettings)
                 SettingsPersistence.restoreShellSettings(into: appSettings)
                 SettingsPersistence.restoreOnboarding(into: appSettings)
                 TracingService.shared.configure(from: appSettings)
+                InvariantReporter.shared.configure(from: appSettings)
                 let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
                 cleanup.start()
                 traceCleanupService = cleanup
