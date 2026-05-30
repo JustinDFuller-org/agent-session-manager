@@ -187,6 +187,15 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(tabActivityState([.working, .waiting]), .waiting)
     }
 
+    // MARK: - visual symbol separation
+
+    func testActivityIndicatorSymbolsKeepWorkingDistinctFromWaiting() {
+        XCTAssertEqual(activityIndicatorSymbol(for: .idle), .idleRing)
+        XCTAssertEqual(activityIndicatorSymbol(for: .working), .workingDiamond)
+        XCTAssertEqual(activityIndicatorSymbol(for: .waiting), .waitingDot)
+        XCTAssertNotEqual(activityIndicatorSymbol(for: .working), activityIndicatorSymbol(for: .waiting))
+    }
+
     // MARK: - Claude lifecycle parsing and edge-once tracing
 
     func testClaudeLifecyclePayloadTransitionsWorkingAndIdle() {
