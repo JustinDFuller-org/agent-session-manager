@@ -9,6 +9,8 @@ struct OnboardingWizardView: View {
         case shell
         case tools
         case statusLine
+        case cliFlags
+        case profiles
     }
 
     @State private var step: Step = .welcome
@@ -18,6 +20,9 @@ struct OnboardingWizardView: View {
     @State private var checkedTools: Set<CLIType> = []
     @State private var detectionRan: Bool = false
     @State private var draftConfig: StatusLineConfig = .wizardDefault()
+    @State private var draftCliOptions: [CLIType: [CLIOptionConfig]] = [:]
+    @State private var draftEnvVars: [EnvVarConfig] = []
+    @State private var cliFlagsTool: CLIType = .claude
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,12 +35,19 @@ struct OnboardingWizardView: View {
                 toolsStep
             case .statusLine:
                 statusLineStep
+            case .cliFlags:
+                cliFlagsStep
+            case .profiles:
+                profilesStep
             }
         }
         .frame(width: 520)
         .onChange(of: step) { _, newStep in
             if newStep == .tools, !detectionRan {
                 Task { await runDetection() }
+            }
+            if newStep == .cliFlags {
+                seedCliFlagsDrafts()
             }
         }
     }
@@ -107,9 +119,12 @@ struct OnboardingWizardView: View {
 
             HStack {
                 Spacer()
-                Button("Continue") { step = .tools }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("onboarding-shell-continue-button")
+                Button("Continue") {
+                    persistShell()
+                    step = .tools
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("onboarding-shell-continue-button")
             }
         }
         .padding(32)
@@ -163,10 +178,13 @@ struct OnboardingWizardView: View {
 
             HStack {
                 Spacer()
-                Button("Continue") { step = .statusLine }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isDetecting)
-                    .accessibilityIdentifier("onboarding-done-button")
+                Button("Continue") {
+                    persistTools()
+                    step = .statusLine
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isDetecting)
+                .accessibilityIdentifier("onboarding-done-button")
             }
         }
         .padding(32)
@@ -220,13 +238,138 @@ struct OnboardingWizardView: View {
                 Spacer()
                 Button("Skip") {
                     draftConfig.rows = []
-                    finish()
+                    appSettings.statusLineConfig = draftConfig
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                    step = .cliFlags
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("onboarding-statusline-skip-button")
-                Button("Save") { finish() }
+                Button("Save") {
+                    appSettings.statusLineConfig = draftConfig
+                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                    step = .cliFlags
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("onboarding-statusline-save-button")
+            }
+        }
+        .padding(32)
+    }
+
+    private var enabledToolsList: [CLIType] {
+        let tools = CLIType.allCases.filter { checkedTools.contains($0) }
+        return tools.isEmpty ? [.claude] : tools
+    }
+
+    private var isCurrentDraftRecommended: Bool {
+        let draft = draftCliOptions[cliFlagsTool] ?? []
+        let recommended = CLIOptionConfig.recommendedDefaults(for: cliFlagsTool)
+        guard draft.count == recommended.count else { return false }
+        let recMap = Dictionary(uniqueKeysWithValues: recommended.map { ($0.id, $0) })
+        let cliFlagsMatch = draft.allSatisfy { opt in
+            guard let rec = recMap[opt.id] else { return false }
+            return opt.isAvailable == rec.isAvailable && opt.isDefaultEnabled == rec.isDefaultEnabled
+        }
+        guard cliFlagsMatch else { return false }
+        if cliFlagsTool == .claude {
+            let recommendedEnv = EnvVarConfig.recommendedDefaults()
+            let recEnvMap = Dictionary(uniqueKeysWithValues: recommendedEnv.map { ($0.id, $0) })
+            return draftEnvVars.allSatisfy { opt in
+                guard let rec = recEnvMap[opt.id] else { return false }
+                return opt.isAvailable == rec.isAvailable
+            }
+        }
+        return true
+    }
+
+    private var cliFlagsStep: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("CLI Flags")
+                    .font(.title2.bold())
+                Text(
+                    "Flags are passed when a pane starts. These recommendations surface the most-used options in the New Pane sheet — you can configure them later in Settings \u{2192} CLI Tools."
+                )
+                .font(.body)
+                .foregroundStyle(.secondary)
+            }
+
+            if enabledToolsList.count > 1 {
+                Picker("Tool", selection: $cliFlagsTool) {
+                    ForEach(enabledToolsList, id: \.self) { tool in
+                        Text(tool.displayName).tag(tool)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("onboarding-cliflags-tool-picker")
+            }
+
+            Form {
+                CLIOptionsContent(
+                    options: Binding(
+                        get: { draftCliOptions[cliFlagsTool] ?? [] },
+                        set: { draftCliOptions[cliFlagsTool] = $0 }
+                    ),
+                    onSave: {},
+                    customFlagFooter:
+                        "Custom flags may not be recognized by all \(cliFlagsTool.displayName) CLI versions.",
+                    envVarOptions: cliFlagsTool == .claude ? $draftEnvVars : nil,
+                    onEnvVarSave: cliFlagsTool == .claude ? {} : nil
+                )
+            }
+            .formStyle(.grouped)
+            .frame(maxHeight: 380)
+
+            if isCurrentDraftRecommended {
+                Button("Clear") {
+                    clearCliFlagsDraft()
+                }
+                .buttonStyle(.link)
+                .accessibilityIdentifier("onboarding-cliflags-clear-button")
+            } else {
+                Button("Reset to Recommended") {
+                    resetCliFlagsDraftToRecommended()
+                }
+                .buttonStyle(.link)
+                .accessibilityIdentifier("onboarding-cliflags-reset-button")
+            }
+
+            HStack {
+                Spacer()
+                Button("Skip") { step = .profiles }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("onboarding-cliflags-skip-button")
+                Button("Save") {
+                    persistCliFlagsSettings()
+                    step = .profiles
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("onboarding-cliflags-save-button")
+            }
+        }
+        .padding(32)
+    }
+
+    private var profilesStep: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Profiles")
+                    .font(.title2.bold())
+                Text(
+                    "Profiles save a named set of flags and env vars so new panes start preconfigured. Creating a profile is optional."
+                )
+                .font(.body)
+                .foregroundStyle(.secondary)
+            }
+
+            ProfilesContent()
+                .frame(maxHeight: 380)
+
+            HStack {
+                Spacer()
+                Button("Finish") { complete() }
                     .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("onboarding-statusline-save-button")
+                    .accessibilityIdentifier("onboarding-profiles-finish-button")
             }
         }
         .padding(32)
@@ -250,7 +393,7 @@ struct OnboardingWizardView: View {
         isDetecting = false
     }
 
-    private func finish() {
+    private func persistShell() {
         let shell: String
         if shellPickerSelection == "__other__" {
             shell = customShellPath.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -259,7 +402,9 @@ struct OnboardingWizardView: View {
         }
         appSettings.preferredShell = shell
         SettingsPersistence.saveShellSettings(appSettings: appSettings)
+    }
 
+    private func persistTools() {
         for tool in checkedTools {
             appSettings.setActive(tool, true)
         }
@@ -267,10 +412,74 @@ struct OnboardingWizardView: View {
             appSettings.setActive(.claude, true)
         }
         SettingsPersistence.saveActiveTools(appSettings: appSettings)
+    }
 
-        appSettings.statusLineConfig = draftConfig
-        SettingsPersistence.saveStatusLine(appSettings: appSettings)
+    private func seedCliFlagsDrafts() {
+        let toolsToSeed = checkedTools.isEmpty ? [CLIType.claude] : Array(checkedTools)
+        for tool in CLIType.allCases where toolsToSeed.contains(tool) {
+            if draftCliOptions[tool] == nil {
+                draftCliOptions[tool] = CLIOptionConfig.recommendedDefaults(for: tool)
+            }
+        }
+        if draftEnvVars.isEmpty {
+            draftEnvVars = EnvVarConfig.recommendedDefaults()
+        }
+        if let first = CLIType.allCases.first(where: { toolsToSeed.contains($0) }) {
+            cliFlagsTool = first
+        }
+    }
 
+    private func clearCliFlagsDraft() {
+        if var draft = draftCliOptions[cliFlagsTool] {
+            for i in draft.indices {
+                draft[i].isAvailable = false
+                draft[i].isDefaultEnabled = false
+            }
+            draftCliOptions[cliFlagsTool] = draft
+        }
+        if cliFlagsTool == .claude {
+            for i in draftEnvVars.indices {
+                draftEnvVars[i].isAvailable = false
+                draftEnvVars[i].isDefaultEnabled = false
+            }
+        }
+    }
+
+    private func resetCliFlagsDraftToRecommended() {
+        draftCliOptions[cliFlagsTool] = CLIOptionConfig.recommendedDefaults(for: cliFlagsTool)
+        if cliFlagsTool == .claude {
+            draftEnvVars = EnvVarConfig.recommendedDefaults()
+        }
+    }
+
+    private func persistCliFlagsSettings() {
+        let toolsToSave = checkedTools.isEmpty ? [CLIType.claude] : Array(checkedTools)
+        for tool in CLIType.allCases where toolsToSave.contains(tool) {
+            guard let draft = draftCliOptions[tool] else { continue }
+            switch tool {
+            case .claude:
+                appSettings.cliOptions = draft
+                SettingsPersistence.save(appSettings: appSettings)
+            case .codex:
+                appSettings.codexCliOptions = draft
+                SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+            case .cursor:
+                appSettings.cursorCliOptions = draft
+                SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+            case .opencode:
+                appSettings.opencodeCliOptions = draft
+                SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+            case .shell:
+                break
+            }
+        }
+        if toolsToSave.contains(.claude) {
+            appSettings.envVarOptions = draftEnvVars
+            SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+        }
+    }
+
+    private func complete() {
         appSettings.hasCompletedOnboarding = true
         SettingsPersistence.saveOnboarding(appSettings: appSettings)
         dismiss()

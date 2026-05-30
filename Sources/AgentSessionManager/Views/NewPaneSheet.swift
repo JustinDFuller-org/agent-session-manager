@@ -17,6 +17,8 @@ struct NewPaneSheet: View {
 
     @State private var showSaveProfileSheet = false
     @State private var saveProfileName = ""
+    @State private var showHiddenOptions = false
+    @State private var showHiddenEnvVars = false
 
     @FocusState private var isSessionInputFocused: Bool
 
@@ -85,6 +87,14 @@ struct NewPaneSheet: View {
         return allAvailable.filter { showSet.contains($0.id) }
     }
 
+    private var hiddenCLIOptions: [CLIOptionConfig] {
+        activeOptions.filter { !$0.isAvailable }
+    }
+
+    private var hiddenEnvVarOptions: [EnvVarConfig] {
+        appSettings.envVarOptions.filter { !$0.isAvailable }
+    }
+
     private var isFormModifiedFromProfile: Bool {
         guard let profile = selectedProfile else { return true }
         if selectedCLIType != profile.cliType { return true }
@@ -139,12 +149,14 @@ struct NewPaneSheet: View {
             }
 
             cliOptionsSection
+            hiddenCLIOptionsSection
             envVarSection
+            hiddenEnvVarSection
 
             actionButtons
         }
         .padding(24)
-        .frame(width: 420)
+        .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
                 suggestedName: selectedProfile?.name ?? "",
@@ -298,6 +310,64 @@ struct NewPaneSheet: View {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(visibleEnvVars) { envVar in
                             EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var hiddenCLIOptionsSection: some View {
+        if !hiddenCLIOptions.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Button {
+                    showHiddenOptions.toggle()
+                } label: {
+                    Text(showHiddenOptions ? "Fewer options" : "Show all options")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("new-pane-show-hidden-options-button")
+
+                if showHiddenOptions {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(hiddenCLIOptions) { option in
+                            HiddenCLIOptionToggleRow(
+                                option: option,
+                                state: stateBinding(for: option),
+                                onAddToGlobal: { newPaneAddToGlobal(optionID: option.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var hiddenEnvVarSection: some View {
+        if selectedCLIType == .claude && !hiddenEnvVarOptions.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Button {
+                    showHiddenEnvVars.toggle()
+                } label: {
+                    Text(showHiddenEnvVars ? "Fewer options" : "Show all options")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("new-pane-show-hidden-env-vars-button")
+
+                if showHiddenEnvVars {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(hiddenEnvVarOptions) { envVar in
+                            HiddenEnvVarToggleRow(
+                                envVar: envVar,
+                                state: envVarStateBinding(for: envVar),
+                                onAddToGlobal: { newPaneAddToGlobalEnvVar(id: envVar.id) }
+                            )
                         }
                     }
                 }
@@ -555,7 +625,7 @@ struct NewPaneSheet: View {
 
     private func buildExtraArgs() -> [String] {
         var args: [String] = []
-        for option in activeOptions where option.isAvailable {
+        for option in activeOptions {
             guard let state = optionStates[option.id], state.enabled else { continue }
             switch option.optionType {
             case .boolean:
@@ -576,7 +646,7 @@ struct NewPaneSheet: View {
     private func buildExtraEnvVars() -> [String: String] {
         guard selectedCLIType == .claude else { return [:] }
         var envVars: [String: String] = [:]
-        for envVar in appSettings.envVarOptions where envVar.isAvailable {
+        for envVar in appSettings.envVarOptions {
             guard let state = envVarStates[envVar.id], state.enabled else { continue }
             let value = state.value.trimmingCharacters(in: .whitespaces)
             if !value.isEmpty {
@@ -584,6 +654,40 @@ struct NewPaneSheet: View {
             }
         }
         return envVars
+    }
+
+    private func newPaneAddToGlobal(optionID: String) {
+        switch selectedCLIType {
+        case .claude:
+            if let i = appSettings.cliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.cliOptions[i].isAvailable = true
+            }
+            SettingsPersistence.save(appSettings: appSettings)
+        case .codex:
+            if let i = appSettings.codexCliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.codexCliOptions[i].isAvailable = true
+            }
+            SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+        case .cursor:
+            if let i = appSettings.cursorCliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.cursorCliOptions[i].isAvailable = true
+            }
+            SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+        case .opencode:
+            if let i = appSettings.opencodeCliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.opencodeCliOptions[i].isAvailable = true
+            }
+            SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+        case .shell:
+            break
+        }
+    }
+
+    private func newPaneAddToGlobalEnvVar(id: String) {
+        if let i = appSettings.envVarOptions.firstIndex(where: { $0.id == id }) {
+            appSettings.envVarOptions[i].isAvailable = true
+        }
+        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
     }
 }
 
@@ -659,15 +763,20 @@ private struct CLIOptionToggleRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(option.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
-            if case .string(let placeholder) = option.optionType {
-                TextField(placeholder, text: $state.value)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(!state.enabled)
-                    .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
             }
+            .frame(maxWidth: .infinity)
         }
     }
 }
@@ -680,13 +789,76 @@ private struct EnvVarToggleRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(envVar.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
                 .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private struct HiddenCLIOptionToggleRow: View {
+    let option: CLIOptionConfig
+    @Binding var state: OptionState
+    let onAddToGlobal: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Toggle(isOn: $state.enabled) {
+                Text(option.id)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(maxWidth: .infinity)
+            if state.enabled {
+                Button("Show in all profiles", action: onAddToGlobal)
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+    }
+}
+
+private struct HiddenEnvVarToggleRow: View {
+    let envVar: EnvVarConfig
+    @Binding var state: OptionState
+    let onAddToGlobal: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Toggle(isOn: $state.enabled) {
+                Text(envVar.id)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            TextField("Value", text: $state.value)
+                .textFieldStyle(.roundedBorder)
+                .disabled(!state.enabled)
+                .frame(maxWidth: .infinity)
+            if state.enabled {
+                Button("Show in all profiles", action: onAddToGlobal)
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(Color.accentColor)
+            }
         }
     }
 }

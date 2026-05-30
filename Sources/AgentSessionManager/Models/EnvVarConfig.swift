@@ -75,6 +75,17 @@ struct EnvVarConfig: Identifiable, Codable {
         )
     }
 
+    static func recommendedDefaults() -> [EnvVarConfig] {
+        let recommendedIDs: Set<String> = [
+            "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL",
+        ]
+        return all.map { envVar in
+            var copy = envVar
+            copy.isAvailable = recommendedIDs.contains(envVar.id)
+            return copy
+        }
+    }
+
     // MARK: - Predefined Claude Code environment variables
     // Source: https://code.claude.com/docs/en/env-vars
     // Excludes deprecated vars (ANTHROPIC_SMALL_FAST_MODEL) and auto-set vars (CLAUDECODE).

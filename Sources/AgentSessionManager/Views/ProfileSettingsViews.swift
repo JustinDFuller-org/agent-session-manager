@@ -128,6 +128,7 @@ struct ProfilesContent: View {
                     Label("New Profile", systemImage: "plus")
                 }
                 .buttonStyle(.borderless)
+                .accessibilityIdentifier("profile-new-button")
             }
         }
         .formStyle(.grouped)
@@ -175,6 +176,8 @@ private struct ProfileEditorSheet: View {
     @State private var statusLineConfig = StatusLineConfig()
     /// True once we seeded from disk or after copying from global settings on first toggle.
     @State private var didSeedCustomStatusLineFromGlobal = false
+    @State private var showHiddenOptions = false
+    @State private var showHiddenEnvVars = false
 
     @FocusState private var isNameFocused: Bool
 
@@ -190,6 +193,14 @@ private struct ProfileEditorSheet: View {
         case .opencode: return appSettings.opencodeCliOptions
         case .shell: return []
         }
+    }
+
+    private var hiddenOptions: [CLIOptionConfig] {
+        activeOptions.filter { !$0.isAvailable }
+    }
+
+    private var hiddenEnvVars: [EnvVarConfig] {
+        appSettings.envVarOptions.filter { !$0.isAvailable }
     }
 
     private var isValid: Bool {
@@ -230,43 +241,125 @@ private struct ProfileEditorSheet: View {
                     }
 
                     let available = activeOptions.filter(\.isAvailable)
-                    if !available.isEmpty {
+                    if !available.isEmpty || !hiddenOptions.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("CLI Options")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    ForEach(available) { option in
-                                        ProfileEditorOptionRow(
-                                            option: option,
-                                            state: editorStateBinding(for: option.id)
+                            Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if !available.isEmpty {
+                                HStack(spacing: 8) {
+                                    Spacer()
+                                    Color.clear.frame(maxWidth: .infinity)
+                                    Text("Show on new pane")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .help(
+                                            "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
                                         )
+                                }
+                                ScrollView {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        ForEach(available) { option in
+                                            ProfileEditorOptionRow(
+                                                option: option,
+                                                state: editorStateBinding(for: option.id)
+                                            )
+                                        }
                                     }
                                 }
+                                .frame(maxHeight: 160)
                             }
-                            .frame(maxHeight: 160)
+                            if !hiddenOptions.isEmpty {
+                                Button {
+                                    showHiddenOptions.toggle()
+                                } label: {
+                                    Text(showHiddenOptions ? "Fewer options" : "Show all options")
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("profile-editor-show-hidden-options-button")
+
+                                if showHiddenOptions {
+                                    ScrollView {
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            ForEach(hiddenOptions) { option in
+                                                ProfileEditorHiddenOptionRow(
+                                                    option: option,
+                                                    state: editorStateBinding(for: option.id),
+                                                    onAddToGlobal: { onAddToGlobal(optionID: option.id) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                    .frame(maxHeight: 160)
+                                }
+                            }
                         }
                     }
 
                     if cliType == .claude {
                         let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
-                        if !availableEnvVars.isEmpty {
+                        if !availableEnvVars.isEmpty || !hiddenEnvVars.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Environment Variables")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                ScrollView {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        ForEach(availableEnvVars) { envVar in
-                                            ProfileEditorEnvVarRow(
-                                                envVar: envVar,
-                                                state: editorEnvVarStateBinding(for: envVar.id)
+                                Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                if !availableEnvVars.isEmpty {
+                                    HStack(spacing: 8) {
+                                        Spacer()
+                                        Color.clear.frame(maxWidth: .infinity)
+                                        Text("Show on new pane")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .help(
+                                                "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
                                             )
+                                    }
+                                    ScrollView {
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            ForEach(availableEnvVars) { envVar in
+                                                ProfileEditorEnvVarRow(
+                                                    envVar: envVar,
+                                                    state: editorEnvVarStateBinding(for: envVar.id)
+                                                )
+                                            }
                                         }
                                     }
+                                    .frame(maxHeight: 120)
                                 }
-                                .frame(maxHeight: 120)
+                                if !hiddenEnvVars.isEmpty {
+                                    Button {
+                                        showHiddenEnvVars.toggle()
+                                    } label: {
+                                        Text(showHiddenEnvVars ? "Fewer options" : "Show all options")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityIdentifier("profile-editor-show-hidden-env-vars-button")
+
+                                    if showHiddenEnvVars {
+                                        ScrollView {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                ForEach(hiddenEnvVars) { envVar in
+                                                    ProfileEditorHiddenEnvVarRow(
+                                                        envVar: envVar,
+                                                        state: editorEnvVarStateBinding(for: envVar.id),
+                                                        onAddToGlobal: { onAddToGlobalEnvVar(id: envVar.id) }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        .frame(maxHeight: 120)
+                                    }
+                                }
                             }
                         }
                     }
@@ -308,7 +401,7 @@ private struct ProfileEditorSheet: View {
                     }
                 }
                 .padding(24)
-                .frame(width: 420)
+                .frame(maxWidth: .infinity)
             }
 
             Divider()
@@ -323,7 +416,7 @@ private struct ProfileEditorSheet: View {
             }
             .padding(24)
         }
-        .frame(width: 420)
+        .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
         .onAppear {
             if let existing = profile {
                 name = existing.name
@@ -341,6 +434,14 @@ private struct ProfileEditorSheet: View {
                 if let slc = existing.statusLineConfig {
                     useCustomStatusLine = true
                     statusLineConfig = slc
+                }
+                let availableIDs = Set(activeOptions.filter(\.isAvailable).map(\.id))
+                if existing.cliOptions.contains(where: { $0.isEnabled && !availableIDs.contains($0.id) }) {
+                    showHiddenOptions = true
+                }
+                let availableEnvIDs = Set(appSettings.envVarOptions.filter(\.isAvailable).map(\.id))
+                if existing.envVars.contains(where: { $0.isEnabled && !availableEnvIDs.contains($0.id) }) {
+                    showHiddenEnvVars = true
                 }
             } else {
                 if !activeToolList.contains(cliType) {
@@ -382,9 +483,50 @@ private struct ProfileEditorSheet: View {
         )
     }
 
+    private func persistCLIOptions() {
+        switch cliType {
+        case .claude: SettingsPersistence.save(appSettings: appSettings)
+        case .codex: SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+        case .cursor: SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+        case .opencode: SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+        case .shell: break
+        }
+    }
+
+    private func onAddToGlobal(optionID: String) {
+        switch cliType {
+        case .claude:
+            if let i = appSettings.cliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.cliOptions[i].isAvailable = true
+            }
+        case .codex:
+            if let i = appSettings.codexCliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.codexCliOptions[i].isAvailable = true
+            }
+        case .cursor:
+            if let i = appSettings.cursorCliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.cursorCliOptions[i].isAvailable = true
+            }
+        case .opencode:
+            if let i = appSettings.opencodeCliOptions.firstIndex(where: { $0.id == optionID }) {
+                appSettings.opencodeCliOptions[i].isAvailable = true
+            }
+        case .shell:
+            break
+        }
+        persistCLIOptions()
+    }
+
+    private func onAddToGlobalEnvVar(id: String) {
+        if let i = appSettings.envVarOptions.firstIndex(where: { $0.id == id }) {
+            appSettings.envVarOptions[i].isAvailable = true
+        }
+        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+    }
+
     private func save() {
         guard isValid else { return }
-        let cliOptions = activeOptions.filter(\.isAvailable).map { opt in
+        let visibleOptions = activeOptions.filter(\.isAvailable).map { opt in
             let state = optionStates[opt.id] ?? ProfileEditorOptionState(enabled: false, value: "")
             return ProfileCLIOption(
                 id: opt.id,
@@ -393,15 +535,30 @@ private struct ProfileEditorSheet: View {
                 showOnPaneCreate: state.showOnPaneCreate
             )
         }
+        let hiddenEnabled = hiddenOptions.compactMap { opt -> ProfileCLIOption? in
+            guard let state = optionStates[opt.id], state.enabled else { return nil }
+            return ProfileCLIOption(
+                id: opt.id, isEnabled: true,
+                value: state.value.isEmpty ? nil : state.value,
+                showOnPaneCreate: state.showOnPaneCreate)
+        }
+        let cliOptions = visibleOptions + hiddenEnabled
 
         let envVars: [ProfileEnvVar]
         if cliType == .claude {
-            envVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
+            let visibleEnvVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
                 let state = envVarStates[ev.id] ?? ProfileEditorOptionState(enabled: false, value: "")
                 return ProfileEnvVar(
                     id: ev.id, isEnabled: state.enabled, value: state.value,
                     showOnPaneCreate: state.showOnPaneCreate)
             }
+            let hiddenEnabledEnvVars = hiddenEnvVars.compactMap { ev -> ProfileEnvVar? in
+                guard let state = envVarStates[ev.id], state.enabled else { return nil }
+                return ProfileEnvVar(
+                    id: ev.id, isEnabled: true, value: state.value,
+                    showOnPaneCreate: state.showOnPaneCreate)
+            }
+            envVars = visibleEnvVars + hiddenEnabledEnvVars
         } else {
             envVars = []
         }
@@ -433,23 +590,26 @@ private struct ProfileEditorOptionRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(option.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
-            if case .string(let placeholder) = option.optionType {
-                TextField(placeholder, text: $state.value)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(!state.enabled)
-                    .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
             }
-            HStack(spacing: 4) {
-                Text("Show")
-                    .font(.caption)
-                Toggle("Show", isOn: $state.showOnPaneCreate)
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .help("Show this option in the New Pane sheet when this profile is selected.")
-            }
+            .frame(maxWidth: .infinity)
+            Toggle("Show on new pane", isOn: $state.showOnPaneCreate)
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .help(
+                    "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
+                )
         }
     }
 }
@@ -462,20 +622,81 @@ private struct ProfileEditorEnvVarRow: View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
                 Text(envVar.id)
-                    .font(.system(.body, design: .monospaced))
-                    .font(.caption)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!state.enabled)
                 .frame(maxWidth: .infinity)
-            HStack(spacing: 4) {
-                Text("Show")
+            Toggle("Show on new pane", isOn: $state.showOnPaneCreate)
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .help(
+                    "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
+                )
+        }
+    }
+}
+
+private struct ProfileEditorHiddenOptionRow: View {
+    let option: CLIOptionConfig
+    @Binding var state: ProfileEditorOptionState
+    let onAddToGlobal: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Toggle(isOn: $state.enabled) {
+                Text(option.id)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if case .string(let placeholder) = option.optionType {
+                    TextField(placeholder, text: $state.value)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(!state.enabled)
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(maxWidth: .infinity)
+            if state.enabled {
+                Button("Show in all profiles", action: onAddToGlobal)
+                    .buttonStyle(.borderless)
                     .font(.caption)
-                Toggle("Show", isOn: $state.showOnPaneCreate)
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .help("Show this option in the New Pane sheet when this profile is selected.")
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+    }
+}
+
+private struct ProfileEditorHiddenEnvVarRow: View {
+    let envVar: EnvVarConfig
+    @Binding var state: ProfileEditorOptionState
+    let onAddToGlobal: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Toggle(isOn: $state.enabled) {
+                Text(envVar.id)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            TextField("Value", text: $state.value)
+                .textFieldStyle(.roundedBorder)
+                .disabled(!state.enabled)
+                .frame(maxWidth: .infinity)
+            if state.enabled {
+                Button("Show in all profiles", action: onAddToGlobal)
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(Color.accentColor)
             }
         }
     }
