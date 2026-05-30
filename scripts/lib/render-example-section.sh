@@ -59,7 +59,7 @@ ORDER=(
     settings-tools.png
     settings-shortcuts.png
     settings-status-line.png
-    settings-tracing.png
+    settings-debug.png
 )
 
 in_array() {

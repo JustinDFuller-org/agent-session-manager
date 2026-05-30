@@ -50,7 +50,7 @@ final class TracingService: @unchecked Sendable {
     /// (AppSettings is @MainActor), but reconfigures the underlying SDK on whatever thread called it.
     @MainActor
     func configure(from settings: AppSettings) {
-        guard settings.tracingEnabled else {
+        guard settings.debugModeEnabled else {
             lock.withLock {
                 _isEnabled = false
                 _tracer = nil
@@ -60,7 +60,7 @@ final class TracingService: @unchecked Sendable {
 
         let exporter: any SpanExporter = PerPaneSpanExporter(
             tracesDirectory: settings.resolvedTracingDirectoryURL,
-            maxBytesPerFile: settings.tracingFileMaxBytes
+            maxBytesPerFile: AppSettings.debugFileMaxBytes
         )
 
         let processor = SimpleSpanProcessor(spanExporter: exporter)

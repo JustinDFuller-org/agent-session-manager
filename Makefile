@@ -181,6 +181,7 @@ reset-app-state:
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
 	done
 	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager/traces"
+	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager/invariants"
 	@echo "App state reset."
 
 reset-app-state-dev:
@@ -197,6 +198,8 @@ reset-app-state-dev:
 	done
 	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager.dev/traces"
 	@rm -rf "$(HOME)/Library/Application Support/dev/traces"
+	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager.dev/invariants"
+	@rm -rf "$(HOME)/Library/Application Support/dev/invariants"
 	@echo "Dev app state reset."
 
 open-results:

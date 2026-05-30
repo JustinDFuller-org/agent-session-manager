@@ -20,6 +20,13 @@ struct AgentSessionManagerApp: App {
             )
         }
         .defaultSize(width: 900, height: 600)
+
+        Window("Invariant Dashboard", id: "invariant-dashboard") {
+            InvariantDashboardView(
+                directory: appDelegate.appSettings.resolvedInvariantDirectoryURL
+            )
+        }
+        .defaultSize(width: 900, height: 600)
     }
 }
 
@@ -37,6 +44,11 @@ private struct AppCommands: Commands {
                 openWindow(id: "trace-dashboard")
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
+
+            Button("Open Invariant Dashboard") {
+                openWindow(id: "invariant-dashboard")
+            }
+            .keyboardShortcut("i", modifiers: [.command, .shift])
         }
 
         CommandGroup(replacing: .newItem) {

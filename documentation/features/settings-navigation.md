@@ -14,7 +14,7 @@ All seven sections are enumerated in `SettingsSection` (`SettingsView.swift`). E
 | `.shortcuts` | Shortcuts | `keyboard` |
 | `.statusLine` | Status Line | `chart.bar` |
 | `.notifications` | Notifications | `bell` |
-| `.tracing` | Tracing | `waveform` |
+| `.debug` | Debug | `ladybug` |
 
 ## Accessibility identifiers
 

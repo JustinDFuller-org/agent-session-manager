@@ -184,6 +184,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - cursor-cli: `feature-cursor-cli`
 - pr-merged-notifications: `feature-pr-merged-notifications`
 - tracing: `feature-tracing`
+- invariants: `feature-invariants`
 - debug-logging: `feature-debug-logging`
 - terminal-rendering: `feature-terminal-rendering`
 - worktree-creation: `feature-worktree-creation`

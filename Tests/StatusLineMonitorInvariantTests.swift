@@ -7,11 +7,13 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     override func setUp() {
         super.setUp()
         TracingService.shared.enableTestCapture()
+        InvariantReporter.shared.enableTestCapture()
     }
 
     override func tearDown() {
         super.tearDown()
         TracingService.shared.resetForTesting()
+        InvariantReporter.shared.resetForTesting()
     }
 
     // MARK: - I2 Migration
@@ -127,6 +129,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(mismatch?.attributes["field"], "worktree.name")
         XCTAssertEqual(mismatch?.attributes["computed"], "right-name")
         XCTAssertEqual(mismatch?.attributes["reported"], "wrong-name")
+        XCTAssertEqual(mismatch?.attributes["invariant.id"], "statusline.worktree.name")
     }
 
     func testI1WorktreeNameMatchDoesNotLog() async throws {
@@ -179,9 +182,12 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         monitor.testApplyI1Enforcement(to: &enforced)
 
         let events = TracingService.shared.recordedEventsForTesting
-        let mismatch = events.first { $0.name == "statusline.worktree.name_mismatch" && $0.attributes["field"] == "workspace.git_worktree" }
+        let mismatch = events.first {
+            $0.name == "statusline.worktree.name_mismatch" && $0.attributes["field"] == "workspace.git_worktree"
+        }
         XCTAssertNotNil(mismatch, "Expected workspace.git_worktree mismatch event")
         XCTAssertEqual(mismatch?.attributes["computed"], "right-name")
+        XCTAssertEqual(mismatch?.attributes["invariant.id"], "statusline.worktree.name")
     }
 
     // MARK: - I3: Lines Added/Removed
@@ -215,6 +221,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let events = TracingService.shared.recordedEventsForTesting
         let mismatch = events.first { $0.name == "statusline.lines.source_mismatch" }
         XCTAssertNotNil(mismatch, "Expected lines.source_mismatch trace event")
+        XCTAssertEqual(mismatch?.attributes["invariant.id"], "statusline.lines.source")
         XCTAssertEqual(mismatch?.attributes["computed_added"], "5")
         XCTAssertEqual(mismatch?.attributes["reported_added"], "999")
         XCTAssertEqual(mismatch?.attributes["computed_removed"], "0")
@@ -231,7 +238,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
 
-        let earlyPayload = Data("""
+        let earlyPayload = Data(
+            """
             {"cost": {"total_cost_usd": 0.0}}
             """.utf8)
         try earlyPayload.write(to: URL(filePath: monitor.filePath))
@@ -239,7 +247,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 0.0)
 
         // Simulate Claude writing a newer payload without firing the vnode handler
-        let laterPayload = Data("""
+        let laterPayload = Data(
+            """
             {"cost": {"total_cost_usd": 5.28}, "context_window": {"used_percentage": 8}}
             """.utf8)
         try laterPayload.write(to: URL(filePath: monitor.filePath))
@@ -257,7 +266,9 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             events.contains { $0.name == "statusline.payload.stale_recovered" },
             "Expected stale_recovered trace event")
         XCTAssertTrue(
-            events.contains { $0.name == "statusline.payload.applied" && $0.attributes["reason"] == "freshness_recovery" },
+            events.contains {
+                $0.name == "statusline.payload.applied" && $0.attributes["reason"] == "freshness_recovery"
+            },
             "Expected applied event with reason freshness_recovery")
     }
 
@@ -269,7 +280,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
 
-        let payload = Data("""
+        let payload = Data(
+            """
             {"cost": {"total_cost_usd": 1.23}}
             """.utf8)
         try payload.write(to: URL(filePath: monitor.filePath))
@@ -295,7 +307,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
 
-        let payload = Data("""
+        let payload = Data(
+            """
             {"cost": {"total_cost_usd": 2.50}, "context_window": {"used_percentage": 15}}
             """.utf8)
         try payload.write(to: URL(filePath: monitor.filePath))
@@ -322,7 +335,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
 
         // Apply a good payload first so currentData has a known value
-        let good = Data("""
+        let good = Data(
+            """
             {"cost": {"total_cost_usd": 1.00}}
             """.utf8)
         try good.write(to: URL(filePath: monitor.filePath))
@@ -352,7 +366,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, cliType: .claude)
 
-        let good = Data("""
+        let good = Data(
+            """
             {"cost": {"total_cost_usd": 3.75}}
             """.utf8)
         try good.write(to: URL(filePath: monitor.filePath))
@@ -371,7 +386,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     func testI7ContextWindowToleratesDoublePercentage() throws {
         // 14.000000000000002 is the real-world case from rate_limits; truncates to 14
         // 85.999999999999998 rounds to 86.0 in IEEE 754 double, so Int(86.0) == 86
-        let json = Data("""
+        let json = Data(
+            """
             {"context_window": {"used_percentage": 14.000000000000002, "remaining_percentage": 85.999999999999998, "total_input_tokens": 140000, "total_output_tokens": 5}}
             """.utf8)
         let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
