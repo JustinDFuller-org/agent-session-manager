@@ -34,7 +34,7 @@ Every harness can signal attention through the shared terminal paths:
 
 2. **OSC 777** — the sequence `ESC]777;notify;title;body` terminated with BEL (0x07). Many tools use this so the BEL byte acts as an OSC string terminator; SwiftTerm delivers that through `notify` rather than `bell()`. Both paths trigger the same in-app notification and optional macOS banner.
 
-3. **Claude `Notification` hook** (optional, Settings → Notifications → **Notification hook for attention**) — Claude Code can run settings-defined hooks when it raises a notification event (for example tool permission, or when input is idle for a long interval). Agent Session Manager merges a hook into each pane’s `--settings` file so that stdin is written to a temp file and the app raises the **same** attention path as a bell. Turn this off if you see unwanted sidebar entries. New or refreshed panes pick up changes immediately; existing panes refresh when you toggle the setting.
+3. **Claude attention hooks** — Agent Session Manager always merges focused hooks into each Claude pane’s `--settings` file. `PreToolUse` catches `AskUserQuestion` and `ExitPlanMode`, `PermissionRequest` catches permission dialogs, `Notification` catches `permission_prompt` and `elicitation_dialog`, and `Elicitation` catches MCP-driven input. Each writes to a temp file and raises the same attention path as a bell.
 
 4. **Cursor `stop` hook** (optional, Settings → Notifications → Cursor → **Stop hook for attention**) — Agent Session Manager installs a user-level Cursor hook that writes stdin to a per-pane temp file keyed by `AGENT_SESSION_MANAGER_PANE_ID`. The Cursor provider watches that file and raises the same attention path when a turn stops. Existing Cursor panes do not currently refresh when this setting changes.
 
@@ -71,7 +71,6 @@ Settings → Notifications exposes these controls:
 | Setting | Description | Default |
 |---|---|---|
 | Banner Notifications | Show macOS Notification Center banners for background pane bells (permission required). To keep banners on screen, set Alert Style → Persistent in System Settings → Notifications. | On |
-| Notification hook for attention | Merge Claude Code `Notification` hook into each pane’s `--settings` (see above) | On |
 | Stop hook for attention (Cursor) | Install a Cursor `stop` hook for turn-completion attention (see above) | On |
 | Sidebar Position | Which side the notification sidebar opens on (Left / Right) | Right |
 | Always Show Notifications Bar | Keep the sidebar visible even when there are no pending notifications | On |

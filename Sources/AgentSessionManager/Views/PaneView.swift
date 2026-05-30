@@ -94,7 +94,7 @@ struct PaneView: View {
                 let hasNotification = pendingNotification != nil
                 let activityState = paneActivityState(
                     processState: pane.terminalController?.processState,
-                    isProducingOutput: pane.terminalController?.isProducingOutput ?? false,
+                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
                     sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
                     hasNotification: hasNotification
                 )

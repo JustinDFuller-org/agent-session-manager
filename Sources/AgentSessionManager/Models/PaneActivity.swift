@@ -8,14 +8,14 @@ enum PaneActivityState {
 
 func paneActivityState(
     processState: TerminalController.ProcessState?,
-    isProducingOutput: Bool,
+    isWorking: Bool,
     sessionState: String?,
     hasNotification: Bool
 ) -> PaneActivityState {
     if hasNotification { return .waiting }
     guard case .running = processState else { return .idle }
     let isBusy = sessionState == "busy" || sessionState == "retry"
-    if isProducingOutput || isBusy { return .working }
+    if isWorking || isBusy { return .working }
     return .idle
 }
 

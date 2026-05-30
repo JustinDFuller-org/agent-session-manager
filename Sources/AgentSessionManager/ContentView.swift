@@ -86,8 +86,6 @@ extension Notification.Name {
     static let closeTab = Notification.Name("closeTab")
     static let prMergedActionRequested = Notification.Name("prMergedActionRequested")
     static let openShellHere = Notification.Name("openShellHere")
-    static let agentSessionManagerClaudeHookAttentionSettingChanged = Notification.Name(
-        "agentSessionManagerClaudeHookAttentionSettingChanged")
     static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
         "agentSessionManagerPRTrackingSettingChanged")
 }

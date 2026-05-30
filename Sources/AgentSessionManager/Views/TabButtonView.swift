@@ -21,7 +21,7 @@ struct TabButtonView: View {
                             tab.panes.map { pane in
                                 paneActivityState(
                                     processState: pane.terminalController?.processState,
-                                    isProducingOutput: pane.terminalController?.isProducingOutput ?? false,
+                                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
                                     sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
                                     hasNotification: tabPaneIDs.contains(pane.id)
                                         && appState.notifications.contains { $0.paneID == pane.id }

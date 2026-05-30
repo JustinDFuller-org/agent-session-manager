@@ -334,7 +334,7 @@ private struct PanesContent: View {
             Section("Activity Indicators") {
                 SettingRow(
                     title: "Show Activity Indicators",
-                    description: "Show pane and tab activity indicators (idle ring, working arc, waiting dot)."
+                    description: "Show pane and tab activity indicators (idle ring, working pulse, waiting pulse)."
                 ) {
                     Toggle("Show Activity Indicators", isOn: $appSettings.paneActivityIndicatorsEnabled)
                         .toggleStyle(.checkbox)

@@ -157,6 +157,23 @@ final class NotificationTests: XCTestCase {
         XCTAssertTrue(restored.alwaysShowNotificationsSidebar)
     }
 
+    func testLegacyClaudeHookAttentionKeyIsIgnoredAndOmittedOnSave() throws {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appending(path: "notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try Data(#"{"isClaudeHookAttentionEnabled":false}"#.utf8).write(to: url)
+        let restored = AppSettings()
+        SettingsPersistence.restoreNotificationSettings(into: restored)
+        SettingsPersistence.saveNotificationSettings(appSettings: restored)
+
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        XCTAssertNil(saved["isClaudeHookAttentionEnabled"])
+    }
+
     /// Older `notification-settings.json` files did not encode the macOS banner flag; it should default on.
     func testNotificationSettingsLegacyJSONDefaultsMacOSBannerOn() throws {
         let support = FileManager.default

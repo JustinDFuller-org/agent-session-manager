@@ -4,4 +4,4 @@
 
 ## Historical behavior (pre-supersession)
 
-A small green pulsing dot appeared in the tab bar when any pane in the tab had a running process (`Tab.hasRunningPane`). A separate orange/accent dot appeared when a pending notification existed. Both have been replaced by a single tri-state indicator (idle ring / working arc / waiting dot) that answers the question: where should I focus my attention right now?
+A small green pulsing dot appeared in the tab bar when any pane in the tab had a running process (`Tab.hasRunningPane`). A separate orange/accent dot appeared when a pending notification existed. Both have been replaced by a single tri-state indicator (idle ring / working dot / waiting dot) that answers the question: where should I focus my attention right now?

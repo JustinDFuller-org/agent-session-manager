@@ -73,6 +73,12 @@ final class SettingsFlowTests: BaseTestCase {
         let stickyToggle = app.checkBoxes["settings-sticky-notifications-toggle"]
         XCTAssertFalse(stickyToggle.exists)
 
+        XCTAssertFalse(app.checkBoxes["settings-claude-notification-hook-toggle"].exists)
+
+        let cursorHookToggle = app.checkBoxes["settings-cursor-notification-hook-toggle"]
+        waitFor(cursorHookToggle)
+        XCTAssertTrue(cursorHookToggle.exists)
+
         let alwaysShowToggle = app.checkBoxes["settings-always-show-notifications-bar-toggle"]
         waitFor(alwaysShowToggle)
         XCTAssertEqual(alwaysShowToggle.value as? Int, 1)

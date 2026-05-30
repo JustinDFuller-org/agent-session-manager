@@ -30,29 +30,26 @@ struct ActivityIndicatorView: View {
             Circle()
                 .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
         case .working:
-            WorkingArc()
+            WorkingDot()
         case .waiting:
             WaitingDot()
         }
     }
 }
 
-private struct WorkingArc: View {
+private struct WorkingDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var rotating = false
+    @State private var pulsing = false
 
     var body: some View {
-        if reduceMotion {
-            Circle()
-                .fill(Color.secondary)
-        } else {
-            Circle()
-                .trim(from: 0, to: 0.7)
-                .stroke(Color.secondary, lineWidth: 1.5)
-                .rotationEffect(.degrees(rotating ? 360 : 0))
-                .animation(.linear(duration: 0.8).repeatForever(autoreverses: false), value: rotating)
-                .onAppear { rotating = true }
-        }
+        Circle()
+            .fill(Color.secondary)
+            .opacity(pulsing ? 0.5 : 1.0)
+            .animation(
+                reduceMotion ? .none : .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                value: pulsing
+            )
+            .onAppear { pulsing = true }
     }
 }
 

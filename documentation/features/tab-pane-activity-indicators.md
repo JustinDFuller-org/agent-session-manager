@@ -7,7 +7,7 @@ Every tab and pane shows a small indicator that answers one question: **where sh
 | State | Visual | Meaning |
 |-------|--------|---------|
 | **Waiting** | Filled accent-color dot, breathing pulse | Agent needs your input — a notification is pending |
-| **Working** | Rotating monochrome arc | Agent is actively producing output or is in a busy/retry session state |
+| **Working** | Filled secondary-color dot, soft pulse | A supported agent lifecycle signal says work is active |
 | **Idle** | Static dim hollow ring | Process stopped or running quietly with no output |
 
 A tab aggregates its panes: it shows `waiting` if any pane is waiting, `working` if any pane is working, and `idle` otherwise. Every tab always shows an indicator so an idle tab is positively identifiable, not just "absent dot."
@@ -16,10 +16,10 @@ A tab aggregates its panes: it shows `waiting` if any pane is waiting, `working`
 
 A pane is `working` when:
 - `processState == .running`, **and**
-- The terminal produced PTY output within the last ~700 ms (`isProducingOutput == true`), **or**
-- The session status state is `busy` or `retry`
+- Claude Code's `UserPromptSubmit` lifecycle hook has fired without a subsequent `Stop` or `StopFailure`, **or**
+- OpenCode's database-derived session status state is `busy` or `retry`
 
-Output detection is implemented by overriding `BellCapturingTerminalView.dataReceived(slice:)` which is called on every PTY read. A debounce timer (700 ms) resets `TerminalController.isProducingOutput` after output stops.
+Codex, Cursor, and shell panes remain idle unless an explicit attention notification exists. PTY reads are intentionally not used for progress detection because terminal output includes echoed keystrokes and other noise that does not mean an agent is working.
 
 ## Waiting and notifications
 
@@ -34,7 +34,7 @@ PR status (CI checks, merge state) appears only in the status-line `pr` fact and
 ## Reduce Motion
 
 When Accessibility → Reduce Motion is enabled:
-- **Working**: shows a static monochrome filled dot (no rotation)
+- **Working**: shows a static monochrome filled dot (no pulse)
 - **Waiting**: shows a static accent-color dot (no pulse)
 - **Idle**: unchanged (already static)
 
@@ -61,8 +61,7 @@ When off, `ActivityIndicatorView` renders nothing. The setting is persisted to `
 
 | Event | When |
 |-------|------|
-| `pane.activity.output_started` | `isProducingOutput` flips false → true (rising edge only) |
-| `pane.activity.output_stopped` | debounce fires, `isProducingOutput` flips true → false |
+| `pane.activity.changed` | Claude lifecycle state changes, with `state`, `source`, and `hook_event` attributes |
 | `pane.notification.cleared` | `clearNotification(paneID:)` called with `reason: "cleared"` |
 
 The `pane.notification.added` event was already traced; `cleared` was added to make enter/exit symmetric and debuggable.

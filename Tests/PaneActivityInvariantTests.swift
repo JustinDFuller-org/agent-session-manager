@@ -19,18 +19,18 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testWaitingWhenHasNotification() {
         let state = paneActivityState(
             processState: .running(pid: 1),
-            isProducingOutput: true,
+            isWorking: true,
             sessionState: "busy",
             hasNotification: true
         )
         XCTAssertEqual(state, .waiting)
     }
 
-    func testWaitingBeatsBusyAndOutput() {
+    func testWaitingBeatsBusyAndExplicitWorkingSignal() {
         XCTAssertEqual(
             paneActivityState(
                 processState: .running(pid: 1),
-                isProducingOutput: true,
+                isWorking: true,
                 sessionState: "busy",
                 hasNotification: true
             ),
@@ -38,10 +38,10 @@ final class PaneActivityInvariantTests: XCTestCase {
         )
     }
 
-    func testWorkingWhenRunningAndProducingOutput() {
+    func testWorkingWhenRunningAndExplicitlyWorking() {
         let state = paneActivityState(
             processState: .running(pid: 1),
-            isProducingOutput: true,
+            isWorking: true,
             sessionState: nil,
             hasNotification: false
         )
@@ -51,7 +51,7 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testWorkingWhenRunningAndSessionBusy() {
         let state = paneActivityState(
             processState: .running(pid: 1),
-            isProducingOutput: false,
+            isWorking: false,
             sessionState: "busy",
             hasNotification: false
         )
@@ -61,7 +61,7 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testWorkingWhenRunningAndSessionRetry() {
         let state = paneActivityState(
             processState: .running(pid: 1),
-            isProducingOutput: false,
+            isWorking: false,
             sessionState: "retry",
             hasNotification: false
         )
@@ -71,7 +71,7 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testIdleWhenRunningButQuiet() {
         let state = paneActivityState(
             processState: .running(pid: 1),
-            isProducingOutput: false,
+            isWorking: false,
             sessionState: nil,
             hasNotification: false
         )
@@ -81,17 +81,17 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testIdleWhenExited() {
         let state = paneActivityState(
             processState: .exited(code: 0),
-            isProducingOutput: false,
+            isWorking: false,
             sessionState: nil,
             hasNotification: false
         )
         XCTAssertEqual(state, .idle)
     }
 
-    func testIdleWhenExitedRegardlessOfStaleOutput() {
+    func testIdleWhenExitedRegardlessOfStaleWorkingSignal() {
         let state = paneActivityState(
             processState: .exited(code: 0),
-            isProducingOutput: true,
+            isWorking: true,
             sessionState: "busy",
             hasNotification: false
         )
@@ -101,7 +101,7 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testIdleWhenProcessNil() {
         let state = paneActivityState(
             processState: nil,
-            isProducingOutput: false,
+            isWorking: false,
             sessionState: nil,
             hasNotification: false
         )
@@ -115,13 +115,13 @@ final class PaneActivityInvariantTests: XCTestCase {
         // This test documents that invariant structurally.
         let withNotification = paneActivityState(
             processState: .running(pid: 1),
-            isProducingOutput: false,
+            isWorking: false,
             sessionState: nil,
             hasNotification: true
         )
         let withoutNotification = paneActivityState(
             processState: .running(pid: 1),
-            isProducingOutput: false,
+            isWorking: false,
             sessionState: nil,
             hasNotification: false
         )
@@ -134,12 +134,12 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testNoNotificationNeverWaiting() {
         let states: [PaneActivityState] = [
             paneActivityState(
-                processState: .running(pid: 1), isProducingOutput: true, sessionState: "busy", hasNotification: false),
+                processState: .running(pid: 1), isWorking: true, sessionState: "busy", hasNotification: false),
             paneActivityState(
-                processState: .running(pid: 1), isProducingOutput: false, sessionState: nil, hasNotification: false),
+                processState: .running(pid: 1), isWorking: false, sessionState: nil, hasNotification: false),
             paneActivityState(
-                processState: .exited(code: 0), isProducingOutput: false, sessionState: nil, hasNotification: false),
-            paneActivityState(processState: nil, isProducingOutput: false, sessionState: nil, hasNotification: false),
+                processState: .exited(code: 0), isWorking: false, sessionState: nil, hasNotification: false),
+            paneActivityState(processState: nil, isWorking: false, sessionState: nil, hasNotification: false),
         ]
         for state in states {
             XCTAssertNotEqual(state, .waiting, "Expected non-waiting without notification, got \(state)")
@@ -149,12 +149,12 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testNotificationAlwaysWaiting() {
         let states: [PaneActivityState] = [
             paneActivityState(
-                processState: .running(pid: 1), isProducingOutput: true, sessionState: "busy", hasNotification: true),
+                processState: .running(pid: 1), isWorking: true, sessionState: "busy", hasNotification: true),
             paneActivityState(
-                processState: .running(pid: 1), isProducingOutput: false, sessionState: nil, hasNotification: true),
+                processState: .running(pid: 1), isWorking: false, sessionState: nil, hasNotification: true),
             paneActivityState(
-                processState: .exited(code: 0), isProducingOutput: false, sessionState: nil, hasNotification: true),
-            paneActivityState(processState: nil, isProducingOutput: false, sessionState: nil, hasNotification: true),
+                processState: .exited(code: 0), isWorking: false, sessionState: nil, hasNotification: true),
+            paneActivityState(processState: nil, isWorking: false, sessionState: nil, hasNotification: true),
         ]
         for state in states {
             XCTAssertEqual(state, .waiting, "Expected waiting with notification, got \(state)")
@@ -187,24 +187,43 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(tabActivityState([.working, .waiting]), .waiting)
     }
 
-    // MARK: - Edge-once tracing invariants
+    // MARK: - Claude lifecycle parsing and edge-once tracing
 
-    func testOutputStartedFiredOnceOnRisingEdge() {
-        let controller = TerminalController()
-        controller.noteOutput()
-        let events = TracingService.shared.recordedEventsForTesting
-        let started = events.filter { $0.name == "pane.activity.output_started" }
-        XCTAssertEqual(started.count, 1)
+    func testClaudeLifecyclePayloadTransitionsWorkingAndIdle() {
+        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        XCTAssertTrue(monitor.isClaudeWorking)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertFalse(monitor.isClaudeWorking)
     }
 
-    func testOutputStartedNotFiredAgainWhileStillProducing() {
-        let controller = TerminalController()
-        controller.noteOutput()
-        controller.noteOutput()
-        controller.noteOutput()
-        let events = TracingService.shared.recordedEventsForTesting
-        let started = events.filter { $0.name == "pane.activity.output_started" }
-        XCTAssertEqual(started.count, 1, "output_started must only fire on the rising edge")
+    func testClaudeStopFailureTransitionsIdle() {
+        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"StopFailure"}"#.utf8))
+        XCTAssertFalse(monitor.isClaudeWorking)
+    }
+
+    func testClaudeActivityChangedTraceOnlyFiresOnEdges() {
+        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+
+        let changed = TracingService.shared.recordedEventsForTesting.filter { $0.name == "pane.activity.changed" }
+        XCTAssertEqual(changed.count, 2)
+        XCTAssertEqual(changed.map { $0.attributes["state"] }, ["working", "idle"])
+        XCTAssertEqual(changed.map { $0.attributes["source"] }, ["claude_hook", "claude_hook"])
+        XCTAssertEqual(changed.map { $0.attributes["hook_event"] }, ["UserPromptSubmit", "Stop"])
+    }
+
+    func testClaudeActivityIgnoresMalformedAndUnrelatedPayloads() {
+        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data("not json".utf8))
+        XCTAssertFalse(monitor.isClaudeWorking)
+        XCTAssertTrue(TracingService.shared.recordedEventsForTesting.isEmpty)
     }
 
     // MARK: - clearNotification trace
