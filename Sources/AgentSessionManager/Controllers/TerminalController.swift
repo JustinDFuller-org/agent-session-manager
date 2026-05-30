@@ -5,6 +5,7 @@ import SwiftTerm
 final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onBell: (() -> Void)?
     var onUserInput: (() -> Void)?
+    var onOutput: (() -> Void)?
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryTabName: String = ""
     var telemetryTabUUID: UUID?
@@ -70,6 +71,12 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
         }
     }
 
+    override func dataReceived(slice: ArraySlice<UInt8>) {
+        super.dataReceived(slice: slice)
+        let callback = onOutput
+        DispatchQueue.main.async { callback?() }
+    }
+
     /// Hooks OSC 777 (`ESC]777;notify;title;body BEL`) into the same path as ``bell(source:)``.
     /// SwiftTerm invokes this via `TerminalDelegate.notify`, but default protocol conformance is not
     /// overridden by subclasses, so we register a parser handler (see `Terminal.registerOscHandler`).
@@ -104,11 +111,13 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 final class TerminalController: NSObject {
     let terminalView: BellCapturingTerminalView
     var processState: ProcessState = .idle
+    var isProducingOutput: Bool = false
     var pendingCommand: String?
     var pendingDirectory: String?
     var pendingEnvironment: [String]?
     var pendingShell: String?
     @ObservationIgnored var onBell: (() -> Void)?
+    @ObservationIgnored private var outputResetWorkItem: DispatchWorkItem?
 
     enum ProcessState: Equatable {
         case idle
@@ -121,7 +130,37 @@ final class TerminalController: NSObject {
         super.init()
         terminalView.processDelegate = self
         terminalView.onBell = { [weak self] in self?.onBell?() }
+        terminalView.onOutput = { [weak self] in self?.noteOutput() }
         terminalView.installOsc777AttentionHookIfNeeded()
+    }
+
+    func noteOutput() {
+        let wasProducing = isProducingOutput
+        isProducingOutput = true
+        if !wasProducing {
+            var attrs: [String: String] = [
+                "pane.name": terminalView.telemetryPaneName,
+                "tab.name": terminalView.telemetryTabName,
+            ]
+            if let id = terminalView.telemetryPaneUUID { attrs["pane.id"] = id.uuidString }
+            if let id = terminalView.telemetryTabUUID { attrs["tab.id"] = id.uuidString }
+            TracingService.shared.record("pane.activity.output_started", attributes: attrs)
+        }
+        outputResetWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.isProducingOutput = false
+            var attrs: [String: String] = [
+                "pane.name": self.terminalView.telemetryPaneName,
+                "tab.name": self.terminalView.telemetryTabName,
+            ]
+            if let id = self.terminalView.telemetryPaneUUID { attrs["pane.id"] = id.uuidString }
+            if let id = self.terminalView.telemetryTabUUID { attrs["tab.id"] = id.uuidString }
+            TracingService.shared.record("pane.activity.output_stopped", attributes: attrs)
+            self.outputResetWorkItem = nil
+        }
+        outputResetWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7, execute: item)
     }
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
@@ -233,6 +272,9 @@ final class TerminalController: NSObject {
 extension TerminalController: LocalProcessTerminalViewDelegate {
     nonisolated func processTerminated(source: TerminalView, exitCode: Int32?) {
         Task { @MainActor in
+            self.isProducingOutput = false
+            self.outputResetWorkItem?.cancel()
+            self.outputResetWorkItem = nil
             self.processState = .exited(code: exitCode)
             var attrs: [String: String] = [
                 "exit_code": exitCode.map(String.init) ?? "nil",

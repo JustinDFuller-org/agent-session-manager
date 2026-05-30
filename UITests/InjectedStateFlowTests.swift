@@ -35,13 +35,12 @@ final class InjectedStateFlowTests: XCTestCase {
         app.launch()
         app.activate()
 
-        // Running pane: status dot present with standard identifier
+        // Both panes start idle (no output, no notification) — activity indicator shows idle ring.
         // Circle shapes don't appear under otherElements — search all descendants.
-        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-status-dot-running-pane").firstMatch
+        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane").firstMatch
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
 
-        // Merged pane: status dot uses merged-prefixed identifier
-        let mergedDot = app.descendants(matching: .any).matching(identifier: "pane-status-dot-merged-merged-pane").firstMatch
+        let mergedDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-merged-pane").firstMatch
         XCTAssertTrue(mergedDot.waitForExistence(timeout: 15))
     }
 
@@ -78,9 +77,9 @@ final class InjectedStateFlowTests: XCTestCase {
         XCTAssertTrue(tabButton.waitForExistence(timeout: 3))
         XCTAssertEqual(tabButton.value as? String, "active")
 
-        // Status dot stays purple after notification is dismissed
-        let mergedDot = app.descendants(matching: .any).matching(identifier: "pane-status-dot-merged-test-pane").firstMatch
-        XCTAssertTrue(mergedDot.waitForExistence(timeout: 3))
+        // After notification is cleared, pane shows idle activity indicator
+        let idleDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-test-pane").firstMatch
+        XCTAssertTrue(idleDot.waitForExistence(timeout: 3))
 
         // PR merged notifications toggle is reachable in settings
         app.typeKey(",", modifierFlags: .command)

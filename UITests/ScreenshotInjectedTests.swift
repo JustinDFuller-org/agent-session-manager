@@ -101,7 +101,7 @@ final class ScreenshotInjectedTests: XCTestCase {
         app.launch()
         app.activate()
 
-        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-status-dot-running-pane").firstMatch
+        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane").firstMatch
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
         let statusLineRow = app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch
         XCTAssertTrue(statusLineRow.waitForExistence(timeout: 5))

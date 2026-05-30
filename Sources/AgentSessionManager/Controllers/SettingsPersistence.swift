@@ -114,6 +114,9 @@ struct SettingsPersistence {
     private static var sessionNameSettingsURL: URL { appSupportDir.appending(path: "session-name-settings.json") }
     private static var shellSettingsURL: URL { appSupportDir.appending(path: "shell-settings.json") }
     private static var onboardingSettingsURL: URL { appSupportDir.appending(path: "onboarding-settings.json") }
+    private static var activityIndicatorSettingsURL: URL {
+        appSupportDir.appending(path: "activity-indicator-settings.json")
+    }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -540,5 +543,41 @@ struct SettingsPersistence {
             let settings = try? JSONDecoder().decode(OnboardingSettings.self, from: data)
         else { return }
         appSettings.hasCompletedOnboarding = settings.completed
+    }
+
+    private struct ActivityIndicatorConfig: Codable {
+        var enabled: Bool = true
+
+        enum CodingKeys: String, CodingKey {
+            case enabled
+        }
+
+        init(enabled: Bool) {
+            self.enabled = enabled
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(enabled, forKey: .enabled)
+        }
+    }
+
+    static func saveActivityIndicatorSettings(appSettings: AppSettings) {
+        let config = ActivityIndicatorConfig(enabled: appSettings.paneActivityIndicatorsEnabled)
+        guard let data = try? JSONEncoder().encode(config) else { return }
+        try? data.write(to: activityIndicatorSettingsURL)
+    }
+
+    static func restoreActivityIndicatorSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: activityIndicatorSettingsURL),
+            let config = try? JSONDecoder().decode(ActivityIndicatorConfig.self, from: data)
+        else { return }
+        appSettings.paneActivityIndicatorsEnabled = config.enabled
     }
 }

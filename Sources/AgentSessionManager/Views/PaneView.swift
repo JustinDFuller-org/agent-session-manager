@@ -82,10 +82,6 @@ struct PaneView: View {
         .onTapGesture {
             appState.setActivePane(id: pane.id)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerClaudeHookAttentionSettingChanged)) {
-            _ in
-            pane.statusLineMonitor?.refreshClaudeIntegrationFromSettings()
-        }
         .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerPRTrackingSettingChanged)) { _ in
             pane.statusLineMonitor?.refreshClaudeIntegrationFromSettings()
         }
@@ -95,14 +91,19 @@ struct PaneView: View {
     private func paneHeader(pendingNotification: PaneNotification?) -> some View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
-                statusDot()
-
-                if let notification = pendingNotification, notification.kind == .terminalBell {
-                    Circle()
-                        .fill(notification.isPriority ? Color.orange : Color.accentColor)
-                        .frame(width: 7, height: 7)
-                        .accessibilityIdentifier("pane-notification-dot-\(pane.name)")
-                }
+                let hasNotification = pendingNotification != nil
+                let activityState = paneActivityState(
+                    processState: pane.terminalController?.processState,
+                    isProducingOutput: pane.terminalController?.isProducingOutput ?? false,
+                    sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                    hasNotification: hasNotification
+                )
+                ActivityIndicatorView(
+                    state: activityState,
+                    enabled: appSettings.paneActivityIndicatorsEnabled,
+                    prefix: "pane",
+                    name: pane.name
+                )
 
                 Text(pane.name)
                     .accessibilityIdentifier("pane-name-\(pane.name)")
@@ -145,27 +146,6 @@ struct PaneView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pane-header-\(pane.name)")
-    }
-
-    @ViewBuilder
-    private func statusDot() -> some View {
-        let pr = pane.statusLineMonitor?.currentData?.pr
-        let dotColor = paneStatusDotColor(
-            pr: pr,
-            isMerged: pane.isMerged,
-            processState: pane.terminalController?.processState
-        )
-        let isMergedCondition = pane.isMerged || pr?.state.lowercased() == "merged"
-        let dotAccessibilityID =
-            isMergedCondition
-            ? "pane-status-dot-merged-\(pane.name)"
-            : "pane-status-dot-\(pane.name)"
-
-        Circle()
-            .fill(dotColor)
-            .frame(width: 7, height: 7)
-            .accessibilityIdentifier(dotAccessibilityID)
-            .accessibilityLabel(isMergedCondition ? "merged pane status" : "pane status")
     }
 
     @ViewBuilder

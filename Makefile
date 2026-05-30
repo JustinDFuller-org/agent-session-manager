@@ -177,7 +177,7 @@ reset-app-state:
 	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \
 	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
 	    env-var-settings.json profiles.json session-name-settings.json \
-	    shell-settings.json onboarding-settings.json; do \
+	    shell-settings.json onboarding-settings.json activity-indicator-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
 	done
 	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager/traces"
@@ -192,7 +192,7 @@ reset-app-state-dev:
 	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \
 	    terminal-settings.json worktree-base-ref.json exit-behavior.json \
 	    env-var-settings.json profiles.json session-name-settings.json \
-	    shell-settings.json onboarding-settings.json; do \
+	    shell-settings.json onboarding-settings.json activity-indicator-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
 		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done

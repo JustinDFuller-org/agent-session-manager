@@ -123,6 +123,7 @@ final class AppSettings {
     /// Persisted shell path; empty string means auto-detect from $SHELL.
     var preferredShell: String = ""
     var hasCompletedOnboarding: Bool = false
+    var paneActivityIndicatorsEnabled: Bool = true
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 
