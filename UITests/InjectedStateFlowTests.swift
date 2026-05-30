@@ -106,7 +106,7 @@ final class InjectedStateFlowTests: XCTestCase {
                     {
                       "id": "\(Self.statusPaneID)",
                       "name": "running-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": false,
                       "worktreeDirectory": "\(workspaceDir)",
@@ -115,7 +115,7 @@ final class InjectedStateFlowTests: XCTestCase {
                     {
                       "id": "66666666-6666-6666-6666-666666666666",
                       "name": "merged-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": true,
                       "worktreeDirectory": "\(workspaceDir)",
@@ -144,7 +144,7 @@ final class InjectedStateFlowTests: XCTestCase {
                     {
                       "id": "\(Self.paneID)",
                       "name": "test-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": true,
                       "worktreeDirectory": "\(workspaceDir)",

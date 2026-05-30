@@ -7,7 +7,7 @@ enum ToolAvailability: Codable {
     case claudeOrOpencode
 }
 
-enum ChipLabelStyle: String, Codable, CaseIterable {
+enum FactLabelStyle: String, Codable, CaseIterable {
     case symbolOnly
     case symbolAndLabel
     case labelOnly
@@ -57,12 +57,12 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         StatusLineConfig.itemAvailability[id] ?? .all
     }
 
-    func supportedBy(_ cliType: CLIType) -> Bool {
+    func supportedBy(_ harness: Harness) -> Bool {
         switch availability {
         case .all: return true
-        case .claudeOnly: return cliType == .claude
-        case .opencodeOnly: return cliType == .opencode
-        case .claudeOrOpencode: return cliType == .claude || cliType == .opencode
+        case .claudeOnly: return harness == .claude
+        case .opencodeOnly: return harness == .opencode
+        case .claudeOrOpencode: return harness == .claude || harness == .opencode
         }
     }
 
@@ -94,7 +94,7 @@ private struct LegacyStatusLineItem: Decodable {
 
 struct StatusLineConfig: Codable, Equatable {
     var rows: [StatusLineRow]
-    var chipLabelStyle: ChipLabelStyle
+    var factLabelStyle: FactLabelStyle
     var rowAlignment: RowAlignment
 
     static let itemMetadata: [String: (label: String, symbol: String)] = [
@@ -191,7 +191,7 @@ struct StatusLineConfig: Codable, Equatable {
                 return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
             }
         rows = [StatusLineRow(items: defaultItems)]
-        chipLabelStyle = .labelOnly
+        factLabelStyle = .labelOnly
         rowAlignment = .spaceBetween
     }
 
@@ -201,7 +201,7 @@ struct StatusLineConfig: Codable, Equatable {
             return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
         }
         var config = StatusLineConfig()
-        config.chipLabelStyle = .labelOnly
+        config.factLabelStyle = .labelOnly
         config.rowAlignment = .spaceBetween
         config.rows = [
             StatusLineRow(items: [item("pr"), item("profileName"), item("model")]),
@@ -214,7 +214,7 @@ struct StatusLineConfig: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        chipLabelStyle = try container.decodeIfPresent(ChipLabelStyle.self, forKey: .chipLabelStyle) ?? .labelOnly
+        factLabelStyle = try container.decodeIfPresent(FactLabelStyle.self, forKey: .factLabelStyle) ?? .labelOnly
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
@@ -269,12 +269,12 @@ struct StatusLineConfig: Codable, Equatable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(rows, forKey: .rows)
-        try container.encode(chipLabelStyle, forKey: .chipLabelStyle)
+        try container.encode(factLabelStyle, forKey: .factLabelStyle)
         try container.encode(rowAlignment, forKey: .rowAlignment)
     }
 
     enum CodingKeys: String, CodingKey {
-        case rows, chipLabelStyle, rowAlignment
+        case rows, factLabelStyle, rowAlignment
         case items
     }
 }
@@ -474,7 +474,7 @@ struct StatusLineData: Codable {
         let name: String?
         let branch: String?
 
-        var chipText: String {
+        var factText: String {
             guard let name else { return "—" }
             if let branch { return "\(name) • \(branch)" }
             return name

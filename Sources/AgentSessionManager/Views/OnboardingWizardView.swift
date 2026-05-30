@@ -17,12 +17,12 @@ struct OnboardingWizardView: View {
     @State private var shellPickerSelection: String = ""
     @State private var customShellPath: String = ""
     @State private var isDetecting: Bool = false
-    @State private var checkedTools: Set<CLIType> = []
+    @State private var checkedTools: Set<Harness> = []
     @State private var detectionRan: Bool = false
     @State private var draftConfig: StatusLineConfig = .wizardDefault()
-    @State private var draftCliOptions: [CLIType: [CLIOptionConfig]] = [:]
+    @State private var draftCliOptions: [Harness: [CLIOptionConfig]] = [:]
     @State private var draftEnvVars: [EnvVarConfig] = []
-    @State private var cliFlagsTool: CLIType = .claude
+    @State private var cliFlagsTool: Harness = .claude
 
     var body: some View {
         VStack(spacing: 0) {
@@ -133,7 +133,7 @@ struct OnboardingWizardView: View {
     private var toolsStep: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("CLI Tools")
+                Text("Harnesses")
                     .font(.title2.bold())
                 Text("Select which tools to enable. Detected tools are pre-checked.")
                     .font(.body)
@@ -151,7 +151,7 @@ struct OnboardingWizardView: View {
                 .accessibilityIdentifier("onboarding-detecting-indicator")
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(CLIType.allCases, id: \.self) { tool in
+                    ForEach(Harness.allCases, id: \.self) { tool in
                         HStack(spacing: 10) {
                             Toggle(
                                 tool.displayName,
@@ -168,7 +168,7 @@ struct OnboardingWizardView: View {
                             )
                             .toggleStyle(.checkbox)
                             .accessibilityIdentifier("onboarding-tool-toggle-\(tool.rawValue)")
-                            Text(tool.cliCommandDescription)
+                            Text(tool.commandDescription)
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(.secondary)
                         }
@@ -192,7 +192,7 @@ struct OnboardingWizardView: View {
 
     private var isDraftWizardDefault: Bool {
         let def = StatusLineConfig.wizardDefault()
-        return draftConfig.chipLabelStyle == def.chipLabelStyle
+        return draftConfig.factLabelStyle == def.factLabelStyle
             && draftConfig.rowAlignment == def.rowAlignment
             && draftConfig.rows.map(\.items) == def.rows.map(\.items)
     }
@@ -256,8 +256,8 @@ struct OnboardingWizardView: View {
         .padding(32)
     }
 
-    private var enabledToolsList: [CLIType] {
-        let tools = CLIType.allCases.filter { checkedTools.contains($0) }
+    private var enabledToolsList: [Harness] {
+        let tools = Harness.allCases.filter { checkedTools.contains($0) }
         return tools.isEmpty ? [.claude] : tools
     }
 
@@ -388,7 +388,7 @@ struct OnboardingWizardView: View {
         detectionRan = true
         isDetecting = true
         let shell = resolvedShell()
-        let found = await CLIToolDetector.detectInstalled(shell: shell)
+        let found = await HarnessDetector.detectInstalled(shell: shell)
         checkedTools = found
         isDetecting = false
     }
@@ -415,8 +415,8 @@ struct OnboardingWizardView: View {
     }
 
     private func seedCliFlagsDrafts() {
-        let toolsToSeed = checkedTools.isEmpty ? [CLIType.claude] : Array(checkedTools)
-        for tool in CLIType.allCases where toolsToSeed.contains(tool) {
+        let toolsToSeed = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
+        for tool in Harness.allCases where toolsToSeed.contains(tool) {
             if draftCliOptions[tool] == nil {
                 draftCliOptions[tool] = CLIOptionConfig.recommendedDefaults(for: tool)
             }
@@ -424,7 +424,7 @@ struct OnboardingWizardView: View {
         if draftEnvVars.isEmpty {
             draftEnvVars = EnvVarConfig.recommendedDefaults()
         }
-        if let first = CLIType.allCases.first(where: { toolsToSeed.contains($0) }) {
+        if let first = Harness.allCases.first(where: { toolsToSeed.contains($0) }) {
             cliFlagsTool = first
         }
     }
@@ -453,8 +453,8 @@ struct OnboardingWizardView: View {
     }
 
     private func persistCliFlagsSettings() {
-        let toolsToSave = checkedTools.isEmpty ? [CLIType.claude] : Array(checkedTools)
-        for tool in CLIType.allCases where toolsToSave.contains(tool) {
+        let toolsToSave = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
+        for tool in Harness.allCases where toolsToSave.contains(tool) {
             guard let draft = draftCliOptions[tool] else { continue }
             switch tool {
             case .claude:

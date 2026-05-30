@@ -4,30 +4,30 @@ import XCTest
 
 @MainActor
 final class PlainTerminalAccessTests: XCTestCase {
-    // MARK: - CLIType.shell
+    // MARK: - Harness.shell
 
-    func testShellCLITypeDisplayName() {
-        XCTAssertEqual(CLIType.shell.displayName, "Shell")
+    func testShellHarnessDisplayName() {
+        XCTAssertEqual(Harness.shell.displayName, "Shell")
     }
 
-    func testShellCLITypeCommandDescription() {
-        XCTAssertEqual(CLIType.shell.cliCommandDescription, "$SHELL")
+    func testShellHarnessCommandDescription() {
+        XCTAssertEqual(Harness.shell.commandDescription, "$SHELL")
     }
 
     func testShellNotInAllCases() {
-        XCTAssertFalse(CLIType.allCases.contains(.shell))
+        XCTAssertFalse(Harness.allCases.contains(.shell))
     }
 
     func testAllCasesContainsUserFacingTools() {
-        XCTAssertTrue(CLIType.allCases.contains(.claude))
-        XCTAssertTrue(CLIType.allCases.contains(.codex))
-        XCTAssertTrue(CLIType.allCases.contains(.cursor))
-        XCTAssertTrue(CLIType.allCases.contains(.opencode))
+        XCTAssertTrue(Harness.allCases.contains(.claude))
+        XCTAssertTrue(Harness.allCases.contains(.codex))
+        XCTAssertTrue(Harness.allCases.contains(.cursor))
+        XCTAssertTrue(Harness.allCases.contains(.opencode))
     }
 
-    func testShellCLITypeCodableRoundTrip() throws {
-        let encoded = try JSONEncoder().encode(CLIType.shell)
-        let decoded = try JSONDecoder().decode(CLIType.self, from: encoded)
+    func testShellHarnessCodableRoundTrip() throws {
+        let encoded = try JSONEncoder().encode(Harness.shell)
+        let decoded = try JSONDecoder().decode(Harness.self, from: encoded)
         XCTAssertEqual(decoded, .shell)
     }
 
@@ -35,7 +35,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testRestartTokenIsInitializedToNonNilUUID() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let token = pane.restartToken
         XCTAssertNotNil(token)
     }
@@ -44,7 +44,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testRestartPanePreservesCommand() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude --settings /tmp/test.json"
         controller.pendingDirectory = "/tmp/repo"
@@ -59,7 +59,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testRestartPanePreservesDirectory() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         controller.pendingDirectory = "/tmp/my-repo"
@@ -73,7 +73,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testRestartPanePreservesEnvironment() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         controller.pendingEnvironment = ["FOO=bar", "PATH=/usr/bin"]
@@ -87,7 +87,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testRestartTokenChangesOnRestart() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         pane.terminalController = controller
@@ -101,7 +101,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testRestartPaneCreatesNewController() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let original = TerminalController()
         original.pendingCommand = "claude"
         pane.terminalController = original
@@ -116,7 +116,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testOpenShellInPaneClearsCommand() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude --settings /tmp/test.json"
         controller.pendingDirectory = "/tmp/repo"
@@ -130,7 +130,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testOpenShellInPanePreservesDirectory() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         controller.pendingDirectory = "/tmp/my-repo"
@@ -142,9 +142,9 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertEqual(pane.terminalController?.pendingDirectory, "/tmp/my-repo")
     }
 
-    func testOpenShellInPaneSetsShellCLIType() {
+    func testOpenShellInPaneSetsShellHarness() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         pane.terminalController = controller
@@ -152,12 +152,12 @@ final class PlainTerminalAccessTests: XCTestCase {
 
         tab.openShellInPane(pane)
 
-        XCTAssertEqual(pane.cliType, .shell)
+        XCTAssertEqual(pane.harness, .shell)
     }
 
     func testOpenShellInPaneChangesRestartToken() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude)
+        let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         pane.terminalController = controller
@@ -173,7 +173,7 @@ final class PlainTerminalAccessTests: XCTestCase {
 
     func testOpenShellPaneAddsPaneToTab() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let existingPane = Pane(name: "claude", tab: tab, cliType: .claude)
+        let existingPane = Pane(name: "claude", tab: tab, harness: .claude)
         tab.panes.append(existingPane)
         let initialCount = tab.panes.count
 
@@ -182,10 +182,10 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertEqual(tab.panes.count, initialCount + 1)
     }
 
-    func testOpenShellPaneAddedPaneHasShellCLIType() {
+    func testOpenShellPaneAddedPaneHasShellHarness() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         tab.openShellPane(activePane: nil)
-        XCTAssertEqual(tab.panes.last?.cliType, .shell)
+        XCTAssertEqual(tab.panes.last?.harness, .shell)
     }
 
     // MARK: - ExitBehavior
@@ -215,16 +215,16 @@ final class PlainTerminalAccessTests: XCTestCase {
         let appState = AppState()
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         let claudePane = Pane(
-            name: "claude-session", tab: tab, cliType: .claude,
+            name: "claude-session", tab: tab, harness: .claude,
             worktreeDirectory: URL(filePath: "/tmp"))
-        let shellPane = Pane(name: "shell", tab: tab, cliType: .shell)
+        let shellPane = Pane(name: "shell", tab: tab, harness: .shell)
         tab.panes.append(claudePane)
         tab.panes.append(shellPane)
         appState.tabs.append(tab)
 
         let session = SessionPersistence.makePersistedSession(appState: appState)
 
-        let savedPaneTypes = session.tabs.first?.panes.map(\.cliType) ?? []
+        let savedPaneTypes = session.tabs.first?.panes.map(\.harness) ?? []
         XCTAssertFalse(savedPaneTypes.contains(.shell), "Shell panes should not be saved")
         XCTAssertTrue(savedPaneTypes.contains(.claude), "Claude panes should be saved")
     }

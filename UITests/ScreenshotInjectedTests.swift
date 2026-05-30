@@ -46,7 +46,7 @@ final class ScreenshotInjectedTests: XCTestCase {
                     {
                       "id": "\(Self.runningPaneID)",
                       "name": "running-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": false,
                       "worktreeDirectory": "\(workspaceDir)",
@@ -55,7 +55,7 @@ final class ScreenshotInjectedTests: XCTestCase {
                     {
                       "id": "\(Self.mergedPaneID)",
                       "name": "merged-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": true,
                       "worktreeDirectory": "\(workspaceDir)",
@@ -95,7 +95,7 @@ final class ScreenshotInjectedTests: XCTestCase {
                     {
                       "id": "\(Self.notifPaneID)",
                       "name": "test-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": true,
                       "worktreeDirectory": "\(workspaceDir)",

@@ -56,7 +56,7 @@ struct ProfileShowOnPaneCreateTests {
     func buildArgsIncludesHiddenOptions() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-opus-4-7", showOnPaneCreate: false),
                 ProfileCLIOption(id: "--continue", isEnabled: true, value: nil, showOnPaneCreate: true),
@@ -71,7 +71,7 @@ struct ProfileShowOnPaneCreateTests {
     func buildArgsExcludesDisabledOptions() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil, showOnPaneCreate: true),
                 ProfileCLIOption(id: "--model", isEnabled: false, value: "opus", showOnPaneCreate: false),

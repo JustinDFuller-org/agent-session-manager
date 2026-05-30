@@ -1,15 +1,15 @@
 import Foundation
 
-enum CLIToolDetector {
+enum HarnessDetector {
     typealias ShellRunner = @Sendable (String, String) async -> Bool
 
     static func detectInstalled(
         shell: String,
         runner: ShellRunner? = nil
-    ) async -> Set<CLIType> {
-        return await withTaskGroup(of: CLIType?.self) { group in
-            for tool in CLIType.allCases {
-                let cmd = tool.cliCommandDescription
+    ) async -> Set<Harness> {
+        return await withTaskGroup(of: Harness?.self) { group in
+            for tool in Harness.allCases {
+                let cmd = tool.commandDescription
                 group.addTask {
                     if let run = runner {
                         return await run(shell, cmd) ? tool : nil
@@ -17,7 +17,7 @@ enum CLIToolDetector {
                     return await defaultProbe(shell: shell, command: cmd) ? tool : nil
                 }
             }
-            var found = Set<CLIType>()
+            var found = Set<Harness>()
             for await result in group {
                 if let tool = result { found.insert(tool) }
             }

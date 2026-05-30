@@ -20,7 +20,7 @@ struct StatusLineView: View {
         if !nonEmptyRows.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(nonEmptyRows) { row in
-                    chipRow(items: row.items, data: monitor.currentData, maxCount: maxRowItemCount)
+                    factRow(items: row.items, data: monitor.currentData, maxCount: maxRowItemCount)
                 }
             }
             .padding(.horizontal, 8)
@@ -32,19 +32,19 @@ struct StatusLineView: View {
     }
 
     @ViewBuilder
-    private func chipRow(items: [StatusLineItem], data: StatusLineData?, maxCount: Int) -> some View {
+    private func factRow(items: [StatusLineItem], data: StatusLineData?, maxCount: Int) -> some View {
         switch config.rowAlignment {
         case .leading:
             HStack(spacing: 12) {
                 ForEach(items) { item in
-                    chipView(item: item, data: data)
+                    factView(item: item, data: data)
                 }
                 Spacer(minLength: 0)
             }
         case .spaceBetween:
             HStack(spacing: 0) {
                 ForEach(items) { item in
-                    chipView(item: item, data: data)
+                    factView(item: item, data: data)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 ForEach(0..<(maxCount - items.count), id: \.self) { _ in
@@ -56,9 +56,9 @@ struct StatusLineView: View {
     }
 
     @ViewBuilder
-    private func chipView(item: StatusLineItem, data: StatusLineData?) -> some View {
+    private func factView(item: StatusLineItem, data: StatusLineData?) -> some View {
         let content = HStack(spacing: 4) {
-            if config.chipLabelStyle != .labelOnly {
+            if config.factLabelStyle != .labelOnly {
                 if item.id == "pr", let pr = data?.pr {
                     Image(systemName: pr.stateIconName)
                         .font(.system(size: 10))
@@ -69,12 +69,12 @@ struct StatusLineView: View {
                         .foregroundStyle(iconTint(itemID: item.id, data: data))
                 }
             }
-            if config.chipLabelStyle == .symbolAndLabel || config.chipLabelStyle == .labelOnly {
+            if config.factLabelStyle == .symbolAndLabel || config.factLabelStyle == .labelOnly {
                 Text(item.label)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
-            chipContent(for: item.id, data: data)
+            factContent(for: item.id, data: data)
         }
         if item.id == "pr", data?.pr != nil {
             Button {
@@ -115,7 +115,7 @@ struct StatusLineView: View {
     }
 
     @ViewBuilder
-    private func chipContent(for itemID: String, data: StatusLineData?) -> some View {
+    private func factContent(for itemID: String, data: StatusLineData?) -> some View {
         switch itemID {
         case "context":
             if let pct = data?.contextWindow?.usedPercentage {
@@ -203,7 +203,7 @@ struct StatusLineView: View {
         case "model":
             return data?.model?.displayName ?? data?.model?.id ?? "—"
         case "worktree":
-            return data?.worktree?.chipText ?? "—"
+            return data?.worktree?.factText ?? "—"
         case "cost":
             return data?.cost?.totalCostUsd.map { String(format: "$%.4f", $0) } ?? "—"
         case "effort":

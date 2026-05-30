@@ -27,7 +27,7 @@ final class StatusLineMonitorTracingTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: paneID,
             paneName: "my-feature-branch",
-            cliType: .claude,
+            harness: .claude,
             tabID: tabID,
             tabName: "work-tab"
         )
@@ -49,7 +49,7 @@ final class StatusLineMonitorTracingTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: paneID,
             paneName: "stop-test-pane",
-            cliType: .claude,
+            harness: .claude,
             tabID: tabID,
             tabName: "stop-test-tab"
         )
@@ -69,7 +69,7 @@ final class StatusLineMonitorTracingTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: paneID,
             paneName: "",
-            cliType: .claude
+            harness: .claude
         )
         monitor.start()
         monitor.stop()

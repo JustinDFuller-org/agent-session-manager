@@ -15,7 +15,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .panes: "Panes"
         case .profiles: "Profiles"
-        case .tools: "CLI Tools"
+        case .tools: "Harnesses"
         case .shortcuts: "Shortcuts"
         case .statusLine: "Status Line"
         case .notifications: "Notifications"
@@ -350,10 +350,10 @@ private struct PanesContent: View {
 
 private struct ToolsContent: View {
     @Environment(AppSettings.self) private var appSettings
-    @State private var selectedTool: CLIType = .claude
+    @State private var selectedTool: Harness = .claude
 
-    private var configurableTools: [CLIType] {
-        CLIType.allCases.filter { $0 != .shell }
+    private var configurableTools: [Harness] {
+        Harness.allCases.filter { $0 != .shell }
     }
 
     var body: some View {
@@ -375,7 +375,7 @@ private struct ToolsContent: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(selectedTool.displayName)
-                            Text(selectedTool.cliCommandDescription)
+                            Text(selectedTool.commandDescription)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fontDesign(.monospaced)
@@ -410,7 +410,7 @@ private struct ToolsContent: View {
     }
 
     @ViewBuilder
-    private func cliOptionsContent(for tool: CLIType) -> some View {
+    private func cliOptionsContent(for tool: Harness) -> some View {
         switch tool {
         case .claude:
             CLIOptionsContent(

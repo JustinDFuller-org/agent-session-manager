@@ -8,7 +8,7 @@ final class AutoSessionNameTests: XCTestCase {
             tabName: "my-repo",
             paneName: "auth-refactor",
             extraArgs: [],
-            cliType: .claude,
+            harness: .claude,
             enabled: true
         )
         XCTAssertEqual(result, ["--name", "'my-repo/auth-refactor'"])
@@ -19,7 +19,7 @@ final class AutoSessionNameTests: XCTestCase {
             tabName: "repo",
             paneName: "fix",
             extraArgs: ["--dangerously-skip-permissions"],
-            cliType: .claude,
+            harness: .claude,
             enabled: true
         )
         XCTAssertEqual(result, ["--name", "'repo/fix'", "--dangerously-skip-permissions"])
@@ -30,7 +30,7 @@ final class AutoSessionNameTests: XCTestCase {
             tabName: "repo",
             paneName: "fix",
             extraArgs: ["--name", "'custom-name'"],
-            cliType: .claude,
+            harness: .claude,
             enabled: true
         )
         XCTAssertEqual(result, ["--name", "'custom-name'"])
@@ -41,7 +41,7 @@ final class AutoSessionNameTests: XCTestCase {
             tabName: "repo",
             paneName: "fix",
             extraArgs: ["-n", "'custom-name'"],
-            cliType: .claude,
+            harness: .claude,
             enabled: true
         )
         XCTAssertEqual(result, ["-n", "'custom-name'"])
@@ -52,18 +52,18 @@ final class AutoSessionNameTests: XCTestCase {
             tabName: "repo",
             paneName: "fix",
             extraArgs: ["--model", "claude-opus-4-5"],
-            cliType: .claude,
+            harness: .claude,
             enabled: false
         )
         XCTAssertEqual(result, ["--model", "claude-opus-4-5"])
     }
 
-    func testSkipsForNonClaudeCLIType() {
+    func testSkipsForNonClaudeHarness() {
         let result = Tab.applyAutoSessionName(
             tabName: "repo",
             paneName: "fix",
             extraArgs: [],
-            cliType: .codex,
+            harness: .codex,
             enabled: true
         )
         XCTAssertEqual(result, [])
@@ -74,7 +74,7 @@ final class AutoSessionNameTests: XCTestCase {
             tabName: "it's",
             paneName: "fix",
             extraArgs: [],
-            cliType: .claude,
+            harness: .claude,
             enabled: true
         )
         XCTAssertEqual(result, ["--name", "'it'\\''s/fix'"])
@@ -85,7 +85,7 @@ final class AutoSessionNameTests: XCTestCase {
             tabName: "agent-session-manager",
             paneName: "session-names",
             extraArgs: [],
-            cliType: .claude,
+            harness: .claude,
             enabled: true
         )
         XCTAssertEqual(result[0], "--name")

@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class StatusLineEmptyStateTests: XCTestCase {
     func testNewMonitorHasNilCurrentData() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         XCTAssertNil(monitor.currentData)
     }
 

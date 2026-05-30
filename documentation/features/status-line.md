@@ -1,6 +1,6 @@
 # Status Line
 
-Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of chips; each chip displays one fact about the running session.
+Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
 ## Item Catalog
 
@@ -39,9 +39,9 @@ The status line enforces five invariants that guarantee consistent values regard
 
 ### I1. Worktree name is the pane's working directory
 
-The `worktree` chip always shows `URL(filePath: workingDirectory).lastPathComponent`. The app owns this fact; it does not rely on what a CLI reports. If the CLI sends a different name, the app logs a mismatch and uses its own value.
+The `worktree` fact always shows `URL(filePath: workingDirectory).lastPathComponent`. The app owns this fact; it does not rely on what a CLI reports. If the CLI sends a different name, the app logs a mismatch and uses its own value.
 
-### I2. Each fact has exactly one chip
+### I2. Each fact is shown once
 
 The old `gitWorktree` item duplicated what `worktree` already shows. It has been removed. Saved configurations containing `gitWorktree` rows are silently migrated on first load.
 
@@ -53,9 +53,9 @@ The old `gitWorktree` item duplicated what `worktree` already shows. It has been
 
 Items in the Add Item dropdown are sorted by label using `localizedStandardCompare`. The internal `itemOrder` array (which governs default row construction) is unchanged.
 
-### I5. Worktree chip is a single fact (name + branch)
+### I5. Worktree fact is a single item (name + branch)
 
-The `worktree` chip renders as `name • branch` when both values are available, or just `name` when branch is absent. The old `worktreeBranch` item, which duplicated the branch half of this fact, has been removed. Saved configurations containing `worktreeBranch` rows are migrated on first load: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped.
+The `worktree` fact renders as `name • branch` when both values are available, or just `name` when branch is absent. The old `worktreeBranch` item, which duplicated the branch half of this fact, has been removed. Saved configurations containing `worktreeBranch` rows are migrated on first load: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped.
 
 ## Onboarding
 
@@ -75,7 +75,7 @@ See [setup-wizard.md](setup-wizard.md) for the full wizard flow.
 
 1. Open **Settings → Status Line**
 2. Use **+ Add Row** to add a new row
-3. Click **Add Item** inside any row to see available items (filtered by the CLI type of the current pane, alphabetically sorted)
+3. Click **Add Item** inside any row to see available items (filtered by the harness of the current pane, alphabetically sorted)
 4. Click the minus icon to remove an item
 5. Use the up/down arrows to reorder rows
 

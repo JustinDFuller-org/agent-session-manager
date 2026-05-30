@@ -113,7 +113,7 @@ struct PersistedTab: Codable {
 struct PersistedPane: Codable {
     var id: UUID
     var name: String
-    var cliType: CLIType
+    var harness: Harness
     var isPriority: Bool
     var isMerged: Bool
     var worktreeDirectory: String?
@@ -122,20 +122,20 @@ struct PersistedPane: Codable {
     var extraArgs: [String]
 
     enum CodingKeys: String, CodingKey {
-        case id, name, cliType, isPriority, isMerged, worktreeDirectory, worktreeIsManaged
+        case id, name, harness, isPriority, isMerged, worktreeDirectory, worktreeIsManaged
         case claudeProcessDirectory
         case profileID
         case extraArgs
     }
 
     init(
-        id: UUID, name: String, cliType: CLIType, isPriority: Bool = false, isMerged: Bool = false,
+        id: UUID, name: String, harness: Harness, isPriority: Bool = false, isMerged: Bool = false,
         worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil,
         extraArgs: [String] = []
     ) {
         self.id = id
         self.name = name
-        self.cliType = cliType
+        self.harness = harness
         self.isPriority = isPriority
         self.isMerged = isMerged
         self.worktreeDirectory = worktreeDirectory
@@ -148,7 +148,7 @@ struct PersistedPane: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
-        cliType = (try? container.decodeIfPresent(CLIType.self, forKey: .cliType)) ?? .claude
+        harness = (try? container.decodeIfPresent(Harness.self, forKey: .harness)) ?? .claude
         isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
         isMerged = (try? container.decodeIfPresent(Bool.self, forKey: .isMerged)) ?? false
         worktreeDirectory =
@@ -163,7 +163,7 @@ struct PersistedPane: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encode(cliType, forKey: .cliType)
+        try container.encode(harness, forKey: .harness)
         try container.encode(isPriority, forKey: .isPriority)
         try container.encode(isMerged, forKey: .isMerged)
         try container.encode(worktreeDirectory, forKey: .worktreeDirectory)
@@ -189,11 +189,11 @@ struct SessionPersistence {
                 name: tab.name,
                 directory: tab.directory.path,
                 panes: tab.panes.compactMap { pane -> PersistedPane? in
-                    guard pane.cliType != .shell else { return nil }
+                    guard pane.harness != .shell else { return nil }
                     return PersistedPane(
                         id: pane.id,
                         name: pane.name,
-                        cliType: pane.cliType,
+                        harness: pane.harness,
                         isPriority: pane.isPriority,
                         isMerged: pane.isMerged,
                         worktreeDirectory: pane.worktreeDirectory?.path,
@@ -244,7 +244,7 @@ struct SessionPersistence {
                     let url = URL(fileURLWithPath: pathStr).standardizedFileURL
                     guard FileManager.default.fileExists(atPath: url.path) else { continue }
                     worktreeDir = url
-                } else if persistedPane.cliType == .claude {
+                } else if persistedPane.harness == .claude {
                     let managed = Tab.worktreeDirectoryURL(repoRoot: dir, name: persistedPane.name)
                     let legacy = dir.appending(path: ".tree/\(persistedPane.name)", directoryHint: .notDirectory)
                     if FileManager.default.fileExists(atPath: managed.path) {
@@ -258,7 +258,7 @@ struct SessionPersistence {
                     continue
                 }
                 var extraArgs = persistedPane.extraArgs
-                if persistedPane.cliType == .claude && appSettings.continueOnRestart
+                if persistedPane.harness == .claude && appSettings.continueOnRestart
                     && !extraArgs.contains("--continue")
                 {
                     extraArgs.append("--continue")
@@ -266,7 +266,7 @@ struct SessionPersistence {
                 let pane = tab.addPane(
                     name: persistedPane.name,
                     extraArgs: extraArgs,
-                    cliType: persistedPane.cliType,
+                    harness: persistedPane.harness,
                     worktreeDirectory: worktreeDir,
                     worktreeIsManaged: persistedPane.worktreeIsManaged,
                     id: persistedPane.id,
