@@ -164,7 +164,29 @@ final class SettingsFlowTests: BaseTestCase {
         let nameAfter = profileNames.firstMatch.value as? String
         XCTAssertNotEqual(nameBefore, nameAfter, "Profile order should swap after move-down")
 
-        verifyTracingAndDashboard()
+        let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
+        waitFor(debugTab)
+        debugTab.click()
+        let debugToggle = app.checkBoxes["settings-debug-mode-toggle"]
+        waitFor(debugToggle)
+        if debugToggle.value as? Int == 0 {
+            debugToggle.click()
+        }
+        waitFor(app.buttons["settings-open-trace-dashboard-button"])
+        waitFor(app.buttons["settings-open-invariant-dashboard-button"])
+        app.typeKey("w", modifierFlags: .command)
+        app.typeKey("d", modifierFlags: [.command, .shift])
+        let dashboard = app.windows["Trace Dashboard"]
+        waitFor(dashboard)
+        let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
+        waitFor(refreshButton)
+        XCTAssertTrue(refreshButton.exists)
+        XCTAssertTrue(
+            dashboard.descendants(matching: .any)
+                .matching(identifier: "trace-dashboard-sidebar-list").firstMatch.exists
+        )
+        app.typeKey("i", modifierFlags: [.command, .shift])
+        waitFor(app.windows["Invariant Dashboard"])
     }
 
     func testCLIToolsEnableRevealsOptions() {
@@ -219,41 +241,6 @@ final class SettingsFlowTests: BaseTestCase {
             app.staticTexts["Not Enabled"].waitForExistence(timeout: 1),
             "Option sections should disappear after disabling Codex"
         )
-    }
-
-    private func verifyTracingAndDashboard() {
-        // ── Debug tab ──────────────────────────────────────────────────────
-        let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
-        waitFor(debugTab)
-        debugTab.click()
-
-        let debugToggle = app.checkBoxes["settings-debug-mode-toggle"]
-        waitFor(debugToggle)
-        if debugToggle.value as? Int == 0 {
-            debugToggle.click()
-        }
-
-        waitFor(app.buttons["settings-open-trace-dashboard-button"])
-        waitFor(app.buttons["settings-open-invariant-dashboard-button"])
-
-        app.typeKey("w", modifierFlags: .command)
-
-        // ── Trace Dashboard window ───────────────────────────────────────────
-        app.typeKey("d", modifierFlags: [.command, .shift])
-        let dashboard = app.windows["Trace Dashboard"]
-        waitFor(dashboard)
-
-        let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
-        waitFor(refreshButton)
-        XCTAssertTrue(refreshButton.exists)
-
-        XCTAssertTrue(
-            dashboard.descendants(matching: .any)
-                .matching(identifier: "trace-dashboard-sidebar-list").firstMatch.exists
-        )
-
-        app.typeKey("i", modifierFlags: [.command, .shift])
-        waitFor(app.windows["Invariant Dashboard"])
     }
 
     func testProfileEditorShowAllOptions() {

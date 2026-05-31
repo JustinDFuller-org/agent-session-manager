@@ -24,7 +24,15 @@ final class ToolAgnosticDataProvider: StatusLineDataProvider {
     }
 
     func start() {
-        fetchVersion()
+        Task { [weak self] in
+            guard let self else { return }
+            let version = await self.runShell(
+                "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH \(self.toolCommand) --version 2>/dev/null | head -1")?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            await MainActor.run { [weak self] in
+                self?.versionFetchedVersion = version
+            }
+        }
         refreshNow()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             self?.refreshNow()
@@ -79,18 +87,6 @@ final class ToolAgnosticDataProvider: StatusLineDataProvider {
 
             await MainActor.run { [weak self] in
                 self?.onUpdate?(data)
-            }
-        }
-    }
-
-    private func fetchVersion() {
-        Task { [weak self] in
-            guard let self else { return }
-            let version = await self.runShell(
-                "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH \(self.toolCommand) --version 2>/dev/null | head -1")?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            await MainActor.run { [weak self] in
-                self?.versionFetchedVersion = version
             }
         }
     }

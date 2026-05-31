@@ -20,7 +20,26 @@ struct StatusLineView: View {
         if !nonEmptyRows.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(nonEmptyRows) { row in
-                    factRow(items: row.items, data: monitor.currentData, maxCount: maxRowItemCount)
+                    switch config.rowAlignment {
+                    case .leading:
+                        HStack(spacing: 12) {
+                            ForEach(row.items) { item in
+                                factView(item: item, data: monitor.currentData)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    case .spaceBetween:
+                        HStack(spacing: 0) {
+                            ForEach(row.items) { item in
+                                factView(item: item, data: monitor.currentData)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            ForEach(0..<(maxRowItemCount - row.items.count), id: \.self) { _ in
+                                Spacer()
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 8)
@@ -28,30 +47,6 @@ struct StatusLineView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(nsColor: .windowBackgroundColor))
             .accessibilityIdentifier("status-line-row")
-        }
-    }
-
-    @ViewBuilder
-    private func factRow(items: [StatusLineItem], data: StatusLineData?, maxCount: Int) -> some View {
-        switch config.rowAlignment {
-        case .leading:
-            HStack(spacing: 12) {
-                ForEach(items) { item in
-                    factView(item: item, data: data)
-                }
-                Spacer(minLength: 0)
-            }
-        case .spaceBetween:
-            HStack(spacing: 0) {
-                ForEach(items) { item in
-                    factView(item: item, data: data)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                ForEach(0..<(maxCount - items.count), id: \.self) { _ in
-                    Spacer()
-                        .frame(maxWidth: .infinity)
-                }
-            }
         }
     }
 
@@ -66,7 +61,11 @@ struct StatusLineView: View {
                 } else {
                     Image(systemName: item.sfSymbol)
                         .font(.system(size: 10))
-                        .foregroundStyle(iconTint(itemID: item.id, data: data))
+                        .foregroundStyle(
+                            item.id == "exceeds200k" && data?.exceeds200kTokens == true
+                                ? AnyShapeStyle(.orange)
+                                : AnyShapeStyle(.tertiary)
+                        )
                 }
             }
             if config.factLabelStyle == .symbolAndLabel || config.factLabelStyle == .labelOnly {
@@ -74,7 +73,111 @@ struct StatusLineView: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
-            factContent(for: item.id, data: data)
+            switch item.id {
+            case "context":
+                if let pct = data?.contextWindow?.usedPercentage {
+                    HStack(spacing: 4) {
+                        ProgressView(value: Double(pct), total: 100)
+                            .progressViewStyle(.linear)
+                            .frame(width: 44)
+                            .tint(progressTint(pct))
+                        Text("\(pct)%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("—").font(.caption).foregroundStyle(.secondary)
+                }
+            case "rate5h":
+                if let pct = data?.rateLimits?.fiveHour?.usedPercentage {
+                    HStack(spacing: 4) {
+                        ProgressView(value: pct, total: 100)
+                            .progressViewStyle(.linear)
+                            .frame(width: 32)
+                            .tint(progressTint(Int(pct)))
+                        Text(String(format: "%.0f%%", pct))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("—").font(.caption).foregroundStyle(.secondary)
+                }
+            case "rate7d":
+                if let pct = data?.rateLimits?.sevenDay?.usedPercentage {
+                    HStack(spacing: 4) {
+                        ProgressView(value: pct, total: 100)
+                            .progressViewStyle(.linear)
+                            .frame(width: 32)
+                            .tint(progressTint(Int(pct)))
+                        Text(String(format: "%.0f%%", pct))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("—").font(.caption).foregroundStyle(.secondary)
+                }
+            case "exceeds200k":
+                Text(data?.exceeds200kTokens == true ? "200k+" : "—")
+                    .font(.caption)
+                    .foregroundStyle(
+                        data?.exceeds200kTokens == true ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+            case "pr":
+                if let pr = data?.pr {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(prCircleColor(pr: pr))
+                            .frame(width: 6, height: 6)
+                        Text("#\(pr.number) (\(pr.displayState))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text("—")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            default:
+                let value: String = {
+                    switch item.id {
+                    case "model": return data?.model?.displayName ?? data?.model?.id ?? "—"
+                    case "worktree": return data?.worktree?.factText ?? "—"
+                    case "cost": return data?.cost?.totalCostUsd.map { String(format: "$%.4f", $0) } ?? "—"
+                    case "effort": return data?.effort?.level ?? "—"
+                    case "thinking": return data?.thinking?.enabled == true ? "on" : "off"
+                    case "vimMode": return data?.vim?.mode ?? "—"
+                    case "agentName": return data?.agent?.name ?? "—"
+                    case "sessionName": return data?.sessionName ?? "—"
+                    case "linesAdded": return data?.cost?.totalLinesAdded.map { "+\($0)" } ?? "—"
+                    case "linesRemoved": return data?.cost?.totalLinesRemoved.map { "-\($0)" } ?? "—"
+                    case "duration":
+                        return data?.cost?.totalDurationMs.map { ms in
+                            let seconds = Int(ms / 1000)
+                            if seconds < 60 { return "\(seconds)s" }
+                            let minutes = seconds / 60
+                            let secs = seconds % 60
+                            if minutes < 60 { return secs > 0 ? "\(minutes)m \(secs)s" : "\(minutes)m" }
+                            let hours = minutes / 60
+                            let mins = minutes % 60
+                            return mins > 0 ? "\(hours)h \(mins)m" : "\(hours)h"
+                        } ?? "—"
+                    case "contextRemaining": return data?.contextWindow?.remainingPercentage.map { "\($0)%" } ?? "—"
+                    case "inputTokens": return data?.contextWindow?.totalInputTokens.map { "\($0)" } ?? "—"
+                    case "outputTokens": return data?.contextWindow?.totalOutputTokens.map { "\($0)" } ?? "—"
+                    case "rate5hReset":
+                        return data?.rateLimits?.fiveHour?.resetsAt.map(formatResetTime) ?? "—"
+                    case "rate7dReset":
+                        return data?.rateLimits?.sevenDay?.resetsAt.map(formatResetTime) ?? "—"
+                    case "version": return data?.version ?? "—"
+                    case "outputStyle": return data?.outputStyle?.name ?? "—"
+                    case "profileName": return profileName ?? "—"
+                    default: return "—"
+                    }
+                }()
+                Text(value)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         if item.id == "pr", data?.pr != nil {
             Button {
@@ -96,156 +199,12 @@ struct StatusLineView: View {
         }
     }
 
-    private func iconTint(itemID: String, data: StatusLineData?) -> AnyShapeStyle {
-        if itemID == "exceeds200k", data?.exceeds200kTokens == true {
-            return AnyShapeStyle(.orange)
-        }
-        if itemID == "pr", let pr = data?.pr {
-            return AnyShapeStyle(prCircleColor(pr: pr))
-        }
-        return AnyShapeStyle(.tertiary)
-    }
-
-    @ViewBuilder
-    private func factContent(for itemID: String, data: StatusLineData?) -> some View {
-        switch itemID {
-        case "context":
-            if let pct = data?.contextWindow?.usedPercentage {
-                HStack(spacing: 4) {
-                    ProgressView(value: Double(pct), total: 100)
-                        .progressViewStyle(.linear)
-                        .frame(width: 44)
-                        .tint(progressTint(pct))
-                    Text("\(pct)%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text("—").font(.caption).foregroundStyle(.secondary)
-            }
-        case "rate5h":
-            if let pct = data?.rateLimits?.fiveHour?.usedPercentage {
-                HStack(spacing: 4) {
-                    ProgressView(value: pct, total: 100)
-                        .progressViewStyle(.linear)
-                        .frame(width: 32)
-                        .tint(progressTint(Int(pct)))
-                    Text(String(format: "%.0f%%", pct))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text("—").font(.caption).foregroundStyle(.secondary)
-            }
-        case "rate7d":
-            if let pct = data?.rateLimits?.sevenDay?.usedPercentage {
-                HStack(spacing: 4) {
-                    ProgressView(value: pct, total: 100)
-                        .progressViewStyle(.linear)
-                        .frame(width: 32)
-                        .tint(progressTint(Int(pct)))
-                    Text(String(format: "%.0f%%", pct))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text("—").font(.caption).foregroundStyle(.secondary)
-            }
-        case "exceeds200k":
-            Text(data?.exceeds200kTokens == true ? "200k+" : "—")
-                .font(.caption)
-                .foregroundStyle(data?.exceeds200kTokens == true ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
-        case "pr":
-            if let pr = data?.pr {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(prCircleColor(pr: pr))
-                        .frame(width: 6, height: 6)
-                    Text("#\(pr.number) (\(pr.displayState))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            } else {
-                Text("—")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        default:
-            Text(textValue(for: itemID, data: data))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private func prCircleColor(pr: PullRequest) -> Color {
         pr.circleColor
     }
 
     private func progressTint(_ pct: Int) -> Color {
         pct < 70 ? .green : pct < 90 ? .orange : .red
-    }
-
-    private func textValue(for itemID: String, data: StatusLineData?) -> String {
-        switch itemID {
-        case "model":
-            return data?.model?.displayName ?? data?.model?.id ?? "—"
-        case "worktree":
-            return data?.worktree?.factText ?? "—"
-        case "cost":
-            return data?.cost?.totalCostUsd.map { String(format: "$%.4f", $0) } ?? "—"
-        case "effort":
-            return data?.effort?.level ?? "—"
-        case "thinking":
-            return data?.thinking?.enabled == true ? "on" : "off"
-        case "vimMode":
-            return data?.vim?.mode ?? "—"
-        case "agentName":
-            return data?.agent?.name ?? "—"
-        case "sessionName":
-            return data?.sessionName ?? "—"
-        case "linesAdded":
-            return data?.cost?.totalLinesAdded.map { "+\($0)" } ?? "—"
-        case "linesRemoved":
-            return data?.cost?.totalLinesRemoved.map { "-\($0)" } ?? "—"
-        case "duration":
-            return data?.cost?.totalDurationMs.map { formatDuration(ms: $0) } ?? "—"
-        case "contextRemaining":
-            return data?.contextWindow?.remainingPercentage.map { "\($0)%" } ?? "—"
-        case "inputTokens":
-            return data?.contextWindow?.totalInputTokens.map { "\($0)" } ?? "—"
-        case "outputTokens":
-            return data?.contextWindow?.totalOutputTokens.map { "\($0)" } ?? "—"
-        case "rate5hReset":
-            if let ts = data?.rateLimits?.fiveHour?.resetsAt {
-                return formatResetTime(ts)
-            }
-            return "—"
-        case "rate7dReset":
-            if let ts = data?.rateLimits?.sevenDay?.resetsAt {
-                return formatResetTime(ts)
-            }
-            return "—"
-        case "version":
-            return data?.version ?? "—"
-        case "outputStyle":
-            return data?.outputStyle?.name ?? "—"
-        case "profileName":
-            return profileName ?? "—"
-        default:
-            return "—"
-        }
-    }
-
-    private func formatDuration(ms: Double) -> String {
-        let seconds = Int(ms / 1000)
-        if seconds < 60 { return "\(seconds)s" }
-        let minutes = seconds / 60
-        let secs = seconds % 60
-        if minutes < 60 { return secs > 0 ? "\(minutes)m \(secs)s" : "\(minutes)m" }
-        let hours = minutes / 60
-        let mins = minutes % 60
-        return mins > 0 ? "\(hours)h \(mins)m" : "\(hours)h"
     }
 
     private func formatResetTime(_ timestamp: Int) -> String {

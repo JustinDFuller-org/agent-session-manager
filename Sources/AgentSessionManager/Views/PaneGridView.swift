@@ -9,7 +9,19 @@ struct PaneGridView: View {
     let onRefreshPane: (Pane) -> Void
 
     private var layout: GridLayout {
-        GridLayout.layout(for: tab.panes.count)
+        let count = tab.panes.count
+        switch count {
+        case 0, 1:
+            return GridLayout(columns: 1, rows: 1, paneCount: count)
+        case 2:
+            return GridLayout(columns: 2, rows: 1, paneCount: count)
+        case 3, 4:
+            return GridLayout(columns: 2, rows: 2, paneCount: count)
+        case 5, 6:
+            return GridLayout(columns: 3, rows: 2, paneCount: count)
+        default:
+            return GridLayout(columns: 3, rows: 3, paneCount: count)
+        }
     }
 
     var body: some View {

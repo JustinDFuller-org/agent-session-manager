@@ -9,7 +9,10 @@ class BaseTestCase: XCTestCase {
 
         clearPersistedState()
         GitUITestWorkspace.prepareCleanRepo()
-        writeDefaultBranch("ui-root")
+        let support = UITestAppSupport.directory
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        try? Data("{\"isEnabled\":true,\"branchName\":\"ui-root\"}".utf8)
+            .write(to: support.appending(path: "default-branch.json"))
 
         app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
@@ -49,22 +52,7 @@ class BaseTestCase: XCTestCase {
         XCTAssertEqual(result, .completed, "Expected \(element.identifier) to disappear within \(timeout)s")
     }
 
-    func waitForValue(_ element: XCUIElement, value: String, timeout: TimeInterval = 5) {
-        let pred = NSPredicate { _, _ in element.value as? String == value }
-        let exp = XCTNSPredicateExpectation(predicate: pred, object: nil)
-        let result = XCTWaiter.wait(for: [exp], timeout: timeout)
-        XCTAssertEqual(result, .completed, "Expected \(element.identifier) to have value '\(value)' within \(timeout)s")
-    }
-
     var emptyStateHint: XCUIElement { app.staticTexts["empty-state-hint"] }
-
-    func writeDefaultBranch(_ branch: String) {
-        let support = UITestAppSupport.directory
-        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        let json = "{\"isEnabled\":true,\"branchName\":\"\(branch)\"}"
-        let data = Data(json.utf8)
-        try? data.write(to: support.appending(path: "default-branch.json"))
-    }
 
     func clearPersistedState() {
         let support = UITestAppSupport.directory

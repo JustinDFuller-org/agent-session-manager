@@ -469,9 +469,73 @@ struct TraceWaterfallView: View {
             let rows = buildWaterfallRows(from: spans)
             ScrollView([.vertical, .horizontal]) {
                 VStack(spacing: 0) {
-                    timeAxis(barAreaWidth: barAreaWidth)
+                    Canvas { ctx, size in
+                        let ticks = 5
+                        for i in 0...ticks {
+                            let x = Self.labelWidth + (barAreaWidth / CGFloat(ticks)) * CGFloat(i)
+                            let ms = Int64(Double(i) / Double(ticks) * windowDuration)
+                            let label = ms < 1000 ? "\(ms)ms" : String(format: "%.1fs", Double(ms) / 1000)
+                            let resolved = ctx.resolve(
+                                Text(label)
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .foregroundStyle(Color.secondary)
+                            )
+                            ctx.draw(resolved, at: CGPoint(x: x, y: size.height / 2), anchor: .center)
+                        }
+                    }
+                    .frame(height: 16)
+                    .padding(.bottom, 2)
                     ForEach(Array(rows.enumerated()), id: \.element.span.id) { index, row in
-                        renderSpanRow(row: row, rowIndex: index, barAreaWidth: barAreaWidth)
+                        let span = row.span
+                        let indent = CGFloat(row.depth) * Self.indentPerDepth
+                        let isSelected = selectedSpan?.id == span.id
+                        let startRatio = Double(span.startEpochMs - windowStart) / windowDuration
+                        let endRatio = Double(span.endEpochMs - windowStart) / windowDuration
+                        let barX = CGFloat(startRatio) * barAreaWidth
+                        let barW = max(4, CGFloat(endRatio - startRatio) * barAreaWidth)
+                        ZStack(alignment: .leading) {
+                            if isSelected {
+                                Color.accentColor.opacity(0.1)
+                            } else if index % 2 == 1 {
+                                Color(nsColor: .controlBackgroundColor).opacity(0.5)
+                            }
+
+                            HStack(spacing: 0) {
+                                Text(span.name)
+                                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .padding(.leading, 8 + indent)
+                                    .frame(width: Self.labelWidth, alignment: .leading)
+
+                                if span.durationMs == 0 {
+                                    Circle()
+                                        .fill(spanColor(for: span.name))
+                                        .frame(width: 6, height: 6)
+                                        .offset(x: barX - 3)
+                                } else {
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(spanColor(for: span.name))
+                                        .frame(width: barW, height: Self.rowHeight - Self.rowPadding * 2 - 2)
+                                        .offset(x: barX)
+                                    Text(durationLabel(span.durationMs))
+                                        .font(.system(size: 9, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                        .offset(x: barX + barW + 4)
+                                }
+                                Spacer()
+                            }
+                        }
+                        .frame(height: Self.rowHeight)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedSpan = span }
+                        .overlay(
+                            isSelected
+                                ? RoundedRectangle(cornerRadius: 0)
+                                    .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
+                                : nil
+                        )
                     }
                 }
                 .frame(width: totalWidth)
@@ -481,79 +545,6 @@ struct TraceWaterfallView: View {
         }
         .background(Color(nsColor: .textBackgroundColor))
         .accessibilityIdentifier("trace-dashboard-waterfall")
-    }
-
-    private func timeAxis(barAreaWidth: CGFloat) -> some View {
-        Canvas { ctx, size in
-            let ticks = 5
-            for i in 0...ticks {
-                let x = Self.labelWidth + (barAreaWidth / CGFloat(ticks)) * CGFloat(i)
-                let ms = Int64(Double(i) / Double(ticks) * windowDuration)
-                let label = ms < 1000 ? "\(ms)ms" : String(format: "%.1fs", Double(ms) / 1000)
-                let resolved = ctx.resolve(
-                    Text(label)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(Color.secondary)
-                )
-                ctx.draw(resolved, at: CGPoint(x: x, y: size.height / 2), anchor: .center)
-            }
-        }
-        .frame(height: 16)
-        .padding(.bottom, 2)
-    }
-
-    private func renderSpanRow(row: SpanRow, rowIndex: Int, barAreaWidth: CGFloat) -> some View {
-        let span = row.span
-        let indent = CGFloat(row.depth) * Self.indentPerDepth
-        let isSelected = selectedSpan?.id == span.id
-        let startRatio = Double(span.startEpochMs - windowStart) / windowDuration
-        let endRatio = Double(span.endEpochMs - windowStart) / windowDuration
-        let barX = CGFloat(startRatio) * barAreaWidth
-        let barW = max(4, CGFloat(endRatio - startRatio) * barAreaWidth)
-
-        return ZStack(alignment: .leading) {
-            if isSelected {
-                Color.accentColor.opacity(0.1)
-            } else if rowIndex % 2 == 1 {
-                Color(nsColor: .controlBackgroundColor).opacity(0.5)
-            }
-
-            HStack(spacing: 0) {
-                Text(span.name)
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.leading, 8 + indent)
-                    .frame(width: Self.labelWidth, alignment: .leading)
-
-                if span.durationMs == 0 {
-                    Circle()
-                        .fill(spanColor(for: span.name))
-                        .frame(width: 6, height: 6)
-                        .offset(x: barX - 3)
-                } else {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(spanColor(for: span.name))
-                        .frame(width: barW, height: Self.rowHeight - Self.rowPadding * 2 - 2)
-                        .offset(x: barX)
-                    Text(durationLabel(span.durationMs))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .offset(x: barX + barW + 4)
-                }
-                Spacer()
-            }
-        }
-        .frame(height: Self.rowHeight)
-        .contentShape(Rectangle())
-        .onTapGesture { selectedSpan = span }
-        .overlay(
-            isSelected
-                ? RoundedRectangle(cornerRadius: 0)
-                    .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
-                : nil
-        )
     }
 
     private func durationLabel(_ ms: Int64) -> String {

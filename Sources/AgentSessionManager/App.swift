@@ -63,38 +63,147 @@ struct ContentView: View {
         .background(Color(nsColor: .controlBackgroundColor))
         .task {
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
-            SettingsPersistence.restoreDefaultBranch(into: appSettings)
+            if let config = SettingsPersistence.load(DefaultBranchConfig.self, from: "default-branch.json") {
+                appSettings.isDefaultBranchEnabled = config.isEnabled
+                appSettings.defaultBranch = config.branchName
+            } else if let branch = SettingsPersistence.load(String.self, from: "default-branch.json"), !branch.isEmpty {
+                appSettings.defaultBranch = branch
+                appSettings.isDefaultBranchEnabled = true
+            }
             if !CommandLine.arguments.contains("--uitesting-skip-restore") {
-                SettingsPersistence.restore(into: appSettings)
-                SettingsPersistence.restoreStatusLine(into: appSettings)
-                SettingsPersistence.restoreCodexOptions(into: appSettings)
-                SettingsPersistence.restoreCursorOptions(into: appSettings)
-                SettingsPersistence.restoreActiveTools(into: appSettings)
-                SettingsPersistence.restoreNotificationSettings(into: appSettings)
-                SettingsPersistence.restoreRestartSettings(into: appSettings)
-                SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
-                SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
-                SettingsPersistence.restoreWorktreeBaseRef(into: appSettings)
-                SettingsPersistence.restorePRTracking(into: appSettings)
-                SettingsPersistence.restorePRPollingSettings(into: appSettings)
-                SettingsPersistence.restoreTerminalSettings(into: appSettings)
-                SettingsPersistence.restoreExitBehavior(into: appSettings)
-                SettingsPersistence.restoreEnvVarOptions(into: appSettings)
-                SettingsPersistence.restoreProfiles(into: appSettings)
-                SettingsPersistence.restoreSessionNameSettings(into: appSettings)
-                SettingsPersistence.restoreDebugSettings(into: appSettings)
-                SettingsPersistence.restoreShellSettings(into: appSettings)
-                SettingsPersistence.restoreOnboarding(into: appSettings)
-                SettingsPersistence.restoreActivityIndicatorSettings(into: appSettings)
+                appSettings.cliOptions = SettingsPersistence.mergeCLIOptions(
+                    SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "settings.json"),
+                    into: CLIOptionConfig.all)
+                appSettings.codexCliOptions = SettingsPersistence.mergeCLIOptions(
+                    SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "codex-settings.json"),
+                    into: CLIOptionConfig.codexAll)
+                appSettings.cursorCliOptions = SettingsPersistence.mergeCLIOptions(
+                    SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "cursor-settings.json"),
+                    into: CLIOptionConfig.cursorAll)
+                if let config = SettingsPersistence.load(StatusLineConfig.self, from: "statusline-settings.json") {
+                    appSettings.statusLineConfig = config
+                }
+                if let tools = SettingsPersistence.load([String].self, from: "active-tools-settings.json") {
+                    appSettings.activeTools = Set(tools).intersection(Harness.allCases.map(\.rawValue))
+                }
+                if let config = SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json") {
+                    appSettings.notificationSidebarSide = config.sidebarSide
+                    appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
+                    appSettings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
+                    appSettings.isCursorNotificationHookAttentionEnabled = config.isCursorHookAttentionEnabled
+                    appSettings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
+                    appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
+                }
+                if let config = SettingsPersistence.load(RestartConfig.self, from: "restart-settings.json") {
+                    appSettings.continueOnRestart = config.continueOnRestart
+                }
+                if let value = SettingsPersistence.load(WorktreeCleanupBehavior.self, from: "worktree-cleanup.json") {
+                    appSettings.worktreeCleanupBehavior = value
+                }
+                if let value = SettingsPersistence.load(
+                    ExistingWorktreeManagement.self, from: "existing-worktree-management.json")
+                {
+                    appSettings.existingWorktreeManagement = value
+                }
+                if let value = SettingsPersistence.load(WorktreeBaseRef.self, from: "worktree-base-ref.json") {
+                    appSettings.worktreeBaseRef = value
+                }
+                if let value = SettingsPersistence.load(Bool.self, from: "pr-tracking-settings.json") {
+                    appSettings.githubPRTrackingEnabled = value
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.PRPollingSettings.self, from: "pr-polling-settings.json")
+                {
+                    appSettings.prPollingIntervalSeconds = max(15, config.intervalSeconds)
+                    appSettings.prRequestTimeoutSeconds = max(5, config.timeoutSeconds)
+                    appSettings.prBackgroundRefreshEnabled = config.backgroundRefreshEnabled
+                    appSettings.prBackgroundPollingIntervalSeconds = max(15, config.backgroundIntervalSeconds)
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.TerminalSettings.self, from: "terminal-settings.json")
+                {
+                    appSettings.scrollbackLines = config.scrollbackLines
+                }
+                if let value = SettingsPersistence.load(ExitBehavior.self, from: "exit-behavior.json") {
+                    appSettings.exitBehavior = value
+                }
+                let savedEnvVars = SettingsPersistence.loadFailableArray(
+                    EnvVarConfig.self, from: "env-var-settings.json")
+                if !savedEnvVars.isEmpty {
+                    var updated = EnvVarConfig.all
+                    var userAdded: [EnvVarConfig] = []
+                    for saved in savedEnvVars {
+                        if saved.isUserAdded {
+                            userAdded.append(saved)
+                        } else if let index = updated.firstIndex(where: { $0.id == saved.id }) {
+                            updated[index].isAvailable = saved.isAvailable
+                            updated[index].isDefaultEnabled = saved.isDefaultEnabled
+                            updated[index].defaultValue = saved.defaultValue
+                        }
+                    }
+                    appSettings.envVarOptions = updated + userAdded
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.ProfilesContainer.self, from: "profiles.json")
+                {
+                    appSettings.profiles = config.profiles
+                }
+                if let value = SettingsPersistence.load(Bool.self, from: "session-name-settings.json") {
+                    appSettings.autoSetSessionName = value
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.DebugSettings.self, from: "debug-settings.json"),
+                    config.schemaVersion == 1
+                {
+                    appSettings.debugModeEnabled = config.enabled
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.ShellSettings.self, from: "shell-settings.json")
+                {
+                    appSettings.preferredShell = config.preferredShell
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.OnboardingSettings.self, from: "onboarding-settings.json")
+                {
+                    appSettings.hasCompletedOnboarding = config.completed
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.ActivityIndicatorConfig.self, from: "activity-indicator-settings.json")
+                {
+                    appSettings.paneActivityIndicatorsEnabled = config.enabled
+                }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
                 let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
-                cleanup.start()
                 traceCleanupService = cleanup
                 SessionPersistence.restore(into: appState, appSettings: appSettings)
                 await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
             }
-            AgentSessionManagerApp.applyUITestPaneStateInjection(appState: appState)
+            if AgentSessionManagerApp.isUITesting {
+                for arg in CommandLine.arguments {
+                    if arg.hasPrefix("--inject-pane-loading="),
+                        let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-loading=".count)))
+                    {
+                        for tab in appState.tabs {
+                            tab.panes.first(where: { $0.id == id })?.setupState = .loading
+                        }
+                    }
+                    if arg.hasPrefix("--inject-pane-error="),
+                        let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-error=".count)))
+                    {
+                        for tab in appState.tabs {
+                            tab.panes.first(where: { $0.id == id })?.setupState = .failed(error: "Test setup error")
+                        }
+                    }
+                    if arg.hasPrefix("--inject-pane-working="),
+                        let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-working=".count)))
+                    {
+                        for tab in appState.tabs {
+                            tab.panes.first(where: { $0.id == id })?.uiTestActivityStateOverride = .working
+                        }
+                    }
+                }
+            }
             if AgentSessionManagerApp.shouldSimulateBannerClick {
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 MacNotificationCoordinator.shared.simulateLegacyNotificationActivationForUITesting()
@@ -352,44 +461,21 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         }
 
         coordinator.mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
-            if let window = event.window {
+            if event.window != nil, let appState = coordinator.appState, let tab = appState.activeTab {
                 let loc = event.locationInWindow
-                coordinator.updateActivePaneFromClick(at: loc, in: window)
+                for pane in tab.panes {
+                    guard let termView = pane.terminalController?.terminalView else { continue }
+                    let converted = termView.convert(loc, from: nil)
+                    if termView.bounds.contains(converted) {
+                        appState.setActivePane(id: pane.id)
+                        break
+                    }
+                }
             }
             return event
         }
 
         coordinator.scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-            coordinator.handleScrollWheel(event: event)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    @MainActor
-    final class Coordinator {
-        var onClosePane: () -> Void = {}
-        var onCloseTab: () -> Void = {}
-        var onSwitchTab: (Int) -> Void = { _ in }
-        var onRefreshPane: () -> Void = {}
-        var appState: AppState?
-        var keyMonitor: Any?
-        var mouseMonitor: Any?
-        var scrollWheelMonitor: Any?
-
-        func updateActivePaneFromClick(at location: CGPoint, in window: NSWindow) {
-            guard let appState, let tab = appState.activeTab else { return }
-            for pane in tab.panes {
-                guard let termView = pane.terminalController?.terminalView else { continue }
-                let converted = termView.convert(location, from: nil)
-                if termView.bounds.contains(converted) {
-                    appState.setActivePane(id: pane.id)
-                    return
-                }
-            }
-        }
-
-        func handleScrollWheel(event: NSEvent) -> NSEvent? {
             guard let window = event.window else { return event }
             guard abs(event.deltaY) >= 0.5 else { return event }
             let point = event.locationInWindow
@@ -411,11 +497,9 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             let terminalY = max(0, min(terminal.rows - 1, Int((1 - localPoint.y / bh) * CGFloat(terminal.rows))))
             let pixelX = Int(localPoint.x)
             let pixelY = Int(bh - localPoint.y)
-
-            let button: Int = event.deltaY > 0 ? 4 : 5
             let flags = event.modifierFlags
             let pressFlags = terminal.encodeButton(
-                button: button,
+                button: event.deltaY > 0 ? 4 : 5,
                 release: false,
                 shift: flags.contains(.shift),
                 meta: flags.contains(.option),
@@ -424,6 +508,20 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             terminal.sendEvent(buttonFlags: pressFlags, x: cellX, y: terminalY, pixelX: pixelX, pixelY: pixelY)
             return nil
         }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    @MainActor
+    final class Coordinator {
+        var onClosePane: () -> Void = {}
+        var onCloseTab: () -> Void = {}
+        var onSwitchTab: (Int) -> Void = { _ in }
+        var onRefreshPane: () -> Void = {}
+        var appState: AppState?
+        var keyMonitor: Any?
+        var mouseMonitor: Any?
+        var scrollWheelMonitor: Any?
 
         deinit {
             if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }

@@ -3,6 +3,19 @@ import XCTest
 @testable import AgentSessionManager
 
 @MainActor
+private func restoreNotificationSettings(into settings: AppSettings) {
+    guard let config = SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json") else {
+        return
+    }
+    settings.notificationSidebarSide = config.sidebarSide
+    settings.isPriorityNotificationsEnabled = config.isPriorityEnabled
+    settings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
+    settings.isCursorNotificationHookAttentionEnabled = config.isCursorHookAttentionEnabled
+    settings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
+    settings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
+}
+
+@MainActor
 final class NotificationTests: XCTestCase {
     override func setUp() {
         super.setUp()
@@ -131,7 +144,7 @@ final class NotificationTests: XCTestCase {
         SettingsPersistence.saveNotificationSettings(appSettings: settings)
 
         let restored = AppSettings()
-        SettingsPersistence.restoreNotificationSettings(into: restored)
+        restoreNotificationSettings(into: restored)
         XCTAssertEqual(restored.notificationSidebarSide, .left)
         XCTAssertFalse(restored.isPriorityNotificationsEnabled)
         XCTAssertFalse(restored.isMacOSBannerNotificationsEnabled)
@@ -150,7 +163,7 @@ final class NotificationTests: XCTestCase {
 
         let restored = AppSettings()
         restored.alwaysShowNotificationsSidebar = false
-        SettingsPersistence.restoreNotificationSettings(into: restored)
+        restoreNotificationSettings(into: restored)
         XCTAssertTrue(restored.alwaysShowNotificationsSidebar)
     }
 
@@ -170,7 +183,7 @@ final class NotificationTests: XCTestCase {
 
         let restored = AppSettings()
         restored.alwaysShowNotificationsSidebar = false
-        SettingsPersistence.restoreNotificationSettings(into: restored)
+        restoreNotificationSettings(into: restored)
         XCTAssertTrue(restored.alwaysShowNotificationsSidebar)
     }
 
@@ -184,7 +197,7 @@ final class NotificationTests: XCTestCase {
 
         try Data(#"{"isClaudeHookAttentionEnabled":false}"#.utf8).write(to: url)
         let restored = AppSettings()
-        SettingsPersistence.restoreNotificationSettings(into: restored)
+        restoreNotificationSettings(into: restored)
         SettingsPersistence.saveNotificationSettings(appSettings: restored)
 
         let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
@@ -208,7 +221,7 @@ final class NotificationTests: XCTestCase {
 
         let restored = AppSettings()
         restored.isMacOSBannerNotificationsEnabled = false
-        SettingsPersistence.restoreNotificationSettings(into: restored)
+        restoreNotificationSettings(into: restored)
         XCTAssertEqual(restored.notificationSidebarSide, .left)
         XCTAssertTrue(restored.isPriorityNotificationsEnabled)
         XCTAssertTrue(restored.isMacOSBannerNotificationsEnabled)

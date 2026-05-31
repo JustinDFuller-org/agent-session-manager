@@ -166,25 +166,19 @@ final class Tab: Identifiable {
         return entries
     }
 
-    nonisolated static func refExpansionCandidates(for raw: String) -> Set<String> {
-        var refs = Set<String>()
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return refs }
-        refs.insert(trimmed)
-        if trimmed.hasPrefix("refs/") { return refs }
-        refs.insert("refs/heads/\(trimmed)")
-        if trimmed.contains("/") {
-            refs.insert("refs/remotes/\(trimmed)")
-        } else {
-            refs.insert("refs/remotes/origin/\(trimmed)")
-        }
-        return refs
-    }
-
     nonisolated static func refMatches(userRef: String, branchRef: String) -> Bool {
         let trimmedUserRef = userRef.trimmingCharacters(in: .whitespacesAndNewlines)
         if branchRef == trimmedUserRef { return true }
-        if refExpansionCandidates(for: trimmedUserRef).contains(branchRef) { return true }
+        var refs = Set([trimmedUserRef])
+        if !trimmedUserRef.hasPrefix("refs/") {
+            refs.insert("refs/heads/\(trimmedUserRef)")
+            if trimmedUserRef.contains("/") {
+                refs.insert("refs/remotes/\(trimmedUserRef)")
+            } else {
+                refs.insert("refs/remotes/origin/\(trimmedUserRef)")
+            }
+        }
+        if refs.contains(branchRef) { return true }
         if branchRef.hasPrefix("refs/heads/") {
             let short = String(branchRef.dropFirst("refs/heads/".count))
             if short == trimmedUserRef { return true }
@@ -228,12 +222,16 @@ final class Tab: Identifiable {
         })
     }
 
-    func hasPaneNamed(_ name: String) -> Bool {
-        panes.contains { $0.name == name }
-    }
+    /// Resolves user input (branch, remote ref, plain name, or managed worktree name) when attaching or creating Git worktrees in-app.
+    /// If the ref does not exist but is a valid worktree name and `defaultBranch` is provided, creates a worktree from that branch.
+    func resolveOrAttachWorktree(
+        userRef raw: String,
+        defaultBranch: String? = nil,
+        baseRef: WorktreeBaseRef = .fresh
+    ) async throws -> ResolvedWorktree {
+        let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
 
-    /// Resolved checkout already on disk (`git worktree list` match, app-managed linked tree, etc.); ignores fetch/add.
-    private func peekExistingResolvedWorktree(trimmedRef ref: String) async throws -> ResolvedWorktree? {
         if Tab.isValidWorktreeName(ref) {
             let url = Tab.worktreeDirectoryURL(repoRoot: directory, name: ref)
             if FileManager.default.fileExists(atPath: url.path) {
@@ -246,7 +244,6 @@ final class Tab: Identifiable {
 
         let listOutput = try await runGitOutput(["worktree", "list", "--porcelain"])
         let entries = Tab.parseWorktreeListPorcelain(listOutput)
-
         if let found = Tab.preferWorktreeEntry(matchingUserRef: ref, entries: entries) {
             if let name = managedWorktreeName(forAbsoluteWorktreePath: found.path) {
                 return resolvedManaged(shortName: name)
@@ -254,33 +251,16 @@ final class Tab: Identifiable {
             return resolvedExternalGitListPath(found.path)
         }
 
-        let targetName = Tab.derivedWorktreeName(fromRef: ref)
-        guard Tab.isValidWorktreeName(targetName) else {
-            throw WorktreeResolutionError.invalidDerivedName(targetName)
+        let initialTargetName = Tab.derivedWorktreeName(fromRef: ref)
+        guard Tab.isValidWorktreeName(initialTargetName) else {
+            throw WorktreeResolutionError.invalidDerivedName(initialTargetName)
         }
-        let targetURL = Tab.worktreeDirectoryURL(repoRoot: directory, name: targetName)
+        let targetURL = Tab.worktreeDirectoryURL(repoRoot: directory, name: initialTargetName)
         if FileManager.default.fileExists(atPath: targetURL.path) {
             guard Self.isLinkedGitWorktree(at: targetURL) else {
                 throw WorktreeResolutionError.pathExistsButNotWorktree(targetURL.path)
             }
-            return resolvedManaged(shortName: targetName)
-        }
-
-        return nil
-    }
-
-    /// Resolves user input (branch, remote ref, plain name, or managed worktree name) when attaching or creating Git worktrees in-app.
-    /// If the ref does not exist but is a valid worktree name and `defaultBranch` is provided, creates a worktree from that branch.
-    func resolveOrAttachWorktree(
-        userRef raw: String,
-        defaultBranch: String? = nil,
-        baseRef: WorktreeBaseRef = .fresh
-    ) async throws -> ResolvedWorktree {
-        let ref = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !ref.isEmpty else { throw WorktreeResolutionError.emptyRef }
-
-        if let resolved = try await peekExistingResolvedWorktree(trimmedRef: ref) {
-            return resolved
+            return resolvedManaged(shortName: initialTargetName)
         }
 
         let targetName = Tab.derivedWorktreeName(fromRef: ref)
@@ -598,8 +578,66 @@ final class Tab: Identifiable {
         pane.restartToken = UUID()
     }
 
-    /// Refreshes a pane with a fresh environment snapshot, injecting `--continue` into the existing command.
-    func refreshPane(_ pane: Pane) {
+    /// Refreshes a pane with either its existing command or new CLI settings.
+    func refreshPane(
+        _ pane: Pane,
+        extraArgs: [String]? = nil,
+        harness: Harness? = nil,
+        extraEnvVars: [String: String] = [:],
+        appSettings: AppSettings? = nil
+    ) {
+        if let extraArgs, let harness {
+            guard let old = pane.terminalController else { return }
+            old.terminate()
+            let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
+            let cwd = pane.worktreeDirectory?.path ?? directory.path
+            let controller = TerminalController()
+            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingDirectory = cwd
+            controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
+
+            switch harness {
+            case .shell:
+                controller.pendingCommand = nil
+                pane.removeStatusLineMonitor()
+            case .claude:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name)
+                pane.installStatusLineMonitor(monitor)
+                if !extraEnvVars.isEmpty {
+                    controller.pendingEnvironment =
+                        (controller.pendingEnvironment ?? [])
+                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
+                }
+                controller.pendingCommand = Tab.buildClaudeCommand(
+                    settingsPath: monitor.settingsFilePath, extraArgs: extra)
+            case .codex:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name)
+                pane.installStatusLineMonitor(monitor)
+                controller.pendingCommand = "codex\(extra)"
+            case .cursor:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name)
+                pane.installStatusLineMonitor(monitor)
+                controller.pendingEnvironment =
+                    (controller.pendingEnvironment ?? [])
+                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+                controller.pendingCommand = "agent\(extra)"
+            }
+
+            pane.harness = harness
+            pane.installTerminalController(controller)
+            pane.restartToken = UUID()
+            return
+        }
+
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
         new.pendingCommand = Tab.injectContinueFlag(into: old.pendingCommand ?? "")
@@ -619,61 +657,6 @@ final class Tab: Identifiable {
             new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
         }
         pane.installTerminalController(new)
-        pane.restartToken = UUID()
-    }
-
-    /// Refreshes a pane with a fresh environment and new CLI args (from the settings sheet).
-    func refreshPaneWithArgs(
-        _ pane: Pane, extraArgs: [String], harness: Harness, extraEnvVars: [String: String] = [:],
-        appSettings: AppSettings? = nil
-    ) {
-        guard let old = pane.terminalController else { return }
-        old.terminate()
-        let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-        let cwd = pane.worktreeDirectory?.path ?? directory.path
-        let controller = TerminalController()
-        controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
-        controller.pendingDirectory = cwd
-        controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
-
-        switch harness {
-        case .shell:
-            controller.pendingCommand = nil
-            pane.removeStatusLineMonitor()
-        case .claude:
-            let monitor = StatusLineMonitor(
-                paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
-            pane.installStatusLineMonitor(monitor)
-            if !extraEnvVars.isEmpty {
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + extraEnvVars.map { "\($0.key)=\($0.value)" }
-            }
-            controller.pendingCommand = Tab.buildClaudeCommand(
-                settingsPath: monitor.settingsFilePath, extraArgs: extra)
-        case .codex:
-            let monitor = StatusLineMonitor(
-                paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
-            pane.installStatusLineMonitor(monitor)
-            controller.pendingCommand = "codex\(extra)"
-        case .cursor:
-            let monitor = StatusLineMonitor(
-                paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
-            pane.installStatusLineMonitor(monitor)
-            controller.pendingEnvironment =
-                (controller.pendingEnvironment ?? [])
-                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-            controller.pendingCommand = "agent\(extra)"
-        }
-
-        pane.harness = harness
-        pane.installTerminalController(controller)
         pane.restartToken = UUID()
     }
 

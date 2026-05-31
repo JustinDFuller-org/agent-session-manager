@@ -1,7 +1,7 @@
 import Foundation
 
 /// Deletes per-pane JSONL files older than `retentionInterval` and removes empty
-/// subdirectories. Runs once on `start()` and then every 6 hours on a background timer.
+/// subdirectories. Runs once on initialization and then every 6 hours on a background timer.
 final class TraceCleanupService {
     private let tracesDirectory: URL
     private let retentionInterval: TimeInterval
@@ -10,18 +10,10 @@ final class TraceCleanupService {
     init(tracesDirectory: URL, retentionInterval: TimeInterval = 24 * 3600) {
         self.tracesDirectory = tracesDirectory
         self.retentionInterval = retentionInterval
-    }
-
-    func start() {
         runCleanup()
         timer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
             self?.runCleanup()
         }
-    }
-
-    func stop() {
-        timer?.invalidate()
-        timer = nil
     }
 
     private func runCleanup() {
@@ -38,24 +30,30 @@ final class TraceCleanupService {
         }
     }
 
-    static func cleanup(in directory: URL, olderThan retentionInterval: TimeInterval) -> (filesDeleted: Int, dirsRemoved: Int) {
+    static func cleanup(
+        in directory: URL, olderThan retentionInterval: TimeInterval
+    ) -> (filesDeleted: Int, dirsRemoved: Int) {
         let fm = FileManager.default
         let now = Date()
         var filesDeleted = 0
         var dirsRemoved = 0
 
-        guard let subDirs = try? fm.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else { return (0, 0) }
+        guard
+            let subDirs = try? fm.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return (0, 0) }
 
         for subDir in subDirs {
             guard (try? subDir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
 
-            guard let files = try? fm.contentsOfDirectory(
-                at: subDir, includingPropertiesForKeys: [.contentModificationDateKey],
-                options: [.skipsHiddenFiles]
-            ) else { continue }
+            guard
+                let files = try? fm.contentsOfDirectory(
+                    at: subDir, includingPropertiesForKeys: [.contentModificationDateKey],
+                    options: [.skipsHiddenFiles]
+                )
+            else { continue }
 
             for file in files {
                 guard file.pathExtension == "jsonl" else { continue }

@@ -35,12 +35,6 @@ extension Pane {
     }
 
     @MainActor
-    func detachTerminalNotificationHandlers() {
-        terminalController?.terminalView.onUserInput = nil
-        terminalController?.onAttention = nil
-    }
-
-    @MainActor
     func attachStatusLineNotificationHandlers() {
         guard let appState = notificationAppState, let tab else { return }
         statusLineMonitor?.onClaudeHookAttention = { [weak self] event in
@@ -63,9 +57,4 @@ extension Pane {
         }
     }
 
-    @MainActor
-    func detachStatusLineNotificationHandlers() {
-        statusLineMonitor?.onClaudeHookAttention = nil
-        statusLineMonitor?.onPRMerged = nil
-    }
 }

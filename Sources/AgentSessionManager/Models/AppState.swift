@@ -17,12 +17,6 @@ final class AppState {
         activeTab?.panes.first { $0.id == activePaneID }
     }
 
-    func addTab(name: String, directory: URL) {
-        let tab = Tab(name: name, directory: directory)
-        tabs.append(tab)
-        activeTabID = tab.id
-    }
-
     func switchToTab(id: UUID) {
         activeTab?.lastActivePaneID = activePaneID
         activeTabID = id
@@ -37,10 +31,6 @@ final class AppState {
             clearNotification(paneID: id)
             MacNotificationCoordinator.shared.removeDeliveredNotifications(forPaneID: id)
         }
-    }
-
-    func isWorktreeDuplicate(directory: URL, name: String) -> Bool {
-        tabs.contains { $0.directory == directory && $0.hasPaneNamed(name) }
     }
 
     /// True if a pane in that tab already uses this checkout directory.
@@ -161,11 +151,6 @@ final class AppState {
                 ])
         }
         notifications.removeAll { $0.paneID == paneID }
-        SessionPersistence.save(appState: self)
-    }
-
-    func clearAllNotifications() {
-        notifications.removeAll()
         SessionPersistence.save(appState: self)
     }
 

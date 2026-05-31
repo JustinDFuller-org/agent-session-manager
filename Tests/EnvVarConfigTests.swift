@@ -2,6 +2,24 @@ import XCTest
 
 @testable import AgentSessionManager
 
+@MainActor
+private func restoreEnvVarOptions(into settings: AppSettings) {
+    let saved = SettingsPersistence.loadFailableArray(EnvVarConfig.self, from: "env-var-settings.json")
+    guard !saved.isEmpty else { return }
+    var updated = EnvVarConfig.all
+    var userAdded: [EnvVarConfig] = []
+    for option in saved {
+        if option.isUserAdded {
+            userAdded.append(option)
+        } else if let index = updated.firstIndex(where: { $0.id == option.id }) {
+            updated[index].isAvailable = option.isAvailable
+            updated[index].isDefaultEnabled = option.isDefaultEnabled
+            updated[index].defaultValue = option.defaultValue
+        }
+    }
+    settings.envVarOptions = updated + userAdded
+}
+
 final class EnvVarConfigTests: XCTestCase {
     private var predefined: [EnvVarConfig] {
         EnvVarConfig.all.filter { !$0.isUserAdded }
@@ -44,7 +62,9 @@ final class EnvVarConfigTests: XCTestCase {
     }
 
     func testUserAddedFactory() {
-        let envVar = EnvVarConfig.makeUserAdded(id: "MY_CUSTOM_VAR")
+        let envVar = EnvVarConfig(
+            id: "MY_CUSTOM_VAR", label: "MY_CUSTOM_VAR", description: "User-defined environment variable",
+            isAvailable: true, isUserAdded: true)
         XCTAssertTrue(envVar.isUserAdded)
         XCTAssertEqual(envVar.id, "MY_CUSTOM_VAR")
         XCTAssertEqual(envVar.label, "MY_CUSTOM_VAR")
@@ -72,7 +92,9 @@ final class EnvVarConfigTests: XCTestCase {
     }
 
     func testUserAddedCodingRoundTrip() throws {
-        var original = EnvVarConfig.makeUserAdded(id: "TEST_ENV_VAR")
+        var original = EnvVarConfig(
+            id: "TEST_ENV_VAR", label: "TEST_ENV_VAR", description: "User-defined environment variable",
+            isAvailable: true, isUserAdded: true)
         original.isDefaultEnabled = true
         original.defaultValue = "some-value"
 
@@ -126,7 +148,7 @@ final class EnvVarSettingsPersistenceTests: XCTestCase {
         SettingsPersistence.saveEnvVarOptions(appSettings: settings)
 
         let restored = AppSettings()
-        SettingsPersistence.restoreEnvVarOptions(into: restored)
+        restoreEnvVarOptions(into: restored)
 
         let restoredOption = restored.envVarOptions.first { $0.id == "ANTHROPIC_API_KEY" }
         XCTAssertNotNil(restoredOption)
@@ -140,18 +162,21 @@ final class EnvVarSettingsPersistenceTests: XCTestCase {
         SettingsPersistence.saveEnvVarOptions(appSettings: settings)
 
         let restored = AppSettings()
-        SettingsPersistence.restoreEnvVarOptions(into: restored)
+        restoreEnvVarOptions(into: restored)
 
         XCTAssertEqual(restored.envVarOptions.count, EnvVarConfig.all.count)
     }
 
     func testRestorePreservesUserAddedVars() {
         let settings = AppSettings()
-        settings.envVarOptions.append(EnvVarConfig.makeUserAdded(id: "MY_CUSTOM_VAR"))
+        settings.envVarOptions.append(
+            EnvVarConfig(
+                id: "MY_CUSTOM_VAR", label: "MY_CUSTOM_VAR", description: "User-defined environment variable",
+                isAvailable: true, isUserAdded: true))
         SettingsPersistence.saveEnvVarOptions(appSettings: settings)
 
         let restored = AppSettings()
-        SettingsPersistence.restoreEnvVarOptions(into: restored)
+        restoreEnvVarOptions(into: restored)
 
         let custom = restored.envVarOptions.first { $0.id == "MY_CUSTOM_VAR" }
         XCTAssertNotNil(custom)

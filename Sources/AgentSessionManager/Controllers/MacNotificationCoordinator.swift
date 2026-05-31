@@ -25,24 +25,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     /// Set while handling a banner click so `applicationShouldHandleReopen` can avoid redundant work.
     private(set) var isHandlingNotificationResponse = false
 
-    /// Maps `NSError` from UserNotifications APIs for debug logs and unit tests.
-    nonisolated static func describeUserNotificationsNSError(_ error: Error) -> String {
-        let ns = error as NSError
-        var suffix = ""
-        if ns.domain == UNError.errorDomain {
-            if ns.code == UNError.Code.notificationsNotAllowed.rawValue {
-                suffix =
-                    " unError=notificationsNotAllowed (see System Settings → Notifications for this app’s bundle ID; `make app` builds are ad-hoc signed)"
-            } else if let code = UNError.Code(rawValue: ns.code) {
-                suffix = " unError=\(String(describing: code))"
-            } else {
-                suffix = " unError=raw(\(ns.code))"
-            }
-        }
-        return
-            "domain=\(ns.domain) code=\(ns.code)\(suffix) description=\(ns.localizedDescription) userInfo=\(ns.userInfo as NSDictionary)"
-    }
-
     func bind(appState: AppState, appSettings: AppSettings) {
         self.appState = appState
         self.appSettings = appSettings
@@ -309,19 +291,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         #if DEV_BUILD
         WindowSnapshot.record(event: "notification.click.after_focus")
         #endif
-    }
-
-    /// UI tests: simulates a banner click without Notification Center.
-    func simulateBannerClickForUITesting(paneID: UUID, tabID: UUID, kind: String? = nil) {
-        guard AgentSessionManagerApp.isUITesting else { return }
-        isHandlingNotificationResponse = true
-        defer { isHandlingNotificationResponse = false }
-        handleNotificationNavigation(
-            paneIDStr: paneID.uuidString,
-            tabIDStr: tabID.uuidString,
-            kind: kind
-        )
-        (NSApp.delegate as? AppDelegate)?.focusMainWindow()
     }
 
     /// UI tests: simulates the activation path triggered by a notification click.

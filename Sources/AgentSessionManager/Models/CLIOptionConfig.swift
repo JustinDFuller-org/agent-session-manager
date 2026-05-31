@@ -184,12 +184,6 @@ struct CLIOptionConfig: Identifiable, Codable {
         }
     }
 
-    static func makeUserAdded(id: String, isString: Bool) -> CLIOptionConfig {
-        CLIOptionConfig(
-            id: id, label: id, description: "User-defined option", isAvailable: false, isDefaultEnabled: false,
-            isUserAdded: true, customIsStringType: isString)
-    }
-
     static let all: [CLIOptionConfig] = [
         CLIOptionConfig(
             id: "--add-dir", label: "Add Directory",

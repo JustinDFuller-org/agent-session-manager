@@ -33,9 +33,27 @@ struct NewTabSheet: View {
                         .truncationMode(.middle)
                         .accessibilityIdentifier("new-tab-directory-label")
                     Spacer()
-                    Button("Choose…") { pickDirectory() }
-                        .buttonStyle(.bordered)
-                        .accessibilityIdentifier("new-tab-choose-dir-button")
+                    Button("Choose…") {
+                        if AgentSessionManagerApp.isUITesting {
+                            directory = URL(fileURLWithPath: NSTemporaryDirectory())
+                                .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
+                            if name.isEmpty { name = "UITestWorkspace" }
+                            return
+                        }
+                        let panel = NSOpenPanel()
+                        panel.canChooseFiles = false
+                        panel.canChooseDirectories = true
+                        panel.allowsMultipleSelection = false
+                        panel.prompt = "Select"
+                        if panel.runModal() == .OK {
+                            directory = panel.url
+                            if name.isEmpty, let url = panel.url {
+                                name = url.lastPathComponent
+                            }
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("new-tab-choose-dir-button")
                 }
             }
 
@@ -53,7 +71,9 @@ struct NewTabSheet: View {
                     .accessibilityIdentifier("new-tab-cancel-button")
                 Button("Create") {
                     if let dir = directory, !name.isEmpty {
-                        appState.addTab(name: name, directory: dir)
+                        let tab = Tab(name: name, directory: dir)
+                        appState.tabs.append(tab)
+                        appState.activeTabID = tab.id
                         dismiss()
                     }
                 }
@@ -64,26 +84,5 @@ struct NewTabSheet: View {
         }
         .padding(24)
         .frame(width: 420)
-    }
-
-    private func pickDirectory() {
-        if AgentSessionManagerApp.isUITesting {
-            let testDir = URL(fileURLWithPath: NSTemporaryDirectory())
-                .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
-            directory = testDir
-            if name.isEmpty { name = "UITestWorkspace" }
-            return
-        }
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Select"
-        if panel.runModal() == .OK {
-            directory = panel.url
-            if name.isEmpty, let url = panel.url {
-                name = url.lastPathComponent
-            }
-        }
     }
 }

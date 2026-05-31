@@ -23,11 +23,13 @@ final class WorktreeFlowTests: BaseTestCase {
         app.buttons["new-pane-open-button"].click()
 
         XCTAssertFalse(app.scrollViews["new-pane-worktree-error"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "pane-close-\(uniqueName)").firstMatch.waitForExistence(timeout: paneWait))
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "pane-close-\(uniqueName)").firstMatch
+                .waitForExistence(timeout: paneWait))
         XCTAssertFalse(app.textFields["new-pane-name-field"].waitForExistence(timeout: 2))
 
         // Loose branch resolves via app routing without error
-        GitUITestWorkspace.addLooseBranch(named: "loose-ui")
+        GitUITestWorkspace.runGitOrFail(["branch", "loose-ui", "HEAD"], cwd: GitUITestWorkspace.directoryURL)
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
@@ -35,7 +37,9 @@ final class WorktreeFlowTests: BaseTestCase {
         nameField.typeText("loose-ui")
         app.buttons["new-pane-open-button"].click()
 
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "pane-close-loose-ui").firstMatch.waitForExistence(timeout: paneWait))
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "pane-close-loose-ui").firstMatch.waitForExistence(
+                timeout: paneWait))
         XCTAssertFalse(app.scrollViews["new-pane-worktree-error"].waitForExistence(timeout: 2))
 
         // Reuse confirmation: cancel leaves sheet open, continue opens pane
@@ -50,7 +54,13 @@ final class WorktreeFlowTests: BaseTestCase {
         let cancelBtn = app.descendants(matching: .any).matching(identifier: "takeover-cancel-button").firstMatch
         XCTAssertTrue(cancelBtn.waitForExistence(timeout: paneWait))
         cancelBtn.click()
-        XCTAssertTrue(waitForTakeoverDialogDismissed(timeout: 5))
+        let dontManageBtn =
+            app.descendants(matching: .any).matching(identifier: "takeover-dont-manage-button").firstMatch
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline, dontManageBtn.exists || cancelBtn.exists {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+        XCTAssertFalse(dontManageBtn.exists || cancelBtn.exists)
         XCTAssertTrue(app.textFields["new-pane-name-field"].waitForExistence(timeout: 3))
 
         // Now confirm reuse: pane opens on primary checkout
@@ -59,7 +69,9 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertTrue(continueBtn.waitForExistence(timeout: paneWait))
         continueBtn.click()
 
-        XCTAssertTrue(app.staticTexts.matching(identifier: "pane-name-\(primaryCheckoutPaneIdentifier)").firstMatch.waitForExistence(timeout: paneWait))
+        XCTAssertTrue(
+            app.staticTexts.matching(identifier: "pane-name-\(primaryCheckoutPaneIdentifier)").firstMatch
+                .waitForExistence(timeout: paneWait))
         XCTAssertFalse(app.textFields["new-pane-name-field"].waitForExistence(timeout: 2))
 
         // Duplicate managed worktree shows error, cancel closes sheet
@@ -71,7 +83,8 @@ final class WorktreeFlowTests: BaseTestCase {
         nameField.click()
         nameField.typeText("wt-dup")
         app.buttons["new-pane-open-button"].click()
-        XCTAssertTrue(app.staticTexts.matching(identifier: "pane-name-wt-dup").firstMatch.waitForExistence(timeout: paneWait))
+        XCTAssertTrue(
+            app.staticTexts.matching(identifier: "pane-name-wt-dup").firstMatch.waitForExistence(timeout: paneWait))
 
         // Opening a duplicate pane name triggers inline validation before submit.
         app.typeKey("p", modifierFlags: .command)
@@ -93,7 +106,8 @@ final class WorktreeFlowTests: BaseTestCase {
         nameField.click()
         nameField.typeText("wt-side")
         app.buttons["new-pane-open-button"].click()
-        XCTAssertTrue(app.staticTexts.matching(identifier: "pane-name-wt-side").firstMatch.waitForExistence(timeout: paneWait))
+        XCTAssertTrue(
+            app.staticTexts.matching(identifier: "pane-name-wt-side").firstMatch.waitForExistence(timeout: paneWait))
     }
 
     func testWorktreeCleanupFlow() {
@@ -185,14 +199,4 @@ final class WorktreeFlowTests: BaseTestCase {
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(folder)").firstMatch, timeout: 10)
     }
 
-    private func waitForTakeoverDialogDismissed(timeout: TimeInterval) -> Bool {
-        let dontManageBtn = app.descendants(matching: .any).matching(identifier: "takeover-dont-manage-button").firstMatch
-        let cancelBtn = app.descendants(matching: .any).matching(identifier: "takeover-cancel-button").firstMatch
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if !dontManageBtn.exists && !cancelBtn.exists { return true }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        }
-        return false
-    }
 }

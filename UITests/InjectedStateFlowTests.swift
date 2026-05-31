@@ -29,7 +29,41 @@ final class InjectedStateFlowTests: XCTestCase {
     }
 
     func testPaneStatusDotFlow() {
-        injectStatusSession()
+        let workspaceDir = GitUITestWorkspace.directoryURL.path
+        writeSession(
+            """
+            {
+              "tabs": [
+                {
+                  "id": "\(Self.statusTabID)",
+                  "name": "StatusTab",
+                  "directory": "\(workspaceDir)",
+                  "panes": [
+                    {
+                      "id": "\(Self.statusPaneID)",
+                      "name": "running-pane",
+                      "harness": "claude",
+                      "isPriority": false,
+                      "isMerged": false,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    },
+                    {
+                      "id": "66666666-6666-6666-6666-666666666666",
+                      "name": "merged-pane",
+                      "harness": "claude",
+                      "isPriority": false,
+                      "isMerged": true,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    }
+                  ]
+                }
+              ],
+              "activeTabIndex": 0,
+              "pendingNotifications": []
+            }
+            """)
         app = XCUIApplication()
         app.launchArguments = ["--uitesting"]
         app.launch()
@@ -37,15 +71,55 @@ final class InjectedStateFlowTests: XCTestCase {
 
         // Both panes start idle (no output, no notification) — activity indicator shows idle ring.
         // Circle shapes don't appear under otherElements — search all descendants.
-        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane").firstMatch
+        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane")
+            .firstMatch
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
 
-        let mergedDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-merged-pane").firstMatch
+        let mergedDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-merged-pane")
+            .firstMatch
         XCTAssertTrue(mergedDot.waitForExistence(timeout: 15))
     }
 
     func testPRMergedNotificationFlow() {
-        injectPRMergedSession()
+        let workspaceDir = GitUITestWorkspace.directoryURL.path
+        writeSession(
+            """
+            {
+              "tabs": [
+                {
+                  "id": "\(Self.tabID)",
+                  "name": "TestTab",
+                  "directory": "\(workspaceDir)",
+                  "panes": [
+                    {
+                      "id": "\(Self.paneID)",
+                      "name": "test-pane",
+                      "harness": "claude",
+                      "isPriority": false,
+                      "isMerged": true,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    }
+                  ]
+                }
+              ],
+              "activeTabIndex": 0,
+              "pendingNotifications": [
+                {
+                  "notificationID": "\(Self.notifID)",
+                  "paneID": "\(Self.paneID)",
+                  "paneName": "test-pane",
+                  "tabID": "\(Self.tabID)",
+                  "tabName": "TestTab",
+                  "isPriority": false,
+                  "timestamp": 0,
+                  "kind": "prMerged",
+                  "prNumber": 1,
+                  "prTitle": "Test PR"
+                }
+              ]
+            }
+            """)
         app = XCUIApplication()
         app.launchArguments = ["--uitesting"]
         app.launch()
@@ -93,101 +167,9 @@ final class InjectedStateFlowTests: XCTestCase {
     }
 
     func testRegularNotificationReasonFlow() {
-        injectRegularNotificationSession()
-        app = XCUIApplication()
-        app.launchArguments = ["--uitesting"]
-        app.launch()
-        app.activate()
-
-        XCTAssertTrue(app.staticTexts["TestTab / test-pane"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["Permission needed for Bash"].exists)
-    }
-
-    // MARK: - Session injection
-
-    private func injectStatusSession() {
         let workspaceDir = GitUITestWorkspace.directoryURL.path
-        let json = """
-            {
-              "tabs": [
-                {
-                  "id": "\(Self.statusTabID)",
-                  "name": "StatusTab",
-                  "directory": "\(workspaceDir)",
-                  "panes": [
-                    {
-                      "id": "\(Self.statusPaneID)",
-                      "name": "running-pane",
-                      "harness": "claude",
-                      "isPriority": false,
-                      "isMerged": false,
-                      "worktreeDirectory": "\(workspaceDir)",
-                      "worktreeIsManaged": false
-                    },
-                    {
-                      "id": "66666666-6666-6666-6666-666666666666",
-                      "name": "merged-pane",
-                      "harness": "claude",
-                      "isPriority": false,
-                      "isMerged": true,
-                      "worktreeDirectory": "\(workspaceDir)",
-                      "worktreeIsManaged": false
-                    }
-                  ]
-                }
-              ],
-              "activeTabIndex": 0,
-              "pendingNotifications": []
-            }
+        writeSession(
             """
-        writeSession(json)
-    }
-
-    private func injectPRMergedSession() {
-        let workspaceDir = GitUITestWorkspace.directoryURL.path
-        let json = """
-            {
-              "tabs": [
-                {
-                  "id": "\(Self.tabID)",
-                  "name": "TestTab",
-                  "directory": "\(workspaceDir)",
-                  "panes": [
-                    {
-                      "id": "\(Self.paneID)",
-                      "name": "test-pane",
-                      "harness": "claude",
-                      "isPriority": false,
-                      "isMerged": true,
-                      "worktreeDirectory": "\(workspaceDir)",
-                      "worktreeIsManaged": false
-                    }
-                  ]
-                }
-              ],
-              "activeTabIndex": 0,
-              "pendingNotifications": [
-                {
-                  "notificationID": "\(Self.notifID)",
-                  "paneID": "\(Self.paneID)",
-                  "paneName": "test-pane",
-                  "tabID": "\(Self.tabID)",
-                  "tabName": "TestTab",
-                  "isPriority": false,
-                  "timestamp": 0,
-                  "kind": "prMerged",
-                  "prNumber": 1,
-                  "prTitle": "Test PR"
-                }
-              ]
-            }
-            """
-        writeSession(json)
-    }
-
-    private func injectRegularNotificationSession() {
-        let workspaceDir = GitUITestWorkspace.directoryURL.path
-        let json = """
             {
               "tabs": [
                 {
@@ -222,9 +204,17 @@ final class InjectedStateFlowTests: XCTestCase {
                 }
               ]
             }
-            """
-        writeSession(json)
+            """)
+        app = XCUIApplication()
+        app.launchArguments = ["--uitesting"]
+        app.launch()
+        app.activate()
+
+        XCTAssertTrue(app.staticTexts["TestTab / test-pane"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Permission needed for Bash"].exists)
     }
+
+    // MARK: - Session injection
 
     private func writeSession(_ json: String) {
         let support = UITestAppSupport.directory

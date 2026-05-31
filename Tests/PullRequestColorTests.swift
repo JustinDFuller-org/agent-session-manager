@@ -27,10 +27,6 @@ final class PullRequestColorTests: XCTestCase {
         StatusCheck(name: "ci", status: "COMPLETED", conclusion: "SUCCESS", detailsUrl: nil)
     }
 
-    private func runningCheck() -> StatusCheck {
-        StatusCheck(name: "ci", status: "IN_PROGRESS", conclusion: nil, detailsUrl: nil)
-    }
-
     func testMergedWithFailingCI() {
         let pr = makePR(state: "merged", checks: [failingCheck()])
         XCTAssertEqual(pr.circleColor, .purple)
@@ -67,7 +63,9 @@ final class PullRequestColorTests: XCTestCase {
     }
 
     func testOpenWithRunningCI() {
-        let pr = makePR(state: "open", checks: [runningCheck()])
+        let pr = makePR(
+            state: "open",
+            checks: [StatusCheck(name: "ci", status: "IN_PROGRESS", conclusion: nil, detailsUrl: nil)])
         XCTAssertEqual(pr.circleColor, .yellow)
     }
 

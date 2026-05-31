@@ -103,17 +103,28 @@ final class TracingService: @unchecked Sendable {
 
     /// Emits a zero-duration span (instantaneous event). Pass a `parent` handle to make
     /// this span a child of an in-progress trace.
-    func record(_ name: String, parent: SpanHandle? = nil, attributes: [String: String] = [:]) {
+    func record(
+        _ name: String,
+        parent: SpanHandle? = nil,
+        startTime: Date? = nil,
+        endTime: Date? = nil,
+        attributes: [String: String] = [:]
+    ) {
         let (tracer, captureEnabled) = lock.withLock { (_isEnabled ? _tracer : nil, _testCaptureEnabled) }
         if captureEnabled {
             lock.withLock { _recordedEventsForTesting.append((name: name, attributes: attributes)) }
         }
         guard let tracer else { return }
         let builder = tracer.spanBuilder(spanName: name)
+        if let startTime { _ = builder.setStartTime(time: startTime) }
         if let parent { _ = builder.setParent(parent.span.context) }
         let span = builder.startSpan()
         for (key, value) in attributes { span.setAttribute(key: key, value: value) }
-        span.end()
+        if let endTime {
+            span.end(time: endTime)
+        } else {
+            span.end()
+        }
     }
 
     // MARK: - Scoped spans
@@ -158,23 +169,4 @@ final class TracingService: @unchecked Sendable {
         }
     }
 
-    // MARK: - Explicit-timing spans
-
-    /// Emits a span with explicit start and end times, for callback-based async operations
-    /// where the span cannot wrap the body directly. Pass a `parent` handle to make this
-    /// span a child of an in-progress trace.
-    func recordSpan(
-        _ name: String,
-        parent: SpanHandle? = nil,
-        startTime: Date,
-        endTime: Date,
-        attributes: [String: String] = [:]
-    ) {
-        guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return }
-        let builder = tracer.spanBuilder(spanName: name).setStartTime(time: startTime)
-        if let parent { _ = builder.setParent(parent.span.context) }
-        let span = builder.startSpan()
-        for (key, value) in attributes { span.setAttribute(key: key, value: value) }
-        span.end(time: endTime)
-    }
 }

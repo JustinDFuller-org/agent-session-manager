@@ -7,12 +7,12 @@ private struct FailableDecodable<T: Decodable>: Decodable {
     }
 }
 
-private struct DefaultBranchConfig: Codable, Equatable {
+struct DefaultBranchConfig: Codable, Equatable {
     var isEnabled: Bool = true
     var branchName: String = "main"
 }
 
-private struct NotificationConfig: Codable {
+struct NotificationConfig: Codable {
     var sidebarSide: SidebarSide
     var isPriorityEnabled: Bool
     var isMacOSBannerEnabled: Bool
@@ -70,13 +70,13 @@ private struct NotificationConfig: Codable {
     }
 }
 
-private struct RestartConfig: Codable {
+struct RestartConfig: Codable {
     var continueOnRestart: Bool = true
 }
 
 @MainActor
 struct SettingsPersistence {
-    private static var appSupportDir: URL {
+    nonisolated private static var appSupportDir: URL {
         let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -110,17 +110,25 @@ struct SettingsPersistence {
         appSupportDir.appending(path: "activity-indicator-settings.json")
     }
 
-    static func save(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
-        try? data.write(to: settingsURL)
+    static func save<Value: Encodable>(_ value: Value, to filename: String) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        try? data.write(to: appSupportDir.appending(path: filename))
     }
 
-    static func restore(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: settingsURL) else { return }
-        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
-        let saved = failable?.compactMap(\.value) ?? []
+    nonisolated static func load<Value: Decodable>(_ type: Value.Type, from filename: String) -> Value? {
+        guard let data = try? Data(contentsOf: appSupportDir.appending(path: filename)) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
 
-        var updated = CLIOptionConfig.all
+    static func loadFailableArray<Value: Decodable>(_ type: Value.Type, from filename: String) -> [Value] {
+        guard let data = try? Data(contentsOf: appSupportDir.appending(path: filename)) else { return [] }
+        return
+            (try? JSONDecoder().decode([FailableDecodable<Value>].self, from: data))?
+            .compactMap(\.value) ?? []
+    }
+
+    static func mergeCLIOptions(_ saved: [CLIOptionConfig], into defaults: [CLIOptionConfig]) -> [CLIOptionConfig] {
+        var updated = defaults
         var userAdded: [CLIOptionConfig] = []
         for savedOption in saved {
             if savedOption.isUserAdded {
@@ -130,7 +138,12 @@ struct SettingsPersistence {
                 updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
             }
         }
-        appSettings.cliOptions = updated + userAdded
+        return updated + userAdded
+    }
+
+    static func save(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
+        try? data.write(to: settingsURL)
     }
 
     static func saveCodexOptions(appSettings: AppSettings) {
@@ -138,45 +151,9 @@ struct SettingsPersistence {
         try? data.write(to: codexSettingsURL)
     }
 
-    static func restoreCodexOptions(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: codexSettingsURL) else { return }
-        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
-        let saved = failable?.compactMap(\.value) ?? []
-
-        var updated = CLIOptionConfig.codexAll
-        var userAdded: [CLIOptionConfig] = []
-        for savedOption in saved {
-            if savedOption.isUserAdded {
-                userAdded.append(savedOption)
-            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
-                updated[index].isAvailable = savedOption.isAvailable
-                updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
-            }
-        }
-        appSettings.codexCliOptions = updated + userAdded
-    }
-
     static func saveCursorOptions(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cursorCliOptions) else { return }
         try? data.write(to: cursorSettingsURL)
-    }
-
-    static func restoreCursorOptions(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: cursorSettingsURL) else { return }
-        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
-        let saved = failable?.compactMap(\.value) ?? []
-
-        var updated = CLIOptionConfig.cursorAll
-        var userAdded: [CLIOptionConfig] = []
-        for savedOption in saved {
-            if savedOption.isUserAdded {
-                userAdded.append(savedOption)
-            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
-                updated[index].isAvailable = savedOption.isAvailable
-                updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
-            }
-        }
-        appSettings.cursorCliOptions = updated + userAdded
     }
 
     static func saveActiveTools(appSettings: AppSettings) {
@@ -185,26 +162,9 @@ struct SettingsPersistence {
         try? data.write(to: activeToolsURL)
     }
 
-    static func restoreActiveTools(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: activeToolsURL),
-            let saved = try? JSONDecoder().decode([String].self, from: data)
-        else { return }
-        let knownRaws = Set(Harness.allCases.map(\.rawValue))
-        appSettings.activeTools = Set(saved).intersection(knownRaws)
-    }
-
     static func saveStatusLine(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.statusLineConfig) else { return }
         try? data.write(to: statusLineSettingsURL)
-    }
-
-    static func restoreStatusLine(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: statusLineSettingsURL),
-            let saved = try? JSONDecoder().decode(StatusLineConfig.self, from: data)
-        else { return }
-        appSettings.statusLineConfig = saved
     }
 
     static func saveDefaultBranch(appSettings: AppSettings) {
@@ -212,17 +172,6 @@ struct SettingsPersistence {
             isEnabled: appSettings.isDefaultBranchEnabled, branchName: appSettings.defaultBranch)
         guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: defaultBranchURL)
-    }
-
-    static func restoreDefaultBranch(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: defaultBranchURL) else { return }
-        if let config = try? JSONDecoder().decode(DefaultBranchConfig.self, from: data) {
-            appSettings.isDefaultBranchEnabled = config.isEnabled
-            appSettings.defaultBranch = config.branchName
-        } else if let saved = try? JSONDecoder().decode(String.self, from: data), !saved.isEmpty {
-            appSettings.defaultBranch = saved
-            appSettings.isDefaultBranchEnabled = true
-        }
     }
 
     static func saveNotificationSettings(appSettings: AppSettings) {
@@ -238,30 +187,6 @@ struct SettingsPersistence {
         try? data.write(to: notificationSettingsURL)
     }
 
-    static func restoreNotificationSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: notificationSettingsURL),
-            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
-        else { return }
-        appSettings.notificationSidebarSide = config.sidebarSide
-        appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
-        appSettings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
-        appSettings.isCursorNotificationHookAttentionEnabled = config.isCursorHookAttentionEnabled
-        appSettings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
-        appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
-    }
-
-    nonisolated static func isCursorHookAttentionEnabled() -> Bool {
-        let config = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let url = config.appending(path: PersistenceHelpers.appSupportSubdirectory)
-            .appending(path: "notification-settings.json")
-        guard
-            let data = try? Data(contentsOf: url),
-            let decoded = try? JSONDecoder().decode(NotificationConfig.self, from: data)
-        else { return true }
-        return decoded.isCursorHookAttentionEnabled
-    }
-
     static func isPRMergedNotificationsEnabled() -> Bool {
         guard
             let data = try? Data(contentsOf: notificationSettingsURL),
@@ -270,75 +195,9 @@ struct SettingsPersistence {
         return config.isPRMergedNotificationsEnabled
     }
 
-    static func saveRestartSettings(appSettings: AppSettings) {
-        let config = RestartConfig(continueOnRestart: appSettings.continueOnRestart)
-        guard let data = try? JSONEncoder().encode(config) else { return }
-        try? data.write(to: restartSettingsURL)
-    }
-
-    static func restoreRestartSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: restartSettingsURL),
-            let config = try? JSONDecoder().decode(RestartConfig.self, from: data)
-        else { return }
-        appSettings.continueOnRestart = config.continueOnRestart
-    }
-
-    static func saveWorktreeCleanup(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.worktreeCleanupBehavior) else { return }
-        try? data.write(to: worktreeCleanupURL)
-    }
-
-    static func restoreWorktreeCleanup(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: worktreeCleanupURL),
-            let behavior = try? JSONDecoder().decode(WorktreeCleanupBehavior.self, from: data)
-        else { return }
-        appSettings.worktreeCleanupBehavior = behavior
-    }
-
-    static func saveExistingWorktreeManagement(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.existingWorktreeManagement) else { return }
-        try? data.write(to: existingWorktreeManagementURL)
-    }
-
-    static func restoreExistingWorktreeManagement(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: existingWorktreeManagementURL),
-            let behavior = try? JSONDecoder().decode(ExistingWorktreeManagement.self, from: data)
-        else { return }
-        appSettings.existingWorktreeManagement = behavior
-    }
-
-    private struct DebugSettings: Codable {
+    struct DebugSettings: Codable {
         var schemaVersion: Int
         var enabled: Bool = false
-    }
-
-    static func saveDebugSettings(appSettings: AppSettings) {
-        let payload = DebugSettings(schemaVersion: 1, enabled: appSettings.debugModeEnabled)
-        guard let data = try? JSONEncoder().encode(payload) else { return }
-        try? data.write(to: debugSettingsURL)
-    }
-
-    static func restoreDebugSettings(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: debugSettingsURL) else { return }
-        guard let settings = try? JSONDecoder().decode(DebugSettings.self, from: data) else { return }
-        guard settings.schemaVersion == 1 else { return }
-        appSettings.debugModeEnabled = settings.enabled
-    }
-
-    static func savePRTracking(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.githubPRTrackingEnabled) else { return }
-        try? data.write(to: prTrackingSettingsURL)
-    }
-
-    static func restorePRTracking(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: prTrackingSettingsURL),
-            let enabled = try? JSONDecoder().decode(Bool.self, from: data)
-        else { return }
-        appSettings.githubPRTrackingEnabled = enabled
     }
 
     static func isPRTrackingEnabled() -> Bool {
@@ -349,48 +208,8 @@ struct SettingsPersistence {
         return enabled
     }
 
-    private struct TerminalSettings: Codable {
+    struct TerminalSettings: Codable {
         var scrollbackLines: Int = 500
-    }
-
-    static func saveTerminalSettings(appSettings: AppSettings) {
-        let payload = TerminalSettings(scrollbackLines: appSettings.scrollbackLines)
-        guard let data = try? JSONEncoder().encode(payload) else { return }
-        try? data.write(to: terminalSettingsURL)
-    }
-
-    static func restoreTerminalSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: terminalSettingsURL),
-            let settings = try? JSONDecoder().decode(TerminalSettings.self, from: data)
-        else { return }
-        appSettings.scrollbackLines = settings.scrollbackLines
-    }
-
-    static func saveWorktreeBaseRef(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.worktreeBaseRef) else { return }
-        try? data.write(to: worktreeBaseRefURL)
-    }
-
-    static func restoreWorktreeBaseRef(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: worktreeBaseRefURL),
-            let value = try? JSONDecoder().decode(WorktreeBaseRef.self, from: data)
-        else { return }
-        appSettings.worktreeBaseRef = value
-    }
-
-    static func saveExitBehavior(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.exitBehavior) else { return }
-        try? data.write(to: exitBehaviorURL)
-    }
-
-    static func restoreExitBehavior(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: exitBehaviorURL),
-            let value = try? JSONDecoder().decode(ExitBehavior.self, from: data)
-        else { return }
-        appSettings.exitBehavior = value
     }
 
     struct PRPollingSettings: Codable {
@@ -411,17 +230,6 @@ struct SettingsPersistence {
         try? data.write(to: prPollingSettingsURL)
     }
 
-    static func restorePRPollingSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: prPollingSettingsURL),
-            let settings = try? JSONDecoder().decode(PRPollingSettings.self, from: data)
-        else { return }
-        appSettings.prPollingIntervalSeconds = max(15, settings.intervalSeconds)
-        appSettings.prRequestTimeoutSeconds = max(5, settings.timeoutSeconds)
-        appSettings.prBackgroundRefreshEnabled = settings.backgroundRefreshEnabled
-        appSettings.prBackgroundPollingIntervalSeconds = max(15, settings.backgroundIntervalSeconds)
-    }
-
     static func prPollingSettings() -> PRPollingSettings {
         guard
             let data = try? Data(contentsOf: prPollingSettingsURL),
@@ -440,27 +248,7 @@ struct SettingsPersistence {
         try? data.write(to: envVarSettingsURL)
     }
 
-    static func restoreEnvVarOptions(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: envVarSettingsURL) else { return }
-        let failable = try? JSONDecoder().decode([FailableDecodable<EnvVarConfig>].self, from: data)
-        let saved = failable?.compactMap(\.value) ?? []
-        if saved.isEmpty { return }
-
-        var updated = EnvVarConfig.all
-        var userAdded: [EnvVarConfig] = []
-        for savedOption in saved {
-            if savedOption.isUserAdded {
-                userAdded.append(savedOption)
-            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
-                updated[index].isAvailable = savedOption.isAvailable
-                updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
-                updated[index].defaultValue = savedOption.defaultValue
-            }
-        }
-        appSettings.envVarOptions = updated + userAdded
-    }
-
-    private struct ProfilesContainer: Codable {
+    struct ProfilesContainer: Codable {
         var profiles: [Profile]
     }
 
@@ -470,28 +258,7 @@ struct SettingsPersistence {
         try? data.write(to: profilesURL)
     }
 
-    static func restoreProfiles(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: profilesURL),
-            let container = try? JSONDecoder().decode(ProfilesContainer.self, from: data)
-        else { return }
-        appSettings.profiles = container.profiles
-    }
-
-    static func saveSessionNameSettings(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.autoSetSessionName) else { return }
-        try? data.write(to: sessionNameSettingsURL)
-    }
-
-    static func restoreSessionNameSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: sessionNameSettingsURL),
-            let value = try? JSONDecoder().decode(Bool.self, from: data)
-        else { return }
-        appSettings.autoSetSessionName = value
-    }
-
-    private struct ShellSettings: Codable {
+    struct ShellSettings: Codable {
         var preferredShell: String = ""
     }
 
@@ -501,33 +268,11 @@ struct SettingsPersistence {
         try? data.write(to: shellSettingsURL)
     }
 
-    static func restoreShellSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: shellSettingsURL),
-            let settings = try? JSONDecoder().decode(ShellSettings.self, from: data)
-        else { return }
-        appSettings.preferredShell = settings.preferredShell
-    }
-
-    private struct OnboardingSettings: Codable {
+    struct OnboardingSettings: Codable {
         var completed: Bool = false
     }
 
-    static func saveOnboarding(appSettings: AppSettings) {
-        let payload = OnboardingSettings(completed: appSettings.hasCompletedOnboarding)
-        guard let data = try? JSONEncoder().encode(payload) else { return }
-        try? data.write(to: onboardingSettingsURL)
-    }
-
-    static func restoreOnboarding(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: onboardingSettingsURL),
-            let settings = try? JSONDecoder().decode(OnboardingSettings.self, from: data)
-        else { return }
-        appSettings.hasCompletedOnboarding = settings.completed
-    }
-
-    private struct ActivityIndicatorConfig: Codable {
+    struct ActivityIndicatorConfig: Codable {
         var enabled: Bool = true
 
         enum CodingKeys: String, CodingKey {
@@ -549,17 +294,4 @@ struct SettingsPersistence {
         }
     }
 
-    static func saveActivityIndicatorSettings(appSettings: AppSettings) {
-        let config = ActivityIndicatorConfig(enabled: appSettings.paneActivityIndicatorsEnabled)
-        guard let data = try? JSONEncoder().encode(config) else { return }
-        try? data.write(to: activityIndicatorSettingsURL)
-    }
-
-    static func restoreActivityIndicatorSettings(into appSettings: AppSettings) {
-        guard
-            let data = try? Data(contentsOf: activityIndicatorSettingsURL),
-            let config = try? JSONDecoder().decode(ActivityIndicatorConfig.self, from: data)
-        else { return }
-        appSettings.paneActivityIndicatorsEnabled = config.enabled
-    }
 }

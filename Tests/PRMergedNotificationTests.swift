@@ -3,6 +3,14 @@ import XCTest
 @testable import AgentSessionManager
 
 @MainActor
+private func restorePRMergedNotificationSettings(into settings: AppSettings) {
+    guard let config = SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json") else {
+        return
+    }
+    settings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
+}
+
+@MainActor
 final class PRMergedNotificationTests: XCTestCase {
     private var notificationSettingsURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -317,7 +325,7 @@ final class PRMergedNotificationTests: XCTestCase {
         SettingsPersistence.saveNotificationSettings(appSettings: settings)
 
         let restored = AppSettings()
-        SettingsPersistence.restoreNotificationSettings(into: restored)
+        restorePRMergedNotificationSettings(into: restored)
         XCTAssertFalse(restored.isPRMergedNotificationsEnabled)
     }
 
@@ -333,7 +341,7 @@ final class PRMergedNotificationTests: XCTestCase {
 
         let restored = AppSettings()
         restored.isPRMergedNotificationsEnabled = false
-        SettingsPersistence.restoreNotificationSettings(into: restored)
+        restorePRMergedNotificationSettings(into: restored)
         XCTAssertTrue(restored.isPRMergedNotificationsEnabled)
     }
 

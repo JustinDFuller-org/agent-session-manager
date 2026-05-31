@@ -57,7 +57,8 @@ struct NotificationSidebarView: View {
 
     private var clearAllButton: some View {
         Button {
-            appState.clearAllNotifications()
+            appState.notifications.removeAll()
+            SessionPersistence.save(appState: appState)
         } label: {
             Text("Clear All")
                 .font(.system(size: 11))
@@ -108,9 +109,17 @@ struct NotificationSidebarView: View {
                         .font(.system(size: 10))
                         .foregroundStyle(notification.kind == .prMerged ? Color.purple : Color.secondary)
                         .lineLimit(1)
-                    Text(formatTimestamp(notification.timestamp))
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
+                    Text(
+                        {
+                            let formatter = DateFormatter()
+                            formatter.dateFormat =
+                                Calendar.current.isDate(notification.timestamp, inSameDayAs: Date())
+                                ? "HH:mm" : "MM/dd/yyyy"
+                            return formatter.string(from: notification.timestamp)
+                        }()
+                    )
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
                 }
 
                 Spacer()
@@ -122,17 +131,5 @@ struct NotificationSidebarView: View {
         .buttonStyle(.plain)
         .background(Color.clear)
         .accessibilityIdentifier("notification-row-\(notification.paneName)")
-    }
-
-    private func formatTimestamp(_ date: Date) -> String {
-        if Calendar.current.isDate(date, inSameDayAs: Date()) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            return formatter.string(from: date)
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MM/dd/yyyy"
-            return formatter.string(from: date)
-        }
     }
 }

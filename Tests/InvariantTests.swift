@@ -72,7 +72,7 @@ final class InvariantTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let blocked = directory.appending(path: "blocked")
         try Data("file".utf8).write(to: blocked)
-        InvariantReporter.shared.setWriterForTesting(InvariantLogWriter(directory: blocked, maxBytes: 10_000))
+        InvariantReporter.shared.writer = InvariantLogWriter(directory: blocked, maxBytes: 10_000)
 
         InvariantReporter.shared.violated(.statusLineWorktreeName)
 
@@ -109,14 +109,24 @@ final class InvariantTests: XCTestCase {
 
         let settings = AppSettings()
         settings.debugModeEnabled = true
-        SettingsPersistence.saveDebugSettings(appSettings: settings)
+        SettingsPersistence.save(
+            SettingsPersistence.DebugSettings(schemaVersion: 1, enabled: settings.debugModeEnabled),
+            to: "debug-settings.json")
         settings.debugModeEnabled = false
-        SettingsPersistence.restoreDebugSettings(into: settings)
+        if let saved = SettingsPersistence.load(SettingsPersistence.DebugSettings.self, from: "debug-settings.json"),
+            saved.schemaVersion == 1
+        {
+            settings.debugModeEnabled = saved.enabled
+        }
         XCTAssertTrue(settings.debugModeEnabled)
 
         try Data("{\"enabled\":false}".utf8).write(to: support.appending(path: "debug-settings.json"))
         settings.debugModeEnabled = true
-        SettingsPersistence.restoreDebugSettings(into: settings)
+        if let saved = SettingsPersistence.load(SettingsPersistence.DebugSettings.self, from: "debug-settings.json"),
+            saved.schemaVersion == 1
+        {
+            settings.debugModeEnabled = saved.enabled
+        }
         XCTAssertTrue(settings.debugModeEnabled, "Legacy schema must be ignored")
     }
 }

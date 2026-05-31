@@ -51,7 +51,11 @@ struct NewPaneSheet: View {
             return
                 "Name may only contain letters, digits, dots, underscores, and dashes. For a branch, use a ref such as origin/feature."
         }
-        if !isRefreshing && appState.isWorktreeDuplicate(directory: tab.directory, name: trimmed) {
+        if !isRefreshing
+            && appState.tabs.contains(where: {
+                $0.directory == tab.directory && $0.panes.contains(where: { $0.name == trimmed })
+            })
+        {
             return "A pane with this worktree is already open."
         }
         return nil
@@ -161,7 +165,36 @@ struct NewPaneSheet: View {
                 suggestedName: selectedProfile?.name ?? "",
                 harness: selectedHarness,
                 onSave: { name in
-                    saveCurrentFormAsProfile(name: name)
+                    let cliOptions = activeOptions.filter(\.isAvailable).map { option in
+                        let state = optionStates[option.id] ?? OptionState(enabled: false, value: "")
+                        let showOnCreate =
+                            selectedProfile?.cliOptions.first { $0.id == option.id }?.showOnPaneCreate ?? false
+                        return ProfileCLIOption(
+                            id: option.id,
+                            isEnabled: state.enabled,
+                            value: state.value.isEmpty ? nil : state.value,
+                            showOnPaneCreate: showOnCreate
+                        )
+                    }
+                    let envVars: [ProfileEnvVar]
+                    if selectedHarness == .claude {
+                        envVars = appSettings.envVarOptions.filter(\.isAvailable).map { envVar in
+                            let state = envVarStates[envVar.id] ?? OptionState(enabled: false, value: "")
+                            let showOnCreate =
+                                selectedProfile?.envVars.first { $0.id == envVar.id }?.showOnPaneCreate ?? false
+                            return ProfileEnvVar(
+                                id: envVar.id, isEnabled: state.enabled, value: state.value,
+                                showOnPaneCreate: showOnCreate)
+                        }
+                    } else {
+                        envVars = []
+                    }
+                    let profile = Profile(
+                        name: name, harness: selectedHarness, cliOptions: cliOptions, envVars: envVars,
+                        statusLineConfig: nil)
+                    appSettings.profiles.append(profile)
+                    selectedProfileID = profile.id
+                    SettingsPersistence.saveProfiles(appSettings: appSettings)
                     create()
                 }
             )
@@ -336,7 +369,32 @@ struct NewPaneSheet: View {
                             HiddenCLIOptionToggleRow(
                                 option: option,
                                 state: stateBinding(for: option),
-                                onAddToGlobal: { newPaneAddToGlobal(optionID: option.id) }
+                                onAddToGlobal: {
+                                    switch selectedHarness {
+                                    case .claude:
+                                        if let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id })
+                                        {
+                                            appSettings.cliOptions[index].isAvailable = true
+                                        }
+                                        SettingsPersistence.save(appSettings: appSettings)
+                                    case .codex:
+                                        if let index = appSettings.codexCliOptions.firstIndex(where: {
+                                            $0.id == option.id
+                                        }) {
+                                            appSettings.codexCliOptions[index].isAvailable = true
+                                        }
+                                        SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+                                    case .cursor:
+                                        if let index = appSettings.cursorCliOptions.firstIndex(where: {
+                                            $0.id == option.id
+                                        }) {
+                                            appSettings.cursorCliOptions[index].isAvailable = true
+                                        }
+                                        SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+                                    case .shell:
+                                        break
+                                    }
+                                }
                             )
                         }
                     }
@@ -365,7 +423,12 @@ struct NewPaneSheet: View {
                             HiddenEnvVarToggleRow(
                                 envVar: envVar,
                                 state: envVarStateBinding(for: envVar),
-                                onAddToGlobal: { newPaneAddToGlobalEnvVar(id: envVar.id) }
+                                onAddToGlobal: {
+                                    if let index = appSettings.envVarOptions.firstIndex(where: { $0.id == envVar.id }) {
+                                        appSettings.envVarOptions[index].isAvailable = true
+                                    }
+                                    SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+                                }
                             )
                         }
                     }
@@ -417,21 +480,17 @@ struct NewPaneSheet: View {
 
     private func applyProfileOrDefaults() {
         if let profile = selectedProfile {
-            applyProfile(profile)
+            selectedHarness = profile.harness
+            optionStates = [:]
+            for opt in profile.cliOptions {
+                optionStates[opt.id] = OptionState(enabled: opt.isEnabled, value: opt.value ?? "")
+            }
+            envVarStates = [:]
+            for envVar in profile.envVars {
+                envVarStates[envVar.id] = OptionState(enabled: envVar.isEnabled, value: envVar.value)
+            }
         } else {
             initializeOptionStatesFromGlobal()
-        }
-    }
-
-    private func applyProfile(_ profile: Profile) {
-        selectedHarness = profile.harness
-        optionStates = [:]
-        for opt in profile.cliOptions {
-            optionStates[opt.id] = OptionState(enabled: opt.isEnabled, value: opt.value ?? "")
-        }
-        envVarStates = [:]
-        for ev in profile.envVars {
-            envVarStates[ev.id] = OptionState(enabled: ev.isEnabled, value: ev.value)
         }
     }
 
@@ -450,54 +509,41 @@ struct NewPaneSheet: View {
         }
     }
 
-    private func saveCurrentFormAsProfile(name: String) {
-        let cliOptions = activeOptions.filter(\.isAvailable).map { opt in
-            let state = optionStates[opt.id] ?? OptionState(enabled: false, value: "")
-            let showOnCreate = selectedProfile?.cliOptions.first { $0.id == opt.id }?.showOnPaneCreate ?? false
-            return ProfileCLIOption(
-                id: opt.id,
-                isEnabled: state.enabled,
-                value: state.value.isEmpty ? nil : state.value,
-                showOnPaneCreate: showOnCreate
-            )
-        }
-
-        let envVars: [ProfileEnvVar]
-        if selectedHarness == .claude {
-            envVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
-                let state = envVarStates[ev.id] ?? OptionState(enabled: false, value: "")
-                let showOnCreate = selectedProfile?.envVars.first { $0.id == ev.id }?.showOnPaneCreate ?? false
-                return ProfileEnvVar(
-                    id: ev.id, isEnabled: state.enabled, value: state.value,
-                    showOnPaneCreate: showOnCreate)
-            }
-        } else {
-            envVars = []
-        }
-
-        let profile = Profile(
-            name: name,
-            harness: selectedHarness,
-            cliOptions: cliOptions,
-            envVars: envVars,
-            statusLineConfig: nil
-        )
-        appSettings.profiles.append(profile)
-        selectedProfileID = profile.id
-        SettingsPersistence.saveProfiles(appSettings: appSettings)
-    }
-
     // MARK: - Create flow
 
     private func create() {
         guard canSubmit else { return }
         let trimmed = trimmedInput
         guard !trimmed.isEmpty, validationError == nil else { return }
-        let extraArgs = buildExtraArgs()
-        let extraEnvVars = buildExtraEnvVars()
+        var extraArgs: [String] = []
+        for option in activeOptions {
+            guard let state = optionStates[option.id], state.enabled else { continue }
+            switch option.optionType {
+            case .boolean:
+                extraArgs.append(option.id)
+            case .string:
+                let value = state.value.trimmingCharacters(in: .whitespaces)
+                if value.isEmpty {
+                    extraArgs.append(option.id)
+                } else {
+                    let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
+                    extraArgs.append(contentsOf: [option.id, "'\(escaped)'"])
+                }
+            }
+        }
+        var extraEnvVars: [String: String] = [:]
+        if selectedHarness == .claude {
+            for envVar in appSettings.envVarOptions {
+                guard let state = envVarStates[envVar.id], state.enabled else { continue }
+                let value = state.value.trimmingCharacters(in: .whitespaces)
+                if !value.isEmpty {
+                    extraEnvVars[envVar.id] = value
+                }
+            }
+        }
 
         if let pane = refreshingPane {
-            tab.refreshPaneWithArgs(
+            tab.refreshPane(
                 pane, extraArgs: extraArgs, harness: selectedHarness, extraEnvVars: extraEnvVars,
                 appSettings: appSettings)
             pane.profileID = selectedProfileID
@@ -602,19 +648,16 @@ struct NewPaneSheet: View {
                 }
             } catch {
                 await MainActor.run {
-                    pane.setupState = .failed(error: resolveErrorMessage(error))
+                    if let worktreeError = error as? WorktreeResolutionError {
+                        pane.setupState = .failed(error: worktreeError.localizedDescription)
+                    } else if let gitError = error as? GitCommandError {
+                        pane.setupState = .failed(error: gitError.localizedDescription)
+                    } else {
+                        pane.setupState = .failed(
+                            error: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+                    }
                 }
             }
-        }
-    }
-
-    private func resolveErrorMessage(_ error: Error) -> String {
-        if let wre = error as? WorktreeResolutionError {
-            return wre.localizedDescription
-        } else if let gitErr = error as? GitCommandError {
-            return gitErr.localizedDescription
-        } else {
-            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -622,67 +665,6 @@ struct NewPaneSheet: View {
         sessionInput = ""
     }
 
-    private func buildExtraArgs() -> [String] {
-        var args: [String] = []
-        for option in activeOptions {
-            guard let state = optionStates[option.id], state.enabled else { continue }
-            switch option.optionType {
-            case .boolean:
-                args.append(option.id)
-            case .string:
-                let value = state.value.trimmingCharacters(in: .whitespaces)
-                if !value.isEmpty {
-                    let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
-                    args.append(contentsOf: [option.id, "'\(escaped)'"])
-                } else {
-                    args.append(option.id)
-                }
-            }
-        }
-        return args
-    }
-
-    private func buildExtraEnvVars() -> [String: String] {
-        guard selectedHarness == .claude else { return [:] }
-        var envVars: [String: String] = [:]
-        for envVar in appSettings.envVarOptions {
-            guard let state = envVarStates[envVar.id], state.enabled else { continue }
-            let value = state.value.trimmingCharacters(in: .whitespaces)
-            if !value.isEmpty {
-                envVars[envVar.id] = value
-            }
-        }
-        return envVars
-    }
-
-    private func newPaneAddToGlobal(optionID: String) {
-        switch selectedHarness {
-        case .claude:
-            if let i = appSettings.cliOptions.firstIndex(where: { $0.id == optionID }) {
-                appSettings.cliOptions[i].isAvailable = true
-            }
-            SettingsPersistence.save(appSettings: appSettings)
-        case .codex:
-            if let i = appSettings.codexCliOptions.firstIndex(where: { $0.id == optionID }) {
-                appSettings.codexCliOptions[i].isAvailable = true
-            }
-            SettingsPersistence.saveCodexOptions(appSettings: appSettings)
-        case .cursor:
-            if let i = appSettings.cursorCliOptions.firstIndex(where: { $0.id == optionID }) {
-                appSettings.cursorCliOptions[i].isAvailable = true
-            }
-            SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-        case .shell:
-            break
-        }
-    }
-
-    private func newPaneAddToGlobalEnvVar(id: String) {
-        if let i = appSettings.envVarOptions.firstIndex(where: { $0.id == id }) {
-            appSettings.envVarOptions[i].isAvailable = true
-        }
-        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
-    }
 }
 
 // MARK: - Save Profile Sheet

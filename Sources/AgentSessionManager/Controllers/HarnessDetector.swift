@@ -14,7 +14,25 @@ enum HarnessDetector {
                     if let run = runner {
                         return await run(shell, cmd) ? tool : nil
                     }
-                    return await defaultProbe(shell: shell, command: cmd) ? tool : nil
+                    return await withCheckedContinuation { continuation in
+                        let process = Process()
+                        let outPipe = Pipe()
+                        process.executableURL = URL(filePath: shell)
+                        process.arguments = ["-i", "-c", "which \(cmd)"]
+                        process.standardOutput = outPipe
+                        process.standardError = FileHandle.nullDevice
+                        process.terminationHandler = { proc in
+                            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                            let output = (String(data: data, encoding: .utf8) ?? "")
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            continuation.resume(returning: proc.terminationStatus == 0 && !output.isEmpty ? tool : nil)
+                        }
+                        do {
+                            try process.run()
+                        } catch {
+                            continuation.resume(returning: nil)
+                        }
+                    }
                 }
             }
             var found = Set<Harness>()
@@ -22,28 +40,6 @@ enum HarnessDetector {
                 if let tool = result { found.insert(tool) }
             }
             return found
-        }
-    }
-
-    private static func defaultProbe(shell: String, command: String) async -> Bool {
-        await withCheckedContinuation { continuation in
-            let process = Process()
-            let outPipe = Pipe()
-            process.executableURL = URL(filePath: shell)
-            process.arguments = ["-i", "-c", "which \(command)"]
-            process.standardOutput = outPipe
-            process.standardError = FileHandle.nullDevice
-            process.terminationHandler = { proc in
-                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-                let output = (String(data: data, encoding: .utf8) ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                continuation.resume(returning: proc.terminationStatus == 0 && !output.isEmpty)
-            }
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(returning: false)
-            }
         }
     }
 }
