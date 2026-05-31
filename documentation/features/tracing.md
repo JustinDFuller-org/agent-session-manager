@@ -62,7 +62,7 @@ Spans are routed to files by `pane.id` and `tab.id` attributes:
 |------|---------------|
 | `terminal.process.started` | `executable`, `args`, `pane.id`, `pane.name`, `tab.id`, `tab.name` |
 | `terminal.process.exited` | `exit_code`, `pane.id`, `pane.name` |
-| `terminal.attention.delivered` | `source` (`bell`/`osc777`), `pane.id`, `pane.name` |
+| `terminal.attention.delivered` | `source` (`bell`/`osc777`), `reason`, `pane.id`, `pane.name` |
 | `pane.activity.changed` | `state` (`working`/`idle`), `source` (`claude_hook`), `hook_event`, `pane.id`, `pane.name` |
 
 ### Git / Worktrees
@@ -77,7 +77,7 @@ Spans are routed to files by `pane.id` and `tab.id` attributes:
 |------|---------------|
 | `statusline.monitor.started` | `pane.id`, `pane.name` |
 | `statusline.settings_file.written` | `path`, `bytes` |
-| `statusline.attention.received` | `pane.id`, `pane.name` |
+| `statusline.attention.received` | `source`, `reason`, `pane.id`, `pane.name` |
 | `statusline.pr_transition` | `old_state`, `new_state` |
 | `statusline.worktree.name_mismatch` | `pane.name`, `field`, `computed`, `reported` |
 | `statusline.lines.source_mismatch` | `pane.name`, `computed_added`, `reported_added`, `computed_removed`, `reported_removed` |
@@ -88,7 +88,7 @@ Spans are routed to files by `pane.id` and `tab.id` attributes:
 | Span | Key Attributes |
 |------|---------------|
 | `notification.auth.requested` | `result` |
-| `notification.pane_attention.posted` | `pane.name` |
+| `notification.pane_attention.posted` | `pane.name`, `source`, `reason` |
 | `notification.pr_merged.posted` | `pane.name`, `pr.title` |
 
 ### PR Tracking

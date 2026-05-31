@@ -6,11 +6,13 @@ When a pane's GitHub PR tracking detects that a pull request has been merged, Ag
 
 When the PR tracking poll (every 60 seconds) observes a transition from a non-merged state to `"merged"`:
 
-1. A **sidebar notification** appears with a purple merge icon (↗) and a "PR #N merged" label.
-2. A **macOS desktop banner** appears with the title "PR Merged", the pane name as subtitle, and the PR number and title in the body.
+1. A **sidebar notification** appears with a purple merge icon (↗), the `tab / pane` label, and a compact "PR #N merged" reason.
+2. A **macOS desktop banner** appears with the title "PR Merged", `tab / pane` as subtitle, and `PR #N merged: title` in the body.
 3. Clicking either notification opens an **action prompt** with three choices.
 
 The notification fires only once per pane per session — on a live open→merged transition. Panes that are already merged when the app launches do not produce a notification (to avoid false positives on restart).
+
+A PR-merged row replaces any regular unread attention row for the same pane. Lower-priority attention signals are ignored until the PR row is cleared.
 
 ## Action prompt
 

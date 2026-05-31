@@ -27,7 +27,8 @@ final class SessionPersistenceNotificationTests: XCTestCase {
             tabName: "t",
             isPriority: true,
             timestamp: ts,
-            kind: .terminalBell
+            kind: .terminalBell,
+            reason: "Permission needed"
         )
         let session = PersistedSession(
             tabs: [],
@@ -38,6 +39,33 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         let decoded = try JSONDecoder().decode(PersistedSession.self, from: encoded)
         XCTAssertEqual(decoded.pendingNotifications.count, 1)
         XCTAssertEqual(decoded.pendingNotifications[0], pending)
+    }
+
+    func testLegacyPendingNotificationReasonDefaultsNil() throws {
+        let data = Data(
+            """
+            {
+              "notificationID":"00000000-0000-0000-0000-000000000001",
+              "paneID":"00000000-0000-0000-0000-000000000002",
+              "paneName":"p",
+              "tabID":"00000000-0000-0000-0000-000000000003",
+              "tabName":"t",
+              "isPriority":false,
+              "timestamp":0
+            }
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedPaneNotification.self, from: data)
+        XCTAssertNil(decoded.reason)
+    }
+
+    func testPersistedNotificationReasonRoundTripsThroughAppState() {
+        let state = AppState()
+        state.addNotification(
+            paneID: UUID(), paneName: "p", tabID: UUID(), tabName: "t", isPriority: false,
+            event: PaneAttentionEvent(source: .claudePermissionRequest, reason: "Permission needed for Bash")
+        )
+        let session = SessionPersistence.makePersistedSession(appState: state)
+        XCTAssertEqual(session.pendingNotifications.first?.reason, "Permission needed for Bash")
     }
 
     func testRestoreUsesPersistedTabAndPaneIDs() {
