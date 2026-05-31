@@ -32,7 +32,10 @@ struct TabButtonView: View {
                             state: tabActivityStateValue,
                             enabled: appSettings.paneActivityIndicatorsEnabled,
                             prefix: "tab",
-                            name: tab.name
+                            name: tab.name,
+                            isPriority: appState.notifications.contains {
+                                tabPaneIDs.contains($0.paneID) && $0.isPriority
+                            }
                         )
                         Text(tab.name)
                             .font(.system(size: 12, weight: isActive ? .semibold : .regular))

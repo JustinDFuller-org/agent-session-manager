@@ -42,10 +42,14 @@ func activityIndicatorAppearance(for state: PaneActivityState) -> ActivityIndica
         ActivityIndicatorAppearance(
             geometry: .circle,
             palette: .accent,
-            opacityRange: 0.5...1,
+            opacityRange: 1...1,
             blurRadius: 0
         )
     }
+}
+
+func waitingIndicatorColor(isPriority: Bool) -> Color {
+    isPriority ? .orange : .accentColor
 }
 
 struct ActivityIndicatorView: View {
@@ -53,6 +57,7 @@ struct ActivityIndicatorView: View {
     let enabled: Bool
     let prefix: String
     let name: String
+    var isPriority: Bool = false
 
     var body: some View {
         if enabled {
@@ -80,7 +85,7 @@ struct ActivityIndicatorView: View {
         case .working:
             WorkingDot()
         case .waiting:
-            WaitingDot()
+            WaitingDot(isPriority: isPriority)
         }
     }
 }
@@ -108,18 +113,9 @@ private struct WorkingDot: View {
 }
 
 private struct WaitingDot: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pulsing = false
-    private let appearance = activityIndicatorAppearance(for: .waiting)
-
+    let isPriority: Bool
     var body: some View {
         Circle()
-            .fill(Color.accentColor)
-            .opacity(appearance.resolvedOpacity(pulsing: pulsing, reduceMotion: reduceMotion))
-            .animation(
-                reduceMotion ? .none : .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                value: pulsing
-            )
-            .onAppear { pulsing = true }
+            .fill(waitingIndicatorColor(isPriority: isPriority))
     }
 }

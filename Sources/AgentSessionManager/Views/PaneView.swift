@@ -104,7 +104,8 @@ struct PaneView: View {
                     state: activityState,
                     enabled: appSettings.paneActivityIndicatorsEnabled,
                     prefix: "pane",
-                    name: pane.name
+                    name: pane.name,
+                    isPriority: pendingNotification?.isPriority ?? false
                 )
 
                 Text(pane.name)

@@ -202,6 +202,20 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(waiting.blurRadius, 0)
     }
 
+    func testWaitingAppearanceIsSolidRegardlessOfPulse() {
+        let waiting = activityIndicatorAppearance(for: .waiting)
+        XCTAssertEqual(
+            waiting.resolvedOpacity(pulsing: true, reduceMotion: false),
+            waiting.resolvedOpacity(pulsing: false, reduceMotion: false)
+        )
+        XCTAssertEqual(waiting.resolvedOpacity(pulsing: true, reduceMotion: false), 1)
+    }
+
+    func testWaitingIndicatorColorReflectsPriority() {
+        XCTAssertEqual(waitingIndicatorColor(isPriority: true), .orange)
+        XCTAssertEqual(waitingIndicatorColor(isPriority: false), .accentColor)
+    }
+
     func testReduceMotionKeepsWorkingAndWaitingStaticallyDistinct() {
         let working = activityIndicatorAppearance(for: .working)
         let waiting = activityIndicatorAppearance(for: .waiting)
