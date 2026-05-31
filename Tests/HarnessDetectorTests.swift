@@ -11,7 +11,6 @@ final class HarnessDetectorTests: XCTestCase {
         XCTAssertTrue(result.contains(.claude))
         XCTAssertTrue(result.contains(.codex))
         XCTAssertFalse(result.contains(.cursor))
-        XCTAssertFalse(result.contains(.opencode))
     }
 
     func testReturnsEmptySetWhenNothingInstalled() async {

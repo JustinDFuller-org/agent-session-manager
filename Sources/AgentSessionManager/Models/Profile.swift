@@ -101,7 +101,6 @@ struct Profile: Identifiable, Codable, Equatable {
         case .claude: globalOptions = appSettings.cliOptions
         case .codex: globalOptions = appSettings.codexCliOptions
         case .cursor: globalOptions = appSettings.cursorCliOptions
-        case .opencode: globalOptions = appSettings.opencodeCliOptions
         case .shell: globalOptions = []
         }
 

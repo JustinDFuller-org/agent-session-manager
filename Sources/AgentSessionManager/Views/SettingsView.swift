@@ -331,6 +331,21 @@ private struct PanesContent: View {
                         }
                 }
             }
+            Section("Activity Indicators") {
+                SettingRow(
+                    title: "Show Activity Indicators",
+                    description:
+                        "Show pane and tab activity indicators (idle ring, soft neutral working glow, crisp accent waiting dot)."
+                ) {
+                    Toggle("Show Activity Indicators", isOn: $appSettings.paneActivityIndicatorsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-activity-indicators-toggle")
+                        .onChange(of: appSettings.paneActivityIndicatorsEnabled) {
+                            SettingsPersistence.saveActivityIndicatorSettings(appSettings: appSettings)
+                        }
+                }
+            }
         }
         .formStyle(.grouped)
         .onAppear { initShellPickerSelection() }
@@ -443,15 +458,6 @@ private struct ToolsContent: View {
                 ),
                 onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
                 customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
-            )
-        case .opencode:
-            CLIOptionsContent(
-                options: Binding(
-                    get: { appSettings.opencodeCliOptions },
-                    set: { appSettings.opencodeCliOptions = $0 }
-                ),
-                onSave: { SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings) },
-                customFlagFooter: "Custom flags may not be recognized by all OpenCode CLI versions."
             )
         case .shell:
             EmptyView()

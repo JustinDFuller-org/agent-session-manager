@@ -16,8 +16,6 @@ private struct NotificationConfig: Codable {
     var sidebarSide: SidebarSide
     var isPriorityEnabled: Bool
     var isMacOSBannerEnabled: Bool
-    /// When true, merge Claude Code `Notification` hook into per-pane `--settings` so permission-style notifies reach the app without a terminal bell.
-    var isClaudeHookAttentionEnabled: Bool
     /// When true, install a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
     var isCursorHookAttentionEnabled: Bool
     var isPRMergedNotificationsEnabled: Bool
@@ -27,7 +25,6 @@ private struct NotificationConfig: Codable {
         case sidebarSide
         case isPriorityEnabled
         case isMacOSBannerEnabled
-        case isClaudeHookAttentionEnabled
         case isCursorHookAttentionEnabled
         case isPRMergedNotificationsEnabled
         case alwaysShowNotificationsSidebar
@@ -37,7 +34,6 @@ private struct NotificationConfig: Codable {
         sidebarSide: SidebarSide,
         isPriorityEnabled: Bool,
         isMacOSBannerEnabled: Bool,
-        isClaudeHookAttentionEnabled: Bool,
         isCursorHookAttentionEnabled: Bool,
         isPRMergedNotificationsEnabled: Bool,
         alwaysShowNotificationsSidebar: Bool
@@ -45,7 +41,6 @@ private struct NotificationConfig: Codable {
         self.sidebarSide = sidebarSide
         self.isPriorityEnabled = isPriorityEnabled
         self.isMacOSBannerEnabled = isMacOSBannerEnabled
-        self.isClaudeHookAttentionEnabled = isClaudeHookAttentionEnabled
         self.isCursorHookAttentionEnabled = isCursorHookAttentionEnabled
         self.isPRMergedNotificationsEnabled = isPRMergedNotificationsEnabled
         self.alwaysShowNotificationsSidebar = alwaysShowNotificationsSidebar
@@ -56,8 +51,6 @@ private struct NotificationConfig: Codable {
         sidebarSide = try container.decodeIfPresent(SidebarSide.self, forKey: .sidebarSide) ?? .right
         isPriorityEnabled = try container.decodeIfPresent(Bool.self, forKey: .isPriorityEnabled) ?? true
         isMacOSBannerEnabled = try container.decodeIfPresent(Bool.self, forKey: .isMacOSBannerEnabled) ?? true
-        isClaudeHookAttentionEnabled =
-            try container.decodeIfPresent(Bool.self, forKey: .isClaudeHookAttentionEnabled) ?? true
         isCursorHookAttentionEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isCursorHookAttentionEnabled) ?? true
         isPRMergedNotificationsEnabled =
@@ -71,7 +64,6 @@ private struct NotificationConfig: Codable {
         try container.encode(sidebarSide, forKey: .sidebarSide)
         try container.encode(isPriorityEnabled, forKey: .isPriorityEnabled)
         try container.encode(isMacOSBannerEnabled, forKey: .isMacOSBannerEnabled)
-        try container.encode(isClaudeHookAttentionEnabled, forKey: .isClaudeHookAttentionEnabled)
         try container.encode(isCursorHookAttentionEnabled, forKey: .isCursorHookAttentionEnabled)
         try container.encode(isPRMergedNotificationsEnabled, forKey: .isPRMergedNotificationsEnabled)
         try container.encode(alwaysShowNotificationsSidebar, forKey: .alwaysShowNotificationsSidebar)
@@ -94,7 +86,6 @@ struct SettingsPersistence {
     private static var settingsURL: URL { appSupportDir.appending(path: "settings.json") }
     private static var codexSettingsURL: URL { appSupportDir.appending(path: "codex-settings.json") }
     private static var cursorSettingsURL: URL { appSupportDir.appending(path: "cursor-settings.json") }
-    private static var opencodeSettingsURL: URL { appSupportDir.appending(path: "opencode-settings.json") }
     private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
     private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
@@ -115,6 +106,9 @@ struct SettingsPersistence {
     private static var sessionNameSettingsURL: URL { appSupportDir.appending(path: "session-name-settings.json") }
     private static var shellSettingsURL: URL { appSupportDir.appending(path: "shell-settings.json") }
     private static var onboardingSettingsURL: URL { appSupportDir.appending(path: "onboarding-settings.json") }
+    private static var activityIndicatorSettingsURL: URL {
+        appSupportDir.appending(path: "activity-indicator-settings.json")
+    }
 
     static func save(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
@@ -185,29 +179,6 @@ struct SettingsPersistence {
         appSettings.cursorCliOptions = updated + userAdded
     }
 
-    static func saveOpenCodeOptions(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.opencodeCliOptions) else { return }
-        try? data.write(to: opencodeSettingsURL)
-    }
-
-    static func restoreOpenCodeOptions(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: opencodeSettingsURL) else { return }
-        let failable = try? JSONDecoder().decode([FailableDecodable<CLIOptionConfig>].self, from: data)
-        let saved = failable?.compactMap(\.value) ?? []
-
-        var updated = CLIOptionConfig.opencodeAll
-        var userAdded: [CLIOptionConfig] = []
-        for savedOption in saved {
-            if savedOption.isUserAdded {
-                userAdded.append(savedOption)
-            } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
-                updated[index].isAvailable = savedOption.isAvailable
-                updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
-            }
-        }
-        appSettings.opencodeCliOptions = updated + userAdded
-    }
-
     static func saveActiveTools(appSettings: AppSettings) {
         let sorted = appSettings.activeTools.sorted()
         guard let data = try? JSONEncoder().encode(sorted) else { return }
@@ -259,7 +230,6 @@ struct SettingsPersistence {
             sidebarSide: appSettings.notificationSidebarSide,
             isPriorityEnabled: appSettings.isPriorityNotificationsEnabled,
             isMacOSBannerEnabled: appSettings.isMacOSBannerNotificationsEnabled,
-            isClaudeHookAttentionEnabled: appSettings.isClaudeNotificationHookAttentionEnabled,
             isCursorHookAttentionEnabled: appSettings.isCursorNotificationHookAttentionEnabled,
             isPRMergedNotificationsEnabled: appSettings.isPRMergedNotificationsEnabled,
             alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar
@@ -276,18 +246,9 @@ struct SettingsPersistence {
         appSettings.notificationSidebarSide = config.sidebarSide
         appSettings.isPriorityNotificationsEnabled = config.isPriorityEnabled
         appSettings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
-        appSettings.isClaudeNotificationHookAttentionEnabled = config.isClaudeHookAttentionEnabled
         appSettings.isCursorNotificationHookAttentionEnabled = config.isCursorHookAttentionEnabled
         appSettings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
         appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
-    }
-
-    static func isClaudeHookAttentionEnabled() -> Bool {
-        guard
-            let data = try? Data(contentsOf: notificationSettingsURL),
-            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
-        else { return true }
-        return config.isClaudeHookAttentionEnabled
     }
 
     nonisolated static func isCursorHookAttentionEnabled() -> Bool {
@@ -564,5 +525,41 @@ struct SettingsPersistence {
             let settings = try? JSONDecoder().decode(OnboardingSettings.self, from: data)
         else { return }
         appSettings.hasCompletedOnboarding = settings.completed
+    }
+
+    private struct ActivityIndicatorConfig: Codable {
+        var enabled: Bool = true
+
+        enum CodingKeys: String, CodingKey {
+            case enabled
+        }
+
+        init(enabled: Bool) {
+            self.enabled = enabled
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(enabled, forKey: .enabled)
+        }
+    }
+
+    static func saveActivityIndicatorSettings(appSettings: AppSettings) {
+        let config = ActivityIndicatorConfig(enabled: appSettings.paneActivityIndicatorsEnabled)
+        guard let data = try? JSONEncoder().encode(config) else { return }
+        try? data.write(to: activityIndicatorSettingsURL)
+    }
+
+    static func restoreActivityIndicatorSettings(into appSettings: AppSettings) {
+        guard
+            let data = try? Data(contentsOf: activityIndicatorSettingsURL),
+            let config = try? JSONDecoder().decode(ActivityIndicatorConfig.self, from: data)
+        else { return }
+        appSettings.paneActivityIndicatorsEnabled = config.enabled
     }
 }

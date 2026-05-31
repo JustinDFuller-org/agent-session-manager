@@ -21,8 +21,9 @@ final class TabPaneFlowTests: BaseTestCase {
         app.typeKey(.escape, modifierFlags: [])
         waitForDisappear(app.textFields["new-pane-name-field"])
 
-        // Loading dot absent on idle tab with no panes
-        XCTAssertFalse(app.otherElements["tab-loading-dot-WorkTab"].firstMatch.exists)
+        // Tab with no panes shows idle activity indicator
+        let idleTabDot = app.descendants(matching: .any).matching(identifier: "tab-activity-idle-WorkTab").firstMatch
+        XCTAssertTrue(idleTabDot.waitForExistence(timeout: 5))
 
         // Tab empty state hint mentions pane shortcut
         waitFor(app.staticTexts["tab-empty-state-WorkTab"])
@@ -90,7 +91,8 @@ final class TabPaneFlowTests: BaseTestCase {
         // Create "feature-a": header visible, terminal receives focus after creation
         createPane(named: "feature-a")
         waitFor(app.staticTexts["pane-name-feature-a"].firstMatch)
-        XCTAssertFalse(app.otherElements["tab-loading-dot-WorkTab"].firstMatch.exists)
+        let idleTabDot2 = app.descendants(matching: .any).matching(identifier: "tab-activity-idle-WorkTab").firstMatch
+        XCTAssertTrue(idleTabDot2.waitForExistence(timeout: 5))
         app.typeText("a")
         XCTAssertTrue(app.staticTexts["pane-name-feature-a"].firstMatch.exists)
 

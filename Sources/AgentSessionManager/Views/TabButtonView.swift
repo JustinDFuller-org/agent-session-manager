@@ -2,42 +2,45 @@ import SwiftUI
 
 struct TabButtonView: View {
     @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
     let tab: Tab
     @State private var isDragTarget = false
-    @State private var loadingPulse = false
 
     private var isActive: Bool {
         appState.activeTabID == tab.id
     }
 
+    private func tabActivityStateValue(tabPaneIDs: Set<UUID>) -> PaneActivityState {
+        tabActivityState(
+            tab.panes.map { pane in
+                pane.uiTestActivityStateOverride
+                    ?? paneActivityState(
+                        processState: pane.terminalController?.processState,
+                        isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                        hasNotification: tabPaneIDs.contains(pane.id)
+                            && appState.notifications.contains { $0.paneID == pane.id }
+                    )
+            })
+    }
+
     var body: some View {
         @Bindable var appState = appState
         let tabPaneIDs = Set(tab.panes.map(\.id))
-        let tabNotification =
-            appState.notifications.first { tabPaneIDs.contains($0.paneID) && $0.isPriority }
-            ?? appState.notifications.first { tabPaneIDs.contains($0.paneID) }
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
-                        if tab.hasRunningPane {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 6, height: 6)
-                                .opacity(loadingPulse ? 0.5 : 1.0)
-                                .animation(
-                                    .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                                    value: loadingPulse
-                                )
-                                .onAppear { loadingPulse = true }
-                                .accessibilityIdentifier("tab-loading-dot-\(tab.name)")
-                        }
-                        if let notification = tabNotification {
-                            Circle()
-                                .fill(notification.isPriority ? Color.orange : Color.accentColor)
-                                .frame(width: 6, height: 6)
-                                .accessibilityIdentifier("tab-notification-dot-\(tab.name)")
-                        }
+                        let tabActivityStateValue = tabActivityStateValue(tabPaneIDs: tabPaneIDs)
+                        ActivityIndicatorView(
+                            state: tabActivityStateValue,
+                            enabled: appSettings.paneActivityIndicatorsEnabled,
+                            prefix: "tab",
+                            name: tab.name,
+                            isPriority: appState.notifications.contains {
+                                tabPaneIDs.contains($0.paneID) && $0.isPriority
+                            }
+                        )
                         Text(tab.name)
                             .font(.system(size: 12, weight: isActive ? .semibold : .regular))
                             .lineLimit(1)

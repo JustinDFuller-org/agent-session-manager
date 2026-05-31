@@ -9,12 +9,13 @@ struct PersistedPaneNotification: Codable, Equatable {
     var isPriority: Bool
     var timestamp: Date
     var kind: NotificationKind
+    var reason: String?
     var prNumber: Int?
     var prTitle: String?
 
     enum CodingKeys: String, CodingKey {
         case notificationID, paneID, paneName, tabID, tabName, isPriority, timestamp
-        case kind, prNumber, prTitle
+        case kind, reason, prNumber, prTitle
     }
 
     init(
@@ -26,6 +27,7 @@ struct PersistedPaneNotification: Codable, Equatable {
         isPriority: Bool,
         timestamp: Date,
         kind: NotificationKind = .terminalBell,
+        reason: String? = nil,
         prNumber: Int? = nil,
         prTitle: String? = nil
     ) {
@@ -37,6 +39,7 @@ struct PersistedPaneNotification: Codable, Equatable {
         self.isPriority = isPriority
         self.timestamp = timestamp
         self.kind = kind
+        self.reason = reason
         self.prNumber = prNumber
         self.prTitle = prTitle
     }
@@ -51,6 +54,7 @@ struct PersistedPaneNotification: Codable, Equatable {
         isPriority = try container.decode(Bool.self, forKey: .isPriority)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         kind = try container.decodeIfPresent(NotificationKind.self, forKey: .kind) ?? .terminalBell
+        reason = try container.decodeIfPresent(String.self, forKey: .reason)
         prNumber = try container.decodeIfPresent(Int.self, forKey: .prNumber)
         prTitle = try container.decodeIfPresent(String.self, forKey: .prTitle)
     }
@@ -65,6 +69,7 @@ struct PersistedPaneNotification: Codable, Equatable {
         try container.encode(isPriority, forKey: .isPriority)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(kind, forKey: .kind)
+        try container.encodeIfPresent(reason, forKey: .reason)
         try container.encodeIfPresent(prNumber, forKey: .prNumber)
         try container.encodeIfPresent(prTitle, forKey: .prTitle)
     }
@@ -215,6 +220,7 @@ struct SessionPersistence {
                 isPriority: $0.isPriority,
                 timestamp: $0.timestamp,
                 kind: $0.kind,
+                reason: $0.reason,
                 prNumber: $0.prNumber,
                 prTitle: $0.prTitle
             )
@@ -305,6 +311,7 @@ struct SessionPersistence {
                     isPriority: pending.isPriority,
                     timestamp: pending.timestamp,
                     kind: pending.kind,
+                    reason: pending.reason,
                     prNumber: pending.prNumber,
                     prTitle: pending.prTitle
                 )

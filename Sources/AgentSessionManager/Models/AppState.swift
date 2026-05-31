@@ -75,30 +75,43 @@ final class AppState {
         SessionPersistence.save(appState: self)
     }
 
-    func addNotification(paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool) {
-        if notifications.contains(where: { $0.paneID == paneID }) {
+    func addNotification(
+        paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool,
+        event: PaneAttentionEvent = .rawBell
+    ) {
+        if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prMerged }) {
             return
         }
-        notifications.append(
+        let notification =
             PaneNotification(
                 paneID: paneID,
                 paneName: paneName,
                 tabID: tabID,
                 tabName: tabName,
-                isPriority: isPriority
-            ))
+                isPriority: isPriority,
+                reason: event.reason
+            )
+        if let index = notifications.firstIndex(where: { $0.paneID == paneID }) {
+            notifications[index] = notification
+        } else {
+            notifications.append(notification)
+        }
         TracingService.shared.record(
             "pane.notification.added",
             attributes: [
                 "pane.name": paneName,
                 "tab.name": tabName,
                 "notification.kind": "attention",
+                "notification.source": event.source.rawValue,
+                "notification.reason": event.reason,
             ])
         MacNotificationCoordinator.shared.postPaneAttentionIfNeeded(
             paneID: paneID,
             paneName: paneName,
             tabID: tabID,
-            tabName: tabName
+            tabName: tabName,
+            reason: event.reason,
+            source: event.source
         )
         SessionPersistence.save(appState: self)
     }
@@ -113,6 +126,7 @@ final class AppState {
     ) {
         guard SettingsPersistence.isPRMergedNotificationsEnabled() else { return }
         if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prMerged }) { return }
+        notifications.removeAll { $0.paneID == paneID }
         notifications.append(
             PaneNotification(
                 paneID: paneID,
@@ -137,6 +151,15 @@ final class AppState {
     }
 
     func clearNotification(paneID: UUID) {
+        if let notification = notifications.first(where: { $0.paneID == paneID }) {
+            TracingService.shared.record(
+                "pane.notification.cleared",
+                attributes: [
+                    "pane.name": notification.paneName,
+                    "tab.name": notification.tabName,
+                    "reason": "cleared",
+                ])
+        }
         notifications.removeAll { $0.paneID == paneID }
         SessionPersistence.save(appState: self)
     }

@@ -12,7 +12,7 @@ final class TerminalBellNotificationTests: XCTestCase {
         XCTAssertNotNil(pane.terminalController, "Unit tests run without --uitesting; terminal should exist")
 
         pane.bindNotifications(appState: appState, isPriority: true)
-        pane.terminalController?.onBell?()
+        pane.terminalController?.onAttention?(.rawBell)
         try? await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertEqual(appState.notifications.count, 1)
@@ -28,7 +28,7 @@ final class TerminalBellNotificationTests: XCTestCase {
         appState.activePaneID = pane.id
 
         pane.bindNotifications(appState: appState, isPriority: false)
-        pane.terminalController?.onBell?()
+        pane.terminalController?.onAttention?(.rawBell)
         try? await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertEqual(appState.notifications.count, 1)
@@ -54,7 +54,7 @@ final class TerminalBellNotificationTests: XCTestCase {
             extraEnvVars: [:],
             statusLineConfigOverride: nil
         )
-        pane.terminalController?.onBell?()
+        pane.terminalController?.onAttention?(.rawBell)
         await Task.yield()
 
         XCTAssertEqual(appState.notifications.count, 1)
@@ -64,7 +64,7 @@ final class TerminalBellNotificationTests: XCTestCase {
     func testBellFeedInvokesOnBell() async {
         let controller = TerminalController()
         let fired = LockedFlag()
-        controller.onBell = { fired.set(true) }
+        controller.onAttention = { _ in fired.set(true) }
 
         controller.terminalView.frame = CGRect(x: 0, y: 0, width: 640, height: 480)
         #if os(macOS)
@@ -84,7 +84,7 @@ final class TerminalBellNotificationTests: XCTestCase {
         appState.activePaneID = UUID()
 
         pane.bindNotifications(appState: appState, isPriority: false)
-        pane.terminalController?.onBell?()
+        pane.terminalController?.onAttention?(.rawBell)
         try? await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertEqual(appState.notifications.count, 1)
@@ -92,7 +92,7 @@ final class TerminalBellNotificationTests: XCTestCase {
 
         appState.clearNotification(paneID: pane.id)
         pane.isPriority = true
-        pane.terminalController?.onBell?()
+        pane.terminalController?.onAttention?(.rawBell)
         try? await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertEqual(appState.notifications.count, 1)
@@ -105,7 +105,7 @@ final class TerminalBellNotificationTests: XCTestCase {
     func testOsc777NotifyInvokesOnBell() async {
         let controller = TerminalController()
         let fired = LockedFlag()
-        controller.onBell = { fired.set(true) }
+        controller.onAttention = { _ in fired.set(true) }
 
         controller.terminalView.frame = CGRect(x: 0, y: 0, width: 640, height: 480)
         #if os(macOS)
@@ -129,11 +129,11 @@ final class TerminalBellNotificationTests: XCTestCase {
         pane.installTerminalController(old)
         pane.installTerminalController(new)
 
-        old.onBell?()
+        old.onAttention?(.rawBell)
         await Task.yield()
         XCTAssertTrue(appState.notifications.isEmpty)
 
-        new.onBell?()
+        new.onAttention?(.rawBell)
         await Task.yield()
         XCTAssertEqual(appState.notifications.count, 1)
         XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
@@ -148,14 +148,18 @@ final class TerminalBellNotificationTests: XCTestCase {
 
         tab.restartPane(pane)
 
-        old?.onBell?()
+        old?.onAttention?(.rawBell)
         await Task.yield()
         XCTAssertTrue(appState.notifications.isEmpty)
 
-        pane.terminalController?.onBell?()
+        pane.terminalController?.onAttention?(.rawBell)
         await Task.yield()
         XCTAssertEqual(appState.notifications.count, 1)
         XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
+    }
+
+    func testOsc777PreservesSemicolonsInBody() {
+        XCTAssertEqual(PaneAttentionEvent.osc777("notify;Title;body;with;semicolons")?.reason, "body;with;semicolons")
     }
 }
 

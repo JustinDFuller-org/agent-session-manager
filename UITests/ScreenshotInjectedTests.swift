@@ -11,6 +11,11 @@ final class ScreenshotInjectedTests: XCTestCase {
     private static let notifTabID = "dddddddd-dddd-dddd-dddd-dddddddddddd"
     private static let notifPaneID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
     private static let notifID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+    private static let activityTabID = "10000000-0000-0000-0000-000000000000"
+    private static let idlePaneID = "11000000-0000-0000-0000-000000000000"
+    private static let workingPaneID = "22000000-0000-0000-0000-000000000000"
+    private static let waitingPaneID = "33000000-0000-0000-0000-000000000000"
+    private static let waitingNotifID = "34000000-0000-0000-0000-000000000000"
 
     private var sessionURL: URL {
         UITestAppSupport.directory.appending(path: "sessions.json")
@@ -18,6 +23,10 @@ final class ScreenshotInjectedTests: XCTestCase {
 
     private var worktreeBaseRefURL: URL {
         UITestAppSupport.directory.appending(path: "worktree-base-ref.json")
+    }
+
+    private var activityIndicatorSettingsURL: URL {
+        UITestAppSupport.directory.appending(path: "activity-indicator-settings.json")
     }
 
     override func setUp() {
@@ -31,6 +40,7 @@ final class ScreenshotInjectedTests: XCTestCase {
         try? FileManager.default.removeItem(at: sessionURL)
         try? FileManager.default.removeItem(at: worktreeBaseRefURL)
         try? FileManager.default.removeItem(at: UITestAppSupport.directory.appending(path: "invariants"))
+        try? FileManager.default.removeItem(at: activityIndicatorSettingsURL)
         super.tearDown()
     }
 
@@ -101,7 +111,8 @@ final class ScreenshotInjectedTests: XCTestCase {
         app.launch()
         app.activate()
 
-        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-status-dot-running-pane").firstMatch
+        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane")
+            .firstMatch
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
         let statusLineRow = app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch
         XCTAssertTrue(statusLineRow.waitForExistence(timeout: 5))
@@ -162,6 +173,83 @@ final class ScreenshotInjectedTests: XCTestCase {
         let alertTitle = app.staticTexts["PR Merged"]
         XCTAssertTrue(alertTitle.waitForExistence(timeout: 5))
         screenshot("pr-merged-alert", app: app)
+    }
+
+    func testActivityIndicatorStatesScreenshot() {
+        let workspaceDir = GitUITestWorkspace.directoryURL.path
+        let json = """
+            {
+              "tabs": [
+                {
+                  "id": "\(Self.activityTabID)",
+                  "name": "Activity States",
+                  "directory": "\(workspaceDir)",
+                  "panes": [
+                    {
+                      "id": "\(Self.idlePaneID)",
+                      "name": "idle-pane",
+                      "cliType": "claude",
+                      "isPriority": false,
+                      "isMerged": false,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    },
+                    {
+                      "id": "\(Self.workingPaneID)",
+                      "name": "working-pane",
+                      "cliType": "claude",
+                      "isPriority": false,
+                      "isMerged": false,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    },
+                    {
+                      "id": "\(Self.waitingPaneID)",
+                      "name": "waiting-pane",
+                      "cliType": "claude",
+                      "isPriority": false,
+                      "isMerged": false,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    }
+                  ]
+                }
+              ],
+              "activeTabIndex": 0,
+              "pendingNotifications": [
+                {
+                  "notificationID": "\(Self.waitingNotifID)",
+                  "paneID": "\(Self.waitingPaneID)",
+                  "paneName": "waiting-pane",
+                  "tabID": "\(Self.activityTabID)",
+                  "tabName": "Activity States",
+                  "isPriority": false,
+                  "timestamp": 0,
+                  "kind": "terminalBell"
+                }
+              ]
+            }
+            """
+        writeSupport(json: json)
+
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting",
+            "--inject-pane-working=\(Self.workingPaneID)",
+        ]
+        app.launch()
+        app.activate()
+
+        let descendants = app.descendants(matching: .any)
+        XCTAssertTrue(
+            descendants.matching(identifier: "pane-activity-idle-idle-pane").firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(
+            descendants.matching(identifier: "pane-activity-working-working-pane").firstMatch.waitForExistence(
+                timeout: 5))
+        XCTAssertTrue(
+            descendants.matching(identifier: "pane-activity-waiting-waiting-pane").firstMatch.waitForExistence(
+                timeout: 5))
+        screenshot("activity-indicator-states", app: app)
     }
 
     func testOnboardingWizardScreenshots() {
@@ -226,5 +314,6 @@ final class ScreenshotInjectedTests: XCTestCase {
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         try? json.data(using: .utf8)?.write(to: sessionURL)
         try? Data("\"head\"".utf8).write(to: worktreeBaseRefURL)
+        try? Data(#"{"enabled":true}"#.utf8).write(to: activityIndicatorSettingsURL)
     }
 }

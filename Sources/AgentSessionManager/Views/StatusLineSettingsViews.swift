@@ -101,20 +101,6 @@ struct StatusLineConfigLayoutEditor: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 8)
                 .background(Capsule().fill(Color.blue.opacity(0.1)))
-        case .opencodeOnly:
-            Text("OpenCode only")
-                .font(.caption2)
-                .foregroundStyle(.purple)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.purple.opacity(0.1)))
-        case .claudeOrOpencode:
-            Text("Claude + OpenCode")
-                .font(.caption2)
-                .foregroundStyle(.indigo)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.indigo.opacity(0.1)))
         case .all:
             Text("All tools")
                 .font(.caption2)
@@ -176,14 +162,6 @@ struct StatusLineConfigLayoutEditor: View {
                                     Text("Claude only")
                                         .font(.caption2)
                                         .foregroundStyle(.blue)
-                                case .opencodeOnly:
-                                    Text("OpenCode only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.purple)
-                                case .claudeOrOpencode:
-                                    Text("Claude + OpenCode")
-                                        .font(.caption2)
-                                        .foregroundStyle(.indigo)
                                 case .all:
                                     Text("All tools")
                                         .font(.caption2)
@@ -672,12 +650,12 @@ struct NotificationsContent: View {
                             .fontWeight(.medium)
                         Text(
                             "Show a system notification when a background pane rings the bell. "
-                            + "Requires permission in System Settings."
+                                + "Requires permission in System Settings."
                         )
                         .font(.caption).foregroundStyle(.secondary)
                         Text(
                             "By default, macOS banners auto-dismiss after a few seconds. "
-                            + "To keep them on screen until dismissed:"
+                                + "To keep them on screen until dismissed:"
                         )
                         .font(.caption).foregroundStyle(.secondary).padding(.top, 2)
                         VStack(alignment: .leading, spacing: 2) {
@@ -695,28 +673,6 @@ struct NotificationsContent: View {
                         }
                         .font(.caption).buttonStyle(.link)
                         .accessibilityIdentifier("settings-open-notification-settings-button")
-                    }
-                }
-            }
-            Section("Claude Code") {
-                SettingRow(
-                    title: "Notification hook for attention",
-                    description:
-                        "Merge Claude's Notification hook into each pane's --settings so permission prompts "
-                        + "and other notifies can trigger the same in‑app alerts as a terminal bell, "
-                        + "even when no BEL or OSC 777 is sent."
-                ) {
-                    Toggle(
-                        "Notification hook for attention",
-                        isOn: $appSettings.isClaudeNotificationHookAttentionEnabled
-                    )
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .accessibilityIdentifier("settings-claude-notification-hook-toggle")
-                    .onChange(of: appSettings.isClaudeNotificationHookAttentionEnabled) {
-                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
-                        NotificationCenter.default.post(
-                            name: .agentSessionManagerClaudeHookAttentionSettingChanged, object: nil)
                     }
                 }
             }

@@ -49,7 +49,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     }
 
     /// Options for notification image attachments (PNG type hint for UserNotifications).
-    nonisolated static let notificationAttachmentOptions: [AnyHashable: Any] = [
+    static let notificationAttachmentOptions: [AnyHashable: Any] = [
         UNNotificationAttachmentOptionsTypeHintKey: UTType.png.identifier
     ]
 
@@ -110,6 +110,34 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         return attachment
     }
 
+    nonisolated static func escapedBannerBody(_ value: String) -> String {
+        value.replacingOccurrences(of: "%", with: "%%")
+    }
+
+    nonisolated static func makePaneAttentionContent(
+        tabName: String, paneName: String, reason: String
+    )
+        -> UNMutableNotificationContent
+    {
+        let content = UNMutableNotificationContent()
+        content.title = "Agent Session Manager"
+        content.subtitle = "\(tabName) / \(paneName)"
+        content.body = escapedBannerBody(reason)
+        return content
+    }
+
+    nonisolated static func makePRMergedContent(
+        tabName: String, paneName: String, prNumber: Int, prTitle: String
+    )
+        -> UNMutableNotificationContent
+    {
+        let content = UNMutableNotificationContent()
+        content.title = "PR Merged"
+        content.subtitle = "\(tabName) / \(paneName)"
+        content.body = escapedBannerBody("PR #\(prNumber) merged: \(prTitle)")
+        return content
+    }
+
     func requestAuthorizationIfNeeded() async {
         guard !AgentSessionManagerApp.isUITesting else { return }
         guard let appSettings = self.appSettings else { return }
@@ -132,7 +160,9 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         paneID: UUID,
         paneName: String,
         tabID: UUID,
-        tabName: String
+        tabName: String,
+        reason: String,
+        source: PaneAttentionEvent.Source
     ) {
         guard let appSettings = self.appSettings else { return }
         guard appSettings.isMacOSBannerNotificationsEnabled else { return }
@@ -142,10 +172,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             let settings = await center.notificationSettings()
             guard settings.authorizationStatus == .authorized else { return }
             guard settings.alertSetting == .enabled else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "Agent Session Manager"
-            content.subtitle = paneName
-            content.body = "Tab \"\(tabName)\" needs attention."
+            let content = Self.makePaneAttentionContent(tabName: tabName, paneName: paneName, reason: reason)
             content.sound = .default
             content.userInfo = [
                 MacNotificationUserInfoKey.paneID: paneID.uuidString,
@@ -163,6 +190,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                     attributes: [
                         "pane.name": paneName,
                         "title": "Agent Session Manager",
+                        "reason": reason,
+                        "source": source.rawValue,
                     ])
             } catch {
                 TracingService.shared.record(
@@ -190,10 +219,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             let settings = await center.notificationSettings()
             guard settings.authorizationStatus == .authorized else { return }
             guard settings.alertSetting == .enabled else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "PR Merged"
-            content.subtitle = paneName
-            content.body = "PR #\(prNumber): \(prTitle)"
+            let content = Self.makePRMergedContent(
+                tabName: tabName, paneName: paneName, prNumber: prNumber, prTitle: prTitle)
             content.sound = .default
             content.userInfo = [
                 MacNotificationUserInfoKey.paneID: paneID.uuidString,

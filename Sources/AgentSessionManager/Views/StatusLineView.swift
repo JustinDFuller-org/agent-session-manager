@@ -100,14 +100,6 @@ struct StatusLineView: View {
         if itemID == "exceeds200k", data?.exceeds200kTokens == true {
             return AnyShapeStyle(.orange)
         }
-        if itemID == "sessionStatus", let state = data?.sessionStatus?.state {
-            switch state {
-            case "idle": return AnyShapeStyle(.green)
-            case "busy": return AnyShapeStyle(.yellow)
-            case "retry": return AnyShapeStyle(.orange)
-            default: break
-            }
-        }
         if itemID == "pr", let pr = data?.pr {
             return AnyShapeStyle(prCircleColor(pr: pr))
         }
@@ -163,10 +155,6 @@ struct StatusLineView: View {
             Text(data?.exceeds200kTokens == true ? "200k+" : "—")
                 .font(.caption)
                 .foregroundStyle(data?.exceeds200kTokens == true ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
-        case "sessionStatus":
-            Text((data?.sessionStatus?.state ?? "—").capitalized)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         case "pr":
             if let pr = data?.pr {
                 HStack(spacing: 4) {
@@ -242,8 +230,6 @@ struct StatusLineView: View {
             return data?.version ?? "—"
         case "outputStyle":
             return data?.outputStyle?.name ?? "—"
-        case "openCodeMode":
-            return data?.openCodeMode ?? "—"
         case "profileName":
             return profileName ?? "—"
         default:

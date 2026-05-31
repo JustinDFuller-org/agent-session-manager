@@ -273,7 +273,6 @@ struct CursorDataProviderTests {
         #expect(item != nil)
         #expect(item?.supportedBy(.cursor) == true)
         #expect(item?.supportedBy(.claude) == true)
-        #expect(item?.supportedBy(.opencode) == true)
         #expect(item?.supportedBy(.codex) == true)
     }
 

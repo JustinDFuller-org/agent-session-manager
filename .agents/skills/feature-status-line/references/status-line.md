@@ -9,17 +9,16 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 | `agentName` | Agent | Claude only | Claude hook JSON `agent.name` |
 | `context` | Context % | Claude only | Claude hook JSON `context_window.used_percentage` |
 | `contextRemaining` | Context Remaining | Claude only | Claude hook JSON `context_window.remaining_percentage` |
-| `cost` | Cost | Claude + OpenCode | Claude hook JSON `cost.total_cost_usd` / OpenCode DB |
+| `cost` | Cost | Claude only | Claude hook JSON `cost.total_cost_usd` |
 | `duration` | Duration | All | App-computed from process start time |
 | `effort` | Effort | Claude only | Claude hook JSON `effort.level` |
 | `exceeds200k` | Exceeds 200k | Claude only | Claude hook JSON `exceeds_200k_tokens` |
-| `inputTokens` | Input Tokens | Claude + OpenCode | Claude hook JSON / OpenCode DB |
+| `inputTokens` | Input Tokens | Claude only | Claude hook JSON |
 | `linesAdded` | Lines Added | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `linesRemoved` | Lines Removed | All | `git diff --shortstat HEAD` (polled every 15s) |
-| `model` | Model | All | Claude hook JSON / OpenCode DB / Cursor hook |
-| `openCodeMode` | Mode | OpenCode only | OpenCode DB `mode` field |
+| `model` | Model | All | Claude hook JSON / Cursor hook |
 | `outputStyle` | Output Style | Claude only | Claude hook JSON `output_style.name` |
-| `outputTokens` | Output Tokens | Claude + OpenCode | Claude hook JSON / OpenCode DB |
+| `outputTokens` | Output Tokens | Claude only | Claude hook JSON |
 | `pr` | PR | All | GitHub CLI (`gh pr view`) via PRTrackingCoordinator |
 | `profileName` | Profile | All | App state (selected profile) |
 | `rate5h` | 5h Rate | Claude only | Claude hook JSON `rate_limits.five_hour` |
@@ -27,7 +26,6 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 | `rate7d` | 7d Rate | Claude only | Claude hook JSON `rate_limits.seven_day` |
 | `rate7dReset` | 7d Resets At | Claude only | Claude hook JSON `rate_limits.seven_day.resets_at` |
 | `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
-| `sessionStatus` | Status | OpenCode only | OpenCode DB (idle/busy/retry) |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | CLI `--version` flag |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
@@ -49,7 +47,7 @@ The old `gitWorktree` item duplicated what `worktree` already shows. It has been
 
 `linesAdded` and `linesRemoved` always reflect `git diff --shortstat HEAD`, polled every 15 seconds by `GitDiffStats.compute(in:)`. This is consistent for all CLIs:
 
-- **ToolAgnosticDataProvider, CursorDataProvider, OpenCodeDataProvider**: call `GitDiffStats.compute` in `refreshNow()` and populate `Cost.totalLinesAdded/Removed`.
+- **ToolAgnosticDataProvider, CursorDataProvider**: call `GitDiffStats.compute` in `refreshNow()` and populate `Cost.totalLinesAdded/Removed`.
 - **StatusLineMonitor (Claude)**: maintains a 15s `gitDiffTimer` whose results are cached in `cachedGitStats`. After decoding Claude JSON, `applyI3Enforcement(to:)` replaces the JSON values with the cached git values and logs `statusline.lines.source_mismatch` on disagreement.
 
 ### Empty state
@@ -93,9 +91,8 @@ The `worktree` fact renders as `name • branch` when both values are available,
 | `Sources/.../Models/StatusLineConfig.swift` | Item catalog, availability, order, decoder migration, `wizardDefault()` factory |
 | `Sources/.../Controllers/GitDiffStats.swift` | `git diff --shortstat HEAD` runner and parser |
 | `Sources/.../Controllers/StatusLineMonitor.swift` | I1/I3 enforcement for Claude panes, git diff polling |
-| `Sources/.../Controllers/ToolAgnosticDataProvider.swift` | Git stats for non-Claude/non-OpenCode panes |
+| `Sources/.../Controllers/ToolAgnosticDataProvider.swift` | Git stats for non-Claude panes |
 | `Sources/.../Controllers/CursorDataProvider.swift` | Git stats for Cursor panes |
-| `Sources/.../Controllers/OpenCodeDataProvider.swift` | Git stats for OpenCode panes |
 | `Sources/.../Views/StatusLineView.swift` | Chip rendering |
 | `Sources/.../Views/StatusLineSettingsViews.swift` | Settings UI and alphabetical picker |
 | `Tests/GitDiffStatsTests.swift` | Parser unit tests |

@@ -2,7 +2,7 @@
 
 Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
-The catalog controls which chips can be selected for a harness. Catalog availability does not guarantee that a provider currently populates the field: unavailable provider data renders as `—`. For example, Codex can select `model` but does not populate it, and OpenCode can select `version` but does not populate it. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the per-harness audit.
+The catalog controls which chips can be selected for a harness. Catalog availability does not guarantee that a provider currently populates the field: unavailable provider data renders as `—`. For example, Codex can select `model` but does not populate it. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the per-harness audit.
 
 ## Item Catalog
 
@@ -11,17 +11,16 @@ The catalog controls which chips can be selected for a harness. Catalog availabi
 | `agentName` | Agent | Claude only | Claude hook JSON `agent.name` |
 | `context` | Context % | Claude only | Claude hook JSON `context_window.used_percentage` |
 | `contextRemaining` | Context Remaining | Claude only | Claude hook JSON `context_window.remaining_percentage` |
-| `cost` | Cost | Claude + OpenCode | Claude hook JSON `cost.total_cost_usd` / OpenCode DB |
+| `cost` | Cost | Claude only | Claude hook JSON `cost.total_cost_usd` |
 | `duration` | Duration | All | App-computed from process start time |
 | `effort` | Effort | Claude only | Claude hook JSON `effort.level` |
 | `exceeds200k` | Exceeds 200k | Claude only | Claude hook JSON `exceeds_200k_tokens` |
-| `inputTokens` | Input Tokens | Claude + OpenCode | Claude hook JSON / OpenCode DB |
+| `inputTokens` | Input Tokens | Claude only | Claude hook JSON |
 | `linesAdded` | Lines Added | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `linesRemoved` | Lines Removed | All | `git diff --shortstat HEAD` (polled every 15s) |
-| `model` | Model | All | Claude hook JSON / OpenCode DB / Cursor hook |
-| `openCodeMode` | Mode | OpenCode only | OpenCode DB `mode` field |
+| `model` | Model | All | Claude hook JSON / Cursor hook |
 | `outputStyle` | Output Style | Claude only | Claude hook JSON `output_style.name` |
-| `outputTokens` | Output Tokens | Claude + OpenCode | Claude hook JSON / OpenCode DB |
+| `outputTokens` | Output Tokens | Claude only | Claude hook JSON |
 | `pr` | PR | All | GitHub CLI (`gh pr view`) via PRTrackingCoordinator |
 | `profileName` | Profile | All | App state (selected profile) |
 | `rate5h` | 5h Rate | Claude only | Claude hook JSON `rate_limits.five_hour` |
@@ -29,9 +28,8 @@ The catalog controls which chips can be selected for a harness. Catalog availabi
 | `rate7d` | 7d Rate | Claude only | Claude hook JSON `rate_limits.seven_day` |
 | `rate7dReset` | 7d Resets At | Claude only | Claude hook JSON `rate_limits.seven_day.resets_at` |
 | `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
-| `sessionStatus` | Status | OpenCode only | OpenCode DB (`idle` / `busy`; renderer supports `retry`, but provider does not emit it) |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
-| `version` | Version | All | Claude hook JSON / Cursor and Codex CLI `--version`; OpenCode currently unpopulated |
+| `version` | Version | All | Claude hook JSON / Cursor and Codex CLI `--version` |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
 | `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
 

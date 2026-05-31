@@ -19,5 +19,5 @@ Toggle **Auto Session Name** off in Settings → Sessions. When disabled, no `--
 
 ## Notes
 
-- Auto-naming applies only to Claude panes. Codex, Cursor, and OpenCode panes are unaffected.
+- Auto-naming applies only to Claude panes. Codex and Cursor panes are unaffected.
 - The name format is `<tab-name>/<pane-name>`. Single quotes in either name are shell-escaped.

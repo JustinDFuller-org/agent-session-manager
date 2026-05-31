@@ -1,1 +1,0 @@
-../../../../documentation/features/opencode-cli.md

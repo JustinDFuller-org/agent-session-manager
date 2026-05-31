@@ -92,7 +92,6 @@ final class AppSettings {
     var cliOptions: [CLIOptionConfig] = CLIOptionConfig.all
     var codexCliOptions: [CLIOptionConfig] = CLIOptionConfig.codexAll
     var cursorCliOptions: [CLIOptionConfig] = CLIOptionConfig.cursorAll
-    var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
     var envVarOptions: [EnvVarConfig] = EnvVarConfig.all
     var statusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [Harness.claude.rawValue]
@@ -102,8 +101,6 @@ final class AppSettings {
     var alwaysShowNotificationsSidebar: Bool = true
     var isPriorityNotificationsEnabled: Bool = true
     var isMacOSBannerNotificationsEnabled: Bool = true
-    /// Merges Claude Code `Notification` hook into per-pane `--settings` for attention when the terminal does not ring the bell (default on).
-    var isClaudeNotificationHookAttentionEnabled: Bool = true
     /// Installs a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
     var isCursorNotificationHookAttentionEnabled: Bool = true
     var continueOnRestart: Bool = true
@@ -124,6 +121,7 @@ final class AppSettings {
     /// Persisted shell path; empty string means auto-detect from $SHELL.
     var preferredShell: String = ""
     var hasCompletedOnboarding: Bool = false
+    var paneActivityIndicatorsEnabled: Bool = true
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 

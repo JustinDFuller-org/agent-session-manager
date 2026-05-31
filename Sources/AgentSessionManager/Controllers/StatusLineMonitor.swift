@@ -17,6 +17,7 @@ enum SidebarSide: String, Codable, CaseIterable {
 @MainActor
 final class StatusLineMonitor {
     private(set) var currentData: StatusLineData?
+    private(set) var isClaudeWorking = false
 
     private let paneID: UUID
     private let paneName: String
@@ -24,13 +25,16 @@ final class StatusLineMonitor {
     private let tabName: String
     let filePath: String
     let settingsFilePath: String
-    /// Written by Claude Code `Notification` hook stdin when `isClaudeHookAttentionEnabled` is on.
+    /// Written by Claude Code attention hooks so user-blocking interactions use the notification path.
     let attentionSignalFilePath: String
+    /// Written by Claude Code lifecycle hooks so activity does not depend on noisy PTY reads.
+    let activitySignalFilePath: String
     private let workingDirectory: String?
     private let harness: Harness
     private let isClaude: Bool
     private var source: DispatchSourceFileSystemObject?
     private var attentionSource: DispatchSourceFileSystemObject?
+    private var activitySource: DispatchSourceFileSystemObject?
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
@@ -40,7 +44,7 @@ final class StatusLineMonitor {
     private var lastAppliedModificationDate: Date?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
-    var onClaudeHookAttention: (() -> Void)?
+    var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
 
@@ -67,12 +71,12 @@ final class StatusLineMonitor {
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
         attentionSignalFilePath =
             NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
+        activitySignalFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-claude-activity-\(paneID.uuidString).json"
 
         if !isClaude, let cwd = workingDirectory {
             let provider: any StatusLineDataProvider
-            if harness == .opencode {
-                provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
-            } else if harness == .cursor {
+            if harness == .cursor {
                 provider = CursorDataProvider(
                     workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
             } else {
@@ -89,9 +93,17 @@ final class StatusLineMonitor {
                 }
                 self.currentData = merged
             }
-            agnosticProvider?.onAttention = { [weak self] in
+            agnosticProvider?.onAttention = { [weak self] event in
                 Task { @MainActor in
-                    self?.onClaudeHookAttention?()
+                    guard let self else { return }
+                    TracingService.shared.record(
+                        "statusline.attention.received",
+                        attributes: [
+                            "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                            "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                            "source": event.source.rawValue, "reason": event.reason,
+                        ])
+                    self.onClaudeHookAttention?(event)
                 }
             }
         }
@@ -109,8 +121,10 @@ final class StatusLineMonitor {
                     "tab.name": tabName,
                 ])
             FileManager.default.createFile(atPath: filePath, contents: nil)
+            FileManager.default.createFile(atPath: activitySignalFilePath, contents: nil)
 
             startStatusWatcher()
+            startActivityWatcher()
 
             if let cwd = workingDirectory {
                 scheduleGitDiffPolling(workingDirectory: cwd)
@@ -134,8 +148,7 @@ final class StatusLineMonitor {
                         worktree: nil, workspace: nil, effort: nil, thinking: nil,
                         agent: nil, outputStyle: nil, vim: nil,
                         sessionName: nil, version: nil, exceeds200kTokens: nil,
-                        sessionStatus: nil, openCodeMode: nil,
-                        pr: pr
+                        pr: pr, sessionStatus: nil
                     )
                 } else {
                     self.currentData?.pr = pr
@@ -145,16 +158,17 @@ final class StatusLineMonitor {
         }
     }
 
-    /// Rewrites Claude `--settings` and restarts the attention file watcher (e.g. when the user toggles the hook in Settings).
+    /// Rewrites Claude `--settings` after an integration-affecting setting changes.
     func refreshClaudeIntegrationFromSettings() {
         guard isClaude else { return }
         writeSettingsFile()
-        restartAttentionWatcherIfEligible()
     }
 
     func stop() {
         source?.cancel()
         source = nil
+        activitySource?.cancel()
+        activitySource = nil
         gitDiffTimer?.invalidate()
         gitDiffTimer = nil
         TracingService.shared.record(
@@ -174,6 +188,7 @@ final class StatusLineMonitor {
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
+        try? FileManager.default.removeItem(atPath: activitySignalFilePath)
     }
 
     private func scheduleGitDiffPolling(workingDirectory: String) {
@@ -207,7 +222,7 @@ final class StatusLineMonitor {
         )
         newSource.setEventHandler { [weak self, weak newSource] in
             guard let self else { return }
-            let inodeLost = newSource?.data.intersection([.delete, .rename, .revoke]).isEmpty == false
+            let inodeLost = newSource?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
             if inodeLost {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
@@ -368,35 +383,13 @@ final class StatusLineMonitor {
     }
 
     private func writeSettingsFile() {
-        let attentionEnabled = isClaude && SettingsPersistence.isClaudeHookAttentionEnabled()
         let prTrackingEnabled = SettingsPersistence.isPRTrackingEnabled()
-        var settings: [String: Any] = [
-            "statusLine": [
-                "type": "command",
-                "command": "cat > '\(filePath)'",
-            ]
-        ]
-        if prTrackingEnabled {
-            settings["showPRStatus"] = false
-            settings["prStatusFooterEnabled"] = false
-        }
-        if attentionEnabled {
-            let attentionHookEntry: [[String: Any]] = [
-                [
-                    "matcher": "",
-                    "hooks": [
-                        [
-                            "type": "command",
-                            "command": "cat > '\(attentionSignalFilePath)'",
-                        ]
-                    ],
-                ]
-            ]
-            settings["hooks"] = [
-                "Notification": attentionHookEntry,
-                "PermissionRequest": attentionHookEntry,
-            ]
-        }
+        let settings = Self.makeClaudeSettingsDictionaryForTesting(
+            statusOutputPath: filePath,
+            attentionOutputPath: attentionSignalFilePath,
+            activityOutputPath: activitySignalFilePath,
+            hidePRStatus: prTrackingEnabled
+        )
         guard let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) else { return }
         try? data.write(to: URL(filePath: settingsFilePath))
         TracingService.shared.record(
@@ -409,7 +402,7 @@ final class StatusLineMonitor {
 
     private func restartAttentionWatcherIfEligible() {
         stopAttentionWatcher()
-        guard isClaude, SettingsPersistence.isClaudeHookAttentionEnabled() else { return }
+        guard isClaude else { return }
         FileManager.default.createFile(atPath: attentionSignalFilePath, contents: nil)
         let fd = open(attentionSignalFilePath, O_EVTONLY)
         guard fd >= 0 else { return }
@@ -424,6 +417,52 @@ final class StatusLineMonitor {
         src.setCancelHandler { close(fd) }
         src.resume()
         attentionSource = src
+    }
+
+    private func startActivityWatcher() {
+        activitySource?.cancel()
+        activitySource = nil
+        let fd = open(activitySignalFilePath, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        src.setEventHandler { [weak self] in
+            guard let self else { return }
+            guard let data = try? Data(contentsOf: URL(filePath: self.activitySignalFilePath)) else { return }
+            Task { @MainActor in
+                self.applyClaudeActivityPayload(data)
+            }
+        }
+        src.setCancelHandler { close(fd) }
+        src.resume()
+        activitySource = src
+    }
+
+    private func applyClaudeActivityPayload(_ data: Data) {
+        guard let payload = try? JSONDecoder().decode(ClaudeActivityPayload.self, from: data) else { return }
+        let nextState: Bool
+        switch payload.hookEventName {
+        case "UserPromptSubmit":
+            nextState = true
+        case "Stop", "StopFailure":
+            nextState = false
+        default:
+            return
+        }
+        guard nextState != isClaudeWorking else { return }
+        isClaudeWorking = nextState
+        TracingService.shared.record(
+            "pane.activity.changed",
+            attributes: [
+                "pane.name": paneName, "pane.id": paneID.uuidString,
+                "tab.id": tabID.uuidString, "tab.name": tabName,
+                "state": nextState ? "working" : "idle",
+                "source": "claude_hook",
+                "hook_event": payload.hookEventName,
+            ])
     }
 
     private func stopAttentionWatcher() {
@@ -450,13 +489,15 @@ final class StatusLineMonitor {
             Task { @MainActor in
                 guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
                 self.lastAttentionPayloadFingerprint = fingerprint
+                guard let event = PaneAttentionEvent.claudeHook(data) else { return }
                 TracingService.shared.record(
                     "statusline.attention.received",
                     attributes: [
                         "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
                         "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                        "source": event.source.rawValue, "reason": event.reason,
                     ])
-                self.onClaudeHookAttention?()
+                self.onClaudeHookAttention?(event)
             }
         }
         attentionDebounceWork = work
@@ -474,8 +515,7 @@ final class StatusLineMonitor {
                 worktree: nil, workspace: nil, effort: nil, thinking: nil,
                 agent: nil, outputStyle: nil, vim: nil,
                 sessionName: nil, version: nil, exceeds200kTokens: nil,
-                sessionStatus: nil, openCodeMode: nil,
-                pr: pr
+                pr: pr, sessionStatus: nil
             )
         } else {
             currentData?.pr = pr
@@ -543,11 +583,17 @@ final class StatusLineMonitor {
         checkPayloadFreshness()
     }
 
-    /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus optional `hooks`) for tests and tooling.
+    /// For testing only: applies Claude lifecycle hook stdin.
+    @MainActor
+    func testApplyClaudeActivityPayload(_ data: Data) {
+        applyClaudeActivityPayload(data)
+    }
+
+    /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus lifecycle and attention hooks) for tests and tooling.
     nonisolated static func makeClaudeSettingsDictionaryForTesting(
         statusOutputPath: String,
         attentionOutputPath: String,
-        includeNotificationHook: Bool,
+        activityOutputPath: String,
         hidePRStatus: Bool = false
     ) -> [String: Any] {
         var settings: [String: Any] = [
@@ -560,24 +606,26 @@ final class StatusLineMonitor {
             settings["showPRStatus"] = false
             settings["prStatusFooterEnabled"] = false
         }
-        if includeNotificationHook {
-            let attentionHookEntry: [[String: Any]] = [
-                [
-                    "matcher": "",
-                    "hooks": [
-                        [
-                            "type": "command",
-                            "command": "cat > '\(attentionOutputPath)'",
-                        ]
-                    ],
-                ]
-            ]
-            settings["hooks"] = [
-                "Notification": attentionHookEntry,
-                "PermissionRequest": attentionHookEntry,
-            ]
-        }
+        let activityHook: [[String: Any]] = [["type": "command", "command": "cat > '\(activityOutputPath)'"]]
+        let attentionHook: [[String: Any]] = [["type": "command", "command": "cat > '\(attentionOutputPath)'"]]
+        settings["hooks"] = [
+            "UserPromptSubmit": [["hooks": activityHook]],
+            "Stop": [["hooks": activityHook]],
+            "StopFailure": [["hooks": activityHook]],
+            "PreToolUse": [["matcher": "AskUserQuestion|ExitPlanMode", "hooks": attentionHook]],
+            "PermissionRequest": [["hooks": attentionHook]],
+            "Notification": [["matcher": "permission_prompt|elicitation_dialog", "hooks": attentionHook]],
+            "Elicitation": [["hooks": attentionHook]],
+        ]
         return settings
+    }
+}
+
+private struct ClaudeActivityPayload: Decodable {
+    let hookEventName: String
+
+    enum CodingKeys: String, CodingKey {
+        case hookEventName = "hook_event_name"
     }
 }
 

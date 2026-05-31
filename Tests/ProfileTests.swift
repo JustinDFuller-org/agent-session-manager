@@ -193,7 +193,7 @@ struct ProfileTests {
 
     @Test("Different CLI types preserved in profiles")
     func harnessPreserved() throws {
-        for harness in [Harness.claude, .codex, .cursor, .opencode] {
+        for harness in [Harness.claude, .codex, .cursor] {
             let profile = Profile(name: "Test", harness: harness)
             let data = try JSONEncoder().encode(profile)
             let decoded = try JSONDecoder().decode(Profile.self, from: data)

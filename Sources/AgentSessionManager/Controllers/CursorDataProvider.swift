@@ -9,7 +9,7 @@ import Foundation
 /// environment variable. `CursorHookSetup` handles creating/updating this file.
 final class CursorDataProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
-    var onAttention: (() -> Void)?
+    var onAttention: ((PaneAttentionEvent) -> Void)?
 
     let workingDirectory: String
     let processStartTime: Date
@@ -140,7 +140,7 @@ final class CursorDataProvider: StatusLineDataProvider {
             Task { @MainActor in
                 guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
                 self.lastAttentionPayloadFingerprint = fingerprint
-                self.onAttention?()
+                self.onAttention?(.cursorStop)
             }
         }
         attentionDebounceWork = work
@@ -183,9 +183,8 @@ final class CursorDataProvider: StatusLineDataProvider {
                 sessionName: nil,
                 version: self.versionFetchedVersion,
                 exceeds200kTokens: nil,
-                sessionStatus: nil,
-                openCodeMode: nil,
-                pr: nil
+                pr: nil,
+                sessionStatus: nil
             )
 
             await MainActor.run { [weak self] in

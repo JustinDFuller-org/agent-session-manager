@@ -1,6 +1,6 @@
 # Codex CLI Support
 
-Agent Session Manager supports [Codex](https://developers.openai.com/codex) alongside Claude Code, Cursor, and OpenCode.
+Agent Session Manager supports [Codex](https://developers.openai.com/codex) alongside Claude Code and Cursor.
 
 ## What It Does
 

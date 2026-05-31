@@ -70,7 +70,7 @@ class BaseTestCase: XCTestCase {
         let support = UITestAppSupport.directory
         for file in [
             "sessions.json", "settings.json", "codex-settings.json",
-            "cursor-settings.json", "opencode-settings.json", "statusline-settings.json",
+            "cursor-settings.json", "statusline-settings.json",
             "active-tools-settings.json", "default-branch.json",
             "notification-settings.json", "restart-settings.json",
             "worktree-cleanup.json", "existing-worktree-management.json",
@@ -79,6 +79,7 @@ class BaseTestCase: XCTestCase {
             "terminal-settings.json", "worktree-base-ref.json", "exit-behavior.json",
             "env-var-settings.json", "profiles.json", "session-name-settings.json",
             "shell-settings.json", "onboarding-settings.json",
+            "activity-indicator-settings.json",
         ] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }

@@ -466,9 +466,6 @@ struct OnboardingWizardView: View {
             case .cursor:
                 appSettings.cursorCliOptions = draft
                 SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-            case .opencode:
-                appSettings.opencodeCliOptions = draft
-                SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
             case .shell:
                 break
             }

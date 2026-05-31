@@ -3,103 +3,56 @@ import XCTest
 @testable import AgentSessionManager
 
 final class StatusLineMonitorHookSettingsTests: XCTestCase {
-    func testMakeClaudeSettingsOmitsHooksWhenDisabled() {
-        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
+    private func makeSettings(hidePRStatus: Bool = false) -> [String: Any] {
+        StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: "/tmp/status.json",
             attentionOutputPath: "/tmp/attention.json",
-            includeNotificationHook: false
+            activityOutputPath: "/tmp/activity.json",
+            hidePRStatus: hidePRStatus
         )
-        XCTAssertNotNil(settings["statusLine"])
-        XCTAssertNil(settings["hooks"])
     }
 
-    func testMakeClaudeSettingsIncludesNotificationHookStructure() {
-        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
-            statusOutputPath: "/tmp/status.json",
-            attentionOutputPath: "/tmp/attention.json",
-            includeNotificationHook: true
-        )
-        guard let hooks = settings["hooks"] as? [String: Any] else {
-            XCTFail("expected hooks dictionary")
-            return
-        }
-        guard let notification = hooks["Notification"] as? [[String: Any]] else {
-            XCTFail("expected hooks.Notification array")
-            return
-        }
-        XCTAssertEqual(notification.count, 1)
-        guard let entryHooks = notification.first?["hooks"] as? [[String: Any]] else {
-            XCTFail("expected entry hooks array")
-            return
-        }
-        XCTAssertEqual(entryHooks.count, 1)
-        XCTAssertEqual(entryHooks.first?["type"] as? String, "command")
-        XCTAssertEqual(entryHooks.first?["command"] as? String, "cat > '/tmp/attention.json'")
+    private func firstEntry(for event: String, in hooks: [String: Any]) throws -> [String: Any] {
+        try XCTUnwrap((hooks[event] as? [[String: Any]])?.first)
     }
 
-    func testMakeClaudeSettingsIncludesPermissionRequestHookStructure() {
-        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
-            statusOutputPath: "/tmp/status.json",
-            attentionOutputPath: "/tmp/attention.json",
-            includeNotificationHook: true
+    func testMakeClaudeSettingsAlwaysIncludesLifecycleHooks() throws {
+        let settings = makeSettings()
+        let hooks = try XCTUnwrap(settings["hooks"] as? [String: Any])
+
+        for event in ["UserPromptSubmit", "Stop", "StopFailure"] {
+            let entry = try firstEntry(for: event, in: hooks)
+            let command = try XCTUnwrap((entry["hooks"] as? [[String: Any]])?.first?["command"] as? String)
+            XCTAssertEqual(command, "cat > '/tmp/activity.json'")
+        }
+    }
+
+    func testMakeClaudeSettingsIncludesFocusedAttentionHooks() throws {
+        let hooks = try XCTUnwrap(makeSettings()["hooks"] as? [String: Any])
+
+        XCTAssertEqual(
+            try firstEntry(for: "PreToolUse", in: hooks)["matcher"] as? String,
+            "AskUserQuestion|ExitPlanMode"
         )
-        guard let hooks = settings["hooks"] as? [String: Any] else {
-            XCTFail("expected hooks dictionary")
-            return
+        XCTAssertEqual(
+            try firstEntry(for: "Notification", in: hooks)["matcher"] as? String,
+            "permission_prompt|elicitation_dialog"
+        )
+        for event in ["PreToolUse", "PermissionRequest", "Notification", "Elicitation"] {
+            let entry = try firstEntry(for: event, in: hooks)
+            let command = try XCTUnwrap((entry["hooks"] as? [[String: Any]])?.first?["command"] as? String)
+            XCTAssertEqual(command, "cat > '/tmp/attention.json'")
         }
-        guard let permissionRequest = hooks["PermissionRequest"] as? [[String: Any]] else {
-            XCTFail("expected hooks.PermissionRequest array")
-            return
-        }
-        XCTAssertEqual(permissionRequest.count, 1)
-        guard let entryHooks = permissionRequest.first?["hooks"] as? [[String: Any]] else {
-            XCTFail("expected entry hooks array")
-            return
-        }
-        XCTAssertEqual(entryHooks.count, 1)
-        XCTAssertEqual(entryHooks.first?["type"] as? String, "command")
-        XCTAssertEqual(entryHooks.first?["command"] as? String, "cat > '/tmp/attention.json'")
     }
 
     func testMakeClaudeSettingsOmitsPRStatusFooterByDefault() {
-        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
-            statusOutputPath: "/tmp/status.json",
-            attentionOutputPath: "/tmp/attention.json",
-            includeNotificationHook: false
-        )
+        let settings = makeSettings()
         XCTAssertNil(settings["prStatusFooterEnabled"])
         XCTAssertNil(settings["showPRStatus"])
     }
 
     func testMakeClaudeSettingsIncludesPRStatusFooterFalseWhenHidden() {
-        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
-            statusOutputPath: "/tmp/status.json",
-            attentionOutputPath: "/tmp/attention.json",
-            includeNotificationHook: false,
-            hidePRStatus: true
-        )
-        XCTAssertEqual(settings["prStatusFooterEnabled"] as? Bool, false)
-        XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
-    }
-
-    func testMakeClaudeSettingsOmitsPRStatusFooterWhenNotHidden() {
-        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
-            statusOutputPath: "/tmp/status.json",
-            attentionOutputPath: "/tmp/attention.json",
-            includeNotificationHook: false,
-            hidePRStatus: false
-        )
-        XCTAssertNil(settings["prStatusFooterEnabled"])
-        XCTAssertNil(settings["showPRStatus"])
-    }
-
-    func testMakeClaudeSettingsHidePRStatusFooterCombinesWithHooks() {
-        let settings = StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
-            statusOutputPath: "/tmp/status.json",
-            attentionOutputPath: "/tmp/attention.json",
-            includeNotificationHook: true,
-            hidePRStatus: true
-        )
+        let settings = makeSettings(hidePRStatus: true)
         XCTAssertEqual(settings["prStatusFooterEnabled"] as? Bool, false)
         XCTAssertEqual(settings["showPRStatus"] as? Bool, false)
         XCTAssertNotNil(settings["hooks"])

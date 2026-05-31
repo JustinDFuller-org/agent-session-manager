@@ -37,6 +37,23 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications.count, 1)
     }
 
+    func testAddNotificationRefreshesSamePaneReasonAndTimestamp() {
+        let state = AppState()
+        let paneID = UUID()
+        let tabID = UUID()
+        state.addNotification(
+            paneID: paneID, paneName: "auth-fix", tabID: tabID, tabName: "myapp", isPriority: false,
+            event: PaneAttentionEvent(source: .osc777, reason: "First"))
+        let first = state.notifications[0]
+        state.addNotification(
+            paneID: paneID, paneName: "auth-fix", tabID: tabID, tabName: "myapp", isPriority: false,
+            event: PaneAttentionEvent(source: .osc777, reason: "Second"))
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications[0].reason, "Second")
+        XCTAssertNotEqual(state.notifications[0].id, first.id)
+        XCTAssertGreaterThanOrEqual(state.notifications[0].timestamp, first.timestamp)
+    }
+
     func testAddNotificationIncludesActivePane() {
         let state = AppState()
         let paneID = UUID()
@@ -157,6 +174,23 @@ final class NotificationTests: XCTestCase {
         XCTAssertTrue(restored.alwaysShowNotificationsSidebar)
     }
 
+    func testLegacyClaudeHookAttentionKeyIsIgnoredAndOmittedOnSave() throws {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appending(path: "notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try Data(#"{"isClaudeHookAttentionEnabled":false}"#.utf8).write(to: url)
+        let restored = AppSettings()
+        SettingsPersistence.restoreNotificationSettings(into: restored)
+        SettingsPersistence.saveNotificationSettings(appSettings: restored)
+
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        XCTAssertNil(saved["isClaudeHookAttentionEnabled"])
+    }
+
     /// Older `notification-settings.json` files did not encode the macOS banner flag; it should default on.
     func testNotificationSettingsLegacyJSONDefaultsMacOSBannerOn() throws {
         let support = FileManager.default
@@ -251,5 +285,41 @@ final class NotificationTests: XCTestCase {
         let n1 = PaneNotification(paneID: paneID, paneName: "pane", tabID: tabID, tabName: "tab", isPriority: false)
         let n2 = PaneNotification(paneID: paneID, paneName: "pane", tabID: tabID, tabName: "tab", isPriority: false)
         XCTAssertNotEqual(n1.id, n2.id)
+    }
+
+    // MARK: - PaneAttentionEvent
+
+    func testRawBellReason() {
+        XCTAssertEqual(PaneAttentionEvent.rawBell.reason, "Attention needed")
+    }
+
+    func testOsc777UsesBodyThenTitleThenFallbackAndNormalizesWhitespace() {
+        XCTAssertEqual(PaneAttentionEvent.osc777("notify; title ; body \n text ")?.reason, "body text")
+        XCTAssertEqual(PaneAttentionEvent.osc777("notify; title ;  ")?.reason, "title")
+        XCTAssertEqual(PaneAttentionEvent.osc777("notify;;")?.reason, "Attention needed")
+    }
+
+    func testClaudeNotificationUsesMessageThenTitleThenFallback() {
+        XCTAssertEqual(
+            claudeEvent(#"{"hook_event_name":"Notification","message":" message ","title":"title"}"#)?.reason, "message"
+        )
+        XCTAssertEqual(
+            claudeEvent(#"{"hook_event_name":"Notification","message":" ","title":" title "}"#)?.reason, "title")
+        XCTAssertEqual(claudeEvent(#"{"hook_event_name":"Notification"}"#)?.reason, "Attention needed")
+    }
+
+    func testClaudePermissionRequestUsesToolNameThenFallback() {
+        XCTAssertEqual(
+            claudeEvent(#"{"hook_event_name":"PermissionRequest","tool_name":" Bash "}"#)?.reason,
+            "Permission needed for Bash")
+        XCTAssertEqual(claudeEvent(#"{"hook_event_name":"PermissionRequest"}"#)?.reason, "Permission needed")
+    }
+
+    func testCursorStopReason() {
+        XCTAssertEqual(PaneAttentionEvent.cursorStop.reason, "Agent turn completed")
+    }
+
+    private func claudeEvent(_ json: String) -> PaneAttentionEvent? {
+        PaneAttentionEvent.claudeHook(Data(json.utf8))
     }
 }

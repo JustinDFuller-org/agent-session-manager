@@ -100,19 +100,13 @@ struct NotificationSidebarView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(notification.paneName)
+                    Text("\(notification.tabName) / \(notification.paneName)")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    if notification.kind == .prMerged, let num = notification.prNumber {
-                        Text("PR #\(num) merged")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.purple)
-                            .lineLimit(1)
-                    }
-                    Text(notification.tabName)
+                    Text(notification.displayReason)
                         .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(notification.kind == .prMerged ? Color.purple : Color.secondary)
                         .lineLimit(1)
                     Text(formatTimestamp(notification.timestamp))
                         .font(.system(size: 10))

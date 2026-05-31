@@ -574,8 +574,6 @@ final class Tab: Identifiable {
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
-            case .opencode:
-                controller.pendingCommand = "opencode\(extra)"
             }
             pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
@@ -672,13 +670,6 @@ final class Tab: Identifiable {
                 (controller.pendingEnvironment ?? [])
                 + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
             controller.pendingCommand = "agent\(extra)"
-        case .opencode:
-            let monitor = StatusLineMonitor(
-                paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
-            pane.installStatusLineMonitor(monitor)
-            controller.pendingCommand = "opencode\(extra)"
         }
 
         pane.harness = harness
@@ -865,8 +856,6 @@ extension Tab {
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
-            case .opencode:
-                controller.pendingCommand = "opencode\(extra)"
             }
             controller.terminalView.telemetryTabName = self.name
             controller.terminalView.telemetryTabUUID = self.id
