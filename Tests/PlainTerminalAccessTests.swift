@@ -49,7 +49,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         controller.pendingCommand = "claude --settings /tmp/test.json"
         controller.pendingDirectory = "/tmp/repo"
         controller.pendingEnvironment = ["PATH=/usr/bin"]
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
 
         tab.restartPane(pane)
@@ -63,7 +63,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         controller.pendingDirectory = "/tmp/my-repo"
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
 
         tab.restartPane(pane)
@@ -77,7 +77,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         controller.pendingEnvironment = ["FOO=bar", "PATH=/usr/bin"]
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
 
         tab.restartPane(pane)
@@ -90,7 +90,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
         let originalToken = pane.restartToken
 
@@ -104,7 +104,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let pane = Pane(name: "test", tab: tab, harness: .claude)
         let original = TerminalController()
         original.pendingCommand = "claude"
-        pane.terminalController = original
+        pane.installTerminalController(original)
         tab.panes.append(pane)
 
         tab.restartPane(pane)
@@ -120,7 +120,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let controller = TerminalController()
         controller.pendingCommand = "claude --settings /tmp/test.json"
         controller.pendingDirectory = "/tmp/repo"
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
 
         tab.openShellInPane(pane)
@@ -134,7 +134,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let controller = TerminalController()
         controller.pendingCommand = "claude"
         controller.pendingDirectory = "/tmp/my-repo"
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
 
         tab.openShellInPane(pane)
@@ -147,7 +147,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
 
         tab.openShellInPane(pane)
@@ -160,7 +160,7 @@ final class PlainTerminalAccessTests: XCTestCase {
         let pane = Pane(name: "test", tab: tab, harness: .claude)
         let controller = TerminalController()
         controller.pendingCommand = "claude"
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         tab.panes.append(pane)
         let originalToken = pane.restartToken
 

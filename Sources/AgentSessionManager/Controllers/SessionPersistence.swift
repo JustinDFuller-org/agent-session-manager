@@ -274,9 +274,8 @@ struct SessionPersistence {
                     appSettings: appSettings
                 )
                 pane.isMerged = persistedPane.isMerged
-                pane.wireTerminalBellForNotifications(
+                pane.bindNotifications(
                     appState: appState,
-                    tab: tab,
                     isPriority: persistedPane.isPriority
                 )
             }

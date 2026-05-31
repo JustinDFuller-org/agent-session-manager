@@ -46,8 +46,9 @@ final class Pane: Identifiable {
     var worktreeDirectory: URL?
     var worktreeIsManaged: Bool = false
     weak var tab: Tab?
-    var terminalController: TerminalController?
-    var statusLineMonitor: StatusLineMonitor?
+    private(set) var terminalController: TerminalController?
+    private(set) var statusLineMonitor: StatusLineMonitor?
+    @ObservationIgnored weak var notificationAppState: AppState?
     var isPriority: Bool = false
     var isMerged: Bool = false
     var restartToken = UUID()
@@ -77,5 +78,26 @@ final class Pane: Identifiable {
         if let worktreeDirectory { return worktreeDirectory }
         guard let tab else { return nil }
         return Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: name)
+    }
+
+    func installTerminalController(_ controller: TerminalController?) {
+        guard terminalController !== controller else { return }
+        detachTerminalNotificationHandlers()
+        terminalController = controller
+        attachTerminalNotificationHandlers()
+    }
+
+    func installStatusLineMonitor(_ monitor: StatusLineMonitor) {
+        guard statusLineMonitor !== monitor else { return }
+        removeStatusLineMonitor()
+        statusLineMonitor = monitor
+        attachStatusLineNotificationHandlers()
+        monitor.start()
+    }
+
+    func removeStatusLineMonitor() {
+        statusLineMonitor?.stop()
+        detachStatusLineNotificationHandlers()
+        statusLineMonitor = nil
     }
 }

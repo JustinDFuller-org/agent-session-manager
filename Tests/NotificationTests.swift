@@ -205,7 +205,7 @@ final class NotificationTests: XCTestCase {
         let paneID = UUID()
         state.addNotification(paneID: paneID, paneName: "fix", tabID: UUID(), tabName: "myapp", isPriority: false)
         XCTAssertEqual(state.notifications.count, 1)
-        // Simulate the onUserInput closure that wireTerminalBellForNotifications installs.
+        // Simulate the onUserInput closure that bindNotifications installs.
         state.clearNotification(paneID: paneID)
         XCTAssertTrue(state.notifications.isEmpty)
     }
