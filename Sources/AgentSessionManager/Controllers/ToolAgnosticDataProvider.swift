@@ -73,7 +73,8 @@ final class ToolAgnosticDataProvider: StatusLineDataProvider {
                 sessionName: nil,
                 version: self.versionFetchedVersion,
                 exceeds200kTokens: nil,
-                pr: nil
+                pr: nil,
+                sessionStatus: nil
             )
 
             await MainActor.run { [weak self] in

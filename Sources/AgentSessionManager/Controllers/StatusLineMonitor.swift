@@ -148,7 +148,7 @@ final class StatusLineMonitor {
                         worktree: nil, workspace: nil, effort: nil, thinking: nil,
                         agent: nil, outputStyle: nil, vim: nil,
                         sessionName: nil, version: nil, exceeds200kTokens: nil,
-                        pr: pr
+                        pr: pr, sessionStatus: nil
                     )
                 } else {
                     self.currentData?.pr = pr
@@ -515,7 +515,7 @@ final class StatusLineMonitor {
                 worktree: nil, workspace: nil, effort: nil, thinking: nil,
                 agent: nil, outputStyle: nil, vim: nil,
                 sessionName: nil, version: nil, exceeds200kTokens: nil,
-                pr: pr
+                pr: pr, sessionStatus: nil
             )
         } else {
             currentData?.pr = pr
