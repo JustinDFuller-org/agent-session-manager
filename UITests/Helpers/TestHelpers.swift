@@ -2,7 +2,7 @@ import XCTest
 
 extension XCTestCase {
     func screenshot(_ name: String, app: XCUIApplication) {
-        let captured = app.screenshot()
+        let captured = app.windows.firstMatch.screenshot()
         let attachment = XCTAttachment(screenshot: captured)
         attachment.name = name
         attachment.lifetime = .keepAlways
