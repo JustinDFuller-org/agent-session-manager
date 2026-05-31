@@ -1,10 +1,18 @@
 import Foundation
 
 extension Pane {
-    /// Hooks the pane’s terminal bell into `AppState` notification UI (sidebar and dots).
+    /// Hooks the pane's notification sources into `AppState` notification UI (sidebar and dots).
     @MainActor
-    func wireTerminalBellForNotifications(appState: AppState, tab: Tab, isPriority: Bool) {
+    func bindNotifications(appState: AppState, isPriority: Bool) {
         self.isPriority = isPriority
+        notificationAppState = appState
+        attachTerminalNotificationHandlers()
+        attachStatusLineNotificationHandlers()
+    }
+
+    @MainActor
+    func attachTerminalNotificationHandlers() {
+        guard let appState = notificationAppState, let tab else { return }
         terminalController?.terminalView.onUserInput = { [weak appState, weak self] in
             Task { @MainActor in
                 guard let appState, let pane = self else { return }
@@ -24,6 +32,17 @@ extension Pane {
                 )
             }
         }
+    }
+
+    @MainActor
+    func detachTerminalNotificationHandlers() {
+        terminalController?.terminalView.onUserInput = nil
+        terminalController?.onAttention = nil
+    }
+
+    @MainActor
+    func attachStatusLineNotificationHandlers() {
+        guard let appState = notificationAppState, let tab else { return }
         statusLineMonitor?.onClaudeHookAttention = { [weak self] event in
             Task { @MainActor in
                 self?.terminalController?.onAttention?(event)
@@ -42,5 +61,11 @@ extension Pane {
                 )
             }
         }
+    }
+
+    @MainActor
+    func detachStatusLineNotificationHandlers() {
+        statusLineMonitor?.onClaudeHookAttention = nil
+        statusLineMonitor?.onPRMerged = nil
     }
 }

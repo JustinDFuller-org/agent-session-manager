@@ -44,6 +44,61 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertEqual(capturedTitle, "My PR")
     }
 
+    func testDeferredPaneSetupWiresMergedTransitionNotification() async {
+        let state = AppState()
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPaneWithLoadingState(name: "feature", harness: .claude)
+        state.tabs.append(tab)
+        pane.bindNotifications(appState: state, isPriority: false)
+
+        tab.completeSetup(
+            for: pane,
+            resolved: ResolvedWorktree(
+                paneTitle: "feature",
+                processDirectory: URL(filePath: "/tmp/feature"),
+                checkoutURL: URL(filePath: "/tmp/feature"),
+                isExternalTakeover: false
+            ),
+            managed: true,
+            effectiveExtraArgs: [],
+            extraEnvVars: [:],
+            statusLineConfigOverride: nil
+        )
+
+        pane.statusLineMonitor?.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        pane.statusLineMonitor?.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
+        await Task.yield()
+
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications.first?.kind, .prMerged)
+    }
+
+    func testReplacingStatusMonitorRewiresMergedTransitionNotification() async {
+        let state = AppState()
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+        let pane = Pane(name: "feature", tab: tab, harness: .claude)
+        tab.panes.append(pane)
+        state.tabs.append(tab)
+        pane.bindNotifications(appState: state, isPriority: false)
+
+        let old = StatusLineMonitor(paneID: pane.id, workingDirectory: nil, harness: .claude)
+        pane.installStatusLineMonitor(old)
+        pane.installStatusLineMonitor(
+            StatusLineMonitor(paneID: pane.id, workingDirectory: nil, harness: .claude))
+
+        old.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        old.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
+        await Task.yield()
+        XCTAssertTrue(state.notifications.isEmpty)
+
+        pane.statusLineMonitor?.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        pane.statusLineMonitor?.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
+        await Task.yield()
+
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications.first?.kind, .prMerged)
+    }
+
     func testNoFireOnFirstObservationAsMerged() {
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0

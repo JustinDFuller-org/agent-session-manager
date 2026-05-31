@@ -59,6 +59,8 @@ final class AppState {
         let paneIDs = Set(tab.panes.map(\.id))
         for pane in tab.panes {
             pane.terminalController?.terminate()
+            pane.installTerminalController(nil)
+            pane.removeStatusLineMonitor()
         }
         notifications.removeAll { paneIDs.contains($0.paneID) }
         tabs.removeAll { $0.id == tab.id }

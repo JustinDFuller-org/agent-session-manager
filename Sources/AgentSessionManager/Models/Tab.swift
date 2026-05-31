@@ -544,8 +544,7 @@ final class Tab: Identifiable {
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
-            monitor.start()
-            pane.statusLineMonitor = monitor
+            pane.installStatusLineMonitor(monitor)
         }
 
         if !AgentSessionManagerApp.isUITesting {
@@ -576,7 +575,7 @@ final class Tab: Identifiable {
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             }
-            pane.terminalController = controller
+            pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
             controller.terminalView.telemetryTabUUID = self.id
             controller.terminalView.telemetryPaneName = pane.name
@@ -595,7 +594,7 @@ final class Tab: Identifiable {
         new.pendingEnvironment = old.pendingEnvironment
         new.pendingShell = old.pendingShell
         old.terminate()
-        pane.terminalController = new
+        pane.installTerminalController(new)
         pane.restartToken = UUID()
     }
 
@@ -608,20 +607,18 @@ final class Tab: Identifiable {
         new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
         new.pendingShell = old.pendingShell
         old.terminate()
-        pane.statusLineMonitor?.stop()
         let cwd = new.pendingDirectory ?? directory.path
         let monitor = StatusLineMonitor(
             paneID: pane.id, paneName: pane.name,
             workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
             tabID: self.id, tabName: self.name)
-        monitor.start()
-        pane.statusLineMonitor = monitor
+        pane.installStatusLineMonitor(monitor)
         if pane.harness == .claude {
             let extra = Tab.extractExtraArgs(from: old.pendingCommand ?? "")
             let continued = Tab.injectContinueFlagIntoArgs(extra)
             new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
         }
-        pane.terminalController = new
+        pane.installTerminalController(new)
         pane.restartToken = UUID()
     }
 
@@ -632,8 +629,6 @@ final class Tab: Identifiable {
     ) {
         guard let old = pane.terminalController else { return }
         old.terminate()
-        pane.statusLineMonitor?.stop()
-
         let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
         let cwd = pane.worktreeDirectory?.path ?? directory.path
         let controller = TerminalController()
@@ -644,14 +639,13 @@ final class Tab: Identifiable {
         switch harness {
         case .shell:
             controller.pendingCommand = nil
-            pane.statusLineMonitor = nil
+            pane.removeStatusLineMonitor()
         case .claude:
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
-            monitor.start()
-            pane.statusLineMonitor = monitor
+            pane.installStatusLineMonitor(monitor)
             if !extraEnvVars.isEmpty {
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
@@ -664,16 +658,14 @@ final class Tab: Identifiable {
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
-            monitor.start()
-            pane.statusLineMonitor = monitor
+            pane.installStatusLineMonitor(monitor)
             controller.pendingCommand = "codex\(extra)"
         case .cursor:
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
-            monitor.start()
-            pane.statusLineMonitor = monitor
+            pane.installStatusLineMonitor(monitor)
             controller.pendingEnvironment =
                 (controller.pendingEnvironment ?? [])
                 + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
@@ -681,7 +673,7 @@ final class Tab: Identifiable {
         }
 
         pane.harness = harness
-        pane.terminalController = controller
+        pane.installTerminalController(controller)
         pane.restartToken = UUID()
     }
 
@@ -694,10 +686,9 @@ final class Tab: Identifiable {
         new.pendingEnvironment = old.pendingEnvironment
         new.pendingShell = old.pendingShell
         old.terminate()
-        pane.statusLineMonitor?.stop()
-        pane.statusLineMonitor = nil
+        pane.removeStatusLineMonitor()
         pane.harness = .shell
-        pane.terminalController = new
+        pane.installTerminalController(new)
         pane.restartToken = UUID()
     }
 
@@ -714,7 +705,8 @@ final class Tab: Identifiable {
 
     func closePane(_ pane: Pane) {
         pane.terminalController?.terminate()
-        pane.statusLineMonitor?.stop()
+        pane.installTerminalController(nil)
+        pane.removeStatusLineMonitor()
         panes.removeAll { $0.id == pane.id }
     }
 
@@ -834,8 +826,7 @@ extension Tab {
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
-            monitor.start()
-            pane.statusLineMonitor = monitor
+            pane.installStatusLineMonitor(monitor)
         }
 
         if !AgentSessionManagerApp.isUITesting {
@@ -870,7 +861,7 @@ extension Tab {
             controller.terminalView.telemetryTabUUID = self.id
             controller.terminalView.telemetryPaneName = pane.name
             controller.terminalView.telemetryPaneUUID = pane.id
-            pane.terminalController = controller
+            pane.installTerminalController(controller)
         }
         pane.setupState = nil
     }

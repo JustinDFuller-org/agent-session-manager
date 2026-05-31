@@ -512,7 +512,7 @@ struct NewPaneSheet: View {
             worktreeIsManaged: true,
             profileID: selectedProfileID
         )
-        pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: isPriority)
+        pane.bindNotifications(appState: appState, isPriority: isPriority)
         appState.setActivePane(id: pane.id)
         SessionPersistence.save(appState: appState)
         resetForm()

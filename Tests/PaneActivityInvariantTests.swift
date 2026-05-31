@@ -231,7 +231,7 @@ final class PaneActivityInvariantTests: XCTestCase {
     // MARK: - Claude lifecycle parsing and edge-once tracing
 
     func testClaudeLifecyclePayloadTransitionsWorkingAndIdle() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
         XCTAssertTrue(monitor.isClaudeWorking)
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
@@ -239,14 +239,14 @@ final class PaneActivityInvariantTests: XCTestCase {
     }
 
     func testClaudeStopFailureTransitionsIdle() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"StopFailure"}"#.utf8))
         XCTAssertFalse(monitor.isClaudeWorking)
     }
 
     func testClaudeActivityChangedTraceOnlyFiresOnEdges() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
@@ -260,7 +260,7 @@ final class PaneActivityInvariantTests: XCTestCase {
     }
 
     func testClaudeActivityIgnoresMalformedAndUnrelatedPayloads() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data("not json".utf8))
         XCTAssertFalse(monitor.isClaudeWorking)

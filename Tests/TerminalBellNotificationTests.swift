@@ -11,7 +11,7 @@ final class TerminalBellNotificationTests: XCTestCase {
         appState.activePaneID = UUID()
         XCTAssertNotNil(pane.terminalController, "Unit tests run without --uitesting; terminal should exist")
 
-        pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: true)
+        pane.bindNotifications(appState: appState, isPriority: true)
         pane.terminalController?.onAttention?(.rawBell)
         try? await Task.sleep(nanoseconds: 100_000_000)
 
@@ -27,9 +27,35 @@ final class TerminalBellNotificationTests: XCTestCase {
         let pane = tab.addPane(name: "p1")
         appState.activePaneID = pane.id
 
-        pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: false)
+        pane.bindNotifications(appState: appState, isPriority: false)
         pane.terminalController?.onAttention?(.rawBell)
         try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(appState.notifications.count, 1)
+        XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
+    }
+
+    func testDeferredPaneSetupWiresTerminalBellNotification() async {
+        let appState = AppState()
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp", directoryHint: .isDirectory))
+        let pane = tab.addPaneWithLoadingState(name: "feature", harness: .claude)
+        pane.bindNotifications(appState: appState, isPriority: false)
+
+        tab.completeSetup(
+            for: pane,
+            resolved: ResolvedWorktree(
+                paneTitle: "feature",
+                processDirectory: URL(filePath: "/tmp/feature"),
+                checkoutURL: URL(filePath: "/tmp/feature"),
+                isExternalTakeover: false
+            ),
+            managed: true,
+            effectiveExtraArgs: [],
+            extraEnvVars: [:],
+            statusLineConfigOverride: nil
+        )
+        pane.terminalController?.onAttention?(.rawBell)
+        await Task.yield()
 
         XCTAssertEqual(appState.notifications.count, 1)
         XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
@@ -57,7 +83,7 @@ final class TerminalBellNotificationTests: XCTestCase {
         let pane = tab.addPane(name: "p1")
         appState.activePaneID = UUID()
 
-        pane.wireTerminalBellForNotifications(appState: appState, tab: tab, isPriority: false)
+        pane.bindNotifications(appState: appState, isPriority: false)
         pane.terminalController?.onAttention?(.rawBell)
         try? await Task.sleep(nanoseconds: 100_000_000)
 
@@ -91,6 +117,45 @@ final class TerminalBellNotificationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 250_000_000)
 
         XCTAssertTrue(fired.value, "OSC 777 notify should invoke the same attention path as BEL")
+    }
+
+    func testReplacingTerminalControllerRewiresBellNotificationAndDetachesOldController() async {
+        let appState = AppState()
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp", directoryHint: .isDirectory))
+        let pane = Pane(name: "p1", tab: tab)
+        let old = TerminalController()
+        let new = TerminalController()
+        pane.bindNotifications(appState: appState, isPriority: false)
+        pane.installTerminalController(old)
+        pane.installTerminalController(new)
+
+        old.onAttention?(.rawBell)
+        await Task.yield()
+        XCTAssertTrue(appState.notifications.isEmpty)
+
+        new.onAttention?(.rawBell)
+        await Task.yield()
+        XCTAssertEqual(appState.notifications.count, 1)
+        XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
+    }
+
+    func testRestartPaneRewiresBellNotificationAndDetachesOldController() async {
+        let appState = AppState()
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp", directoryHint: .isDirectory))
+        let pane = tab.addPane(name: "p1")
+        let old = pane.terminalController
+        pane.bindNotifications(appState: appState, isPriority: false)
+
+        tab.restartPane(pane)
+
+        old?.onAttention?(.rawBell)
+        await Task.yield()
+        XCTAssertTrue(appState.notifications.isEmpty)
+
+        pane.terminalController?.onAttention?(.rawBell)
+        await Task.yield()
+        XCTAssertEqual(appState.notifications.count, 1)
+        XCTAssertEqual(appState.notifications.first?.paneID, pane.id)
     }
 
     func testOsc777PreservesSemicolonsInBody() {
