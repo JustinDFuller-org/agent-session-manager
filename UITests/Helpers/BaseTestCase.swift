@@ -19,7 +19,7 @@ class BaseTestCase: XCTestCase {
 
     override func tearDown() {
         if let failureCount = testRun?.failureCount, failureCount > 0 {
-            let attachment = XCTAttachment(screenshot: app.screenshot())
+            let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
             attachment.lifetime = .keepAlways
             attachment.name = "\(name)-failure"
             add(attachment)
