@@ -52,35 +52,6 @@ struct ProfileShowOnPaneCreateTests {
         #expect(decoded.showOnPaneCreate == true)
     }
 
-    @Test("Profile.buildArgs includes hidden options (showOnPaneCreate false)")
-    func buildArgsIncludesHiddenOptions() {
-        let profile = Profile(
-            name: "Test",
-            harness: .claude,
-            cliOptions: [
-                ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-opus-4-7", showOnPaneCreate: false),
-                ProfileCLIOption(id: "--continue", isEnabled: true, value: nil, showOnPaneCreate: true),
-            ]
-        )
-        let args = profile.buildArgs()
-        #expect(args.contains("--model"))
-        #expect(args.contains("--continue"))
-    }
-
-    @Test("Profile.buildArgs excludes disabled options regardless of showOnPaneCreate")
-    func buildArgsExcludesDisabledOptions() {
-        let profile = Profile(
-            name: "Test",
-            harness: .claude,
-            cliOptions: [
-                ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil, showOnPaneCreate: true),
-                ProfileCLIOption(id: "--model", isEnabled: false, value: "opus", showOnPaneCreate: false),
-            ]
-        )
-        let args = profile.buildArgs()
-        #expect(args.isEmpty)
-    }
-
     @Test("ProfileCLIOption default showOnPaneCreate is false")
     func cliOptionDefaultShowOnPaneCreate() {
         let option = ProfileCLIOption(id: "--verbose", isEnabled: true)

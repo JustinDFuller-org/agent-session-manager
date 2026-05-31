@@ -80,7 +80,8 @@ final class Pane: Identifiable {
 
     func installTerminalController(_ controller: TerminalController?) {
         guard terminalController !== controller else { return }
-        detachTerminalNotificationHandlers()
+        terminalController?.terminalView.onUserInput = nil
+        terminalController?.onAttention = nil
         terminalController = controller
         attachTerminalNotificationHandlers()
     }
@@ -95,7 +96,8 @@ final class Pane: Identifiable {
 
     func removeStatusLineMonitor() {
         statusLineMonitor?.stop()
-        detachStatusLineNotificationHandlers()
+        statusLineMonitor?.onClaudeHookAttention = nil
+        statusLineMonitor?.onPRMerged = nil
         statusLineMonitor = nil
     }
 }

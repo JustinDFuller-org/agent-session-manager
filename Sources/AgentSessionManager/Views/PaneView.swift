@@ -10,20 +10,34 @@ struct PaneView: View {
 
     var body: some View {
         @Bindable var appState = appState
-        let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
         let isActive = appState.activePaneID == pane.id
         ZStack {
             VStack(spacing: 0) {
-                paneHeader(pendingNotification: pendingNotification)
+                paneHeader
                 Divider()
-                terminalBody(isActive: isActive)
+                terminalBody
                 statusLine
             }
 
             if case .exited(let code) = pane.terminalController?.processState,
                 appSettings.exitBehavior == .prompt
             {
-                exitPromptView(exitCode: code)
+                VStack(spacing: 12) {
+                    Text("Process exited\(code.map { " (code \($0))" } ?? "")")
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                    HStack(spacing: 8) {
+                        Button("Restart") { pane.tab?.restartPane(pane) }
+                        Button("Open Shell") { pane.tab?.openShellInPane(pane) }
+                        Button("Close") { onClosePane(pane) }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(16)
+                .background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+                .accessibilityIdentifier("pane-exit-prompt-\(pane.name)")
             }
         }
         .background(Color(nsColor: .textBackgroundColor))
@@ -83,13 +97,16 @@ struct PaneView: View {
             appState.setActivePane(id: pane.id)
         }
         .onReceive(NotificationCenter.default.publisher(for: .agentSessionManagerPRTrackingSettingChanged)) { _ in
-            pane.statusLineMonitor?.refreshClaudeIntegrationFromSettings()
+            if pane.harness == .claude {
+                pane.statusLineMonitor?.writeSettingsFile()
+            }
         }
         .accessibilityElement(children: .contain)
     }
 
-    private func paneHeader(pendingNotification: PaneNotification?) -> some View {
-        HStack(spacing: 0) {
+    private var paneHeader: some View {
+        let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
+        return HStack(spacing: 0) {
             HStack(spacing: 6) {
                 let hasNotification = pendingNotification != nil
                 let activityState =
@@ -176,7 +193,8 @@ struct PaneView: View {
     }
 
     @ViewBuilder
-    private func terminalBody(isActive: Bool) -> some View {
+    private var terminalBody: some View {
+        let isActive = appState.activePaneID == pane.id
         if let controller = pane.terminalController {
             TerminalRepresentable(
                 controller: controller,
@@ -187,7 +205,20 @@ struct PaneView: View {
             .layoutPriority(1)
             .id(pane.restartToken)
         } else if case .failed(let error) = pane.setupState {
-            paneSetupErrorView(error: error)
+            VStack(spacing: 12) {
+                Text(error)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                Button("Remove Pane") { onClosePane(pane) }
+                    .buttonStyle(.bordered)
+            }
+            .padding(16)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("pane-error-overlay-\(pane.name)")
         } else if case .loading = pane.setupState {
             paneLoadingView
         } else {
@@ -213,41 +244,4 @@ struct PaneView: View {
         .accessibilityIdentifier("pane-loading-overlay-\(pane.name)")
     }
 
-    @ViewBuilder
-    private func paneSetupErrorView(error: String) -> some View {
-        VStack(spacing: 12) {
-            Text(error)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-            Button("Remove Pane") { onClosePane(pane) }
-                .buttonStyle(.bordered)
-        }
-        .padding(16)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityIdentifier("pane-error-overlay-\(pane.name)")
-    }
-
-    @ViewBuilder
-    private func exitPromptView(exitCode: Int32?) -> some View {
-        VStack(spacing: 12) {
-            Text("Process exited\(exitCode.map { " (code \($0))" } ?? "")")
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-            HStack(spacing: 8) {
-                Button("Restart") { pane.tab?.restartPane(pane) }
-                Button("Open Shell") { pane.tab?.openShellInPane(pane) }
-                Button("Close") { onClosePane(pane) }
-            }
-            .buttonStyle(.bordered)
-        }
-        .padding(16)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
-        .accessibilityIdentifier("pane-exit-prompt-\(pane.name)")
-    }
 }

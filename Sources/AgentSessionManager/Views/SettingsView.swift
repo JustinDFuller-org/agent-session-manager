@@ -54,47 +54,45 @@ struct SettingsView: View {
                 Color.clear.frame(height: 28)
             }
         } detail: {
-            detailView(for: selection)
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    HStack {
-                        Text(selection.title)
-                            .font(.title.bold())
-                        Spacer()
-                    }
-                    .padding(.top, 28)
-                    .padding(.bottom, 8)
-                    .padding(.horizontal, 20)
-                    .background(.bar)
+            Group {
+                switch selection {
+                case .panes:
+                    PanesContent()
+                        .environment(appSettings)
+                case .profiles:
+                    ProfilesContent()
+                        .environment(appSettings)
+                case .tools:
+                    ToolsContent()
+                        .environment(appSettings)
+                case .shortcuts:
+                    KeyboardShortcutsContent()
+                case .statusLine:
+                    StatusLineContent()
+                        .environment(appSettings)
+                case .notifications:
+                    NotificationsContent()
+                        .environment(appSettings)
+                case .debug:
+                    DebugView()
+                        .environment(appSettings)
                 }
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HStack {
+                    Text(selection.title)
+                        .font(.title.bold())
+                    Spacer()
+                }
+                .padding(.top, 28)
+                .padding(.bottom, 8)
+                .padding(.horizontal, 20)
+                .background(.bar)
+            }
         }
         .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
     }
 
-    @ViewBuilder
-    private func detailView(for section: SettingsSection) -> some View {
-        switch section {
-        case .panes:
-            PanesContent()
-                .environment(appSettings)
-        case .profiles:
-            ProfilesContent()
-                .environment(appSettings)
-        case .tools:
-            ToolsContent()
-                .environment(appSettings)
-        case .shortcuts:
-            KeyboardShortcutsContent()
-        case .statusLine:
-            StatusLineContent()
-                .environment(appSettings)
-        case .notifications:
-            NotificationsContent()
-                .environment(appSettings)
-        case .debug:
-            DebugView()
-                .environment(appSettings)
-        }
-    }
 }
 
 struct DefaultValueLabel: View {
@@ -183,7 +181,7 @@ private struct PanesContent: View {
                     .fixedSize()
                     .accessibilityIdentifier("settings-worktree-base-ref-picker")
                     .onChange(of: appSettings.worktreeBaseRef) {
-                        SettingsPersistence.saveWorktreeBaseRef(appSettings: appSettings)
+                        SettingsPersistence.save(appSettings.worktreeBaseRef, to: "worktree-base-ref.json")
                     }
                 }
                 SettingRow(
@@ -201,7 +199,8 @@ private struct PanesContent: View {
                     .fixedSize()
                     .accessibilityIdentifier("settings-existing-worktree-management-picker")
                     .onChange(of: appSettings.existingWorktreeManagement) {
-                        SettingsPersistence.saveExistingWorktreeManagement(appSettings: appSettings)
+                        SettingsPersistence.save(
+                            appSettings.existingWorktreeManagement, to: "existing-worktree-management.json")
                     }
                 }
             }
@@ -256,7 +255,10 @@ private struct PanesContent: View {
                             set: { newValue in
                                 if let parsed = Int(newValue) {
                                     appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
-                                    SettingsPersistence.saveTerminalSettings(appSettings: appSettings)
+                                    SettingsPersistence.save(
+                                        SettingsPersistence.TerminalSettings(
+                                            scrollbackLines: appSettings.scrollbackLines),
+                                        to: "terminal-settings.json")
                                 }
                             }
                         )
@@ -277,7 +279,7 @@ private struct PanesContent: View {
                         .labelsHidden()
                         .accessibilityIdentifier("settings-auto-session-name-toggle")
                         .onChange(of: appSettings.autoSetSessionName) {
-                            SettingsPersistence.saveSessionNameSettings(appSettings: appSettings)
+                            SettingsPersistence.save(appSettings.autoSetSessionName, to: "session-name-settings.json")
                         }
                 }
                 SettingRow(
@@ -295,7 +297,7 @@ private struct PanesContent: View {
                     .fixedSize()
                     .accessibilityIdentifier("settings-exit-behavior-picker")
                     .onChange(of: appSettings.exitBehavior) {
-                        SettingsPersistence.saveExitBehavior(appSettings: appSettings)
+                        SettingsPersistence.save(appSettings.exitBehavior, to: "exit-behavior.json")
                     }
                 }
             }
@@ -315,7 +317,7 @@ private struct PanesContent: View {
                     .fixedSize()
                     .accessibilityIdentifier("settings-worktree-cleanup-picker")
                     .onChange(of: appSettings.worktreeCleanupBehavior) {
-                        SettingsPersistence.saveWorktreeCleanup(appSettings: appSettings)
+                        SettingsPersistence.save(appSettings.worktreeCleanupBehavior, to: "worktree-cleanup.json")
                     }
                 }
                 SettingRow(
@@ -327,7 +329,9 @@ private struct PanesContent: View {
                         .labelsHidden()
                         .accessibilityIdentifier("settings-continue-on-restart-toggle")
                         .onChange(of: appSettings.continueOnRestart) {
-                            SettingsPersistence.saveRestartSettings(appSettings: appSettings)
+                            SettingsPersistence.save(
+                                RestartConfig(continueOnRestart: appSettings.continueOnRestart),
+                                to: "restart-settings.json")
                         }
                 }
             }
@@ -342,23 +346,24 @@ private struct PanesContent: View {
                         .labelsHidden()
                         .accessibilityIdentifier("settings-activity-indicators-toggle")
                         .onChange(of: appSettings.paneActivityIndicatorsEnabled) {
-                            SettingsPersistence.saveActivityIndicatorSettings(appSettings: appSettings)
+                            SettingsPersistence.save(
+                                SettingsPersistence.ActivityIndicatorConfig(
+                                    enabled: appSettings.paneActivityIndicatorsEnabled),
+                                to: "activity-indicator-settings.json")
                         }
                 }
             }
         }
         .formStyle(.grouped)
-        .onAppear { initShellPickerSelection() }
-    }
-
-    private func initShellPickerSelection() {
-        let preferred = appSettings.preferredShell
-        if preferred.isEmpty {
-            shellPickerSelection = ""
-        } else if ShellResolver.commonShells.contains(preferred) {
-            shellPickerSelection = preferred
-        } else {
-            shellPickerSelection = "__other__"
+        .onAppear {
+            let preferred = appSettings.preferredShell
+            if preferred.isEmpty {
+                shellPickerSelection = ""
+            } else if ShellResolver.commonShells.contains(preferred) {
+                shellPickerSelection = preferred
+            } else {
+                shellPickerSelection = "__other__"
+            }
         }
     }
 }
@@ -417,52 +422,48 @@ private struct ToolsContent: View {
                     }
                 }
                 if appSettings.isActive(selectedTool) {
-                    cliOptionsContent(for: selectedTool)
+                    switch selectedTool {
+                    case .claude:
+                        CLIOptionsContent(
+                            options: Binding(
+                                get: { appSettings.cliOptions },
+                                set: { appSettings.cliOptions = $0 }
+                            ),
+                            onSave: { SettingsPersistence.save(appSettings: appSettings) },
+                            customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions.",
+                            envVarOptions: Binding(
+                                get: { appSettings.envVarOptions },
+                                set: { appSettings.envVarOptions = $0 }
+                            ),
+                            onEnvVarSave: { SettingsPersistence.saveEnvVarOptions(appSettings: appSettings) }
+                        )
+                    case .codex:
+                        CLIOptionsContent(
+                            options: Binding(
+                                get: { appSettings.codexCliOptions },
+                                set: { appSettings.codexCliOptions = $0 }
+                            ),
+                            onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
+                            customFlagFooter: "Custom flags may not be recognized by all Codex CLI versions."
+                        )
+                    case .cursor:
+                        CLIOptionsContent(
+                            options: Binding(
+                                get: { appSettings.cursorCliOptions },
+                                set: { appSettings.cursorCliOptions = $0 }
+                            ),
+                            onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
+                            customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
+                        )
+                    case .shell:
+                        EmptyView()
+                    }
                 }
             }
             .formStyle(.grouped)
         }
     }
 
-    @ViewBuilder
-    private func cliOptionsContent(for tool: Harness) -> some View {
-        switch tool {
-        case .claude:
-            CLIOptionsContent(
-                options: Binding(
-                    get: { appSettings.cliOptions },
-                    set: { appSettings.cliOptions = $0 }
-                ),
-                onSave: { SettingsPersistence.save(appSettings: appSettings) },
-                customFlagFooter: "Custom flags may not be recognized by all Claude CLI versions.",
-                envVarOptions: Binding(
-                    get: { appSettings.envVarOptions },
-                    set: { appSettings.envVarOptions = $0 }
-                ),
-                onEnvVarSave: { SettingsPersistence.saveEnvVarOptions(appSettings: appSettings) }
-            )
-        case .codex:
-            CLIOptionsContent(
-                options: Binding(
-                    get: { appSettings.codexCliOptions },
-                    set: { appSettings.codexCliOptions = $0 }
-                ),
-                onSave: { SettingsPersistence.saveCodexOptions(appSettings: appSettings) },
-                customFlagFooter: "Custom flags may not be recognized by all Codex CLI versions."
-            )
-        case .cursor:
-            CLIOptionsContent(
-                options: Binding(
-                    get: { appSettings.cursorCliOptions },
-                    set: { appSettings.cursorCliOptions = $0 }
-                ),
-                onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
-                customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
-            )
-        case .shell:
-            EmptyView()
-        }
-    }
 }
 
 struct CLIOptionsContent: View {
@@ -534,14 +535,20 @@ struct CLIOptionsContent: View {
         }
         .sheet(isPresented: $showAddCustomFlagSheet) {
             AddCustomFlagSheet(existingIDs: options.map(\.id)) { id, isString in
-                options.append(CLIOptionConfig.makeUserAdded(id: id, isString: isString))
+                options.append(
+                    CLIOptionConfig(
+                        id: id, label: id, description: "User-defined option", isAvailable: false,
+                        isDefaultEnabled: false, isUserAdded: true, customIsStringType: isString))
                 onSave()
             }
         }
         .sheet(isPresented: $showAddCustomEnvVarSheet) {
             if let envBinding = envVarOptions, let envSave = onEnvVarSave {
                 AddCustomEnvVarSheet(existingIDs: envBinding.wrappedValue.map(\.id)) { id in
-                    envBinding.wrappedValue.append(EnvVarConfig.makeUserAdded(id: id))
+                    envBinding.wrappedValue.append(
+                        EnvVarConfig(
+                            id: id, label: id, description: "User-defined environment variable",
+                            isAvailable: true, isUserAdded: true))
                     envSave()
                 }
             }

@@ -52,7 +52,143 @@ struct StatusLineConfigLayoutEditor: View {
             }
             if phases.contains(.rows) {
                 ForEach(Array(config.rows.indices), id: \.self) { rowIndex in
-                    rowSection(rowIndex: rowIndex)
+                    let rowCount = config.rows.count
+                    let base = StatusLineConfig.allItems.filter { !config.usedItemIDs.contains($0.id) }
+                    let filtered = filterCLI.map { cli in base.filter { $0.supportedBy(cli) } } ?? base
+                    let available = filtered.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
+                    Section {
+                        ForEach(config.rows[rowIndex].items) { item in
+                            HStack {
+                                Image(systemName: item.sfSymbol)
+                                    .frame(width: 16)
+                                    .foregroundStyle(.secondary)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.label)
+                                        .font(.system(.body, design: .monospaced))
+                                        .fontWeight(.medium)
+                                    let descriptions = [
+                                        "model": "Claude model name",
+                                        "worktree": "Git worktree name and current branch",
+                                        "cost": "Total session cost in USD (Claude only)",
+                                        "context": "Context window usage with progress bar (Claude only)",
+                                        "effort": "Effort level (Claude only)",
+                                        "thinking": "Whether extended thinking is on or off (Claude only)",
+                                        "vimMode": "Vim editor mode (Claude only)",
+                                        "agentName": "Agent name (Claude only)",
+                                        "sessionName": "Session name (Claude only)",
+                                        "linesAdded": "Lines added vs HEAD (git diff --shortstat HEAD)",
+                                        "linesRemoved": "Lines removed vs HEAD (git diff --shortstat HEAD)",
+                                        "duration": "Total session duration",
+                                        "contextRemaining": "Context window remaining percentage (Claude only)",
+                                        "inputTokens": "Total input tokens used (Claude only)",
+                                        "outputTokens": "Total output tokens used (Claude only)",
+                                        "rate5h": "5-hour rate limit usage with progress bar (Claude only)",
+                                        "rate7d": "7-day rate limit usage with progress bar (Claude only)",
+                                        "rate5hReset": "Time until 5-hour rate limit resets (Claude only)",
+                                        "rate7dReset": "Time until 7-day rate limit resets (Claude only)",
+                                        "version": "Tool CLI version",
+                                        "outputStyle": "Output style name (Claude only)",
+                                        "exceeds200k": "Warning when context exceeds 200k tokens (Claude only)",
+                                        "pr": "GitHub pull request status for the current branch",
+                                        "profileName": "Selected profile name when the pane uses one",
+                                    ]
+                                    if let description = descriptions[item.id] {
+                                        Text(description)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                switch item.availability {
+                                case .claudeOnly:
+                                    Text("Claude only")
+                                        .font(.caption2)
+                                        .foregroundStyle(.blue)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 8)
+                                        .background(Capsule().fill(Color.blue.opacity(0.1)))
+                                case .all:
+                                    Text("All tools")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 8)
+                                        .background(Capsule().fill(Color.green.opacity(0.1)))
+                                }
+                                Button(role: .destructive) {
+                                    touch {
+                                        $0.rows[rowIndex].items.removeAll { $0.id == item.id }
+                                    }
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                        Menu {
+                            if available.isEmpty {
+                                Text(
+                                    filterCLI == nil
+                                        ? "All items are already used" : "No more items supported for this harness"
+                                )
+                                .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(available) { item in
+                                    Button {
+                                        touch {
+                                            $0.rows[rowIndex].items.append(item)
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Text(item.label)
+                                            switch item.availability {
+                                            case .claudeOnly:
+                                                Text("Claude only")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.blue)
+                                            case .all:
+                                                Text("All tools")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.green)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Add Item", systemImage: "plus")
+                        }
+                        .buttonStyle(.borderless)
+                    } header: {
+                        HStack {
+                            Text("Row \(rowIndex + 1)")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Button {
+                                touch { $0.rows.swapAt(rowIndex, rowIndex - 1) }
+                            } label: {
+                                Image(systemName: "chevron.up")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(rowIndex == 0)
+                            Button {
+                                touch { $0.rows.swapAt(rowIndex, rowIndex + 1) }
+                            } label: {
+                                Image(systemName: "chevron.down")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(rowIndex == rowCount - 1)
+                            Button(role: .destructive) {
+                                touch { $0.rows.remove(at: rowIndex) }
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundStyle(.red)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
                 }
                 Section {
                     Button {
@@ -85,156 +221,6 @@ struct StatusLineConfigLayoutEditor: View {
         onPersist()
     }
 
-    private func unusedItemsEligibleForAddition() -> [StatusLineItem] {
-        let base = StatusLineConfig.allItems.filter { !config.usedItemIDs.contains($0.id) }
-        let filtered = filterCLI.map { cli in base.filter { $0.supportedBy(cli) } } ?? base
-        return filtered.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
-    }
-
-    @ViewBuilder
-    private func availabilityBadge(for availability: ToolAvailability) -> some View {
-        switch availability {
-        case .claudeOnly:
-            Text("Claude only")
-                .font(.caption2)
-                .foregroundStyle(.blue)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.blue.opacity(0.1)))
-        case .all:
-            Text("All tools")
-                .font(.caption2)
-                .foregroundStyle(.green)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.green.opacity(0.1)))
-        }
-    }
-
-    private func rowSection(rowIndex: Int) -> some View {
-        let rowCount = config.rows.count
-        let available = unusedItemsEligibleForAddition()
-        return Section {
-            ForEach(config.rows[rowIndex].items) { item in
-                HStack {
-                    Image(systemName: item.sfSymbol)
-                        .frame(width: 16)
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.label)
-                            .font(.system(.body, design: .monospaced))
-                            .fontWeight(.medium)
-                        let desc = itemDescription(for: item.id)
-                        if !desc.isEmpty {
-                            Text(desc)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer()
-                    availabilityBadge(for: item.availability)
-                    Button(role: .destructive) {
-                        touch {
-                            $0.rows[rowIndex].items.removeAll { $0.id == item.id }
-                        }
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(.red)
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
-            Menu {
-                if available.isEmpty {
-                    Text(filterCLI == nil ? "All items are already used" : "No more items supported for this harness")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(available) { item in
-                        Button {
-                            touch {
-                                $0.rows[rowIndex].items.append(item)
-                            }
-                        } label: {
-                            HStack {
-                                Text(item.label)
-                                switch item.availability {
-                                case .claudeOnly:
-                                    Text("Claude only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.blue)
-                                case .all:
-                                    Text("All tools")
-                                        .font(.caption2)
-                                        .foregroundStyle(.green)
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Label("Add Item", systemImage: "plus")
-            }
-            .buttonStyle(.borderless)
-        } header: {
-            HStack {
-                Text("Row \(rowIndex + 1)")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Spacer()
-                Button {
-                    touch { $0.rows.swapAt(rowIndex, rowIndex - 1) }
-                } label: {
-                    Image(systemName: "chevron.up")
-                }
-                .buttonStyle(.borderless)
-                .disabled(rowIndex == 0)
-                Button {
-                    touch { $0.rows.swapAt(rowIndex, rowIndex + 1) }
-                } label: {
-                    Image(systemName: "chevron.down")
-                }
-                .buttonStyle(.borderless)
-                .disabled(rowIndex == rowCount - 1)
-                Button(role: .destructive) {
-                    touch { $0.rows.remove(at: rowIndex) }
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundStyle(.red)
-                }
-                .buttonStyle(.borderless)
-            }
-        }
-    }
-
-    private func itemDescription(for id: String) -> String {
-        switch id {
-        case "model": return "Claude model name"
-        case "worktree": return "Git worktree name and current branch"
-        case "cost": return "Total session cost in USD (Claude only)"
-        case "context": return "Context window usage with progress bar (Claude only)"
-        case "effort": return "Effort level (Claude only)"
-        case "thinking": return "Whether extended thinking is on or off (Claude only)"
-        case "vimMode": return "Vim editor mode (Claude only)"
-        case "agentName": return "Agent name (Claude only)"
-        case "sessionName": return "Session name (Claude only)"
-        case "linesAdded": return "Lines added vs HEAD (git diff --shortstat HEAD)"
-        case "linesRemoved": return "Lines removed vs HEAD (git diff --shortstat HEAD)"
-        case "duration": return "Total session duration"
-        case "contextRemaining": return "Context window remaining percentage (Claude only)"
-        case "inputTokens": return "Total input tokens used (Claude only)"
-        case "outputTokens": return "Total output tokens used (Claude only)"
-        case "rate5h": return "5-hour rate limit usage with progress bar (Claude only)"
-        case "rate7d": return "7-day rate limit usage with progress bar (Claude only)"
-        case "rate5hReset": return "Time until 5-hour rate limit resets (Claude only)"
-        case "rate7dReset": return "Time until 7-day rate limit resets (Claude only)"
-        case "version": return "Tool CLI version"
-        case "outputStyle": return "Output style name (Claude only)"
-        case "exceeds200k": return "Warning when context exceeds 200k tokens (Claude only)"
-        case "pr": return "GitHub pull request status for the current branch"
-        case "profileName": return "Selected profile name when the pane uses one"
-        default: return ""
-        }
-    }
 }
 
 struct StatusLineContent: View {
@@ -261,7 +247,8 @@ struct StatusLineContent: View {
                         .toggleStyle(.checkbox)
                         .labelsHidden()
                         .onChange(of: appSettings.githubPRTrackingEnabled) {
-                            SettingsPersistence.savePRTracking(appSettings: appSettings)
+                            SettingsPersistence.save(
+                                appSettings.githubPRTrackingEnabled, to: "pr-tracking-settings.json")
                             NotificationCenter.default.post(
                                 name: .agentSessionManagerPRTrackingSettingChanged, object: nil)
                         }

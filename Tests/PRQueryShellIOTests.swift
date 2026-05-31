@@ -2,6 +2,24 @@ import XCTest
 
 @testable import AgentSessionManager
 
+/// Runs `/bin/zsh -c` and drains stderr so pipes cannot fill.
+private enum PRQueryShellIO {
+    static func zshCollectOutput(script: String, currentDirectory: URL?) throws -> Data {
+        let task = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.executableURL = URL(filePath: "/bin/zsh")
+        task.arguments = ["-c", script]
+        task.currentDirectoryURL = currentDirectory
+        task.standardOutput = outPipe
+        task.standardError = errPipe
+        try task.run()
+        task.waitUntilExit()
+        _ = errPipe.fileHandleForReading.readDataToEndOfFile()
+        return outPipe.fileHandleForReading.readDataToEndOfFile()
+    }
+}
+
 /// Regression cover for PR query subprocess I/O: use `terminationHandler`-style full read + drain stderr (see `PRQueryShellIO`), not `readabilityHandler` without EOF teardown (which could spin CPU).
 final class PRQueryShellIOTests: XCTestCase {
     func testZshCollectOutputDecodesPullRequestJSON() throws {

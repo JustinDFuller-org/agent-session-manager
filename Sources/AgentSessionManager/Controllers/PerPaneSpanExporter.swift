@@ -40,17 +40,80 @@ final class PerPaneSpanExporter: SpanExporter {
 
         for (key, groupSpans) in groups {
             let representative = groupSpans[0]
-            let fileURL = resolveFileURL(for: key, span: representative)
+            let fileURL: URL
+            if let existing = writers[key] {
+                fileURL = existing.fileURL
+            } else if key == "_global" {
+                fileURL =
+                    tracesDirectory
+                    .appendingPathComponent("_global", isDirectory: true)
+                    .appendingPathComponent("global.jsonl")
+            } else {
+                let tabId = attributeString(representative, "tab.id") ?? "unknown"
+                let tabName = attributeString(representative, "tab.name") ?? "unknown"
+                let paneName = attributeString(representative, "pane.name") ?? "unknown"
+                let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+                let tabDirName = "\(tabName)-\(String(tabId.prefix(8)))"
+                    .components(separatedBy: allowed.inverted).joined(separator: "_")
+                let fileName = "\(paneName)-\(String(key.prefix(8))).jsonl"
+                    .components(separatedBy: allowed.inverted).joined(separator: "_")
+                fileURL =
+                    tracesDirectory
+                    .appendingPathComponent(tabDirName, isDirectory: true)
+                    .appendingPathComponent(fileName)
+            }
 
             let needsMetadata = writers[key] == nil || !writers[key]!.metadataWritten
-            let metadataLine: String? = needsMetadata ? makeMetadataLine(key: key, span: representative) : nil
+            let metadataLine: String?
+            if needsMetadata {
+                let now = ISO8601DateFormatter().string(from: Date())
+                if key == "_global" {
+                    metadataLine =
+                        """
+                        {"_type":"metadata","paneId":"_global","paneName":"global","tabId":"_global","tabName":"_global","createdAt":"\(now)"}
+                        """
+                } else {
+                    let tabId = attributeString(representative, "tab.id") ?? ""
+                    let tabName = attributeString(representative, "tab.name") ?? ""
+                    let paneName = attributeString(representative, "pane.name") ?? ""
+                    metadataLine =
+                        """
+                        {"_type":"metadata","paneId":"\(jsonEscape(key))","paneName":"\(jsonEscape(paneName))","tabId":"\(jsonEscape(tabId))","tabName":"\(jsonEscape(tabName))","createdAt":"\(now)"}
+                        """
+                }
+            } else {
+                metadataLine = nil
+            }
 
             if writers[key] == nil {
                 writers[key] = (fileURL: fileURL, metadataWritten: false)
             }
             writers[key]!.metadataWritten = true
 
-            let spanLines = groupSpans.compactMap { spanToJSON($0) }
+            let spanLines = groupSpans.map { span in
+                let startMs = span.startTime.timeIntervalSince1970 * 1000
+                let endMs = span.endTime.timeIntervalSince1970 * 1000
+                let durationMs = endMs - startMs
+                var attrs: [String: String] = [:]
+                for (key, value) in span.attributes {
+                    switch value {
+                    case .string(let str): attrs[key] = str
+                    case .bool(let bool): attrs[key] = String(bool)
+                    case .int(let int): attrs[key] = String(int)
+                    case .double(let double): attrs[key] = String(double)
+                    default: attrs[key] = value.description
+                    }
+                }
+                let attrsJSON =
+                    attrs.isEmpty
+                    ? "{}"
+                    : "{\(attrs.sorted { $0.key < $1.key }.map { "\"\(jsonEscape($0.key))\":\"\(jsonEscape($0.value))\"" }.joined(separator: ","))}"
+                let parentSpanId = span.parentSpanId?.hexString ?? ""
+                let parentField = parentSpanId.isEmpty ? "" : ",\"parentSpanId\":\"\(parentSpanId)\""
+                return """
+                    {"name":"\(jsonEscape(span.name))","traceId":"\(span.traceId.hexString)","spanId":"\(span.spanId.hexString)"\(parentField),"startEpochMs":\(Int64(startMs)),"endEpochMs":\(Int64(endMs)),"durationMs":\(Int64(durationMs)),"attributes":\(attrsJSON)}
+                    """
+            }
             guard !spanLines.isEmpty || metadataLine != nil else { continue }
 
             var payload = ""
@@ -60,7 +123,24 @@ final class PerPaneSpanExporter: SpanExporter {
             let maxBytes = maxBytesPerFile
 
             queue.async { [fileURL] in
-                Self.writeSync(data: data, to: fileURL, maxBytes: maxBytes)
+                let dir = fileURL.deletingLastPathComponent()
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                if !FileManager.default.fileExists(atPath: fileURL.path) {
+                    FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+                }
+                guard let handle = try? FileHandle(forWritingTo: fileURL) else { return }
+                defer { try? handle.close() }
+                do {
+                    try handle.seekToEnd()
+                    try handle.write(contentsOf: data)
+                } catch {
+                    return
+                }
+                try? JSONLTrimmer.trimIfNeeded(
+                    at: fileURL,
+                    maxBytes: maxBytes,
+                    marker: "--- [truncated older trace entries] ---"
+                )
             }
         }
         return .success
@@ -73,95 +153,9 @@ final class PerPaneSpanExporter: SpanExporter {
 
     // MARK: - Private helpers
 
-    private func resolveFileURL(for key: String, span: SpanData) -> URL {
-        if let existing = writers[key] { return existing.fileURL }
-
-        if key == "_global" {
-            return
-                tracesDirectory
-                .appendingPathComponent("_global", isDirectory: true)
-                .appendingPathComponent("global.jsonl")
-        }
-
-        let paneId = key
-        let tabId: String
-        let tabName: String
-        let paneName: String
-
-        if case .string(let v) = span.attributes["tab.id"] { tabId = v } else { tabId = "unknown" }
-        if case .string(let v) = span.attributes["tab.name"] { tabName = v } else { tabName = "unknown" }
-        if case .string(let v) = span.attributes["pane.name"] { paneName = v } else { paneName = "unknown" }
-
-        let tabDirName = sanitize("\(tabName)-\(String(tabId.prefix(8)))")
-        let fileName = sanitize("\(paneName)-\(String(paneId.prefix(8))).jsonl")
-
-        return
-            tracesDirectory
-            .appendingPathComponent(tabDirName, isDirectory: true)
-            .appendingPathComponent(fileName)
-    }
-
-    private func makeMetadataLine(key: String, span: SpanData) -> String {
-        let now = ISO8601DateFormatter().string(from: Date())
-
-        if key == "_global" {
-            return """
-                {"_type":"metadata","paneId":"_global","paneName":"global","tabId":"_global","tabName":"_global","createdAt":"\(now)"}
-                """
-        }
-
-        let paneId = key
-        let tabId = attributeString(span, "tab.id") ?? ""
-        let tabName = attributeString(span, "tab.name") ?? ""
-        let paneName = attributeString(span, "pane.name") ?? ""
-
-        return """
-            {"_type":"metadata","paneId":"\(jsonEscape(paneId))","paneName":"\(jsonEscape(paneName))","tabId":"\(jsonEscape(tabId))","tabName":"\(jsonEscape(tabName))","createdAt":"\(now)"}
-            """
-    }
-
     private func attributeString(_ span: SpanData, _ key: String) -> String? {
         guard case .string(let v) = span.attributes[key] else { return nil }
         return v
-    }
-
-    private func sanitize(_ s: String) -> String {
-        s.components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.")).inverted)
-            .joined(separator: "_")
-    }
-
-    private func spanToJSON(_ span: SpanData) -> String? {
-        let startMs = span.startTime.timeIntervalSince1970 * 1000
-        let endMs = span.endTime.timeIntervalSince1970 * 1000
-        let durationMs = endMs - startMs
-
-        var attrs: [String: String] = [:]
-        for (key, value) in span.attributes {
-            switch value {
-            case .string(let str): attrs[key] = str
-            case .bool(let bool): attrs[key] = String(bool)
-            case .int(let i): attrs[key] = String(i)
-            case .double(let double): attrs[key] = String(double)
-            default: attrs[key] = value.description
-            }
-        }
-
-        let attrsJSON: String
-        if attrs.isEmpty {
-            attrsJSON = "{}"
-        } else {
-            let pairs = attrs.sorted { $0.key < $1.key }
-                .map { "\"\(jsonEscape($0.key))\":\"\(jsonEscape($0.value))\"" }
-                .joined(separator: ",")
-            attrsJSON = "{\(pairs)}"
-        }
-
-        let parentSpanId = span.parentSpanId?.hexString ?? ""
-        let parentField = parentSpanId.isEmpty ? "" : ",\"parentSpanId\":\"\(parentSpanId)\""
-
-        return """
-            {"name":"\(jsonEscape(span.name))","traceId":"\(span.traceId.hexString)","spanId":"\(span.spanId.hexString)"\(parentField),"startEpochMs":\(Int64(startMs)),"endEpochMs":\(Int64(endMs)),"durationMs":\(Int64(durationMs)),"attributes":\(attrsJSON)}
-            """
     }
 
     private func jsonEscape(_ str: String) -> String {
@@ -170,27 +164,6 @@ final class PerPaneSpanExporter: SpanExporter {
             .replacingOccurrences(of: "\n", with: "\\n")
             .replacingOccurrences(of: "\r", with: "\\r")
             .replacingOccurrences(of: "\t", with: "\\t")
-    }
-
-    private static func writeSync(data: Data, to url: URL, maxBytes: Int) {
-        let dir = url.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        if !FileManager.default.fileExists(atPath: url.path) {
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-        }
-        guard let handle = try? FileHandle(forWritingTo: url) else { return }
-        defer { try? handle.close() }
-        do {
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-        } catch {
-            return
-        }
-        try? JSONLTrimmer.trimIfNeeded(
-            at: url,
-            maxBytes: maxBytes,
-            marker: "--- [truncated older trace entries] ---"
-        )
     }
 
     static func trimIfNeeded(at url: URL, maxBytes: Int) {

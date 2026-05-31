@@ -350,7 +350,31 @@ struct SessionPersistence {
                 let paneID = pane.id
                 group.addTask {
                     async let branchResult = PRTrackingCoordinator.fetchBranch(workingDirectory: cwd)
-                    async let ownerRepoResult = PRTrackingCoordinator.fetchOwnerRepo(workingDirectory: cwd)
+                    async let ownerRepoResult: (owner: String, repo: String)? = withCheckedContinuation {
+                        continuation in
+                        let task = Process()
+                        let outPipe = Pipe()
+                        task.executableURL = URL(filePath: "/usr/bin/git")
+                        task.arguments = ["-C", cwd, "remote", "get-url", "origin"]
+                        task.standardOutput = outPipe
+                        task.standardError = FileHandle.nullDevice
+                        task.terminationHandler = { _ in
+                            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                            guard
+                                let raw = String(data: outData, encoding: .utf8)?
+                                    .trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty
+                            else {
+                                continuation.resume(returning: nil)
+                                return
+                            }
+                            continuation.resume(returning: PRTrackingCoordinator.parseOwnerRepo(from: raw))
+                        }
+                        do {
+                            try task.run()
+                        } catch {
+                            continuation.resume(returning: nil)
+                        }
+                    }
                     guard let branch = await branchResult,
                         let (owner, repo) = await ownerRepoResult
                     else { return nil }

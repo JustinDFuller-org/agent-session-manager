@@ -32,6 +32,10 @@ Concretely: the core workflow (create tab → create pane → terminal session) 
 
 Do not use the acronym **ASM** for this app in documentation, comments, UI copy, or commit messages—write **Agent Session Manager** in full. Avoid new temp-file basenames or code identifiers that use `asm-` as shorthand for the product; prefer explicit prefixes such as `agent-session-manager-…`.
 
+## No One-Off Methods
+
+Do not introduce or retain a named Swift function with fewer than two explicit call sites. This applies to instance, static, free, and local functions. Inline behavior at its sole caller and delete dead functions. Count production and test call sites separately. A production function may count direct test calls only in the rare case where it isolates substantial logic that is meaningfully tested apart from its caller. Exempt required indirect entry points such as protocol witnesses, overrides, delegate callbacks, Codable methods, SwiftUI representable requirements, and test-runner entry points. Do not satisfy this rule with ceremonial calls or another one-off wrapper.
+
 ## Terminal Purity
 
 The terminal pane is the selected harness's UI, not a setup script runner. Users should never see app-level plumbing (git commands, setup output, error text from the app) in the terminal. Any setup the app needs to do before launching a harness — creating worktrees, fetching branches, writing config files — must happen in Swift using `Foundation.Process` or file APIs, not by prepending shell commands to the final invocation.

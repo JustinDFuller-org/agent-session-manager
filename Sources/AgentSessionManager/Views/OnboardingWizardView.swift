@@ -44,10 +44,34 @@ struct OnboardingWizardView: View {
         .frame(width: 520)
         .onChange(of: step) { _, newStep in
             if newStep == .tools, !detectionRan {
-                Task { await runDetection() }
+                Task {
+                    guard !detectionRan else { return }
+                    detectionRan = true
+                    isDetecting = true
+                    let shell: String
+                    if shellPickerSelection == "__other__" {
+                        let trimmed = customShellPath.trimmingCharacters(in: .whitespacesAndNewlines)
+                        shell = trimmed.isEmpty ? ShellResolver.detectedLoginShell() : trimmed
+                    } else {
+                        shell = shellPickerSelection.isEmpty ? ShellResolver.detectedLoginShell() : shellPickerSelection
+                    }
+                    checkedTools = await HarnessDetector.detectInstalled(shell: shell)
+                    isDetecting = false
+                }
             }
             if newStep == .cliFlags {
-                seedCliFlagsDrafts()
+                let toolsToSeed = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
+                for tool in Harness.allCases where toolsToSeed.contains(tool) {
+                    if draftCliOptions[tool] == nil {
+                        draftCliOptions[tool] = CLIOptionConfig.recommendedDefaults(for: tool)
+                    }
+                }
+                if draftEnvVars.isEmpty {
+                    draftEnvVars = EnvVarConfig.recommendedDefaults()
+                }
+                if let first = Harness.allCases.first(where: { toolsToSeed.contains($0) }) {
+                    cliFlagsTool = first
+                }
             }
         }
     }
@@ -70,7 +94,7 @@ struct OnboardingWizardView: View {
                 .padding(.horizontal)
             }
             HStack(spacing: 12) {
-                Button("Skip") { skip() }
+                Button("Skip") { finish() }
                     .buttonStyle(.bordered)
                     .accessibilityIdentifier("onboarding-skip-button")
                 Button("Set Up") { step = .shell }
@@ -120,7 +144,11 @@ struct OnboardingWizardView: View {
             HStack {
                 Spacer()
                 Button("Continue") {
-                    persistShell()
+                    appSettings.preferredShell =
+                        shellPickerSelection == "__other__"
+                        ? customShellPath.trimmingCharacters(in: .whitespacesAndNewlines)
+                        : shellPickerSelection
+                    SettingsPersistence.saveShellSettings(appSettings: appSettings)
                     step = .tools
                 }
                 .buttonStyle(.borderedProminent)
@@ -179,7 +207,13 @@ struct OnboardingWizardView: View {
             HStack {
                 Spacer()
                 Button("Continue") {
-                    persistTools()
+                    for tool in checkedTools {
+                        appSettings.setActive(tool, true)
+                    }
+                    if appSettings.activeTools.isEmpty {
+                        appSettings.setActive(.claude, true)
+                    }
+                    SettingsPersistence.saveActiveTools(appSettings: appSettings)
                     step = .statusLine
                 }
                 .buttonStyle(.borderedProminent)
@@ -322,13 +356,28 @@ struct OnboardingWizardView: View {
 
             if isCurrentDraftRecommended {
                 Button("Clear") {
-                    clearCliFlagsDraft()
+                    if var draft = draftCliOptions[cliFlagsTool] {
+                        for i in draft.indices {
+                            draft[i].isAvailable = false
+                            draft[i].isDefaultEnabled = false
+                        }
+                        draftCliOptions[cliFlagsTool] = draft
+                    }
+                    if cliFlagsTool == .claude {
+                        for i in draftEnvVars.indices {
+                            draftEnvVars[i].isAvailable = false
+                            draftEnvVars[i].isDefaultEnabled = false
+                        }
+                    }
                 }
                 .buttonStyle(.link)
                 .accessibilityIdentifier("onboarding-cliflags-clear-button")
             } else {
                 Button("Reset to Recommended") {
-                    resetCliFlagsDraftToRecommended()
+                    draftCliOptions[cliFlagsTool] = CLIOptionConfig.recommendedDefaults(for: cliFlagsTool)
+                    if cliFlagsTool == .claude {
+                        draftEnvVars = EnvVarConfig.recommendedDefaults()
+                    }
                 }
                 .buttonStyle(.link)
                 .accessibilityIdentifier("onboarding-cliflags-reset-button")
@@ -340,7 +389,27 @@ struct OnboardingWizardView: View {
                     .buttonStyle(.bordered)
                     .accessibilityIdentifier("onboarding-cliflags-skip-button")
                 Button("Save") {
-                    persistCliFlagsSettings()
+                    let toolsToSave = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
+                    for tool in Harness.allCases where toolsToSave.contains(tool) {
+                        guard let draft = draftCliOptions[tool] else { continue }
+                        switch tool {
+                        case .claude:
+                            appSettings.cliOptions = draft
+                            SettingsPersistence.save(appSettings: appSettings)
+                        case .codex:
+                            appSettings.codexCliOptions = draft
+                            SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+                        case .cursor:
+                            appSettings.cursorCliOptions = draft
+                            SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+                        case .shell:
+                            break
+                        }
+                    }
+                    if toolsToSave.contains(.claude) {
+                        appSettings.envVarOptions = draftEnvVars
+                        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+                    }
                     step = .profiles
                 }
                 .buttonStyle(.borderedProminent)
@@ -367,7 +436,7 @@ struct OnboardingWizardView: View {
 
             HStack {
                 Spacer()
-                Button("Finish") { complete() }
+                Button("Finish") { finish() }
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("onboarding-profiles-finish-button")
             }
@@ -375,116 +444,11 @@ struct OnboardingWizardView: View {
         .padding(32)
     }
 
-    private func resolvedShell() -> String {
-        if shellPickerSelection == "__other__" {
-            let trimmed = customShellPath.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? ShellResolver.detectedLoginShell() : trimmed
-        }
-        return shellPickerSelection.isEmpty ? ShellResolver.detectedLoginShell() : shellPickerSelection
-    }
-
-    private func runDetection() async {
-        guard !detectionRan else { return }
-        detectionRan = true
-        isDetecting = true
-        let shell = resolvedShell()
-        let found = await HarnessDetector.detectInstalled(shell: shell)
-        checkedTools = found
-        isDetecting = false
-    }
-
-    private func persistShell() {
-        let shell: String
-        if shellPickerSelection == "__other__" {
-            shell = customShellPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            shell = shellPickerSelection
-        }
-        appSettings.preferredShell = shell
-        SettingsPersistence.saveShellSettings(appSettings: appSettings)
-    }
-
-    private func persistTools() {
-        for tool in checkedTools {
-            appSettings.setActive(tool, true)
-        }
-        if appSettings.activeTools.isEmpty {
-            appSettings.setActive(.claude, true)
-        }
-        SettingsPersistence.saveActiveTools(appSettings: appSettings)
-    }
-
-    private func seedCliFlagsDrafts() {
-        let toolsToSeed = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
-        for tool in Harness.allCases where toolsToSeed.contains(tool) {
-            if draftCliOptions[tool] == nil {
-                draftCliOptions[tool] = CLIOptionConfig.recommendedDefaults(for: tool)
-            }
-        }
-        if draftEnvVars.isEmpty {
-            draftEnvVars = EnvVarConfig.recommendedDefaults()
-        }
-        if let first = Harness.allCases.first(where: { toolsToSeed.contains($0) }) {
-            cliFlagsTool = first
-        }
-    }
-
-    private func clearCliFlagsDraft() {
-        if var draft = draftCliOptions[cliFlagsTool] {
-            for i in draft.indices {
-                draft[i].isAvailable = false
-                draft[i].isDefaultEnabled = false
-            }
-            draftCliOptions[cliFlagsTool] = draft
-        }
-        if cliFlagsTool == .claude {
-            for i in draftEnvVars.indices {
-                draftEnvVars[i].isAvailable = false
-                draftEnvVars[i].isDefaultEnabled = false
-            }
-        }
-    }
-
-    private func resetCliFlagsDraftToRecommended() {
-        draftCliOptions[cliFlagsTool] = CLIOptionConfig.recommendedDefaults(for: cliFlagsTool)
-        if cliFlagsTool == .claude {
-            draftEnvVars = EnvVarConfig.recommendedDefaults()
-        }
-    }
-
-    private func persistCliFlagsSettings() {
-        let toolsToSave = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
-        for tool in Harness.allCases where toolsToSave.contains(tool) {
-            guard let draft = draftCliOptions[tool] else { continue }
-            switch tool {
-            case .claude:
-                appSettings.cliOptions = draft
-                SettingsPersistence.save(appSettings: appSettings)
-            case .codex:
-                appSettings.codexCliOptions = draft
-                SettingsPersistence.saveCodexOptions(appSettings: appSettings)
-            case .cursor:
-                appSettings.cursorCliOptions = draft
-                SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-            case .shell:
-                break
-            }
-        }
-        if toolsToSave.contains(.claude) {
-            appSettings.envVarOptions = draftEnvVars
-            SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
-        }
-    }
-
-    private func complete() {
+    private func finish() {
         appSettings.hasCompletedOnboarding = true
-        SettingsPersistence.saveOnboarding(appSettings: appSettings)
-        dismiss()
-    }
-
-    private func skip() {
-        appSettings.hasCompletedOnboarding = true
-        SettingsPersistence.saveOnboarding(appSettings: appSettings)
+        SettingsPersistence.save(
+            SettingsPersistence.OnboardingSettings(completed: appSettings.hasCompletedOnboarding),
+            to: "onboarding-settings.json")
         dismiss()
     }
 }

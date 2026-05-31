@@ -1,6 +1,6 @@
-import XCTest
-import OpenTelemetrySdk
 import OpenTelemetryApi
+import OpenTelemetrySdk
+import XCTest
 
 @testable import AgentSessionManager
 
@@ -23,12 +23,14 @@ final class PerPaneSpanExporterTests: XCTestCase {
 
     func testSpanWithPaneIdRoutesToPerPaneFile() throws {
         let exporter = PerPaneSpanExporter(tracesDirectory: testDir, maxBytesPerFile: 1_048_576)
-        let span = makeSpan(name: "test.event", attrs: [
-            "pane.id": "aaaa-bbbb-cccc-dddd",
-            "pane.name": "mypane",
-            "tab.id": "1111-2222-3333-4444",
-            "tab.name": "mytab",
-        ])
+        let span = makeSpan(
+            name: "test.event",
+            attrs: [
+                "pane.id": "aaaa-bbbb-cccc-dddd",
+                "pane.name": "mypane",
+                "tab.id": "1111-2222-3333-4444",
+                "tab.name": "mytab",
+            ])
         exporter.export(spans: [span], explicitTimeout: nil)
 
         waitForWrite()
@@ -51,7 +53,8 @@ final class PerPaneSpanExporterTests: XCTestCase {
 
         waitForWrite()
 
-        let globalFile = testDir
+        let globalFile =
+            testDir
             .appendingPathComponent("_global")
             .appendingPathComponent("global.jsonl")
         XCTAssertTrue(FileManager.default.fileExists(atPath: globalFile.path))
@@ -64,12 +67,14 @@ final class PerPaneSpanExporterTests: XCTestCase {
     func testMetadataLineWrittenOnFirstWrite() throws {
         let exporter = PerPaneSpanExporter(tracesDirectory: testDir, maxBytesPerFile: 1_048_576)
         let paneId = "pane-uuid-1234"
-        let span = makeSpan(name: "first.event", attrs: [
-            "pane.id": paneId,
-            "pane.name": "mypane",
-            "tab.id": "tab-uuid-5678",
-            "tab.name": "mytab",
-        ])
+        let span = makeSpan(
+            name: "first.event",
+            attrs: [
+                "pane.id": paneId,
+                "pane.name": "mypane",
+                "tab.id": "tab-uuid-5678",
+                "tab.name": "mytab",
+            ])
         exporter.export(spans: [span], explicitTimeout: nil)
         waitForWrite()
 

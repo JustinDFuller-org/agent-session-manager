@@ -8,7 +8,7 @@ final class InvariantReporter: @unchecked Sendable {
     static let shared = InvariantReporter()
 
     private let lock = NSLock()
-    private var writer: InvariantLogWriter?
+    var writer: InvariantLogWriter?
     private var _latestWriterError: String?
     private var testCaptureEnabled = false
     private var _violationsForTesting: [InvariantViolation] = []
@@ -88,10 +88,6 @@ final class InvariantReporter: @unchecked Sendable {
             testCaptureEnabled = false
             _violationsForTesting = []
         }
-    }
-
-    func setWriterForTesting(_ writer: InvariantLogWriter?) {
-        lock.withLock { self.writer = writer }
     }
 
     private func notifyChange() {

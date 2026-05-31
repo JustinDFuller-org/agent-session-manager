@@ -10,20 +10,6 @@ struct TabButtonView: View {
         appState.activeTabID == tab.id
     }
 
-    private func tabActivityStateValue(tabPaneIDs: Set<UUID>) -> PaneActivityState {
-        tabActivityState(
-            tab.panes.map { pane in
-                pane.uiTestActivityStateOverride
-                    ?? paneActivityState(
-                        processState: pane.terminalController?.processState,
-                        isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
-                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
-                        hasNotification: tabPaneIDs.contains(pane.id)
-                            && appState.notifications.contains { $0.paneID == pane.id }
-                    )
-            })
-    }
-
     var body: some View {
         @Bindable var appState = appState
         let tabPaneIDs = Set(tab.panes.map(\.id))
@@ -31,7 +17,17 @@ struct TabButtonView: View {
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
-                        let tabActivityStateValue = tabActivityStateValue(tabPaneIDs: tabPaneIDs)
+                        let tabActivityStateValue = tabActivityState(
+                            tab.panes.map { pane in
+                                pane.uiTestActivityStateOverride
+                                    ?? paneActivityState(
+                                        processState: pane.terminalController?.processState,
+                                        isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                                        hasNotification: tabPaneIDs.contains(pane.id)
+                                            && appState.notifications.contains { $0.paneID == pane.id }
+                                    )
+                            })
                         ActivityIndicatorView(
                             state: tabActivityStateValue,
                             enabled: appSettings.paneActivityIndicatorsEnabled,

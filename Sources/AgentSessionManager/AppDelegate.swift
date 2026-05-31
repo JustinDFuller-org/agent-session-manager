@@ -22,15 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UNUserNotificationCenter.current().delegate = MacNotificationCoordinator.shared
         MacNotificationCoordinator.shared.bind(appState: appState, appSettings: appSettings)
 
-        createMainWindow()
-
-        #if DEV_BUILD
-        registerWindowLifecycleObservers()
-        WindowSnapshot.record(event: "app.did_finish_launching")
-        #endif
-    }
-
-    private func createMainWindow() {
         let hosting = NSHostingController(
             rootView: ContentView()
                 .environment(appState)
@@ -46,6 +37,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.showWindow(nil)
         mainWindow = window
         mainWindowController = controller
+
+        #if DEV_BUILD
+        let center = NotificationCenter.default
+        let notificationsToObserve: [(Notification.Name, String)] = [
+            (NSWindow.didBecomeKeyNotification, "window.did_become_key"),
+            (NSWindow.didResignKeyNotification, "window.did_resign_key"),
+            (NSWindow.didBecomeMainNotification, "window.did_become_main"),
+            (NSWindow.didResignMainNotification, "window.did_resign_main"),
+            (NSWindow.willCloseNotification, "window.will_close"),
+        ]
+        for (name, event) in notificationsToObserve {
+            let token = center.addObserver(forName: name, object: nil, queue: .main) { note in
+                MainActor.assumeIsolated {
+                    let window = note.object as? NSWindow
+                    let extra: [String: String] = [
+                        "subjectTitle": window?.title ?? "",
+                        "subjectClass": window.map { String(describing: type(of: $0)) } ?? "nil",
+                        "subjectID": window.map { String(ObjectIdentifier($0).hashValue, radix: 16) }
+                            ?? "nil",
+                    ]
+                    WindowSnapshot.record(event: event, extra: extra)
+                }
+            }
+            windowLifecycleObservers.append(token)
+        }
+        WindowSnapshot.record(event: "app.did_finish_launching")
+        #endif
     }
 
     func focusMainWindow() {
@@ -103,33 +121,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         "Agent Session Manager"
         #endif
     }
-
-    #if DEV_BUILD
-    @MainActor
-    private func registerWindowLifecycleObservers() {
-        let center = NotificationCenter.default
-        let notificationsToObserve: [(Notification.Name, String)] = [
-            (NSWindow.didBecomeKeyNotification, "window.did_become_key"),
-            (NSWindow.didResignKeyNotification, "window.did_resign_key"),
-            (NSWindow.didBecomeMainNotification, "window.did_become_main"),
-            (NSWindow.didResignMainNotification, "window.did_resign_main"),
-            (NSWindow.willCloseNotification, "window.will_close"),
-        ]
-        for (name, event) in notificationsToObserve {
-            let token = center.addObserver(forName: name, object: nil, queue: .main) { note in
-                MainActor.assumeIsolated {
-                    let window = note.object as? NSWindow
-                    let extra: [String: String] = [
-                        "subjectTitle": window?.title ?? "",
-                        "subjectClass": window.map { String(describing: type(of: $0)) } ?? "nil",
-                        "subjectID": window.map { String(ObjectIdentifier($0).hashValue, radix: 16) }
-                            ?? "nil",
-                    ]
-                    WindowSnapshot.record(event: event, extra: extra)
-                }
-            }
-            windowLifecycleObservers.append(token)
-        }
-    }
-    #endif
 }

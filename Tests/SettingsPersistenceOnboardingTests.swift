@@ -18,6 +18,20 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
         super.tearDown()
     }
 
+    private func restoreShellSettings(into settings: AppSettings) {
+        guard let config = SettingsPersistence.load(SettingsPersistence.ShellSettings.self, from: "shell-settings.json")
+        else { return }
+        settings.preferredShell = config.preferredShell
+    }
+
+    private func restoreOnboarding(into settings: AppSettings) {
+        guard
+            let config = SettingsPersistence.load(
+                SettingsPersistence.OnboardingSettings.self, from: "onboarding-settings.json")
+        else { return }
+        settings.hasCompletedOnboarding = config.completed
+    }
+
     // MARK: - Shell settings
 
     func testSaveAndRestoreShellSettings() {
@@ -26,13 +40,13 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
         SettingsPersistence.saveShellSettings(appSettings: settings)
 
         let restored = AppSettings()
-        SettingsPersistence.restoreShellSettings(into: restored)
+        restoreShellSettings(into: restored)
         XCTAssertEqual(restored.preferredShell, "/bin/bash")
     }
 
     func testRestoreShellSettingsDefaultsToEmptyWhenMissing() {
         let settings = AppSettings()
-        SettingsPersistence.restoreShellSettings(into: settings)
+        restoreShellSettings(into: settings)
         XCTAssertEqual(settings.preferredShell, "")
     }
 
@@ -43,7 +57,7 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
 
         let restored = AppSettings()
         restored.preferredShell = "/was-set"
-        SettingsPersistence.restoreShellSettings(into: restored)
+        restoreShellSettings(into: restored)
         XCTAssertEqual(restored.preferredShell, "")
     }
 
@@ -52,27 +66,31 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
     func testSaveAndRestoreOnboardingCompleted() {
         let settings = AppSettings()
         settings.hasCompletedOnboarding = true
-        SettingsPersistence.saveOnboarding(appSettings: settings)
+        SettingsPersistence.save(
+            SettingsPersistence.OnboardingSettings(completed: settings.hasCompletedOnboarding),
+            to: "onboarding-settings.json")
 
         let restored = AppSettings()
-        SettingsPersistence.restoreOnboarding(into: restored)
+        restoreOnboarding(into: restored)
         XCTAssertTrue(restored.hasCompletedOnboarding)
     }
 
     func testRestoreOnboardingDefaultsToFalseWhenMissing() {
         let settings = AppSettings()
-        SettingsPersistence.restoreOnboarding(into: settings)
+        restoreOnboarding(into: settings)
         XCTAssertFalse(settings.hasCompletedOnboarding)
     }
 
     func testSaveAndRestoreOnboardingNotCompleted() {
         let settings = AppSettings()
         settings.hasCompletedOnboarding = false
-        SettingsPersistence.saveOnboarding(appSettings: settings)
+        SettingsPersistence.save(
+            SettingsPersistence.OnboardingSettings(completed: settings.hasCompletedOnboarding),
+            to: "onboarding-settings.json")
 
         let restored = AppSettings()
         restored.hasCompletedOnboarding = true
-        SettingsPersistence.restoreOnboarding(into: restored)
+        restoreOnboarding(into: restored)
         XCTAssertFalse(restored.hasCompletedOnboarding)
     }
 

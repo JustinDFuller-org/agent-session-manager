@@ -124,13 +124,90 @@ final class StatusLineMonitor {
             FileManager.default.createFile(atPath: activitySignalFilePath, contents: nil)
 
             startStatusWatcher()
-            startActivityWatcher()
-
-            if let cwd = workingDirectory {
-                scheduleGitDiffPolling(workingDirectory: cwd)
+            activitySource?.cancel()
+            activitySource = nil
+            let activityFD = open(activitySignalFilePath, O_EVTONLY)
+            if activityFD >= 0 {
+                let activityWatcher = DispatchSource.makeFileSystemObjectSource(
+                    fileDescriptor: activityFD,
+                    eventMask: [.write, .extend],
+                    queue: .global(qos: .utility)
+                )
+                activityWatcher.setEventHandler { [weak self] in
+                    guard let self,
+                        let data = try? Data(contentsOf: URL(filePath: self.activitySignalFilePath))
+                    else { return }
+                    Task { @MainActor in
+                        self.applyClaudeActivityPayload(data)
+                    }
+                }
+                activityWatcher.setCancelHandler { close(activityFD) }
+                activityWatcher.resume()
+                activitySource = activityWatcher
             }
 
-            restartAttentionWatcherIfEligible()
+            if let cwd = workingDirectory {
+                Task { [weak self] in
+                    guard let self else { return }
+                    if let stats = await GitDiffStats.compute(in: cwd) {
+                        await MainActor.run { self.cachedGitStats = stats }
+                    }
+                }
+                gitDiffTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+                    guard let self else { return }
+                    Task { [weak self] in
+                        guard let self else { return }
+                        if let stats = await GitDiffStats.compute(in: cwd) {
+                            await MainActor.run { self.cachedGitStats = stats }
+                        }
+                        await MainActor.run { self.checkPayloadFreshness() }
+                    }
+                }
+            }
+
+            stopAttentionWatcher()
+            FileManager.default.createFile(atPath: attentionSignalFilePath, contents: nil)
+            let attentionFD = open(attentionSignalFilePath, O_EVTONLY)
+            if attentionFD >= 0 {
+                let attentionWatcher = DispatchSource.makeFileSystemObjectSource(
+                    fileDescriptor: attentionFD,
+                    eventMask: [.write, .extend],
+                    queue: .global(qos: .utility)
+                )
+                attentionWatcher.setEventHandler { [weak self] in
+                    guard let self else { return }
+                    self.attentionDebounceLock.lock()
+                    self.attentionDebounceWork?.cancel()
+                    let work = DispatchWorkItem { [weak self] in
+                        guard let self,
+                            let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)),
+                            !data.isEmpty
+                        else { return }
+                        var hasher = Hasher()
+                        hasher.combine(data)
+                        let fingerprint = hasher.finalize()
+                        Task { @MainActor in
+                            guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                            self.lastAttentionPayloadFingerprint = fingerprint
+                            guard let event = PaneAttentionEvent.claudeHook(data) else { return }
+                            TracingService.shared.record(
+                                "statusline.attention.received",
+                                attributes: [
+                                    "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                                    "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                                    "source": event.source.rawValue, "reason": event.reason,
+                                ])
+                            self.onClaudeHookAttention?(event)
+                        }
+                    }
+                    self.attentionDebounceWork = work
+                    self.attentionDebounceLock.unlock()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+                }
+                attentionWatcher.setCancelHandler { close(attentionFD) }
+                attentionWatcher.resume()
+                attentionSource = attentionWatcher
+            }
         } else {
             agnosticProvider?.start()
         }
@@ -158,12 +235,6 @@ final class StatusLineMonitor {
         }
     }
 
-    /// Rewrites Claude `--settings` after an integration-affecting setting changes.
-    func refreshClaudeIntegrationFromSettings() {
-        guard isClaude else { return }
-        writeSettingsFile()
-    }
-
     func stop() {
         source?.cancel()
         source = nil
@@ -189,25 +260,6 @@ final class StatusLineMonitor {
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
         try? FileManager.default.removeItem(atPath: activitySignalFilePath)
-    }
-
-    private func scheduleGitDiffPolling(workingDirectory: String) {
-        Task { [weak self] in
-            guard let self else { return }
-            if let stats = await GitDiffStats.compute(in: workingDirectory) {
-                await MainActor.run { self.cachedGitStats = stats }
-            }
-        }
-        gitDiffTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { [weak self] in
-                guard let self else { return }
-                if let stats = await GitDiffStats.compute(in: workingDirectory) {
-                    await MainActor.run { self.cachedGitStats = stats }
-                }
-                await MainActor.run { self.checkPayloadFreshness() }
-            }
-        }
     }
 
     private func startStatusWatcher() {
@@ -382,7 +434,7 @@ final class StatusLineMonitor {
         )
     }
 
-    private func writeSettingsFile() {
+    func writeSettingsFile() {
         let prTrackingEnabled = SettingsPersistence.isPRTrackingEnabled()
         let settings = Self.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: filePath,
@@ -398,47 +450,6 @@ final class StatusLineMonitor {
                 "path": settingsFilePath,
                 "bytes": String(data.count),
             ])
-    }
-
-    private func restartAttentionWatcherIfEligible() {
-        stopAttentionWatcher()
-        guard isClaude else { return }
-        FileManager.default.createFile(atPath: attentionSignalFilePath, contents: nil)
-        let fd = open(attentionSignalFilePath, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let src = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        src.setEventHandler { [weak self] in
-            self?.scheduleAttentionSignalProcessing()
-        }
-        src.setCancelHandler { close(fd) }
-        src.resume()
-        attentionSource = src
-    }
-
-    private func startActivityWatcher() {
-        activitySource?.cancel()
-        activitySource = nil
-        let fd = open(activitySignalFilePath, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let src = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        src.setEventHandler { [weak self] in
-            guard let self else { return }
-            guard let data = try? Data(contentsOf: URL(filePath: self.activitySignalFilePath)) else { return }
-            Task { @MainActor in
-                self.applyClaudeActivityPayload(data)
-            }
-        }
-        src.setCancelHandler { close(fd) }
-        src.resume()
-        activitySource = src
     }
 
     private func applyClaudeActivityPayload(_ data: Data) {
@@ -475,54 +486,6 @@ final class StatusLineMonitor {
         lastAttentionPayloadFingerprint = nil
     }
 
-    private func scheduleAttentionSignalProcessing() {
-        attentionDebounceLock.lock()
-        attentionDebounceWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            guard let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)), !data.isEmpty else {
-                return
-            }
-            var hasher = Hasher()
-            hasher.combine(data)
-            let fingerprint = hasher.finalize()
-            Task { @MainActor in
-                guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                self.lastAttentionPayloadFingerprint = fingerprint
-                guard let event = PaneAttentionEvent.claudeHook(data) else { return }
-                TracingService.shared.record(
-                    "statusline.attention.received",
-                    attributes: [
-                        "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
-                        "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
-                        "source": event.source.rawValue, "reason": event.reason,
-                    ])
-                self.onClaudeHookAttention?(event)
-            }
-        }
-        attentionDebounceWork = work
-        attentionDebounceLock.unlock()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
-    }
-
-    @MainActor
-    private func applyPROutputIfValid(_ outData: Data) {
-        guard !outData.isEmpty else { return }
-        guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else { return }
-        if currentData == nil {
-            currentData = StatusLineData(
-                model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
-                worktree: nil, workspace: nil, effort: nil, thinking: nil,
-                agent: nil, outputStyle: nil, vim: nil,
-                sessionName: nil, version: nil, exceeds200kTokens: nil,
-                pr: pr, sessionStatus: nil
-            )
-        } else {
-            currentData?.pr = pr
-        }
-        checkForMergedTransition(pr)
-    }
-
     @MainActor
     private func checkForMergedTransition(_ pr: PullRequest?) {
         guard let pr else { return }
@@ -550,7 +513,20 @@ final class StatusLineMonitor {
     /// For testing only: simulates a PR data update as if received from `gh pr view`.
     @MainActor
     func simulatePRUpdateForTesting(_ data: Data) {
-        applyPROutputIfValid(data)
+        guard !data.isEmpty else { return }
+        guard let pr = try? JSONDecoder().decode(PullRequest.self, from: data) else { return }
+        if currentData == nil {
+            currentData = StatusLineData(
+                model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
+                worktree: nil, workspace: nil, effort: nil, thinking: nil,
+                agent: nil, outputStyle: nil, vim: nil,
+                sessionName: nil, version: nil, exceeds200kTokens: nil,
+                pr: pr, sessionStatus: nil
+            )
+        } else {
+            currentData?.pr = pr
+        }
+        checkForMergedTransition(pr)
     }
 
     /// For testing only: directly invokes I1 enforcement on a mutable StatusLineData.
@@ -626,23 +602,5 @@ private struct ClaudeActivityPayload: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case hookEventName = "hook_event_name"
-    }
-}
-
-/// Runs `/bin/zsh -c` and returns stdout after exit; drains stderr so pipes cannot fill. Used by `StatusLineMonitor` tests and mirrors production I/O behavior.
-enum PRQueryShellIO {
-    static func zshCollectOutput(script: String, currentDirectory: URL?) throws -> Data {
-        let task = Process()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", script]
-        task.currentDirectoryURL = currentDirectory
-        task.standardOutput = outPipe
-        task.standardError = errPipe
-        try task.run()
-        task.waitUntilExit()
-        _ = errPipe.fileHandleForReading.readDataToEndOfFile()
-        return outPipe.fileHandleForReading.readDataToEndOfFile()
     }
 }

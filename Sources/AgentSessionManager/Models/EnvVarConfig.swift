@@ -68,13 +68,6 @@ struct EnvVarConfig: Identifiable, Codable {
         }
     }
 
-    static func makeUserAdded(id: String) -> EnvVarConfig {
-        EnvVarConfig(
-            id: id, label: id, description: "User-defined environment variable",
-            isAvailable: true, isDefaultEnabled: false, defaultValue: "", isUserAdded: true
-        )
-    }
-
     static func recommendedDefaults() -> [EnvVarConfig] {
         let recommendedIDs: Set<String> = [
             "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL",

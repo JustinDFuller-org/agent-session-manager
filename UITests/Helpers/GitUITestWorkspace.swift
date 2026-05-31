@@ -26,10 +26,6 @@ enum GitUITestWorkspace {
         runGitOrFail(["branch", "-M", "ui-root"], cwd: url)
     }
 
-    static func addLooseBranch(named branch: String, file: StaticString = #file, line: UInt = #line) {
-        runGitOrFail(["branch", branch, "HEAD"], cwd: directoryURL, file: file, line: line)
-    }
-
     /// Adds a linked secondary worktree under `.agent-session-manager/worktrees/<folder>/`.
     static func addManagedSecondaryWorktree(
         folder: String,
@@ -43,7 +39,7 @@ enum GitUITestWorkspace {
             ["worktree", "add", rel, "-b", newTrackingBranch, baseBranch], cwd: directoryURL, file: file, line: line)
     }
 
-    private static func runGitOrFail(_ args: [String], cwd: URL, file: StaticString = #file, line: UInt = #line) {
+    static func runGitOrFail(_ args: [String], cwd: URL, file: StaticString = #file, line: UInt = #line) {
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/git")
         process.arguments = args

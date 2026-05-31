@@ -37,10 +37,117 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 
     func start() {
-        CursorHookSetup.ensureHooksConfigured()
-        startHookFileWatcher()
-        startAttentionFileWatcher()
-        fetchVersion()
+        do {
+            try FileManager.default.createDirectory(
+                at: CursorHookSetup.hooksDirectory, withIntermediateDirectories: true)
+            try CursorHookSetup.writeScript(
+                at: CursorHookSetup.hookScriptPath, content: CursorHookSetup.hookScriptContent)
+            try CursorHookSetup.writeScript(
+                at: CursorHookSetup.stopHookScriptPath, content: CursorHookSetup.stopHookScriptContent)
+            let configPath = CursorHookSetup.hooksConfigPath
+            var config: [String: Any] = ["version": 1, "hooks": [String: Any]()]
+            if let existingData = try? Data(contentsOf: configPath),
+                let existing = try? JSONSerialization.jsonObject(with: existingData) as? [String: Any]
+            {
+                config = existing
+            }
+            var hooks = config["hooks"] as? [String: Any] ?? [:]
+            var needsWrite = false
+            needsWrite =
+                CursorHookSetup.installHookEntry(
+                    into: &hooks,
+                    eventName: "afterAgentResponse",
+                    entry: CursorHookSetup.hookEntry,
+                    scriptName: CursorHookSetup.hookScriptName
+                ) || needsWrite
+            needsWrite =
+                CursorHookSetup.installHookEntry(
+                    into: &hooks,
+                    eventName: "stop",
+                    entry: CursorHookSetup.stopHookEntry,
+                    scriptName: CursorHookSetup.stopHookScriptName
+                ) || needsWrite
+            if needsWrite {
+                config["hooks"] = hooks
+                if config["version"] == nil { config["version"] = 1 }
+                let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+                try data.write(to: configPath, options: .atomic)
+            }
+        } catch {
+            // Best-effort; model detection and notifications gracefully degrade if hooks aren't set up.
+        }
+        FileManager.default.createFile(atPath: hookOutputFilePath, contents: nil)
+        let hookFD = open(hookOutputFilePath, O_EVTONLY)
+        if hookFD >= 0 {
+            let source = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: hookFD,
+                eventMask: [.write, .extend],
+                queue: .global(qos: .utility)
+            )
+            source.setEventHandler { [weak self] in
+                guard let self,
+                    let data = try? Data(contentsOf: URL(filePath: self.hookOutputFilePath)),
+                    !data.isEmpty,
+                    let parsed = CursorHookPayload.parse(data)
+                else { return }
+                let model = StatusLineData.Model(id: parsed.model, displayName: parsed.model)
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.lastHookModel = model
+                    self.refreshNow()
+                }
+            }
+            source.setCancelHandler { close(hookFD) }
+            source.resume()
+            hookSource = source
+        }
+        if SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json")?
+            .isCursorHookAttentionEnabled ?? true
+        {
+            FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
+            let attentionFD = open(attentionFilePath, O_EVTONLY)
+            if attentionFD >= 0 {
+                let source = DispatchSource.makeFileSystemObjectSource(
+                    fileDescriptor: attentionFD,
+                    eventMask: [.write, .extend],
+                    queue: .global(qos: .utility)
+                )
+                source.setEventHandler { [weak self] in
+                    guard let self else { return }
+                    self.attentionDebounceLock.lock()
+                    self.attentionDebounceWork?.cancel()
+                    let work = DispatchWorkItem { [weak self] in
+                        guard let self,
+                            let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
+                            !data.isEmpty
+                        else { return }
+                        var hasher = Hasher()
+                        hasher.combine(data)
+                        let fingerprint = hasher.finalize()
+                        Task { @MainActor in
+                            guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                            self.lastAttentionPayloadFingerprint = fingerprint
+                            self.onAttention?(.cursorStop)
+                        }
+                    }
+                    self.attentionDebounceWork = work
+                    self.attentionDebounceLock.unlock()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+                }
+                source.setCancelHandler { close(attentionFD) }
+                source.resume()
+                attentionSource = source
+            }
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            let version = await self.runShell(
+                "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH agent --version 2>/dev/null | head -1")?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            await MainActor.run { [weak self] in
+                self?.versionFetchedVersion = version
+            }
+        }
         refreshNow()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             self?.refreshNow()
@@ -52,72 +159,6 @@ final class CursorDataProvider: StatusLineDataProvider {
         refreshTimer = nil
         hookSource?.cancel()
         hookSource = nil
-        stopAttentionWatcher()
-        try? FileManager.default.removeItem(atPath: hookOutputFilePath)
-        try? FileManager.default.removeItem(atPath: attentionFilePath)
-    }
-
-    var currentDurationMs: Double {
-        max(0, Date().timeIntervalSince(processStartTime)) * 1000
-    }
-
-    // MARK: - Hook File Watching
-
-    private func startHookFileWatcher() {
-        FileManager.default.createFile(atPath: hookOutputFilePath, contents: nil)
-        let fd = open(hookOutputFilePath, O_EVTONLY)
-        guard fd >= 0 else { return }
-
-        let src = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        src.setEventHandler { [weak self] in
-            self?.handleHookFileUpdate()
-        }
-        src.setCancelHandler { close(fd) }
-        src.resume()
-        hookSource = src
-    }
-
-    private func handleHookFileUpdate() {
-        guard let data = try? Data(contentsOf: URL(filePath: hookOutputFilePath)),
-            !data.isEmpty
-        else { return }
-
-        guard let parsed = CursorHookPayload.parse(data) else { return }
-
-        let model = StatusLineData.Model(id: parsed.model, displayName: parsed.model)
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.lastHookModel = model
-            self.refreshNow()
-        }
-    }
-
-    // MARK: - Attention File Watching
-
-    private func startAttentionFileWatcher() {
-        guard SettingsPersistence.isCursorHookAttentionEnabled() else { return }
-        FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
-        let fd = open(attentionFilePath, O_EVTONLY)
-        guard fd >= 0 else { return }
-
-        let src = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        src.setEventHandler { [weak self] in
-            self?.scheduleAttentionSignalProcessing()
-        }
-        src.setCancelHandler { close(fd) }
-        src.resume()
-        attentionSource = src
-    }
-
-    private func stopAttentionWatcher() {
         attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
@@ -125,27 +166,12 @@ final class CursorDataProvider: StatusLineDataProvider {
         attentionSource?.cancel()
         attentionSource = nil
         lastAttentionPayloadFingerprint = nil
+        try? FileManager.default.removeItem(atPath: hookOutputFilePath)
+        try? FileManager.default.removeItem(atPath: attentionFilePath)
     }
 
-    private func scheduleAttentionSignalProcessing() {
-        attentionDebounceLock.lock()
-        attentionDebounceWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            guard let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)), !data.isEmpty
-            else { return }
-            var hasher = Hasher()
-            hasher.combine(data)
-            let fingerprint = hasher.finalize()
-            Task { @MainActor in
-                guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                self.lastAttentionPayloadFingerprint = fingerprint
-                self.onAttention?(.cursorStop)
-            }
-        }
-        attentionDebounceWork = work
-        attentionDebounceLock.unlock()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    var currentDurationMs: Double {
+        max(0, Date().timeIntervalSince(processStartTime)) * 1000
     }
 
     // MARK: - Periodic Refresh
@@ -189,18 +215,6 @@ final class CursorDataProvider: StatusLineDataProvider {
 
             await MainActor.run { [weak self] in
                 self?.onUpdate?(data)
-            }
-        }
-    }
-
-    private func fetchVersion() {
-        Task { [weak self] in
-            guard let self else { return }
-            let version = await self.runShell(
-                "PATH=/opt/homebrew/bin:/usr/local/bin:$PATH agent --version 2>/dev/null | head -1")?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            await MainActor.run { [weak self] in
-                self?.versionFetchedVersion = version
             }
         }
     }
@@ -255,8 +269,8 @@ struct CursorHookPayload {
 /// (for model detection) and a `stop` hook (for notifications) that write their payloads
 /// to per-pane temp files identified by the `AGENT_SESSION_MANAGER_PANE_ID` environment variable.
 enum CursorHookSetup {
-    private static let hookScriptName = "agent-session-manager-cursor-hook.sh"
-    private static let stopHookScriptName = "agent-session-manager-cursor-stop-hook.sh"
+    fileprivate static let hookScriptName = "agent-session-manager-cursor-hook.sh"
+    fileprivate static let stopHookScriptName = "agent-session-manager-cursor-stop-hook.sh"
 
     static var hooksDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -309,20 +323,7 @@ enum CursorHookSetup {
         "command": "./hooks/\(stopHookScriptName)"
     ]
 
-    /// Ensures `~/.cursor/hooks.json` contains our `afterAgentResponse` and `stop` hooks
-    /// and the helper scripts exist. Merges with any existing hooks config non-destructively.
-    static func ensureHooksConfigured() {
-        do {
-            try FileManager.default.createDirectory(at: hooksDirectory, withIntermediateDirectories: true)
-            try writeScript(at: hookScriptPath, content: hookScriptContent)
-            try writeScript(at: stopHookScriptPath, content: stopHookScriptContent)
-            try mergeHooksConfig()
-        } catch {
-            // Best-effort; model detection and notifications gracefully degrade if hooks aren't set up.
-        }
-    }
-
-    private static func writeScript(at path: URL, content: String) throws {
+    fileprivate static func writeScript(at path: URL, content: String) throws {
         let currentContent = try? String(contentsOf: path, encoding: .utf8)
         if currentContent == content { return }
         try content.write(to: path, atomically: true, encoding: .utf8)
@@ -330,46 +331,9 @@ enum CursorHookSetup {
             [.posixPermissions: 0o755], ofItemAtPath: path.path)
     }
 
-    private static func mergeHooksConfig() throws {
-        let configPath = hooksConfigPath
-        var config: [String: Any] = ["version": 1, "hooks": [String: Any]()]
-
-        if let existingData = try? Data(contentsOf: configPath),
-            let existing = try? JSONSerialization.jsonObject(with: existingData) as? [String: Any]
-        {
-            config = existing
-        }
-
-        var hooks = config["hooks"] as? [String: Any] ?? [:]
-        var needsWrite = false
-
-        needsWrite =
-            installHookEntry(
-                into: &hooks,
-                eventName: "afterAgentResponse",
-                entry: hookEntry,
-                scriptName: hookScriptName
-            ) || needsWrite
-
-        needsWrite =
-            installHookEntry(
-                into: &hooks,
-                eventName: "stop",
-                entry: stopHookEntry,
-                scriptName: stopHookScriptName
-            ) || needsWrite
-
-        if needsWrite {
-            config["hooks"] = hooks
-            if config["version"] == nil { config["version"] = 1 }
-            let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
-            try data.write(to: configPath, options: .atomic)
-        }
-    }
-
     /// Returns `true` if the entry was added (config needs writing).
     @discardableResult
-    private static func installHookEntry(
+    fileprivate static func installHookEntry(
         into hooks: inout [String: Any],
         eventName: String,
         entry: [String: Any],

@@ -68,7 +68,11 @@ struct ProfilesContent: View {
                                             .foregroundStyle(.secondary)
                                     }
                                 }
-                                Text(profileSummary(profile))
+                                let flagCount = profile.cliOptions.filter(\.isEnabled).count
+                                let envCount = profile.envVars.filter(\.isEnabled).count
+                                let flagSummary = flagCount > 0 ? "\(flagCount) flag\(flagCount == 1 ? "" : "s")" : nil
+                                let envSummary = envCount > 0 ? "\(envCount) env var\(envCount == 1 ? "" : "s")" : nil
+                                Text([flagSummary, envSummary].compactMap { $0 }.joined(separator: ", "))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -148,18 +152,6 @@ struct ProfilesContent: View {
         }
     }
 
-    private func profileSummary(_ profile: Profile) -> String {
-        let flagCount = profile.cliOptions.filter(\.isEnabled).count
-        let envCount = profile.envVars.filter(\.isEnabled).count
-        var parts: [String] = []
-        if flagCount > 0 {
-            parts.append("\(flagCount) flag\(flagCount == 1 ? "" : "s")")
-        }
-        if envCount > 0 {
-            parts.append("\(envCount) env var\(envCount == 1 ? "" : "s")")
-        }
-        return parts.joined(separator: ", ")
-    }
 }
 
 private struct ProfileEditorSheet: View {
@@ -245,9 +237,11 @@ private struct ProfileEditorSheet: View {
                             Text("CLI Options")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "Checked options appear in the New Pane sheet so you can adjust them each time you start a pane."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                             if !available.isEmpty {
                                 HStack(spacing: 8) {
                                     Spacer()
@@ -289,7 +283,35 @@ private struct ProfileEditorSheet: View {
                                                 ProfileEditorHiddenOptionRow(
                                                     option: option,
                                                     state: editorStateBinding(for: option.id),
-                                                    onAddToGlobal: { onAddToGlobal(optionID: option.id) }
+                                                    onAddToGlobal: {
+                                                        switch harness {
+                                                        case .claude:
+                                                            if let i = appSettings.cliOptions.firstIndex(where: {
+                                                                $0.id == option.id
+                                                            }) {
+                                                                appSettings.cliOptions[i].isAvailable = true
+                                                            }
+                                                            SettingsPersistence.save(appSettings: appSettings)
+                                                        case .codex:
+                                                            if let i = appSettings.codexCliOptions.firstIndex(where: {
+                                                                $0.id == option.id
+                                                            }) {
+                                                                appSettings.codexCliOptions[i].isAvailable = true
+                                                            }
+                                                            SettingsPersistence.saveCodexOptions(
+                                                                appSettings: appSettings)
+                                                        case .cursor:
+                                                            if let i = appSettings.cursorCliOptions.firstIndex(where: {
+                                                                $0.id == option.id
+                                                            }) {
+                                                                appSettings.cursorCliOptions[i].isAvailable = true
+                                                            }
+                                                            SettingsPersistence.saveCursorOptions(
+                                                                appSettings: appSettings)
+                                                        case .shell:
+                                                            break
+                                                        }
+                                                    }
                                                 )
                                             }
                                         }
@@ -307,9 +329,11 @@ private struct ProfileEditorSheet: View {
                                 Text("Environment Variables")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                Text(
+                                    "Checked options appear in the New Pane sheet so you can adjust them each time you start a pane."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                                 if !availableEnvVars.isEmpty {
                                     HStack(spacing: 8) {
                                         Spacer()
@@ -351,7 +375,15 @@ private struct ProfileEditorSheet: View {
                                                     ProfileEditorHiddenEnvVarRow(
                                                         envVar: envVar,
                                                         state: editorEnvVarStateBinding(for: envVar.id),
-                                                        onAddToGlobal: { onAddToGlobalEnvVar(id: envVar.id) }
+                                                        onAddToGlobal: {
+                                                            if let i = appSettings.envVarOptions.firstIndex(where: {
+                                                                $0.id == envVar.id
+                                                            }) {
+                                                                appSettings.envVarOptions[i].isAvailable = true
+                                                            }
+                                                            SettingsPersistence.saveEnvVarOptions(
+                                                                appSettings: appSettings)
+                                                        }
                                                     )
                                                 }
                                             }
@@ -480,42 +512,6 @@ private struct ProfileEditorSheet: View {
             get: { envVarStates[id] ?? ProfileEditorOptionState(enabled: false, value: "") },
             set: { envVarStates[id] = $0 }
         )
-    }
-
-    private func persistCLIOptions() {
-        switch harness {
-        case .claude: SettingsPersistence.save(appSettings: appSettings)
-        case .codex: SettingsPersistence.saveCodexOptions(appSettings: appSettings)
-        case .cursor: SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-        case .shell: break
-        }
-    }
-
-    private func onAddToGlobal(optionID: String) {
-        switch harness {
-        case .claude:
-            if let i = appSettings.cliOptions.firstIndex(where: { $0.id == optionID }) {
-                appSettings.cliOptions[i].isAvailable = true
-            }
-        case .codex:
-            if let i = appSettings.codexCliOptions.firstIndex(where: { $0.id == optionID }) {
-                appSettings.codexCliOptions[i].isAvailable = true
-            }
-        case .cursor:
-            if let i = appSettings.cursorCliOptions.firstIndex(where: { $0.id == optionID }) {
-                appSettings.cursorCliOptions[i].isAvailable = true
-            }
-        case .shell:
-            break
-        }
-        persistCLIOptions()
-    }
-
-    private func onAddToGlobalEnvVar(id: String) {
-        if let i = appSettings.envVarOptions.firstIndex(where: { $0.id == id }) {
-            appSettings.envVarOptions[i].isAvailable = true
-        }
-        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
     }
 
     private func save() {

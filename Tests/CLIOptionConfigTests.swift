@@ -19,7 +19,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 26)
+        XCTAssertEqual(StatusLineConfig.allItems.count, 24)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -161,7 +161,8 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testGitWorktreeIsAbsent() {
         XCTAssertNil(StatusLineConfig.itemMetadata["gitWorktree"], "gitWorktree must not appear in itemMetadata")
-        XCTAssertNil(StatusLineConfig.itemAvailability["gitWorktree"], "gitWorktree must not appear in itemAvailability")
+        XCTAssertNil(
+            StatusLineConfig.itemAvailability["gitWorktree"], "gitWorktree must not appear in itemAvailability")
         XCTAssertFalse(StatusLineConfig.itemOrder.contains("gitWorktree"), "gitWorktree must not appear in itemOrder")
     }
 
@@ -330,7 +331,9 @@ final class CLIOptionConfigTests: XCTestCase {
     }
 
     func testUserAddedBooleanFlag() {
-        let flag = CLIOptionConfig.makeUserAdded(id: "--my-flag", isString: false)
+        let flag = CLIOptionConfig(
+            id: "--my-flag", label: "--my-flag", description: "User-defined option",
+            isAvailable: false, isDefaultEnabled: false, isUserAdded: true)
         XCTAssertTrue(flag.isUserAdded)
         XCTAssertFalse(flag.customIsStringType)
         XCTAssertEqual(flag.id, "--my-flag")
@@ -341,7 +344,9 @@ final class CLIOptionConfigTests: XCTestCase {
     }
 
     func testUserAddedStringFlag() {
-        let flag = CLIOptionConfig.makeUserAdded(id: "--my-str-flag", isString: true)
+        let flag = CLIOptionConfig(
+            id: "--my-str-flag", label: "--my-str-flag", description: "User-defined option",
+            isAvailable: false, isDefaultEnabled: false, isUserAdded: true, customIsStringType: true)
         XCTAssertTrue(flag.isUserAdded)
         XCTAssertTrue(flag.customIsStringType)
         if case .string(let placeholder) = flag.optionType {
@@ -352,7 +357,9 @@ final class CLIOptionConfigTests: XCTestCase {
     }
 
     func testUserAddedFlagCodingRoundTrip() throws {
-        let original = CLIOptionConfig.makeUserAdded(id: "--test-flag", isString: true)
+        let original = CLIOptionConfig(
+            id: "--test-flag", label: "--test-flag", description: "User-defined option",
+            isAvailable: false, isDefaultEnabled: false, isUserAdded: true, customIsStringType: true)
         var mutable = original
         mutable.isAvailable = true
         mutable.isDefaultEnabled = true
@@ -477,7 +484,6 @@ final class CursorCLIOptionConfigTests: XCTestCase {
         XCTAssertFalse(decoded.isDefaultEnabled)
     }
 }
-
 
 final class HarnessTests: XCTestCase {
     func testHarnessRoundTrip() throws {
@@ -1077,10 +1083,11 @@ final class PRTrackingTests: XCTestCase {
     func testPRTrackingSettingsPersistence() throws {
         let settings = AppSettings()
         settings.githubPRTrackingEnabled = false
-        SettingsPersistence.savePRTracking(appSettings: settings)
+        SettingsPersistence.save(settings.githubPRTrackingEnabled, to: "pr-tracking-settings.json")
 
         let restored = AppSettings()
-        SettingsPersistence.restorePRTracking(into: restored)
+        restored.githubPRTrackingEnabled =
+            SettingsPersistence.load(Bool.self, from: "pr-tracking-settings.json") ?? restored.githubPRTrackingEnabled
         XCTAssertFalse(restored.githubPRTrackingEnabled)
     }
 
@@ -1096,10 +1103,11 @@ final class PRTrackingTests: XCTestCase {
     func testPRTrackingSettingsRoundTrip() throws {
         let settings = AppSettings()
         settings.githubPRTrackingEnabled = true
-        SettingsPersistence.savePRTracking(appSettings: settings)
+        SettingsPersistence.save(settings.githubPRTrackingEnabled, to: "pr-tracking-settings.json")
 
         let restored = AppSettings()
-        SettingsPersistence.restorePRTracking(into: restored)
+        restored.githubPRTrackingEnabled =
+            SettingsPersistence.load(Bool.self, from: "pr-tracking-settings.json") ?? restored.githubPRTrackingEnabled
         XCTAssertTrue(restored.githubPRTrackingEnabled)
     }
 }

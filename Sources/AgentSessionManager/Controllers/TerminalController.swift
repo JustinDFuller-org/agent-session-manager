@@ -13,6 +13,16 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     private var osc777HookInstalled = false
     private var keyEventMonitor: Any?
 
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        installOsc777AttentionHookIfNeeded()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        installOsc777AttentionHookIfNeeded()
+    }
+
     /// Reject transient tiny frames from SwiftUI layout passes that would corrupt
     /// scrollback by resizing the terminal to 1 column. SwiftUI's LazyVGrid can
     /// produce intermediate non-zero but tiny frames when panes are added/removed.
@@ -123,7 +133,6 @@ final class TerminalController: NSObject {
         super.init()
         terminalView.processDelegate = self
         terminalView.onAttention = { [weak self] event in self?.onAttention?(event) }
-        terminalView.installOsc777AttentionHookIfNeeded()
     }
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
@@ -198,12 +207,7 @@ final class TerminalController: NSObject {
     }
 
     var terminalContent: String {
-        Self.renderedScreenText(from: terminalView.terminal)
-    }
-
-    /// On-screen terminal text for the current viewport (`Terminal.getCharacter`), replacing null cells
-    /// with spaces (matching `buildAttributedString`'s visual rendering) and trimming trailing whitespace.
-    static func renderedScreenText(from terminal: Terminal?) -> String {
+        let terminal = terminalView.terminal
         guard let terminal, terminal.rows > 0, terminal.cols > 0 else { return "" }
         var lines: [String] = []
         for row in 0..<terminal.rows {

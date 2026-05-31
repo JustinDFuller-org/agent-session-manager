@@ -15,6 +15,26 @@ enum WindowSnapshot {
     /// `extra` is merged into the span attributes after the standard fields.
     static func record(event: String, extra: [String: String] = [:]) {
         #if DEV_BUILD
+        let windowItems: [[String: Any]] = NSApp.windows.map { window in
+            [
+                "id": identityHash(window),
+                "title": window.title,
+                "isVisible": window.isVisible,
+                "isMiniaturized": window.isMiniaturized,
+                "isKey": window.isKeyWindow,
+                "isMain": window.isMainWindow,
+                "isPanel": window is NSPanel,
+                "occlusion": window.occlusionState.contains(.visible) ? "visible" : "hidden",
+                "controllerType": window.windowController.map { String(describing: type(of: $0)) } ?? "nil",
+                "windowClass": String(describing: type(of: window)),
+                "identifier": window.identifier?.rawValue ?? "",
+                "level": window.level.rawValue,
+                "frame": NSStringFromRect(window.frame),
+            ]
+        }
+        let serializedWindows =
+            (try? JSONSerialization.data(withJSONObject: windowItems))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
         var attributes: [String: String] = [
             "category": category,
             "event": event,
@@ -22,7 +42,7 @@ enum WindowSnapshot {
             "mainAppWindowCount": String(
                 NSApp.windows.filter { $0.title == AppDelegate.windowTitle && !($0 is NSPanel) }.count
             ),
-            "windows": serializeWindows(NSApp.windows),
+            "windows": serializedWindows,
         ]
         if let key = NSApp.keyWindow {
             attributes["keyWindowID"] = identityHash(key)
@@ -38,38 +58,9 @@ enum WindowSnapshot {
     }
 
     #if DEV_BUILD
-    private static func serializeWindows(_ windows: [NSWindow]) -> String {
-        let items = windows.map(serializeWindow)
-        guard let data = try? JSONSerialization.data(withJSONObject: items, options: []) else {
-            return "[]"
-        }
-        return String(data: data, encoding: .utf8) ?? "[]"
-    }
-
-    private static func serializeWindow(_ window: NSWindow) -> [String: Any] {
-        [
-            "id": identityHash(window),
-            "title": window.title,
-            "isVisible": window.isVisible,
-            "isMiniaturized": window.isMiniaturized,
-            "isKey": window.isKeyWindow,
-            "isMain": window.isMainWindow,
-            "isPanel": window is NSPanel,
-            "occlusion": occlusionDescription(window.occlusionState),
-            "controllerType": window.windowController.map { String(describing: type(of: $0)) } ?? "nil",
-            "windowClass": String(describing: type(of: window)),
-            "identifier": window.identifier?.rawValue ?? "",
-            "level": window.level.rawValue,
-            "frame": NSStringFromRect(window.frame),
-        ]
-    }
-
     private static func identityHash(_ window: NSWindow) -> String {
         String(ObjectIdentifier(window).hashValue, radix: 16)
     }
 
-    private static func occlusionDescription(_ state: NSWindow.OcclusionState) -> String {
-        state.contains(.visible) ? "visible" : "hidden"
-    }
     #endif
 }
