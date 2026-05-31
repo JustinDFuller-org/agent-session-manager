@@ -1,6 +1,6 @@
 # Worktree Creation and New Pane
 
-This document describes the shared worktree path used when creating Claude Code, Cursor, Codex, or OpenCode panes. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the full cross-harness audit.
+This document describes the shared worktree path used when creating Claude Code, Cursor, or Codex panes. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the full cross-harness audit.
 
 ## Shared New Pane Flow
 
@@ -54,7 +54,7 @@ The persisted `claudeProcessDirectory` key is decode-only compatibility for olde
 
 ## Terminal Purity
 
-Worktree setup runs in Swift through `Foundation.Process` before the terminal process starts. Harness launch commands contain only the final tool invocation (`claude`, `agent`, `codex`, or `opencode`) and configured arguments.
+Worktree setup runs in Swift through `Foundation.Process` before the terminal process starts. Harness launch commands contain only the final tool invocation (`claude`, `agent`, or `codex`) and configured arguments.
 
 ## Developer Map
 

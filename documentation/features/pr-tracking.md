@@ -6,7 +6,7 @@ GitHub PR Tracking detects the pull request associated with the current git bran
 
 Clicking the PR fact opens a popover with detailed information: PR title, failing status checks (with links), unresolved comment count, and a link to open the PR in the browser.
 
-This works for all CLI tools (Claude Code, Codex, Cursor, OpenCode) because it runs independently of any tool's session data. It uses `gh pr view <branch>` to query the GitHub CLI and `gh api graphql` for unresolved review comment counts.
+This works for all CLI tools (Claude Code, Codex, Cursor) because it runs independently of any tool's session data. It uses `gh pr view <branch>` to query the GitHub CLI and `gh api graphql` for unresolved review comment counts.
 
 ## How to use
 

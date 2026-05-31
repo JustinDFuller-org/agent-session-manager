@@ -7,7 +7,6 @@ struct PaneView: View {
     let pane: Pane
     let onClosePane: (Pane) -> Void
     let onRefreshPane: (Pane) -> Void
-    @State private var pulse = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -146,8 +145,6 @@ struct PaneView: View {
     @ViewBuilder
     private func statusDot() -> some View {
         let pr = pane.statusLineMonitor?.currentData?.pr
-        let sessionState = pane.statusLineMonitor?.currentData?.sessionStatus?.state
-        let shouldPulse = sessionState == "busy" || sessionState == "retry"
         let dotColor = paneStatusDotColor(
             pr: pr,
             isMerged: pane.isMerged,
@@ -162,16 +159,6 @@ struct PaneView: View {
         Circle()
             .fill(dotColor)
             .frame(width: 7, height: 7)
-            .opacity(pulse ? 0.5 : 1.0)
-            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
-            .onAppear { pulse = shouldPulse }
-            .onChange(of: shouldPulse) { _, newValue in
-                if newValue {
-                    pulse = true
-                } else {
-                    withAnimation(.linear(duration: 0)) { pulse = false }
-                }
-            }
             .accessibilityIdentifier(dotAccessibilityID)
             .accessibilityLabel(isMergedCondition ? "merged pane status" : "pane status")
     }

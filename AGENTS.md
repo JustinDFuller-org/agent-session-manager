@@ -1,16 +1,16 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents (Claude Code, OpenCode, Codex, Cursor CLI) when working with code in this repository.
+This file provides guidance to AI coding agents (Claude Code, Codex, Cursor CLI) when working with code in this repository.
 
 ## What This Is
 
-Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for running multiple AI agent sessions in parallel. It provides a tabbed, multi-pane terminal window where each pane runs Claude Code, Cursor, Codex, or OpenCode in a git worktree context, letting you work on several tasks simultaneously without context switching between windows.
+Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for running multiple AI agent sessions in parallel. It provides a tabbed, multi-pane terminal window where each pane runs Claude Code, Cursor, or Codex in a git worktree context, letting you work on several tasks simultaneously without context switching between windows.
 
 **Tabs** represent a working directory. Each tab has a name and a root directory. You can have many tabs open at once and switch between them with ⌘1–⌘9.
 
 **Panes** are terminal sessions inside a tab. When you create a pane you choose a harness and give it a session/worktree name. All four harnesses use the shared app-owned worktree path. Worktrees **created by the app** live only under `<repo>/.agent-session-manager/worktrees/<name>`. If a branch is already checked out in any path `git worktree list` knows about, the app can open that checkout. Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
 
-**Status line** — each pane shows a configurable status bar at the bottom. Claude Code uses a `statusLine` hook; Cursor combines app-owned baseline data with hook model data; Codex uses app-owned baseline data; OpenCode combines baseline data with its SQLite database. Catalog availability and populated provider fields are tracked in [documentation/features/agent-harness-feature-matrix.md](documentation/features/agent-harness-feature-matrix.md).
+**Status line** — each pane shows a configurable status bar at the bottom. Claude Code uses a `statusLine` hook; Cursor combines app-owned baseline data with hook model data; Codex uses app-owned baseline data. Catalog availability and populated provider fields are tracked in [documentation/features/agent-harness-feature-matrix.md](documentation/features/agent-harness-feature-matrix.md).
 
 **CLI options** are configurable per-pane. Each harness has a built-in flag catalog; enabled flags appear as toggles and text fields in the New Pane sheet. Users can also add custom flags. Settings are persisted across launches.
 
@@ -149,7 +149,6 @@ Skills are stored in `.agents/skills/`. Load them when working on relevant featu
 - `cursor-documentation` — Cursor official doc index; **load before implementing any Cursor feature**, CLI integration, rules, skills, MCP, or worktrees — do not guess at behavior.
 - `gh-documentation` — GitHub CLI official doc index; **load before implementing any GitHub CLI feature**, PR/issue automation, API scripting, or any gh CLI behavior — do not guess at behavior.
 - `codex-documentation` — Codex official doc index; **load before implementing any Codex feature**, CLI integration, hooks, config, or AGENTS.md support.
-- `opencode-documentation` — OpenCode official doc index; **load before implementing any OpenCode feature**, CLI integration, TUI, or any OpenCode-specific behavior.
 - `usernotifications-documentation` — UserNotifications official doc index; **load before implementing any notification feature**, requesting authorization, scheduling local notifications, handling notification actions, or any UserNotifications framework behavior — do not guess at behavior.
 - `swifterm-documentation` — SwiftTerm official doc index; **load before working with SwiftTerm**, terminal emulation, terminal views, process lifecycle, delegate callbacks, GPU rendering, pseudo-terminals, or any SwiftTerm-specific behavior. Any project that uses or interacts with SwiftTerm should load this skill.
 - `sqlite-documentation` — SQLite official doc index; **load before working with SQLite**, the C/C++ API, `import SQLite3`, prepared statements, binding, query execution, result codes, or any SQLite-specific behavior. Any project that uses or interacts with SQLite should load this skill.
@@ -170,10 +169,6 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - profile-ordering: `feature-profile-ordering`
 - session-names: `feature-session-names`
 - default-branch: `feature-default-branch`
-- opencode-status-line: `feature-opencode-status-line`
-- opencode-cli: `feature-opencode-cli`
-
-**OpenCode features:** load `opencode-documentation` before working on any opencode-* feature — fetch the relevant doc page rather than guessing at behavior.
 - observability-dashboard: `feature-observability-dashboard`
 - worktree-cleanup: `feature-worktree-cleanup`
 - panes: `feature-panes`

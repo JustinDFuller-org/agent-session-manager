@@ -102,10 +102,9 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
         let settings = AppSettings()
         settings.activeTools = [Harness.claude.rawValue, Harness.codex.rawValue]
 
-        // Apply only opencode — existing tools must remain
-        settings.setActive(.opencode, true)
+        settings.setActive(.cursor, true)
         XCTAssertTrue(settings.isActive(.claude))
         XCTAssertTrue(settings.isActive(.codex))
-        XCTAssertTrue(settings.isActive(.opencode))
+        XCTAssertTrue(settings.isActive(.cursor))
     }
 }

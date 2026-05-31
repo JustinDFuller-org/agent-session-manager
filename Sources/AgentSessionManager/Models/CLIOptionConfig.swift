@@ -47,7 +47,7 @@ struct CLIOptionConfig: Identifiable, Codable {
         } else {
             let id = try container.decode(String.self, forKey: .id)
             let allTemplates =
-                CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll + CLIOptionConfig.opencodeAll
+                CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll
             guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
@@ -106,10 +106,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             "--trust",
             "--yolo":
             return .boolean
-        // OpenCode-specific boolean flags
-        case "--fork",
-            "--mdns":
-            return .boolean
         // Cursor-specific string flags
         case "--api-key":
             return .string(placeholder: "API key (or set CURSOR_API_KEY env var)")
@@ -134,19 +130,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "profile name")
         case "--sandbox":
             return .string(placeholder: "read-only / workspace-write / danger-full-access")
-        // OpenCode-specific string flags
-        case "--session":
-            return .string(placeholder: "Session ID")
-        case "--prompt":
-            return .string(placeholder: "Initial prompt")
-        case "--port":
-            return .string(placeholder: "Port number")
-        case "--hostname":
-            return .string(placeholder: "Hostname")
-        case "--mdns-domain":
-            return .string(placeholder: "Custom mDNS domain")
-        case "--cors":
-            return .string(placeholder: "Browser origin(s)")
         // String flags
         case "--add-dir":
             return .string(placeholder: "Path to additional working directory")
@@ -439,40 +422,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             isDefaultEnabled: false),
     ]
 
-    static let opencodeAll: [CLIOptionConfig] = [
-        CLIOptionConfig(
-            id: "--agent", label: "Agent", description: "Agent to use", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--continue", label: "Continue", description: "Continue the last session", isAvailable: true,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--cors", label: "CORS", description: "Additional browser origin(s) to allow CORS", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--fork", label: "Fork",
-            description: "Fork the session when continuing (use with --continue or --session)", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--hostname", label: "Hostname", description: "Hostname to listen on", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--mdns", label: "mDNS", description: "Enable mDNS discovery", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--mdns-domain", label: "mDNS Domain", description: "Custom mDNS domain name", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--model", label: "Model", description: "Model to use in the form of provider/model",
-            isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--port", label: "Port", description: "Port to listen on", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--prompt", label: "Prompt", description: "Prompt to use", isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--session", label: "Session", description: "Session ID to continue", isAvailable: false,
-            isDefaultEnabled: false),
-    ]
-
     static func recommendedDefaults(for cli: Harness) -> [CLIOptionConfig] {
         let catalog: [CLIOptionConfig]
         let recommendedIDs: Set<String>
@@ -487,9 +436,6 @@ struct CLIOptionConfig: Identifiable, Codable {
         case .cursor:
             catalog = cursorAll
             recommendedIDs = ["--model", "--resume", "--mode"]
-        case .opencode:
-            catalog = opencodeAll
-            recommendedIDs = ["--continue", "--model", "--agent", "--session"]
         case .shell:
             return []
         }

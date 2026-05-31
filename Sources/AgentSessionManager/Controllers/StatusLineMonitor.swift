@@ -70,9 +70,7 @@ final class StatusLineMonitor {
 
         if !isClaude, let cwd = workingDirectory {
             let provider: any StatusLineDataProvider
-            if harness == .opencode {
-                provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
-            } else if harness == .cursor {
+            if harness == .cursor {
                 provider = CursorDataProvider(
                     workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
             } else {
@@ -134,7 +132,6 @@ final class StatusLineMonitor {
                         worktree: nil, workspace: nil, effort: nil, thinking: nil,
                         agent: nil, outputStyle: nil, vim: nil,
                         sessionName: nil, version: nil, exceeds200kTokens: nil,
-                        sessionStatus: nil, openCodeMode: nil,
                         pr: pr
                     )
                 } else {
@@ -474,7 +471,6 @@ final class StatusLineMonitor {
                 worktree: nil, workspace: nil, effort: nil, thinking: nil,
                 agent: nil, outputStyle: nil, vim: nil,
                 sessionName: nil, version: nil, exceeds200kTokens: nil,
-                sessionStatus: nil, openCodeMode: nil,
                 pr: pr
             )
         } else {

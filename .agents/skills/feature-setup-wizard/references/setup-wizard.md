@@ -43,5 +43,4 @@ See [documentation/features/setup-wizard.md](../../../../documentation/features/
 - `CLIOptionConfig.recommendedDefaults(for: .claude)` → marks `--continue`, `--resume`, `--model`, `--permission-mode` available
 - `CLIOptionConfig.recommendedDefaults(for: .codex)` → marks `--model`, `--ask-for-approval`, `--sandbox`, `--search` available
 - `CLIOptionConfig.recommendedDefaults(for: .cursor)` → marks `--model`, `--resume`, `--mode` available
-- `CLIOptionConfig.recommendedDefaults(for: .opencode)` → marks `--continue`, `--model`, `--agent`, `--session` available
 - `EnvVarConfig.recommendedDefaults()` → marks `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_BASE_URL` available

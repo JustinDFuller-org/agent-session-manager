@@ -183,8 +183,6 @@ final class CursorDataProvider: StatusLineDataProvider {
                 sessionName: nil,
                 version: self.versionFetchedVersion,
                 exceeds200kTokens: nil,
-                sessionStatus: nil,
-                openCodeMode: nil,
                 pr: nil
             )
 

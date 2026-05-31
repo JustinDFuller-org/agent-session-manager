@@ -1,6 +1,6 @@
 # Panes
 
-A **pane** is a terminal session inside a tab. Each pane runs an AI agent CLI: Claude Code, Cursor, Codex, or OpenCode. All four harnesses use the shared worktree flow: the app can attach to existing git checkouts or create **managed** trees under `.agent-session-manager/worktrees/<name>` inside the tab’s repository. See [worktree-creation.md](worktree-creation.md).
+A **pane** is a terminal session inside a tab. Each pane runs an AI agent CLI: Claude Code, Cursor, or Codex. All three harnesses use the shared worktree flow: the app can attach to existing git checkouts or create **managed** trees under `.agent-session-manager/worktrees/<name>` inside the tab’s repository. See [worktree-creation.md](worktree-creation.md).
 
 ## Creating a pane
 

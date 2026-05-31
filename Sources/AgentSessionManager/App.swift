@@ -69,7 +69,6 @@ struct ContentView: View {
                 SettingsPersistence.restoreStatusLine(into: appSettings)
                 SettingsPersistence.restoreCodexOptions(into: appSettings)
                 SettingsPersistence.restoreCursorOptions(into: appSettings)
-                SettingsPersistence.restoreOpenCodeOptions(into: appSettings)
                 SettingsPersistence.restoreActiveTools(into: appSettings)
                 SettingsPersistence.restoreNotificationSettings(into: appSettings)
                 SettingsPersistence.restoreRestartSettings(into: appSettings)

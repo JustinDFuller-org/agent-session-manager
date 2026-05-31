@@ -16,7 +16,7 @@ Shows the auto-detected shell (`$SHELL` env var, fallback `/bin/zsh`). The user 
 The selection is persisted in `shell-settings.json` as `preferredShell` when **Continue** is clicked.
 
 ### 3. Tools
-Runs `CLIToolDetector.detectInstalled(shell:)` in the user's chosen interactive shell (`-i -c "which <binary>"`). Each `CLIType` (claude, codex, cursor/agent, opencode) is probed concurrently. Detected tools appear pre-checked; the user may toggle. **Continue** persists active tools and advances to the Status Line step.
+Runs `CLIToolDetector.detectInstalled(shell:)` in the user's chosen interactive shell (`-i -c "which <binary>"`). Each `CLIType` (claude, codex, cursor/agent) is probed concurrently. Detected tools appear pre-checked; the user may toggle. **Continue** persists active tools and advances to the Status Line step.
 
 ### 4. Status Line
 Pre-fills the three-row wizard default layout (see `StatusLineConfig.wizardDefault()`):
@@ -36,8 +36,6 @@ Surfaces the most-used CLI options for the enabled tools so they appear in the N
 | Claude Code | `--continue`, `--resume`, `--model`, `--permission-mode` |
 | Codex | `--model`, `--ask-for-approval`, `--sandbox`, `--search` |
 | Cursor | `--model`, `--resume`, `--mode` |
-| OpenCode | `--continue`, `--model`, `--agent`, `--session` |
-
 Claude also recommends three env vars: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_BASE_URL`.
 
 A **Clear** button (shown when draft equals recommended) sets all flags unavailable. Once the draft diverges, it becomes **Reset to Recommended**. A segmented tool picker appears when multiple tools are enabled.
@@ -69,7 +67,6 @@ Settings are saved as the user advances through each step:
 | `settings.json` | Claude CLI options (written on CLI Flags **Save**) |
 | `codex-settings.json` | Codex CLI options |
 | `cursor-settings.json` | Cursor CLI options |
-| `opencode-settings.json` | OpenCode CLI options |
 | `env-var-settings.json` | Claude env var options |
 
 All files are written under the Application Support subdirectory (`agent-session-manager` / `agent-session-manager.dev`).

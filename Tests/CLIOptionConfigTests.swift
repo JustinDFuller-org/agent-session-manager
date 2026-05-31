@@ -205,30 +205,20 @@ final class StatusLineConfigTests: XCTestCase {
             "worktree", "duration", "version", "pr", "model",
             "profileName", "linesAdded", "linesRemoved",
         ]
-        let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
-        let claudeOrOpencodeIds: Set<String> = ["cost", "inputTokens", "outputTokens"]
+        let claudeOnlyIds: Set<String> = ["cost", "inputTokens", "outputTokens"]
         for id in StatusLineConfig.itemMetadata.keys
-        where !agnosticIds.contains(id) && !opencodeOnlyIds.contains(id) && !claudeOrOpencodeIds.contains(id) {
+        where !agnosticIds.contains(id) && !claudeOnlyIds.contains(id) {
             XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
         }
-        for id in opencodeOnlyIds {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .opencodeOnly, "\(id) should be .opencodeOnly")
-        }
-        for id in claudeOrOpencodeIds {
-            XCTAssertEqual(
-                StatusLineConfig.itemAvailability[id], .claudeOrOpencode, "\(id) should be .claudeOrOpencode")
+        for id in claudeOnlyIds {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
         }
     }
 
     func testSupportedByClaudeReturnsTrueForAll() {
-        let opencodeOnlyIds: Set<String> = ["sessionStatus", "openCodeMode"]
-        for id in StatusLineConfig.itemMetadata.keys where !opencodeOnlyIds.contains(id) {
+        for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
             XCTAssertTrue(item.supportedBy(.claude), "\(id) should be supported by Claude")
-        }
-        for id in opencodeOnlyIds {
-            let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
-            XCTAssertFalse(item.supportedBy(.claude), "\(id) should not be supported by Claude")
         }
     }
 
@@ -237,9 +227,6 @@ final class StatusLineConfigTests: XCTestCase {
             "worktree", "duration", "version", "pr", "model",
             "profileName", "linesAdded", "linesRemoved",
         ]
-        let opencodeIds: Set<String> = [
-            "sessionStatus", "openCodeMode", "cost", "inputTokens", "outputTokens",
-        ]
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
             for harness: Harness in [.codex, .cursor] {
@@ -247,11 +234,6 @@ final class StatusLineConfigTests: XCTestCase {
                 XCTAssertEqual(
                     item.supportedBy(harness), expected, "\(id) supportedBy \(harness) should be \(expected)")
             }
-            // OpenCode supports agnostic items, its own specific items, and shared Claude+OpenCode items
-            let expectedForOpencode = agnosticIds.contains(id) || opencodeIds.contains(id)
-            XCTAssertEqual(
-                item.supportedBy(.opencode), expectedForOpencode,
-                "\(id) supportedBy opencode should be \(expectedForOpencode)")
         }
     }
 
@@ -496,77 +478,6 @@ final class CursorCLIOptionConfigTests: XCTestCase {
     }
 }
 
-final class OpenCodeCLIOptionConfigTests: XCTestCase {
-    private var opencodeOptions: [CLIOptionConfig] {
-        CLIOptionConfig.opencodeAll.filter { !$0.isUserAdded }
-    }
-
-    func testOpenCodeFlagCount() {
-        XCTAssertEqual(opencodeOptions.count, 11, "Expected exactly 11 OpenCode CLI flags")
-    }
-
-    func testNoDuplicateOpenCodeIDs() {
-        let ids = opencodeOptions.map(\.id)
-        let unique = Set(ids)
-        XCTAssertEqual(ids.count, unique.count, "Duplicate OpenCode flag IDs detected")
-    }
-
-    func testAllOpenCodeFlagsHaveNonEmptyLabelsAndDescriptions() {
-        for option in opencodeOptions {
-            XCTAssertFalse(option.label.isEmpty, "\(option.id) has empty label")
-            XCTAssertFalse(option.description.isEmpty, "\(option.id) has empty description")
-        }
-    }
-
-    func testOpenCodeOptionTypeDefinedForAllFlags() {
-        for option in opencodeOptions {
-            switch option.optionType {
-            case .boolean:
-                break
-            case .string(let placeholder):
-                XCTAssertFalse(placeholder.isEmpty, "\(option.id) string type has empty placeholder")
-            }
-        }
-    }
-
-    func testOpenCodeFlagRoundTrip() throws {
-        let original = CLIOptionConfig.opencodeAll.first { $0.id == "--prompt" }!
-        var mutable = original
-        mutable.isAvailable = true
-        mutable.isDefaultEnabled = false
-
-        let encoded = try JSONEncoder().encode(mutable)
-        let decoded = try JSONDecoder().decode(CLIOptionConfig.self, from: encoded)
-
-        XCTAssertEqual(decoded.id, "--prompt")
-        XCTAssertFalse(decoded.isUserAdded)
-        XCTAssertTrue(decoded.isAvailable)
-        XCTAssertFalse(decoded.isDefaultEnabled)
-    }
-
-    func testOpenCodeBooleanFlags() {
-        let booleanIDs: Set<String> = ["--continue", "--fork", "--mdns"]
-        for flag in opencodeOptions where booleanIDs.contains(flag.id) {
-            if case .boolean = flag.optionType {
-            } else {
-                XCTFail("\(flag.id) should be boolean type")
-            }
-        }
-    }
-
-    func testOpenCodeStringFlags() {
-        let stringIDs: Set<String> = [
-            "--session", "--prompt", "--model", "--agent",
-            "--port", "--hostname", "--mdns-domain", "--cors",
-        ]
-        for flag in opencodeOptions where stringIDs.contains(flag.id) {
-            if case .string = flag.optionType {
-            } else {
-                XCTFail("\(flag.id) should be string type")
-            }
-        }
-    }
-}
 
 final class HarnessTests: XCTestCase {
     func testHarnessRoundTrip() throws {
@@ -579,22 +490,19 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(Harness.claude.rawValue, "claude")
         XCTAssertEqual(Harness.codex.rawValue, "codex")
         XCTAssertEqual(Harness.cursor.rawValue, "cursor")
-        XCTAssertEqual(Harness.opencode.rawValue, "opencode")
     }
 
     func testHarnessDisplayNames() {
         XCTAssertEqual(Harness.claude.displayName, "Claude Code")
         XCTAssertEqual(Harness.codex.displayName, "Codex")
         XCTAssertEqual(Harness.cursor.displayName, "Cursor")
-        XCTAssertEqual(Harness.opencode.displayName, "OpenCode")
     }
 
     func testAllHarnessCases() {
-        XCTAssertEqual(Harness.allCases.count, 4)
+        XCTAssertEqual(Harness.allCases.count, 3)
         XCTAssertTrue(Harness.allCases.contains(.claude))
         XCTAssertTrue(Harness.allCases.contains(.codex))
         XCTAssertTrue(Harness.allCases.contains(.cursor))
-        XCTAssertTrue(Harness.allCases.contains(.opencode))
     }
 }
 
@@ -757,8 +665,7 @@ final class AppSettingsActiveHarnessesTests: XCTestCase {
         let settings = AppSettings()
         settings.setActive(.codex, true)
         settings.setActive(.cursor, true)
-        settings.setActive(.opencode, true)
-        XCTAssertEqual(settings.activeHarnesses, [.claude, .codex, .cursor, .opencode])
+        XCTAssertEqual(settings.activeHarnesses, [.claude, .codex, .cursor])
     }
 
     func testSubsetActiveHarnessesCanonicalOrder() {

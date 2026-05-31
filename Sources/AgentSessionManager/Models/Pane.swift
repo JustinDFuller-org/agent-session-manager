@@ -10,18 +10,16 @@ enum Harness: String, Codable, CaseIterable {
     case claude
     case codex
     case cursor
-    case opencode
     case shell
 
     /// User-facing harness types — excludes `.shell` which is an internal session type.
-    static var allCases: [Harness] { [.claude, .codex, .cursor, .opencode] }
+    static var allCases: [Harness] { [.claude, .codex, .cursor] }
 
     var displayName: String {
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
         case .cursor: return "Cursor"
-        case .opencode: return "OpenCode"
         case .shell: return "Shell"
         }
     }
@@ -31,7 +29,6 @@ enum Harness: String, Codable, CaseIterable {
         case .claude: return "claude"
         case .codex: return "codex"
         case .cursor: return "agent"
-        case .opencode: return "opencode"
         case .shell: return "$SHELL"
         }
     }
