@@ -1,10 +1,7 @@
 name: Unit Tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch: # Disabled: macOS runners are expensive (10× Linux cost). Re-enable when budget allows.
 
 concurrency:
   group: unit-tests-${{ github.ref }}
