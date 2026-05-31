@@ -6,8 +6,8 @@ Every tab and pane shows a small indicator that answers one question: **where sh
 
 | State | Visual | Meaning |
 |-------|--------|---------|
-| **Waiting** | Filled accent-color dot, breathing pulse | Agent needs your input — a notification is pending |
-| **Working** | Filled secondary-color diamond, soft pulse | A supported agent lifecycle signal says work is active |
+| **Waiting** | Crisp filled accent-color dot, breathing pulse | Agent needs your input — a notification is pending |
+| **Working** | Soft secondary-color circular glow, subtle pulse | A supported agent lifecycle signal says work is active |
 | **Idle** | Static dim hollow ring | Process stopped or running quietly with no output |
 
 A tab aggregates its panes: it shows `waiting` if any pane is waiting, `working` if any pane is working, and `idle` otherwise. Every tab always shows an indicator so an idle tab is positively identifiable, not just "absent dot."
@@ -34,8 +34,8 @@ PR status (CI checks, merge state) appears only in the status-line `pr` fact and
 ## Reduce Motion
 
 When Accessibility → Reduce Motion is enabled:
-- **Working**: shows a static monochrome filled diamond (no pulse)
-- **Waiting**: shows a static accent-color dot (no pulse)
+- **Working**: shows a static soft secondary-color circular glow (no pulse)
+- **Waiting**: shows a static crisp accent-color dot (no pulse)
 - **Idle**: unchanged (already static)
 
 All three states remain visually distinguishable without animation.

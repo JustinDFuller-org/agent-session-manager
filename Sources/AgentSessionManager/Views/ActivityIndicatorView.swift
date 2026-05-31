@@ -1,16 +1,50 @@
 import SwiftUI
 
-enum ActivityIndicatorSymbol: Equatable {
-    case idleRing
-    case workingDiamond
-    case waitingDot
+enum ActivityIndicatorGeometry: Equatable {
+    case ring
+    case circle
 }
 
-func activityIndicatorSymbol(for state: PaneActivityState) -> ActivityIndicatorSymbol {
+enum ActivityIndicatorPalette: Equatable {
+    case secondary
+    case accent
+}
+
+struct ActivityIndicatorAppearance: Equatable {
+    let geometry: ActivityIndicatorGeometry
+    let palette: ActivityIndicatorPalette
+    let opacityRange: ClosedRange<Double>
+    let blurRadius: CGFloat
+
+    func resolvedOpacity(pulsing: Bool, reduceMotion: Bool) -> Double {
+        if reduceMotion { return opacityRange.upperBound }
+        return pulsing ? opacityRange.lowerBound : opacityRange.upperBound
+    }
+}
+
+func activityIndicatorAppearance(for state: PaneActivityState) -> ActivityIndicatorAppearance {
     switch state {
-    case .idle: .idleRing
-    case .working: .workingDiamond
-    case .waiting: .waitingDot
+    case .idle:
+        ActivityIndicatorAppearance(
+            geometry: .ring,
+            palette: .secondary,
+            opacityRange: 0.4...0.4,
+            blurRadius: 0
+        )
+    case .working:
+        ActivityIndicatorAppearance(
+            geometry: .circle,
+            palette: .secondary,
+            opacityRange: 0.55...0.85,
+            blurRadius: 1
+        )
+    case .waiting:
+        ActivityIndicatorAppearance(
+            geometry: .circle,
+            palette: .accent,
+            opacityRange: 0.5...1,
+            blurRadius: 0
+        )
     }
 }
 
@@ -39,44 +73,49 @@ struct ActivityIndicatorView: View {
 
     @ViewBuilder
     private var indicatorBody: some View {
-        switch activityIndicatorSymbol(for: state) {
-        case .idleRing:
+        switch state {
+        case .idle:
             Circle()
                 .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
-        case .workingDiamond:
-            WorkingDiamond()
-        case .waitingDot:
+        case .working:
+            WorkingDot()
+        case .waiting:
             WaitingDot()
         }
     }
 }
 
-private struct WorkingDiamond: View {
+private struct WorkingDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulsing = false
+    private let appearance = activityIndicatorAppearance(for: .working)
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 0.75)
-            .fill(Color.secondary)
-            .frame(width: 5, height: 5)
-            .rotationEffect(.degrees(45))
-            .opacity(pulsing ? 0.5 : 1.0)
-            .animation(
-                reduceMotion ? .none : .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                value: pulsing
-            )
-            .onAppear { pulsing = true }
+        ZStack {
+            Circle()
+                .fill(Color.secondary.opacity(0.35))
+                .blur(radius: appearance.blurRadius)
+            Circle()
+                .fill(Color.secondary.opacity(0.55))
+        }
+        .opacity(appearance.resolvedOpacity(pulsing: pulsing, reduceMotion: reduceMotion))
+        .animation(
+            reduceMotion ? .none : .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+            value: pulsing
+        )
+        .onAppear { pulsing = true }
     }
 }
 
 private struct WaitingDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulsing = false
+    private let appearance = activityIndicatorAppearance(for: .waiting)
 
     var body: some View {
         Circle()
             .fill(Color.accentColor)
-            .opacity(pulsing ? 0.5 : 1.0)
+            .opacity(appearance.resolvedOpacity(pulsing: pulsing, reduceMotion: reduceMotion))
             .animation(
                 reduceMotion ? .none : .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
                 value: pulsing

@@ -19,13 +19,14 @@ struct TabButtonView: View {
                     HStack(spacing: 4) {
                         let tabActivityStateValue = tabActivityState(
                             tab.panes.map { pane in
-                                paneActivityState(
-                                    processState: pane.terminalController?.processState,
-                                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
-                                    sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
-                                    hasNotification: tabPaneIDs.contains(pane.id)
-                                        && appState.notifications.contains { $0.paneID == pane.id }
-                                )
+                                pane.uiTestActivityStateOverride
+                                    ?? paneActivityState(
+                                        processState: pane.terminalController?.processState,
+                                        isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                                        hasNotification: tabPaneIDs.contains(pane.id)
+                                            && appState.notifications.contains { $0.paneID == pane.id }
+                                    )
                             })
                         ActivityIndicatorView(
                             state: tabActivityStateValue,

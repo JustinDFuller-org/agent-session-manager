@@ -12,13 +12,13 @@ Agent Session Manager surfaces terminal bell events (sent by Claude Code and sim
 
 ## What It Does
 
-- **Pane indicator** — A colored dot appears in the pane header next to the process status indicator when that pane has an unread notification.
-- **Tab indicator** — A colored dot appears in the tab button when any pane in that tab has a pending notification.
+- **Pane indicator** — A crisp accent-color waiting dot replaces the soft neutral working glow in the pane header when that pane has an unread notification.
+- **Tab indicator** — A crisp accent-color waiting dot appears in the tab button when any pane in that tab has a pending notification.
 - **Notification sidebar** — A sidebar panel opens automatically when notifications are queued. It lists the pane name, tab name, and a formatted timestamp. Timestamps show the time (HH:mm) for today's notifications, and the date (MM/dd/yyyy) for older notifications.
 
 - **macOS banners** — When enabled in Settings, a system notification is shown for the same events (typically when the app is not the frontmost app). Clicking the notification brings the app to front, switches to the correct tab, and gives the terminal in that pane keyboard focus. For PR merged banners, the action alert is shown after navigating to the pane. You must allow notifications for Agent Session Manager in **System Settings → Notifications** the first time the app requests permission. **By default macOS banners auto-dismiss after a few seconds.** To keep them on screen until dismissed, open **System Settings → Notifications → Agent Session Manager** and set **Alert Style** to **Persistent**. This is a user-controlled macOS setting — there is no public API to force persistent banners programmatically.
 
-Notification dots and sidebar entries are orange for priority panes and blue for regular panes.
+Waiting dots use the app accent color. Sidebar entries are orange for priority panes and blue for regular panes.
 
 **Persistence:** Pending in-app notifications (dots and sidebar rows) are saved in **`sessions.json`** with the rest of the session and restored on launch, so they survive quitting the app (for example alongside **Continue on restart**). They are cleared when you open that pane, dismiss a row, clear all, or remove the tab—as before. macOS banner notifications are not replayed on restore.
 
@@ -59,7 +59,7 @@ The sidebar appears on the right side by default (configurable in Settings → N
 
 When creating a new pane, a **Priority Pane** toggle is shown (if priority notifications are enabled in settings). Marking a pane as priority means:
 
-- Its notification dot is orange instead of blue.
+- Its sidebar notification marker is orange instead of blue.
 - Its notification appears at the top of the sidebar in the "Priority" section.
 
 Priority is a per-pane setting and persists across app restarts.

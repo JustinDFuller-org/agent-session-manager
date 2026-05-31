@@ -187,13 +187,31 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(tabActivityState([.working, .waiting]), .waiting)
     }
 
-    // MARK: - visual symbol separation
+    // MARK: - visual appearance separation
 
-    func testActivityIndicatorSymbolsKeepWorkingDistinctFromWaiting() {
-        XCTAssertEqual(activityIndicatorSymbol(for: .idle), .idleRing)
-        XCTAssertEqual(activityIndicatorSymbol(for: .working), .workingDiamond)
-        XCTAssertEqual(activityIndicatorSymbol(for: .waiting), .waitingDot)
-        XCTAssertNotEqual(activityIndicatorSymbol(for: .working), activityIndicatorSymbol(for: .waiting))
+    func testWorkingAndWaitingUseDistinctCircularAppearances() {
+        let working = activityIndicatorAppearance(for: .working)
+        let waiting = activityIndicatorAppearance(for: .waiting)
+
+        XCTAssertEqual(working.geometry, .circle)
+        XCTAssertEqual(waiting.geometry, .circle)
+        XCTAssertEqual(working.palette, .secondary)
+        XCTAssertEqual(waiting.palette, .accent)
+        XCTAssertLessThan(working.opacityRange.upperBound, waiting.opacityRange.upperBound)
+        XCTAssertGreaterThan(working.blurRadius, 0)
+        XCTAssertEqual(waiting.blurRadius, 0)
+    }
+
+    func testReduceMotionKeepsWorkingAndWaitingStaticallyDistinct() {
+        let working = activityIndicatorAppearance(for: .working)
+        let waiting = activityIndicatorAppearance(for: .waiting)
+
+        XCTAssertEqual(working.resolvedOpacity(pulsing: true, reduceMotion: true), 0.85)
+        XCTAssertEqual(waiting.resolvedOpacity(pulsing: true, reduceMotion: true), 1)
+        XCTAssertNotEqual(
+            working.resolvedOpacity(pulsing: true, reduceMotion: true),
+            waiting.resolvedOpacity(pulsing: true, reduceMotion: true)
+        )
     }
 
     // MARK: - Claude lifecycle parsing and edge-once tracing
