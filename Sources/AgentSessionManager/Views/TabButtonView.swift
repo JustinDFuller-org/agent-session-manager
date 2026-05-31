@@ -13,14 +13,13 @@ struct TabButtonView: View {
     private func tabActivityStateValue(tabPaneIDs: Set<UUID>) -> PaneActivityState {
         tabActivityState(
             tab.panes.map { pane in
-                pane.uiTestActivityStateOverride
-                    ?? paneActivityState(
-                        processState: pane.terminalController?.processState,
-                        isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
-                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
-                        hasNotification: tabPaneIDs.contains(pane.id)
-                            && appState.notifications.contains { $0.paneID == pane.id }
-                    )
+                paneActivityState(
+                    processState: pane.terminalController?.processState,
+                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                    sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                    hasNotification: tabPaneIDs.contains(pane.id)
+                        && appState.notifications.contains { $0.paneID == pane.id }
+                )
             })
     }
 

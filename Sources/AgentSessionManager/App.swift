@@ -64,46 +64,35 @@ struct ContentView: View {
         .task {
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
             SettingsPersistence.restoreDefaultBranch(into: appSettings)
-            if !CommandLine.arguments.contains("--uitesting-skip-restore") {
-                SettingsPersistence.restore(into: appSettings)
-                SettingsPersistence.restoreStatusLine(into: appSettings)
-                SettingsPersistence.restoreCodexOptions(into: appSettings)
-                SettingsPersistence.restoreCursorOptions(into: appSettings)
-                SettingsPersistence.restoreActiveTools(into: appSettings)
-                SettingsPersistence.restoreNotificationSettings(into: appSettings)
-                SettingsPersistence.restoreRestartSettings(into: appSettings)
-                SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
-                SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
-                SettingsPersistence.restoreWorktreeBaseRef(into: appSettings)
-                SettingsPersistence.restorePRTracking(into: appSettings)
-                SettingsPersistence.restorePRPollingSettings(into: appSettings)
-                SettingsPersistence.restoreTerminalSettings(into: appSettings)
-                SettingsPersistence.restoreExitBehavior(into: appSettings)
-                SettingsPersistence.restoreEnvVarOptions(into: appSettings)
-                SettingsPersistence.restoreProfiles(into: appSettings)
-                SettingsPersistence.restoreSessionNameSettings(into: appSettings)
-                SettingsPersistence.restoreDebugSettings(into: appSettings)
-                SettingsPersistence.restoreShellSettings(into: appSettings)
-                SettingsPersistence.restoreOnboarding(into: appSettings)
-                SettingsPersistence.restoreActivityIndicatorSettings(into: appSettings)
-                TracingService.shared.configure(from: appSettings)
-                InvariantReporter.shared.configure(from: appSettings)
-                let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
-                cleanup.start()
-                traceCleanupService = cleanup
-                SessionPersistence.restore(into: appState, appSettings: appSettings)
-                await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
-            }
-            AgentSessionManagerApp.applyUITestPaneStateInjection(appState: appState)
-            if AgentSessionManagerApp.shouldSimulateBannerClick {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                MacNotificationCoordinator.shared.simulateLegacyNotificationActivationForUITesting()
-            }
-            if !AgentSessionManagerApp.isUITesting
-                || CommandLine.arguments.contains("--uitesting-show-onboarding")
-            {
-                showOnboarding = !appSettings.hasCompletedOnboarding
-            }
+            SettingsPersistence.restore(into: appSettings)
+            SettingsPersistence.restoreStatusLine(into: appSettings)
+            SettingsPersistence.restoreCodexOptions(into: appSettings)
+            SettingsPersistence.restoreCursorOptions(into: appSettings)
+            SettingsPersistence.restoreActiveTools(into: appSettings)
+            SettingsPersistence.restoreNotificationSettings(into: appSettings)
+            SettingsPersistence.restoreRestartSettings(into: appSettings)
+            SettingsPersistence.restoreWorktreeCleanup(into: appSettings)
+            SettingsPersistence.restoreExistingWorktreeManagement(into: appSettings)
+            SettingsPersistence.restoreWorktreeBaseRef(into: appSettings)
+            SettingsPersistence.restorePRTracking(into: appSettings)
+            SettingsPersistence.restorePRPollingSettings(into: appSettings)
+            SettingsPersistence.restoreTerminalSettings(into: appSettings)
+            SettingsPersistence.restoreExitBehavior(into: appSettings)
+            SettingsPersistence.restoreEnvVarOptions(into: appSettings)
+            SettingsPersistence.restoreProfiles(into: appSettings)
+            SettingsPersistence.restoreSessionNameSettings(into: appSettings)
+            SettingsPersistence.restoreDebugSettings(into: appSettings)
+            SettingsPersistence.restoreShellSettings(into: appSettings)
+            SettingsPersistence.restoreOnboarding(into: appSettings)
+            SettingsPersistence.restoreActivityIndicatorSettings(into: appSettings)
+            TracingService.shared.configure(from: appSettings)
+            InvariantReporter.shared.configure(from: appSettings)
+            let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
+            cleanup.start()
+            traceCleanupService = cleanup
+            SessionPersistence.restore(into: appState, appSettings: appSettings)
+            await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
+            showOnboarding = !appSettings.hasCompletedOnboarding
         }
         .onChange(of: appState.tabs.count) { SessionPersistence.save(appState: appState) }
         .onChange(of: appState.activeTabID) { SessionPersistence.save(appState: appState) }

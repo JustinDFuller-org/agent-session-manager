@@ -120,7 +120,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
         var enforced = parsed
 
-        monitor.testApplyI1Enforcement(to: &enforced)
+        monitor.applyI1Enforcement(to: &enforced)
 
         XCTAssertEqual(enforced.worktree?.name, "right-name")
         let events = TracingService.shared.recordedEventsForTesting
@@ -152,7 +152,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
         var enforced = parsed
 
-        monitor.testApplyI1Enforcement(to: &enforced)
+        monitor.applyI1Enforcement(to: &enforced)
 
         XCTAssertEqual(enforced.worktree?.name, "right-name")
         let events = TracingService.shared.recordedEventsForTesting
@@ -179,7 +179,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
         var enforced = parsed
 
-        monitor.testApplyI1Enforcement(to: &enforced)
+        monitor.applyI1Enforcement(to: &enforced)
 
         let events = TracingService.shared.recordedEventsForTesting
         let mismatch = events.first {
@@ -204,7 +204,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             workingDirectory: workDir,
             harness: .claude
         )
-        monitor.testSetCachedGitStats((added: 5, removed: 0))
+        monitor.cachedGitStats = (added: 5, removed: 0)
 
         let json = Data(
             """
@@ -213,7 +213,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
         var enforced = parsed
 
-        monitor.testApplyI3Enforcement(to: &enforced)
+        monitor.applyI3Enforcement(to: &enforced)
 
         XCTAssertEqual(enforced.cost?.totalLinesAdded, 5)
         XCTAssertEqual(enforced.cost?.totalLinesRemoved, 0)
@@ -243,7 +243,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             {"cost": {"total_cost_usd": 0.0}}
             """.utf8)
         try earlyPayload.write(to: URL(filePath: monitor.filePath))
-        monitor.testApplyLatestPayload(reason: "initial")
+        monitor.applyLatestPayload(reason: "initial")
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 0.0)
 
         // Simulate Claude writing a newer payload without firing the vnode handler
@@ -256,7 +256,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let future = Date().addingTimeInterval(1)
         try FileManager.default.setAttributes([.modificationDate: future], ofItemAtPath: monitor.filePath)
 
-        monitor.testCheckPayloadFreshness()
+        monitor.checkPayloadFreshness()
 
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 5.28)
         XCTAssertEqual(monitor.currentData?.contextWindow?.usedPercentage, 8)
@@ -285,11 +285,11 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             {"cost": {"total_cost_usd": 1.23}}
             """.utf8)
         try payload.write(to: URL(filePath: monitor.filePath))
-        monitor.testApplyLatestPayload(reason: "initial")
+        monitor.applyLatestPayload(reason: "initial")
         TracingService.shared.resetForTesting()
 
         // Freshness check with no new writes — should be a no-op
-        monitor.testCheckPayloadFreshness()
+        monitor.checkPayloadFreshness()
 
         let events = TracingService.shared.recordedEventsForTesting
         XCTAssertFalse(
@@ -312,7 +312,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             {"cost": {"total_cost_usd": 2.50}, "context_window": {"used_percentage": 15}}
             """.utf8)
         try payload.write(to: URL(filePath: monitor.filePath))
-        monitor.testApplyLatestPayload(reason: "test")
+        monitor.applyLatestPayload(reason: "test")
 
         XCTAssertNotNil(monitor.currentData)
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 2.50)
@@ -340,13 +340,13 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             {"cost": {"total_cost_usd": 1.00}}
             """.utf8)
         try good.write(to: URL(filePath: monitor.filePath))
-        monitor.testApplyLatestPayload(reason: "initial")
+        monitor.applyLatestPayload(reason: "initial")
         TracingService.shared.resetForTesting()
         TracingService.shared.enableTestCapture()
 
         let bad = Data("NOT JSON AT ALL !!!".utf8)
         try bad.write(to: URL(filePath: monitor.filePath))
-        monitor.testApplyLatestPayload(reason: "test")
+        monitor.applyLatestPayload(reason: "test")
 
         // currentData must be preserved from the last good payload
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 1.00)
@@ -371,11 +371,11 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             {"cost": {"total_cost_usd": 3.75}}
             """.utf8)
         try good.write(to: URL(filePath: monitor.filePath))
-        monitor.testApplyLatestPayload(reason: "initial")
+        monitor.applyLatestPayload(reason: "initial")
         TracingService.shared.resetForTesting()
 
         try Data().write(to: URL(filePath: monitor.filePath))
-        monitor.testApplyLatestPayload(reason: "empty")
+        monitor.applyLatestPayload(reason: "empty")
 
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 3.75, "empty write must not clobber currentData")
         let events = TracingService.shared.recordedEventsForTesting
@@ -409,7 +409,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             workingDirectory: workDir,
             harness: .claude
         )
-        monitor.testSetCachedGitStats((added: 3, removed: 1))
+        monitor.cachedGitStats = (added: 3, removed: 1)
 
         let json = Data(
             """
@@ -418,7 +418,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
         var enforced = parsed
 
-        monitor.testApplyI3Enforcement(to: &enforced)
+        monitor.applyI3Enforcement(to: &enforced)
 
         XCTAssertEqual(enforced.cost?.totalLinesAdded, 3)
         let events = TracingService.shared.recordedEventsForTesting

@@ -231,26 +231,26 @@ final class PaneActivityInvariantTests: XCTestCase {
     // MARK: - Claude lifecycle parsing and edge-once tracing
 
     func testClaudeLifecyclePayloadTransitionsWorkingAndIdle() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
         XCTAssertTrue(monitor.isClaudeWorking)
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertFalse(monitor.isClaudeWorking)
     }
 
     func testClaudeStopFailureTransitionsIdle() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"StopFailure"}"#.utf8))
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"StopFailure"}"#.utf8))
         XCTAssertFalse(monitor.isClaudeWorking)
     }
 
     func testClaudeActivityChangedTraceOnlyFiresOnEdges() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
 
         let changed = TracingService.shared.recordedEventsForTesting.filter { $0.name == "pane.activity.changed" }
         XCTAssertEqual(changed.count, 2)
@@ -260,9 +260,9 @@ final class PaneActivityInvariantTests: XCTestCase {
     }
 
     func testClaudeActivityIgnoresMalformedAndUnrelatedPayloads() {
-        let monitor = StatusLineMonitor(paneID: UUID(), cliType: .claude)
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse"}"#.utf8))
-        monitor.testApplyClaudeActivityPayload(Data("not json".utf8))
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.applyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse"}"#.utf8))
+        monitor.applyClaudeActivityPayload(Data("not json".utf8))
         XCTAssertFalse(monitor.isClaudeWorking)
         XCTAssertTrue(TracingService.shared.recordedEventsForTesting.isEmpty)
     }

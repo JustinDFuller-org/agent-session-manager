@@ -144,7 +144,7 @@ xcodeproj:
 
 test-ui-dev: xcodeproj
 	rm -rf $(RESULTS_PATH)
-	xcodebuild test \
+	TEST_RUNNER_RUN_REAL_AGENT_TESTS=1 xcodebuild test \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
 		-configuration Dev \
@@ -156,15 +156,14 @@ screenshots: xcodeproj
 	rm -rf $(SCREENSHOTS_DIR)
 	mkdir -p $(SCREENSHOTS_DIR)
 	rm -rf $(RESULTS_PATH)
-	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test \
+	TEST_RUNNER_RUN_REAL_AGENT_TESTS=1 TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
 		-configuration Dev \
 		-destination 'platform=macOS' \
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-only-testing:AgentSessionManagerUITests/ScreenshotTests \
-		-only-testing:AgentSessionManagerUITests/ScreenshotInjectedTests
+		-only-testing:AgentSessionManagerUITests/ScreenshotTests
 
 pr-screenshots:
 	@bash "$(CURDIR)/scripts/pr-screenshots.sh"

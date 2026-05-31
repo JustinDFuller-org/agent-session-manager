@@ -4,7 +4,7 @@ import XCTest
 
 final class StatusLineMonitorHookSettingsTests: XCTestCase {
     private func makeSettings(hidePRStatus: Bool = false) -> [String: Any] {
-        StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
+        StatusLineMonitor.makeClaudeSettingsDictionary(
             statusOutputPath: "/tmp/status.json",
             attentionOutputPath: "/tmp/attention.json",
             activityOutputPath: "/tmp/activity.json",

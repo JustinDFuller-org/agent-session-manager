@@ -21,8 +21,9 @@ final class TraceRepositoryTests: XCTestCase {
     // MARK: Directory scan
 
     func testRefreshBuildsTabPaneTree() throws {
-        try createPane(tabDir: "mytab-abcd1234", fileName: "mypane-efgh5678.jsonl",
-                       paneId: "efgh5678", paneName: "mypane", tabId: "abcd1234", tabName: "mytab")
+        try createPane(
+            tabDir: "mytab-abcd1234", fileName: "mypane-efgh5678.jsonl",
+            paneId: "efgh5678", paneName: "mypane", tabId: "abcd1234", tabName: "mytab")
 
         let repo = TraceRepository(tracesDirectory: testDir)
         repo.refresh()
@@ -40,7 +41,8 @@ final class TraceRepositoryTests: XCTestCase {
         let globalMeta = """
             {"_type":"metadata","paneId":"_global","paneName":"global","tabId":"_global","tabName":"_global","createdAt":"2026-01-01T00:00:00Z"}
             """
-        try (globalMeta + "\n").write(to: globalDir.appendingPathComponent("global.jsonl"), atomically: true, encoding: .utf8)
+        try (globalMeta + "\n").write(
+            to: globalDir.appendingPathComponent("global.jsonl"), atomically: true, encoding: .utf8)
 
         let repo = TraceRepository(tracesDirectory: testDir)
         repo.refresh()
@@ -57,12 +59,15 @@ final class TraceRepositoryTests: XCTestCase {
     }
 
     func testRefreshMultipleTabsAndPanes() throws {
-        try createPane(tabDir: "tab1-aaaa1111", fileName: "pane1-bbbb2222.jsonl",
-                       paneId: "bbbb2222", paneName: "pane1", tabId: "aaaa1111", tabName: "tab1")
-        try createPane(tabDir: "tab1-aaaa1111", fileName: "pane2-cccc3333.jsonl",
-                       paneId: "cccc3333", paneName: "pane2", tabId: "aaaa1111", tabName: "tab1")
-        try createPane(tabDir: "tab2-dddd4444", fileName: "pane3-eeee5555.jsonl",
-                       paneId: "eeee5555", paneName: "pane3", tabId: "dddd4444", tabName: "tab2")
+        try createPane(
+            tabDir: "tab1-aaaa1111", fileName: "pane1-bbbb2222.jsonl",
+            paneId: "bbbb2222", paneName: "pane1", tabId: "aaaa1111", tabName: "tab1")
+        try createPane(
+            tabDir: "tab1-aaaa1111", fileName: "pane2-cccc3333.jsonl",
+            paneId: "cccc3333", paneName: "pane2", tabId: "aaaa1111", tabName: "tab1")
+        try createPane(
+            tabDir: "tab2-dddd4444", fileName: "pane3-eeee5555.jsonl",
+            paneId: "eeee5555", paneName: "pane3", tabId: "dddd4444", tabName: "tab2")
 
         let repo = TraceRepository(tracesDirectory: testDir)
         repo.refresh()

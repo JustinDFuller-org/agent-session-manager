@@ -38,24 +38,30 @@ final class TraceCleanupService {
         }
     }
 
-    static func cleanup(in directory: URL, olderThan retentionInterval: TimeInterval) -> (filesDeleted: Int, dirsRemoved: Int) {
+    static func cleanup(
+        in directory: URL, olderThan retentionInterval: TimeInterval
+    ) -> (filesDeleted: Int, dirsRemoved: Int) {
         let fm = FileManager.default
         let now = Date()
         var filesDeleted = 0
         var dirsRemoved = 0
 
-        guard let subDirs = try? fm.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else { return (0, 0) }
+        guard
+            let subDirs = try? fm.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return (0, 0) }
 
         for subDir in subDirs {
             guard (try? subDir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
 
-            guard let files = try? fm.contentsOfDirectory(
-                at: subDir, includingPropertiesForKeys: [.contentModificationDateKey],
-                options: [.skipsHiddenFiles]
-            ) else { continue }
+            guard
+                let files = try? fm.contentsOfDirectory(
+                    at: subDir, includingPropertiesForKeys: [.contentModificationDateKey],
+                    options: [.skipsHiddenFiles]
+                )
+            else { continue }
 
             for file in files {
                 guard file.pathExtension == "jsonl" else { continue }

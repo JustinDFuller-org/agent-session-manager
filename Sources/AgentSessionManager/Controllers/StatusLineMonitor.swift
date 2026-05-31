@@ -40,7 +40,7 @@ final class StatusLineMonitor {
     private var lastAttentionPayloadFingerprint: Int?
     private var agnosticProvider: (any StatusLineDataProvider)?
     private var gitDiffTimer: Timer?
-    private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
+    var cachedGitStats: (added: Int, removed: Int) = (0, 0)
     private var lastAppliedModificationDate: Date?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
@@ -241,7 +241,7 @@ final class StatusLineMonitor {
     }
 
     @MainActor
-    private func applyLatestPayload(reason: String) {
+    func applyLatestPayload(reason: String) {
         let url = URL(filePath: filePath)
         let attrs = try? FileManager.default.attributesOfItem(atPath: filePath)
         let mtime = attrs?[.modificationDate] as? Date
@@ -304,7 +304,7 @@ final class StatusLineMonitor {
     }
 
     @MainActor
-    private func checkPayloadFreshness() {
+    func checkPayloadFreshness() {
         guard let mtime = (try? FileManager.default.attributesOfItem(atPath: filePath))?[.modificationDate] as? Date
         else { return }
         guard let lastApplied = lastAppliedModificationDate else {
@@ -324,7 +324,7 @@ final class StatusLineMonitor {
         applyLatestPayload(reason: "freshness_recovery")
     }
 
-    private func applyI1Enforcement(to data: inout StatusLineData) {
+    func applyI1Enforcement(to data: inout StatusLineData) {
         guard let cwd = workingDirectory else { return }
         let wantedName = URL(filePath: cwd).lastPathComponent
 
@@ -355,7 +355,7 @@ final class StatusLineMonitor {
         data.worktree = StatusLineData.Worktree(name: wantedName, branch: data.worktree?.branch)
     }
 
-    private func applyI3Enforcement(to data: inout StatusLineData) {
+    func applyI3Enforcement(to data: inout StatusLineData) {
         let computedAdded = cachedGitStats.added
         let computedRemoved = cachedGitStats.removed
 
@@ -384,7 +384,7 @@ final class StatusLineMonitor {
 
     private func writeSettingsFile() {
         let prTrackingEnabled = SettingsPersistence.isPRTrackingEnabled()
-        let settings = Self.makeClaudeSettingsDictionaryForTesting(
+        let settings = Self.makeClaudeSettingsDictionary(
             statusOutputPath: filePath,
             attentionOutputPath: attentionSignalFilePath,
             activityOutputPath: activitySignalFilePath,
@@ -441,7 +441,7 @@ final class StatusLineMonitor {
         activitySource = src
     }
 
-    private func applyClaudeActivityPayload(_ data: Data) {
+    func applyClaudeActivityPayload(_ data: Data) {
         guard let payload = try? JSONDecoder().decode(ClaudeActivityPayload.self, from: data) else { return }
         let nextState: Bool
         switch payload.hookEventName {
@@ -506,7 +506,7 @@ final class StatusLineMonitor {
     }
 
     @MainActor
-    private func applyPROutputIfValid(_ outData: Data) {
+    func applyPROutputIfValid(_ outData: Data) {
         guard !outData.isEmpty else { return }
         guard let pr = try? JSONDecoder().decode(PullRequest.self, from: outData) else { return }
         if currentData == nil {
@@ -547,50 +547,8 @@ final class StatusLineMonitor {
         onPRMerged?(pr.number, pr.title)
     }
 
-    /// For testing only: simulates a PR data update as if received from `gh pr view`.
-    @MainActor
-    func simulatePRUpdateForTesting(_ data: Data) {
-        applyPROutputIfValid(data)
-    }
-
-    /// For testing only: directly invokes I1 enforcement on a mutable StatusLineData.
-    @MainActor
-    func testApplyI1Enforcement(to data: inout StatusLineData) {
-        applyI1Enforcement(to: &data)
-    }
-
-    /// For testing only: directly invokes I3 enforcement on a mutable StatusLineData.
-    @MainActor
-    func testApplyI3Enforcement(to data: inout StatusLineData) {
-        applyI3Enforcement(to: &data)
-    }
-
-    /// For testing only: injects cached git stats.
-    @MainActor
-    func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
-        cachedGitStats = stats
-    }
-
-    /// For testing only: invokes `applyLatestPayload` directly (reads from `filePath`).
-    @MainActor
-    func testApplyLatestPayload(reason: String) {
-        applyLatestPayload(reason: reason)
-    }
-
-    /// For testing only: invokes `checkPayloadFreshness` directly.
-    @MainActor
-    func testCheckPayloadFreshness() {
-        checkPayloadFreshness()
-    }
-
-    /// For testing only: applies Claude lifecycle hook stdin.
-    @MainActor
-    func testApplyClaudeActivityPayload(_ data: Data) {
-        applyClaudeActivityPayload(data)
-    }
-
-    /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus lifecycle and attention hooks) for tests and tooling.
-    nonisolated static func makeClaudeSettingsDictionaryForTesting(
+    /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus lifecycle and attention hooks).
+    nonisolated static func makeClaudeSettingsDictionary(
         statusOutputPath: String,
         attentionOutputPath: String,
         activityOutputPath: String,

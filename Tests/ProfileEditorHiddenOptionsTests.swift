@@ -5,7 +5,6 @@ import Testing
 
 @Suite("ProfileEditorHiddenOptions")
 struct ProfileEditorHiddenOptionsTests {
-
     @Test("save includes hidden-but-enabled option in profile.cliOptions")
     func saveIncludesHiddenEnabledOption() throws {
         let profile = Profile(

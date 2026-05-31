@@ -12,7 +12,9 @@ final class StatusLineEmptyStateTests: XCTestCase {
     func testDefaultConfigHasNonEmptyRows() {
         let config = StatusLineConfig()
         let nonEmptyRows = config.rows.filter { !$0.items.isEmpty }
-        XCTAssertFalse(nonEmptyRows.isEmpty, "Default config must have at least one non-empty row so the status line renders in empty state")
+        XCTAssertFalse(
+            nonEmptyRows.isEmpty,
+            "Default config must have at least one non-empty row so the status line renders in empty state")
     }
 
     func testEmptyConfigProducesNoRows() {

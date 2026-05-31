@@ -88,9 +88,9 @@ final class PerPaneSpanExporter: SpanExporter {
         let tabName: String
         let paneName: String
 
-        if case .string(let v) = span.attributes["tab.id"] { tabId = v } else { tabId = "unknown" }
-        if case .string(let v) = span.attributes["tab.name"] { tabName = v } else { tabName = "unknown" }
-        if case .string(let v) = span.attributes["pane.name"] { paneName = v } else { paneName = "unknown" }
+        if case .string(let val) = span.attributes["tab.id"] { tabId = val } else { tabId = "unknown" }
+        if case .string(let val) = span.attributes["tab.name"] { tabName = val } else { tabName = "unknown" }
+        if case .string(let val) = span.attributes["pane.name"] { paneName = val } else { paneName = "unknown" }
 
         let tabDirName = sanitize("\(tabName)-\(String(tabId.prefix(8)))")
         let fileName = sanitize("\(paneName)-\(String(paneId.prefix(8))).jsonl")
@@ -121,12 +121,12 @@ final class PerPaneSpanExporter: SpanExporter {
     }
 
     private func attributeString(_ span: SpanData, _ key: String) -> String? {
-        guard case .string(let v) = span.attributes[key] else { return nil }
-        return v
+        guard case .string(let val) = span.attributes[key] else { return nil }
+        return val
     }
 
-    private func sanitize(_ s: String) -> String {
-        s.components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.")).inverted)
+    private func sanitize(_ str: String) -> String {
+        str.components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.")).inverted)
             .joined(separator: "_")
     }
 

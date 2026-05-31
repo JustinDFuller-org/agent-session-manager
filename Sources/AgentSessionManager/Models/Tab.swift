@@ -548,40 +548,38 @@ final class Tab: Identifiable {
             pane.statusLineMonitor = monitor
         }
 
-        if !AgentSessionManagerApp.isUITesting {
-            let controller = TerminalController()
-            let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
-            controller.pendingDirectory = cwd
-            controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
+        let controller = TerminalController()
+        let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
+        controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        controller.pendingDirectory = cwd
+        controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
-            switch harness {
-            case .shell:
-                controller.pendingCommand = nil
-            case .claude:
-                if !extraEnvVars.isEmpty {
-                    controller.pendingEnvironment =
-                        (controller.pendingEnvironment ?? [])
-                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
-                }
-                controller.pendingCommand = Tab.buildClaudeCommand(
-                    settingsPath: pane.statusLineMonitor!.settingsFilePath,
-                    extraArgs: extra
-                )
-            case .codex:
-                controller.pendingCommand = "codex\(extra)"
-            case .cursor:
+        switch harness {
+        case .shell:
+            controller.pendingCommand = nil
+        case .claude:
+            if !extraEnvVars.isEmpty {
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "agent\(extra)"
+                    + extraEnvVars.map { "\($0.key)=\($0.value)" }
             }
-            pane.terminalController = controller
-            controller.terminalView.telemetryTabName = self.name
-            controller.terminalView.telemetryTabUUID = self.id
-            controller.terminalView.telemetryPaneName = pane.name
-            controller.terminalView.telemetryPaneUUID = pane.id
+            controller.pendingCommand = Tab.buildClaudeCommand(
+                settingsPath: pane.statusLineMonitor!.settingsFilePath,
+                extraArgs: extra
+            )
+        case .codex:
+            controller.pendingCommand = "codex\(extra)"
+        case .cursor:
+            controller.pendingEnvironment =
+                (controller.pendingEnvironment ?? [])
+                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+            controller.pendingCommand = "agent\(extra)"
         }
+        pane.terminalController = controller
+        controller.terminalView.telemetryTabName = self.name
+        controller.terminalView.telemetryTabUUID = self.id
+        controller.terminalView.telemetryPaneName = pane.name
+        controller.terminalView.telemetryPaneUUID = pane.id
         panes.append(pane)
         return pane
     }
@@ -838,40 +836,38 @@ extension Tab {
             pane.statusLineMonitor = monitor
         }
 
-        if !AgentSessionManagerApp.isUITesting {
-            let controller = TerminalController()
-            let extra = effectiveExtraArgs.isEmpty ? "" : " " + effectiveExtraArgs.joined(separator: " ")
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
-            controller.pendingDirectory = cwd
-            controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
+        let controller = TerminalController()
+        let extra = effectiveExtraArgs.isEmpty ? "" : " " + effectiveExtraArgs.joined(separator: " ")
+        controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        controller.pendingDirectory = cwd
+        controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
-            switch pane.harness {
-            case .shell:
-                controller.pendingCommand = nil
-            case .claude:
-                if !extraEnvVars.isEmpty {
-                    controller.pendingEnvironment =
-                        (controller.pendingEnvironment ?? [])
-                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
-                }
-                controller.pendingCommand = Tab.buildClaudeCommand(
-                    settingsPath: pane.statusLineMonitor!.settingsFilePath,
-                    extraArgs: extra
-                )
-            case .codex:
-                controller.pendingCommand = "codex\(extra)"
-            case .cursor:
+        switch pane.harness {
+        case .shell:
+            controller.pendingCommand = nil
+        case .claude:
+            if !extraEnvVars.isEmpty {
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "agent\(extra)"
+                    + extraEnvVars.map { "\($0.key)=\($0.value)" }
             }
-            controller.terminalView.telemetryTabName = self.name
-            controller.terminalView.telemetryTabUUID = self.id
-            controller.terminalView.telemetryPaneName = pane.name
-            controller.terminalView.telemetryPaneUUID = pane.id
-            pane.terminalController = controller
+            controller.pendingCommand = Tab.buildClaudeCommand(
+                settingsPath: pane.statusLineMonitor!.settingsFilePath,
+                extraArgs: extra
+            )
+        case .codex:
+            controller.pendingCommand = "codex\(extra)"
+        case .cursor:
+            controller.pendingEnvironment =
+                (controller.pendingEnvironment ?? [])
+                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+            controller.pendingCommand = "agent\(extra)"
         }
+        controller.terminalView.telemetryTabName = self.name
+        controller.terminalView.telemetryTabUUID = self.id
+        controller.terminalView.telemetryPaneName = pane.name
+        controller.terminalView.telemetryPaneUUID = pane.id
+        pane.terminalController = controller
         pane.setupState = nil
     }
 }

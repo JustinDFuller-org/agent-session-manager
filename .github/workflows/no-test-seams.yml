@@ -1,0 +1,20 @@
+name: No Test Seams
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: no-test-seams-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check no test seams in production sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run check
+        run: bash scripts/check-no-test-seams.sh

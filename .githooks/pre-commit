@@ -21,3 +21,6 @@ swift-format lint --recursive --strict Sources/ Tests/ UITests/
 
 echo "==> Running lint..."
 swiftlint lint --strict --config .swiftlint.yml
+
+echo "==> Checking for test seams in production sources..."
+bash scripts/check-no-test-seams.sh

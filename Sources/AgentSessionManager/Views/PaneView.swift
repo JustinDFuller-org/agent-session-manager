@@ -92,14 +92,12 @@ struct PaneView: View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 let hasNotification = pendingNotification != nil
-                let activityState =
-                    pane.uiTestActivityStateOverride
-                    ?? paneActivityState(
-                        processState: pane.terminalController?.processState,
-                        isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
-                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
-                        hasNotification: hasNotification
-                    )
+                let activityState = paneActivityState(
+                    processState: pane.terminalController?.processState,
+                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                    sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                    hasNotification: hasNotification
+                )
                 ActivityIndicatorView(
                     state: activityState,
                     enabled: appSettings.paneActivityIndicatorsEnabled,

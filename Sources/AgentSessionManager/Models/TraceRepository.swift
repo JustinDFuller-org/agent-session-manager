@@ -109,7 +109,8 @@ final class TraceRepository {
             for paneFile in jsonlFiles {
                 let meta = readMetadata(from: paneFile)
                 let paneId = meta?["paneId"] ?? paneFile.deletingPathExtension().lastPathComponent
-                let paneName = meta?["paneName"] ?? paneNameFromFileName(paneFile.deletingPathExtension().lastPathComponent)
+                let paneName =
+                    meta?["paneName"] ?? paneNameFromFileName(paneFile.deletingPathExtension().lastPathComponent)
                 panes.append(TracePane(id: paneId, name: paneName, fileURL: paneFile))
             }
 
@@ -149,22 +150,23 @@ final class TraceRepository {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
             guard let data = trimmed.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             else { continue }
             // Skip metadata lines and truncation markers
             if (json["_type"] as? String) == "metadata" { continue }
             guard let name = json["name"] as? String,
-                  let traceId = json["traceId"] as? String,
-                  let spanId = json["spanId"] as? String,
-                  let startMs = json["startEpochMs"] as? Int64 ?? (json["startEpochMs"] as? Double).map(Int64.init),
-                  let endMs = json["endEpochMs"] as? Int64 ?? (json["endEpochMs"] as? Double).map(Int64.init)
+                let traceId = json["traceId"] as? String,
+                let spanId = json["spanId"] as? String,
+                let startMs = json["startEpochMs"] as? Int64 ?? (json["startEpochMs"] as? Double).map(Int64.init),
+                let endMs = json["endEpochMs"] as? Int64 ?? (json["endEpochMs"] as? Double).map(Int64.init)
             else { continue }
             let parentSpanId = json["parentSpanId"] as? String
             let rawAttrs = json["attributes"] as? [String: String] ?? [:]
-            result.append(StoredSpan(
-                name: name, traceId: traceId, spanId: spanId, parentSpanId: parentSpanId,
-                startEpochMs: startMs, endEpochMs: endMs, attributes: rawAttrs
-            ))
+            result.append(
+                StoredSpan(
+                    name: name, traceId: traceId, spanId: spanId, parentSpanId: parentSpanId,
+                    startEpochMs: startMs, endEpochMs: endMs, attributes: rawAttrs
+                ))
         }
         return result
     }
@@ -207,11 +209,11 @@ final class TraceRepository {
         guard let text = String(data: chunk, encoding: .utf8) else { return nil }
         let firstLine = text.components(separatedBy: "\n").first ?? ""
         guard let data = firstLine.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              (json["_type"] as? String) == "metadata"
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            (json["_type"] as? String) == "metadata"
         else { return nil }
         var result: [String: String] = [:]
-        for (k, v) in json { if let s = v as? String { result[k] = s } }
+        for (key, value) in json { if let str = value as? String { result[key] = str } }
         return result
     }
 

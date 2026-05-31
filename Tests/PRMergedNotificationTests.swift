@@ -34,11 +34,11 @@ final class PRMergedNotificationTests: XCTestCase {
         }
 
         // First observation: "open" — no fire
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open", number: 42, title: "My PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "open", number: 42, title: "My PR"))
         XCTAssertEqual(firedCount, 0)
 
         // Transition: "merged" — should fire once
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 42, title: "My PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "merged", number: 42, title: "My PR"))
         XCTAssertEqual(firedCount, 1)
         XCTAssertEqual(capturedNumber, 42)
         XCTAssertEqual(capturedTitle, "My PR")
@@ -50,7 +50,7 @@ final class PRMergedNotificationTests: XCTestCase {
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
         // First observation is already "merged" — suppress (avoid false positive on restart)
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 0)
     }
 
@@ -59,9 +59,9 @@ final class PRMergedNotificationTests: XCTestCase {
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open", number: 1, title: "PR"))
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "open", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "merged", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 1)
     }
 
@@ -70,15 +70,15 @@ final class PRMergedNotificationTests: XCTestCase {
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open", number: 1, title: "PR"))
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "open", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 1)
 
         monitor.stop()
 
         // After stop, state resets — next open→merged should fire again
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open", number: 1, title: "PR"))
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "open", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 2)
     }
 
@@ -89,8 +89,8 @@ final class PRMergedNotificationTests: XCTestCase {
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "closed", number: 1, title: "PR"))
-        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "closed", number: 1, title: "PR"))
+        monitor.applyPROutputIfValid(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 1)
     }
 

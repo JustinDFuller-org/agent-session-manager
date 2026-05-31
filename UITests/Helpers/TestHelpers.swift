@@ -17,16 +17,19 @@ extension XCTestCase {
 }
 
 extension BaseTestCase {
-    func createTab(named name: String) {
+    func createTab(named name: String, directory: String = GitUITestWorkspace.directoryURL.path) {
         app.typeKey("t", modifierFlags: .command)
-        let field = app.textFields["new-tab-name-field"]
-        waitFor(field)
-        field.click()
-        field.typeText(name)
-        app.buttons["new-tab-choose-dir-button"].click()
+        let nameField = app.textFields["new-tab-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText(name)
+        let dirField = app.textFields["new-tab-directory-field"]
+        waitFor(dirField)
+        dirField.click()
+        dirField.typeText(directory)
         let createBtn = app.buttons["new-tab-create-button"]
         waitFor(createBtn)
-        XCTAssertTrue(createBtn.isEnabled, "Create button should be enabled after choosing directory")
+        XCTAssertTrue(createBtn.isEnabled, "Create button should be enabled after typing directory")
         createBtn.click()
         waitFor(app.buttons["tab-button-\(name)"].firstMatch)
     }
@@ -41,5 +44,11 @@ extension BaseTestCase {
         waitForDisappear(field, timeout: 25)
         // Wait for the pane name text — Text elements are reliably in the accessibility tree.
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(name)").firstMatch, timeout: 10)
+    }
+
+    /// Waits for a pane's activity indicator to show the given state (idle/working/waiting).
+    func waitForActivityState(_ state: String, paneName: String, timeout: TimeInterval = 120) {
+        let id = "pane-activity-\(state)-\(paneName)"
+        waitFor(app.descendants(matching: .any).matching(identifier: id).firstMatch, timeout: timeout)
     }
 }

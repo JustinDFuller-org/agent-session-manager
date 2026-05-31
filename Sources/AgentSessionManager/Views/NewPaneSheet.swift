@@ -617,7 +617,11 @@ struct NewPaneSheet: View {
             return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
+}
 
+// MARK: - Helpers
+
+extension NewPaneSheet {
     private func resetForm() {
         sessionInput = ""
     }

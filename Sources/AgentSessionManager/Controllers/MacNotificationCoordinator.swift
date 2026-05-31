@@ -139,7 +139,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     }
 
     func requestAuthorizationIfNeeded() async {
-        guard !AgentSessionManagerApp.isUITesting else { return }
         guard let appSettings = self.appSettings else { return }
         guard appSettings.isMacOSBannerNotificationsEnabled else { return }
         let center = UNUserNotificationCenter.current()
@@ -166,7 +165,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     ) {
         guard let appSettings = self.appSettings else { return }
         guard appSettings.isMacOSBannerNotificationsEnabled else { return }
-        guard !AgentSessionManagerApp.isUITesting else { return }
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
@@ -213,7 +211,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         prTitle: String
     ) {
         guard let appSettings = self.appSettings, appSettings.isMacOSBannerNotificationsEnabled else { return }
-        guard !AgentSessionManagerApp.isUITesting else { return }
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
@@ -247,7 +244,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
 
     func removeDeliveredNotifications(forPaneID paneID: UUID) {
         guard appSettings != nil else { return }
-        guard !AgentSessionManagerApp.isUITesting else { return }
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
@@ -309,27 +305,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         #if DEV_BUILD
         WindowSnapshot.record(event: "notification.click.after_focus")
         #endif
-    }
-
-    /// UI tests: simulates a banner click without Notification Center.
-    func simulateBannerClickForUITesting(paneID: UUID, tabID: UUID, kind: String? = nil) {
-        guard AgentSessionManagerApp.isUITesting else { return }
-        isHandlingNotificationResponse = true
-        defer { isHandlingNotificationResponse = false }
-        handleNotificationNavigation(
-            paneIDStr: paneID.uuidString,
-            tabIDStr: tabID.uuidString,
-            kind: kind
-        )
-        (NSApp.delegate as? AppDelegate)?.focusMainWindow()
-    }
-
-    /// UI tests: simulates the activation path triggered by a notification click.
-    func simulateLegacyNotificationActivationForUITesting() {
-        guard AgentSessionManagerApp.isUITesting else { return }
-        isHandlingNotificationResponse = true
-        defer { isHandlingNotificationResponse = false }
-        (NSApp.delegate as? AppDelegate)?.focusMainWindow()
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.

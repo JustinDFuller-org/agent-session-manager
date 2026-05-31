@@ -310,7 +310,7 @@ final class SettingsFlowTests: BaseTestCase {
             NSPredicate(
                 format: "identifier BEGINSWITH 'profile-move-up-' OR identifier BEGINSWITH 'profile-move-down-'")
         )
-        if profileMenuButtons.count > 0 {
+        if !profileMenuButtons.isEmpty {
             let menuButton = app.buttons.matching(
                 NSPredicate(format: "label == 'More'")
             ).firstMatch

@@ -245,9 +245,11 @@ private struct ProfileEditorSheet: View {
                             Text("CLI Options")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "Checked options appear in the New Pane sheet so you can adjust them each time you start a pane."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                             if !available.isEmpty {
                                 HStack(spacing: 8) {
                                     Spacer()
@@ -307,9 +309,11 @@ private struct ProfileEditorSheet: View {
                                 Text("Environment Variables")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                Text("Checked options appear in the New Pane sheet so you can adjust them each time you start a pane.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                Text(
+                                    "Checked options appear in the New Pane sheet so you can adjust them each time you start a pane."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                                 if !availableEnvVars.isEmpty {
                                     HStack(spacing: 8) {
                                         Spacer()

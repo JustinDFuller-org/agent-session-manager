@@ -10,9 +10,9 @@ class BaseTestCase: XCTestCase {
         clearPersistedState()
         GitUITestWorkspace.prepareCleanRepo()
         writeDefaultBranch("ui-root")
+        writeOnboardingComplete()
 
         app = XCUIApplication()
-        app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
         app.launch()
         app.activate()
     }
@@ -58,6 +58,13 @@ class BaseTestCase: XCTestCase {
 
     var emptyStateHint: XCUIElement { app.staticTexts["empty-state-hint"] }
 
+    func writeOnboardingComplete() {
+        let support = UITestAppSupport.directory
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let json = Data("{\"hasCompletedOnboarding\":true}".utf8)
+        try? json.write(to: support.appending(path: "onboarding-settings.json"))
+    }
+
     func writeDefaultBranch(_ branch: String) {
         let support = UITestAppSupport.directory
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
@@ -85,5 +92,30 @@ class BaseTestCase: XCTestCase {
         }
         try? FileManager.default.removeItem(at: support.appending(path: "traces"))
         try? FileManager.default.removeItem(at: support.appending(path: "invariants"))
+    }
+
+    /// Writes sessions.json with a single tab and pane pointing to `repoURL` on both directory
+    /// and worktreeDirectory.  PRTrackingCoordinator resolves the remote + branch from `repoURL`
+    /// and fires the startup merged-PR check against the real GitHub API.
+    func writePRDetectionSession(repoURL: URL, paneName: String) {
+        let repoPath = repoURL.path
+        let tabID = UUID().uuidString
+        let paneID = UUID().uuidString
+        // swiftlint:disable:next line_length
+        let json =
+            "{\"tabs\":[{\"id\":\"\(tabID)\",\"name\":\"pr-demo\",\"directory\":\"\(repoPath)\",\"panes\":[{\"id\":\"\(paneID)\",\"name\":\"\(paneName)\",\"harness\":\"claude\",\"isPriority\":false,\"isMerged\":false,\"worktreeDirectory\":\"\(repoPath)\",\"worktreeIsManaged\":false,\"extraArgs\":[]}]}],\"activeTabIndex\":0,\"pendingNotifications\":[]}"
+        let support = UITestAppSupport.directory
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        try? Data(json.utf8).write(to: support.appending(path: "sessions.json"))
+    }
+
+    /// Writes pr-polling-settings.json so the coordinator uses the minimum 15-second interval.
+    func writePRPollingSettings(intervalSeconds: Int = 15) {
+        // swiftlint:disable:next line_length
+        let json =
+            "{\"intervalSeconds\":\(intervalSeconds),\"timeoutSeconds\":15,\"backgroundRefreshEnabled\":true,\"backgroundIntervalSeconds\":60}"
+        let support = UITestAppSupport.directory
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        try? Data(json.utf8).write(to: support.appending(path: "pr-polling-settings.json"))
     }
 }

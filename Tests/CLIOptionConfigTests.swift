@@ -19,7 +19,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 26)
+        XCTAssertEqual(StatusLineConfig.allItems.count, StatusLineConfig.itemOrder.count)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -160,9 +160,18 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testGitWorktreeIsAbsent() {
-        XCTAssertNil(StatusLineConfig.itemMetadata["gitWorktree"], "gitWorktree must not appear in itemMetadata")
-        XCTAssertNil(StatusLineConfig.itemAvailability["gitWorktree"], "gitWorktree must not appear in itemAvailability")
-        XCTAssertFalse(StatusLineConfig.itemOrder.contains("gitWorktree"), "gitWorktree must not appear in itemOrder")
+        XCTAssertNil(
+            StatusLineConfig.itemMetadata["gitWorktree"],
+            "gitWorktree must not appear in itemMetadata"
+        )
+        XCTAssertNil(
+            StatusLineConfig.itemAvailability["gitWorktree"],
+            "gitWorktree must not appear in itemAvailability"
+        )
+        XCTAssertFalse(
+            StatusLineConfig.itemOrder.contains("gitWorktree"),
+            "gitWorktree must not appear in itemOrder"
+        )
     }
 
     func testLinesAddedAndRemovedAreAll() {
@@ -477,7 +486,6 @@ final class CursorCLIOptionConfigTests: XCTestCase {
         XCTAssertFalse(decoded.isDefaultEnabled)
     }
 }
-
 
 final class HarnessTests: XCTestCase {
     func testHarnessRoundTrip() throws {

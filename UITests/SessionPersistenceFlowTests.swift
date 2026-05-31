@@ -1,7 +1,7 @@
 import XCTest
 
-/// Tests session restoration across a full app restart. Intentionally does not extend
-/// BaseTestCase and does not use `--uitesting-skip-restore` so that the restore path runs.
+/// Tests session restoration across a full app restart. The restore path runs naturally
+/// since no launch args skip it. Isolation comes from clearing the dev app-support dir.
 final class SessionPersistenceFlowTests: XCTestCase {
     var app: XCUIApplication!
 
@@ -9,35 +9,35 @@ final class SessionPersistenceFlowTests: XCTestCase {
         super.setUp()
         continueAfterFailure = false
 
-        let sessionFile = UITestAppSupport.directory.appending(path: "sessions.json")
-        try? FileManager.default.removeItem(at: sessionFile)
-
-        let testDir = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
-        try? FileManager.default.removeItem(at: testDir)
+        let support = UITestAppSupport.directory
+        try? FileManager.default.removeItem(at: support.appending(path: "sessions.json"))
+        let onboardingJson = Data("{\"hasCompletedOnboarding\":true}".utf8)
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        try? onboardingJson.write(to: support.appending(path: "onboarding-settings.json"))
         GitUITestWorkspace.prepareCleanRepo()
 
         app = XCUIApplication()
-        app.launchArguments = ["--uitesting"]
         app.launch()
         app.activate()
     }
 
     override func tearDown() {
         app.terminate()
-        let sessionFile = UITestAppSupport.directory.appending(path: "sessions.json")
-        try? FileManager.default.removeItem(at: sessionFile)
+        try? FileManager.default.removeItem(
+            at: UITestAppSupport.directory.appending(path: "sessions.json"))
         super.tearDown()
     }
 
     func testSessionPersistenceFlow() {
-        // Create a tab
         app.typeKey("t", modifierFlags: .command)
-        let field = app.textFields["new-tab-name-field"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.click()
-        field.typeText("PersistenceTab")
-        app.buttons["new-tab-choose-dir-button"].click()
+        let nameField = app.textFields["new-tab-name-field"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.click()
+        nameField.typeText("PersistenceTab")
+        let dirField = app.textFields["new-tab-directory-field"]
+        XCTAssertTrue(dirField.waitForExistence(timeout: 5))
+        dirField.click()
+        dirField.typeText(GitUITestWorkspace.directoryURL.path)
         let createBtn = app.buttons["new-tab-create-button"]
         XCTAssertTrue(createBtn.waitForExistence(timeout: 5))
         createBtn.click()
