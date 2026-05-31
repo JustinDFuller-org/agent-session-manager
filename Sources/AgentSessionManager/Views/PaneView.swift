@@ -94,24 +94,40 @@ struct PaneView: View {
     }
 
     private func paneHeader(pendingNotification: PaneNotification?) -> some View {
-        HStack(spacing: 6) {
-            statusDot()
+        HStack(spacing: 0) {
+            HStack(spacing: 6) {
+                statusDot()
 
-            if let notification = pendingNotification, notification.kind == .terminalBell {
-                Circle()
-                    .fill(notification.isPriority ? Color.orange : Color.accentColor)
-                    .frame(width: 7, height: 7)
-                    .accessibilityIdentifier("pane-notification-dot-\(pane.name)")
+                if let notification = pendingNotification, notification.kind == .terminalBell {
+                    Circle()
+                        .fill(notification.isPriority ? Color.orange : Color.accentColor)
+                        .frame(width: 7, height: 7)
+                        .accessibilityIdentifier("pane-notification-dot-\(pane.name)")
+                }
+
+                Text(pane.name)
+                    .accessibilityIdentifier("pane-name-\(pane.name)")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Spacer()
             }
-
-            Text(pane.name)
-                .accessibilityIdentifier("pane-name-\(pane.name)")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer()
+            .padding(.leading, 10)
+            .padding(.trailing, 4)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+            .onHover { isHovering in
+                if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
+            }
+            .draggable(pane.id.uuidString) {
+                Text(pane.name)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+            }
 
             Button {
                 appState.clearNotification(paneID: pane.id)
@@ -123,24 +139,13 @@ struct PaneView: View {
                     .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
+            .padding(.trailing, 10)
             .accessibilityIdentifier("pane-close-\(pane.name)")
             .accessibilityLabel("close-\(pane.name)")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pane-header-\(pane.name)")
-        .onHover { isHovering in
-            if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
-        }
-        .draggable(pane.id.uuidString) {
-            Text(pane.name)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
-        }
     }
 
     @ViewBuilder
