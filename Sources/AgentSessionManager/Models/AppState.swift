@@ -135,6 +135,15 @@ final class AppState {
     }
 
     func clearNotification(paneID: UUID) {
+        if let notification = notifications.first(where: { $0.paneID == paneID }) {
+            TracingService.shared.record(
+                "pane.notification.cleared",
+                attributes: [
+                    "pane.name": notification.paneName,
+                    "tab.name": notification.tabName,
+                    "reason": "cleared",
+                ])
+        }
         notifications.removeAll { $0.paneID == paneID }
         SessionPersistence.save(appState: self)
     }

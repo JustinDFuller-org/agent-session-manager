@@ -86,8 +86,6 @@ extension Notification.Name {
     static let closeTab = Notification.Name("closeTab")
     static let prMergedActionRequested = Notification.Name("prMergedActionRequested")
     static let openShellHere = Notification.Name("openShellHere")
-    static let agentSessionManagerClaudeHookAttentionSettingChanged = Notification.Name(
-        "agentSessionManagerClaudeHookAttentionSettingChanged")
     static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
         "agentSessionManagerPRTrackingSettingChanged")
 }
@@ -103,6 +101,7 @@ extension AgentSessionManagerApp {
 
     @MainActor
     static func applyUITestPaneStateInjection(appState: AppState) {
+        guard isUITesting else { return }
         for arg in CommandLine.arguments {
             if arg.hasPrefix("--inject-pane-loading="),
                 let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-loading=".count)))
@@ -119,6 +118,15 @@ extension AgentSessionManagerApp {
                 for tab in appState.tabs {
                     if let pane = tab.panes.first(where: { $0.id == id }) {
                         pane.setupState = .failed(error: "Test setup error")
+                    }
+                }
+            }
+            if arg.hasPrefix("--inject-pane-working="),
+                let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-working=".count)))
+            {
+                for tab in appState.tabs {
+                    if let pane = tab.panes.first(where: { $0.id == id }) {
+                        pane.uiTestActivityStateOverride = .working
                     }
                 }
             }

@@ -51,6 +51,7 @@ final class Pane: Identifiable {
     var profileID: UUID?
     var extraArgs: [String] = []
     var setupState: PaneSetupState?
+    var uiTestActivityStateOverride: PaneActivityState?
 
     init(
         id: UUID = UUID(),

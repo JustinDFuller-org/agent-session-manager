@@ -63,6 +63,7 @@ Spans are routed to files by `pane.id` and `tab.id` attributes:
 | `terminal.process.started` | `executable`, `args`, `pane.id`, `pane.name`, `tab.id`, `tab.name` |
 | `terminal.process.exited` | `exit_code`, `pane.id`, `pane.name` |
 | `terminal.attention.delivered` | `source` (`bell`/`osc777`), `pane.id`, `pane.name` |
+| `pane.activity.changed` | `state` (`working`/`idle`), `source` (`claude_hook`), `hook_event`, `pane.id`, `pane.name` |
 
 ### Git / Worktrees
 | Span | Key Attributes |
