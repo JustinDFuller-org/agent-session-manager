@@ -26,17 +26,17 @@ Waiting dots use the app accent color. Sidebar entries are orange for priority p
 
 Every harness can signal attention through the shared terminal paths:
 
-1. **ASCII bell** — a BEL character (`\a`). To test manually:
+1. **ASCII bell** — a BEL character (`\a`). The reason is `Attention needed`. To test manually:
 
    ```sh
    printf '\a'
    ```
 
-2. **OSC 777** — the sequence `ESC]777;notify;title;body` terminated with BEL (0x07). Many tools use this so the BEL byte acts as an OSC string terminator; SwiftTerm delivers that through `notify` rather than `bell()`. Both paths trigger the same in-app notification and optional macOS banner.
+2. **OSC 777** — the sequence `ESC]777;notify;title;body` terminated with BEL (0x07). The reason uses the body, then title, then `Attention needed`; semicolons in the body are preserved. Many tools use this so the BEL byte acts as an OSC string terminator; SwiftTerm delivers that through `notify` rather than `bell()`. Both paths trigger the same in-app notification and optional macOS banner.
 
 3. **Claude attention hooks** — Agent Session Manager always merges focused hooks into each Claude pane’s `--settings` file. `PreToolUse` catches `AskUserQuestion` and `ExitPlanMode`, `PermissionRequest` catches permission dialogs, `Notification` catches `permission_prompt` and `elicitation_dialog`, and `Elicitation` catches MCP-driven input. Each writes to a temp file and raises the same attention path as a bell.
 
-4. **Cursor `stop` hook** (optional, Settings → Notifications → Cursor → **Stop hook for attention**) — Agent Session Manager installs a user-level Cursor hook that writes stdin to a per-pane temp file keyed by `AGENT_SESSION_MANAGER_PANE_ID`. The Cursor provider watches that file and raises the same attention path when a turn stops. Existing Cursor panes do not currently refresh when this setting changes.
+4. **Cursor `stop` hook** (optional, Settings → Notifications → Cursor → **Stop hook for attention**) — Agent Session Manager installs a user-level Cursor hook that writes stdin to a per-pane temp file keyed by `AGENT_SESSION_MANAGER_PANE_ID`. The Cursor provider watches that file and raises `Agent turn completed` when a turn stops. Existing Cursor panes do not currently refresh when this setting changes.
 
 Attention events are surfaced even when the pane is the active (focused) pane, to keep testing and signals consistent.
 
@@ -54,6 +54,8 @@ The sidebar appears on the right side by default (configurable in Settings → N
 - Click a notification row to navigate to that pane and clear its notification.
 - Focusing a pane (clicking it or switching to its tab) automatically clears its notification.
 - Use "Clear All" at the bottom of the sidebar to dismiss all at once.
+
+Each pane has at most one unread row. A new regular attention event refreshes that row's reason and timestamp. A PR-merged row replaces a regular row for the same pane and suppresses lower-priority regular signals until cleared.
 
 ## Priority Panes
 

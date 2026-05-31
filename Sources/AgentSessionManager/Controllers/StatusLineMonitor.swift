@@ -44,7 +44,7 @@ final class StatusLineMonitor {
     private var lastAppliedModificationDate: Date?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
-    var onClaudeHookAttention: (() -> Void)?
+    var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
 
@@ -93,9 +93,17 @@ final class StatusLineMonitor {
                 }
                 self.currentData = merged
             }
-            agnosticProvider?.onAttention = { [weak self] in
+            agnosticProvider?.onAttention = { [weak self] event in
                 Task { @MainActor in
-                    self?.onClaudeHookAttention?()
+                    guard let self else { return }
+                    TracingService.shared.record(
+                        "statusline.attention.received",
+                        attributes: [
+                            "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                            "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                            "source": event.source.rawValue, "reason": event.reason,
+                        ])
+                    self.onClaudeHookAttention?(event)
                 }
             }
         }
@@ -481,13 +489,15 @@ final class StatusLineMonitor {
             Task { @MainActor in
                 guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
                 self.lastAttentionPayloadFingerprint = fingerprint
+                guard let event = PaneAttentionEvent.claudeHook(data) else { return }
                 TracingService.shared.record(
                     "statusline.attention.received",
                     attributes: [
                         "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
                         "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                        "source": event.source.rawValue, "reason": event.reason,
                     ])
-                self.onClaudeHookAttention?()
+                self.onClaudeHookAttention?(event)
             }
         }
         attentionDebounceWork = work

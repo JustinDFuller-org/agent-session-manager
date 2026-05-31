@@ -55,6 +55,8 @@ final class InjectedStateFlowTests: XCTestCase {
         // Plain-style buttons don't always appear under app.buttons — search all descendants.
         let row = app.descendants(matching: .any).matching(identifier: "notification-row-test-pane").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["TestTab / test-pane"].exists)
+        XCTAssertTrue(app.staticTexts["PR #1 merged"].exists)
 
         // Clicking row shows action alert with all three buttons
         row.click()
@@ -88,6 +90,17 @@ final class InjectedStateFlowTests: XCTestCase {
         notificationsTab.click()
         let toggle = app.checkBoxes["settings-pr-merged-notifications-toggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+    }
+
+    func testRegularNotificationReasonFlow() {
+        injectRegularNotificationSession()
+        app = XCUIApplication()
+        app.launchArguments = ["--uitesting"]
+        app.launch()
+        app.activate()
+
+        XCTAssertTrue(app.staticTexts["TestTab / test-pane"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Permission needed for Bash"].exists)
     }
 
     // MARK: - Session injection
@@ -165,6 +178,47 @@ final class InjectedStateFlowTests: XCTestCase {
                   "kind": "prMerged",
                   "prNumber": 1,
                   "prTitle": "Test PR"
+                }
+              ]
+            }
+            """
+        writeSession(json)
+    }
+
+    private func injectRegularNotificationSession() {
+        let workspaceDir = GitUITestWorkspace.directoryURL.path
+        let json = """
+            {
+              "tabs": [
+                {
+                  "id": "\(Self.tabID)",
+                  "name": "TestTab",
+                  "directory": "\(workspaceDir)",
+                  "panes": [
+                    {
+                      "id": "\(Self.paneID)",
+                      "name": "test-pane",
+                      "harness": "claude",
+                      "isPriority": false,
+                      "isMerged": false,
+                      "worktreeDirectory": "\(workspaceDir)",
+                      "worktreeIsManaged": false
+                    }
+                  ]
+                }
+              ],
+              "activeTabIndex": 0,
+              "pendingNotifications": [
+                {
+                  "notificationID": "\(Self.notifID)",
+                  "paneID": "\(Self.paneID)",
+                  "paneName": "test-pane",
+                  "tabID": "\(Self.tabID)",
+                  "tabName": "TestTab",
+                  "isPriority": false,
+                  "timestamp": 0,
+                  "kind": "terminalBell",
+                  "reason": "Permission needed for Bash"
                 }
               ]
             }

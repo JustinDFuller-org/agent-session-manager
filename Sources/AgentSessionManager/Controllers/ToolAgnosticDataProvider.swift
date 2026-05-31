@@ -2,7 +2,7 @@ import Foundation
 
 protocol StatusLineDataProvider: AnyObject {
     var onUpdate: ((StatusLineData) -> Void)? { get set }
-    var onAttention: (() -> Void)? { get set }
+    var onAttention: ((PaneAttentionEvent) -> Void)? { get set }
     func start()
     func stop()
 }
@@ -15,7 +15,7 @@ final class ToolAgnosticDataProvider: StatusLineDataProvider {
     private var versionFetchedVersion: String?
 
     var onUpdate: ((StatusLineData) -> Void)?
-    var onAttention: (() -> Void)?
+    var onAttention: ((PaneAttentionEvent) -> Void)?
 
     init(workingDirectory: String, toolCommand: String, processStartTime: Date) {
         self.workingDirectory = workingDirectory

@@ -160,6 +160,35 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications[1].kind, .prMerged)
     }
 
+    func testPRMergedNotificationReplacesSamePaneAttention() {
+        let state = AppState()
+        let paneID = UUID()
+        let tabID = UUID()
+        state.addNotification(paneID: paneID, paneName: "p", tabID: tabID, tabName: "t", isPriority: false)
+        state.addPRMergedNotification(
+            paneID: paneID, paneName: "p", tabID: tabID, tabName: "t",
+            prNumber: 5, prTitle: "Fix"
+        )
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications[0].kind, .prMerged)
+    }
+
+    func testAttentionDoesNotReplaceSamePanePRMergedNotification() {
+        let state = AppState()
+        let paneID = UUID()
+        let tabID = UUID()
+        state.addPRMergedNotification(
+            paneID: paneID, paneName: "p", tabID: tabID, tabName: "t",
+            prNumber: 5, prTitle: "Fix"
+        )
+        state.addNotification(
+            paneID: paneID, paneName: "p", tabID: tabID, tabName: "t", isPriority: false,
+            event: PaneAttentionEvent(source: .osc777, reason: "Lower priority")
+        )
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications[0].kind, .prMerged)
+    }
+
     // MARK: - NotificationKind codable round-trip
 
     func testNotificationKindCodableRoundTrip() throws {

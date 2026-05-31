@@ -3,7 +3,7 @@ import Foundation
 import SwiftTerm
 
 final class BellCapturingTerminalView: LocalProcessTerminalView {
-    var onBell: (() -> Void)?
+    var onAttention: ((PaneAttentionEvent) -> Void)?
     var onUserInput: (() -> Void)?
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryTabName: String = ""
@@ -57,10 +57,12 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 
     override func bell(source: Terminal) {
         super.bell(source: source)
-        onBell?()
+        let event = PaneAttentionEvent.rawBell
+        onAttention?(event)
         Task { @MainActor in
             var attrs: [String: String] = [
                 "source": "bell",
+                "reason": event.reason,
                 "pane.name": self.telemetryPaneName,
                 "tab.name": self.telemetryTabName,
             ]
@@ -79,14 +81,14 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
         getTerminal().registerOscHandler(code: 777) { [weak self] data in
             guard let self else { return }
             guard let text = String(bytes: data, encoding: .utf8) else { return }
-            let parts = text.components(separatedBy: ";")
-            guard parts.count >= 3, parts[0] == "notify" else { return }
+            guard let event = PaneAttentionEvent.osc777(text) else { return }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.onBell?()
+                self.onAttention?(event)
                 Task { @MainActor in
                     var attrs: [String: String] = [
                         "source": "osc777",
+                        "reason": event.reason,
                         "pane.name": self.telemetryPaneName,
                         "tab.name": self.telemetryTabName,
                     ]
@@ -108,7 +110,7 @@ final class TerminalController: NSObject {
     var pendingDirectory: String?
     var pendingEnvironment: [String]?
     var pendingShell: String?
-    @ObservationIgnored var onBell: (() -> Void)?
+    @ObservationIgnored var onAttention: ((PaneAttentionEvent) -> Void)?
 
     enum ProcessState: Equatable {
         case idle
@@ -120,7 +122,7 @@ final class TerminalController: NSObject {
         terminalView = BellCapturingTerminalView(frame: .zero)
         super.init()
         terminalView.processDelegate = self
-        terminalView.onBell = { [weak self] in self?.onBell?() }
+        terminalView.onAttention = { [weak self] event in self?.onAttention?(event) }
         terminalView.installOsc777AttentionHookIfNeeded()
     }
 

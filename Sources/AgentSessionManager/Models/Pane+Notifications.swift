@@ -11,7 +11,7 @@ extension Pane {
                 appState.clearNotification(paneID: pane.id)
             }
         }
-        terminalController?.onBell = { [weak appState, weak tab, weak self] in
+        terminalController?.onAttention = { [weak appState, weak tab, weak self] event in
             Task { @MainActor in
                 guard let appState, let tab, let pane = self else { return }
                 appState.addNotification(
@@ -19,13 +19,14 @@ extension Pane {
                     paneName: pane.name,
                     tabID: tab.id,
                     tabName: tab.name,
-                    isPriority: pane.isPriority
+                    isPriority: pane.isPriority,
+                    event: event
                 )
             }
         }
-        statusLineMonitor?.onClaudeHookAttention = { [weak self] in
+        statusLineMonitor?.onClaudeHookAttention = { [weak self] event in
             Task { @MainActor in
-                self?.terminalController?.onBell?()
+                self?.terminalController?.onAttention?(event)
             }
         }
         statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in
