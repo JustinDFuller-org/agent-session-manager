@@ -491,6 +491,10 @@ struct StatusLineData: Codable {
         let mode: String?
     }
 
+    struct SessionStatus: Codable {
+        let state: String?
+    }
+
     let model: Model?
     var cost: Cost?
     let contextWindow: ContextWindow?
@@ -506,6 +510,7 @@ struct StatusLineData: Codable {
     let version: String?
     let exceeds200kTokens: Bool?
     var pr: PullRequest?
+    let sessionStatus: SessionStatus?
 
     enum CodingKeys: String, CodingKey {
         case model
@@ -523,5 +528,6 @@ struct StatusLineData: Codable {
         case version
         case exceeds200kTokens = "exceeds_200k_tokens"
         case pr
+        case sessionStatus = "session_status"
     }
 }

@@ -49,7 +49,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     }
 
     /// Options for notification image attachments (PNG type hint for UserNotifications).
-    nonisolated static let notificationAttachmentOptions: [AnyHashable: Any] = [
+    static let notificationAttachmentOptions: [AnyHashable: Any] = [
         UNNotificationAttachmentOptionsTypeHintKey: UTType.png.identifier
     ]
 
