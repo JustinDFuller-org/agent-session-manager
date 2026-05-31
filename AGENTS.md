@@ -4,17 +4,17 @@ This file provides guidance to AI coding agents (Claude Code, OpenCode, Codex, C
 
 ## What This Is
 
-Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for running multiple AI agent sessions in parallel. It provides a tabbed, multi-pane terminal window where each pane runs Claude Code in a git worktree context—typically `claude --worktree <name>` from the repo root for checkouts under `.agent-session-manager/worktrees/`, or `claude` with the process working directory set to an existing worktree elsewhere—letting you work on several tasks simultaneously without context switching between windows.
+Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for running multiple AI agent sessions in parallel. It provides a tabbed, multi-pane terminal window where each pane runs Claude Code, Cursor, Codex, or OpenCode in a git worktree context, letting you work on several tasks simultaneously without context switching between windows.
 
 **Tabs** represent a working directory. Each tab has a name and a root directory. You can have many tabs open at once and switch between them with ⌘1–⌘9.
 
-**Panes** are terminal sessions inside a tab. When you create a pane you give it a session/worktree name; the app launches Claude Code accordingly. Worktrees **created by the app** live only under `<repo>/.agent-session-manager/worktrees/<name>` (similar to Claude’s `.claude/worktrees/`). If a branch is already checked out in any path `git worktree list` knows about, the app can open that checkout (working directory = that path, no `--worktree` flag). Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
+**Panes** are terminal sessions inside a tab. When you create a pane you choose a harness and give it a session/worktree name. All four harnesses use the shared app-owned worktree path. Worktrees **created by the app** live only under `<repo>/.agent-session-manager/worktrees/<name>`. If a branch is already checked out in any path `git worktree list` knows about, the app can open that checkout. Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more. Each pane shows a live status indicator: green pulsing dot when the process is running, gray when it has exited.
 
-**Status line** — each pane shows a configurable status bar at the bottom. It is populated by Claude Code's `statusLine` hook via a per-pane temp settings file (`--settings /tmp/agent-session-manager-settings-<UUID>.json`) so every concurrent pane has its own isolated data file. All 24 available Claude data fields are exposed in Settings → Status Line (model, cost, context %, worktree, effort, vim mode, rate limits, etc.). Four are on by default: model, worktree name, cost, and context %.
+**Status line** — each pane shows a configurable status bar at the bottom. Claude Code uses a `statusLine` hook; Cursor combines app-owned baseline data with hook model data; Codex uses app-owned baseline data; OpenCode combines baseline data with its SQLite database. Catalog availability and populated provider fields are tracked in [documentation/features/agent-harness-feature-matrix.md](documentation/features/agent-harness-feature-matrix.md).
 
-**CLI options** are configurable per-pane. A built-in library of 62 Claude CLI flags can be enabled/disabled in Settings; enabled flags appear as toggles and text fields in the New Pane sheet. Users can also add custom flags. Settings are persisted across launches.
+**CLI options** are configurable per-pane. Each harness has a built-in flag catalog; enabled flags appear as toggles and text fields in the New Pane sheet. Users can also add custom flags. Settings are persisted across launches.
 
-**Session persistence** saves tabs and pane names to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch the app restores tabs and restarts `claude` in any pane whose checkout still exists on disk—under `.agent-session-manager/worktrees/<name>`, legacy `.tree/<name>`, or an absolute path stored when the pane reused an external worktree.
+**Session persistence** saves tabs and pane names to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch the app restores tabs and restarts each pane's harness when its resolved checkout still exists on disk. Legacy Claude entries can still fall back to `.agent-session-manager/worktrees/<name>` or `.tree/<name>`.
 
 **Keyboard shortcuts:**
 - ⌘T — new tab
@@ -24,7 +24,7 @@ Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for runni
 
 ## Core Design Principle
 
-The tab/pane workflow is fixed — that structure is the product. What happens *inside* a pane is not. People use Claude in very different ways (different flags, models, personas, workflows), and that diversity is a feature, not a problem to solve. Every design decision should preserve room for that customization within the core workflow rather than hardcoding assumptions about how Claude should be invoked.
+The tab/pane workflow is fixed — that structure is the product. What happens *inside* a pane is not. People use agent harnesses in very different ways (different tools, flags, models, personas, workflows), and that diversity is a feature, not a problem to solve. Every design decision should preserve room for that customization within the core workflow rather than hardcoding assumptions about how a harness should be invoked.
 
 Concretely: the core workflow (create tab → create pane → terminal session) should remain simple and opinionated. The configuration surface (CLI flags, custom options, per-pane settings) should remain open and extensible.
 
@@ -34,7 +34,7 @@ Do not use the acronym **ASM** for this app in documentation, comments, UI copy,
 
 ## Terminal Purity
 
-The terminal pane is Claude's UI, not a setup script runner. Users should never see app-level plumbing (git commands, setup output, error text from the app) in the terminal. Any setup the app needs to do before launching Claude — creating worktrees, fetching branches, writing config files — must happen in Swift using `Foundation.Process` or file APIs, not by prepending shell commands to the Claude invocation.
+The terminal pane is the selected harness's UI, not a setup script runner. Users should never see app-level plumbing (git commands, setup output, error text from the app) in the terminal. Any setup the app needs to do before launching a harness — creating worktrees, fetching branches, writing config files — must happen in Swift using `Foundation.Process` or file APIs, not by prepending shell commands to the final invocation.
 
 Concretely: `buildClaudeCommand()` and similar functions must only emit the final tool invocation (`claude ...`, `codex ...`). All prerequisite work runs in the app layer (e.g. `Tab.resolveOrAttachWorktree()` when attaching to an existing branch/worktree) and surfaces errors through SwiftUI UI (sheets, inline error text), not through the terminal.
 
@@ -77,23 +77,23 @@ Run `make setup-hooks` after cloning to install git hooks: `swift test` on commi
 
 **Models** (`Models/`):
 - `AppState` — `@Observable` root state; owns the list of tabs and tracks active tab/pane IDs
-- `Tab` — A directory context containing one or more `Pane`s; responsible for spawning Claude processes and (when needed) resolving or creating git worktrees—new trees only under `.agent-session-manager/worktrees/`, existing checkouts anywhere listed by `git worktree list`
+- `Tab` — A directory context containing one or more `Pane`s; responsible for spawning harness processes and resolving or creating git worktrees—new trees only under `.agent-session-manager/worktrees/`, existing checkouts anywhere listed by `git worktree list`
 - `Pane` — One terminal session; holds a `TerminalController`
 - `AppSettings` — In-memory state for which CLI flags are enabled and status line configuration
-- `CLIOptionConfig` — Defines 62 predefined Claude CLI flags plus user-added custom flags; handles flag type mapping (boolean vs. string) and JSON persistence
-- `StatusLineConfig` — Defines 24 status line items (visibility, labels); `StatusLineData` decodes the JSON Claude passes to the statusLine hook command
+- `CLIOptionConfig` — Defines harness-specific CLI flag catalogs plus user-added custom flags; handles flag type mapping (boolean vs. string) and JSON persistence
+- `StatusLineConfig` — Defines the status line chip catalog (visibility, labels, harness availability); `StatusLineData` stores provider output
 - `GridLayout` — Computes pane grid dimensions (1×1 → 2×1 → 2×2 → 3×2 → 3×3) based on pane count
 
 **Controllers** (`Controllers/`):
 - `TerminalController` — Wraps SwiftTerm's `LocalProcessTerminalView`; tracks process state (idle/running/exited) via `LocalProcessTerminalViewDelegate`
 - `SessionPersistence` — Saves/restores tabs, panes, and active tab to `~/Library/Application Support/agent-session-manager/sessions.json`
 - `SettingsPersistence` — Saves/restores enabled CLI flags to `settings.json` and status line config to `statusline-settings.json`
-- `StatusLineMonitor` — Per-pane `@Observable` class; writes a temp settings file that configures Claude's `statusLine` hook to pipe JSON into a temp status file, then watches that file with `DispatchSourceFileSystemObject` and exposes parsed `StatusLineData`
+- `StatusLineMonitor` — Per-pane `@Observable` class; uses Claude's temp `statusLine` settings file or a harness-specific data provider, merges PR data, and exposes parsed `StatusLineData`
 
 **Views** (`Views/`):
 - `ContentView` — Root; composes `TabBarView` + `PaneGridView`; owns NSEvent keyboard monitor for ⌘W and ⌘1–9
 - `TerminalRepresentable` — `NSViewRepresentable` wrapping SwiftTerm; defers process start until the view frame is non-zero (layout must be complete before the terminal resizes correctly)
-- `NewPaneSheet` — CLI picker, optional “Existing branch or worktree” flow for Claude, and dynamic CLI option toggles from `CLIOptionConfig`
+- `NewPaneSheet` — Harness picker, shared worktree resolution flow, and dynamic CLI option toggles from `CLIOptionConfig`
 - `SettingsView` — Three-tab settings window: CLI Options (flag visibility), Shortcuts (key bindings), Status Line (item visibility)
 - `StatusLineView` — Renders visible status items as a monospaced caption bar; formats durations, reset times, cost, token counts, and all other Claude data fields
 
@@ -189,6 +189,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - debug-logging: `feature-debug-logging`
 - terminal-rendering: `feature-terminal-rendering`
 - worktree-creation: `feature-worktree-creation`
+- agent-harness-matrix: `feature-agent-harness-matrix`
 
 **Workflow reminders:**
 1. **When working on a feature** — load the corresponding skill (e.g. `feature-panes`) before starting.

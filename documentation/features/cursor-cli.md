@@ -4,7 +4,7 @@ Agent Session Manager supports [Cursor](https://cursor.com/cli) as an alternativ
 
 ## What It Does
 
-When you create a pane with the Cursor CLI selected, the app launches `cursor` in your tab's working directory with any CLI flags you have enabled. Each pane runs an independent `cursor` session.
+When you create a pane with Cursor selected, the app resolves or creates a worktree through the shared New Pane flow and launches Cursor's `agent` command in that checkout with any enabled CLI flags.
 
 ## How to Enable
 
@@ -24,7 +24,7 @@ Once enabled, "Cursor" appears as an option in the CLI picker when creating a ne
 4. Enter a session name
 5. Click **Open**
 
-The pane launches `cursor` in the tab's directory with any configured CLI flags appended.
+The pane launches `agent` in the resolved checkout with any configured CLI flags appended.
 
 ## Configuring CLI Flags
 
@@ -54,8 +54,12 @@ Cursor-specific flags can be enabled or disabled in **Settings → CLI Tools →
 
 ## Status Line
 
-Cursor does not have documented status line hook support. The status bar is not populated for Cursor panes. If Cursor adds status line support in a future release, this can be wired up similarly to Claude's `StatusLineMonitor`.
+Cursor uses app-owned baseline chips and an `afterAgentResponse` hook for model data. Agent Session Manager installs `~/.cursor/hooks.json` entries and per-pane scripts keyed by `AGENT_SESSION_MANAGER_PANE_ID`. The baseline includes worktree, branch, duration, changed lines, version, profile, and PR data.
+
+Cursor also uses a `stop` hook for attention notifications. Existing Cursor panes do not currently refresh their provider when that setting changes, and quick refresh loses `AGENT_SESSION_MANAGER_PANE_ID`.
 
 ## Session Persistence
 
-Cursor pane names and settings are saved alongside Claude and Codex panes in `sessions.json`. On relaunch, Cursor panes are restored and `cursor` is restarted in the tab's directory.
+Cursor pane names, options, and resolved checkout paths are saved in `sessions.json`. On relaunch, Cursor panes are restored when their checkout still exists.
+
+See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the cross-harness audit.

@@ -2,6 +2,8 @@
 
 Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
+The catalog controls which chips can be selected for a harness. Catalog availability does not guarantee that a provider currently populates the field: unavailable provider data renders as `—`. For example, Codex can select `model` but does not populate it, and OpenCode can select `version` but does not populate it. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the per-harness audit.
+
 ## Item Catalog
 
 | ID | Label | Availability | Source |
@@ -27,9 +29,9 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 | `rate7d` | 7d Rate | Claude only | Claude hook JSON `rate_limits.seven_day` |
 | `rate7dReset` | 7d Resets At | Claude only | Claude hook JSON `rate_limits.seven_day.resets_at` |
 | `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
-| `sessionStatus` | Status | OpenCode only | OpenCode DB (idle/busy/retry) |
+| `sessionStatus` | Status | OpenCode only | OpenCode DB (`idle` / `busy`; renderer supports `retry`, but provider does not emit it) |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
-| `version` | Version | All | CLI `--version` flag |
+| `version` | Version | All | Claude hook JSON / Cursor and Codex CLI `--version`; OpenCode currently unpopulated |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
 | `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
 
