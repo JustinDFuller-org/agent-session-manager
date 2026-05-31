@@ -22,7 +22,6 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertTrue(Harness.allCases.contains(.claude))
         XCTAssertTrue(Harness.allCases.contains(.codex))
         XCTAssertTrue(Harness.allCases.contains(.cursor))
-        XCTAssertTrue(Harness.allCases.contains(.opencode))
     }
 
     func testShellHarnessCodableRoundTrip() throws {

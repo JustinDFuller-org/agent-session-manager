@@ -10,7 +10,7 @@ Canonical glossary of domain terms used across this codebase. One entry per conc
 
 - **Fact** — a single item in the status line showing one piece of information (model name, cost, context percentage, etc.). Facts are arranged in rows and are configurable per-profile. See `documentation/features/status-line.md`.
 
-- **Harness** — the agent harness a pane runs: `claude`, `codex`, `cursor`, `opencode`, or the internal `shell` type. Model: `Models/Pane.swift` (`Harness`).
+- **Harness** — the agent harness a pane runs: `claude`, `codex`, `cursor`, or the internal `shell` type. Model: `Models/Pane.swift` (`Harness`).
 
 - **Grid layout** — the auto-arrangement algorithm that places panes in a tab: 1×1 → 2×1 → 2×2 → 3×2 → 3×3. Model: `Models/GridLayout.swift`.
 

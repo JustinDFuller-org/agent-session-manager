@@ -101,20 +101,6 @@ struct StatusLineConfigLayoutEditor: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 8)
                 .background(Capsule().fill(Color.blue.opacity(0.1)))
-        case .opencodeOnly:
-            Text("OpenCode only")
-                .font(.caption2)
-                .foregroundStyle(.purple)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.purple.opacity(0.1)))
-        case .claudeOrOpencode:
-            Text("Claude + OpenCode")
-                .font(.caption2)
-                .foregroundStyle(.indigo)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 8)
-                .background(Capsule().fill(Color.indigo.opacity(0.1)))
         case .all:
             Text("All tools")
                 .font(.caption2)
@@ -176,14 +162,6 @@ struct StatusLineConfigLayoutEditor: View {
                                     Text("Claude only")
                                         .font(.caption2)
                                         .foregroundStyle(.blue)
-                                case .opencodeOnly:
-                                    Text("OpenCode only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.purple)
-                                case .claudeOrOpencode:
-                                    Text("Claude + OpenCode")
-                                        .font(.caption2)
-                                        .foregroundStyle(.indigo)
                                 case .all:
                                     Text("All tools")
                                         .font(.caption2)

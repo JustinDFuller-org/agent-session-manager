@@ -3,8 +3,6 @@ import Foundation
 enum ToolAvailability: Codable {
     case all
     case claudeOnly
-    case opencodeOnly
-    case claudeOrOpencode
 }
 
 enum FactLabelStyle: String, Codable, CaseIterable {
@@ -61,8 +59,6 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
         switch availability {
         case .all: return true
         case .claudeOnly: return harness == .claude
-        case .opencodeOnly: return harness == .opencode
-        case .claudeOrOpencode: return harness == .claude || harness == .opencode
         }
     }
 
@@ -120,8 +116,6 @@ struct StatusLineConfig: Codable, Equatable {
         "version": ("Version", "info.circle"),
         "outputStyle": ("Output Style", "text.alignleft"),
         "exceeds200k": ("Exceeds 200k", "exclamationmark.triangle"),
-        "sessionStatus": ("Status", "circle.fill"),
-        "openCodeMode": ("Mode", "text.alignleft"),
         "pr": ("PR", "arrow.triangle.pull"),
         "profileName": ("Profile", "person.crop.rectangle"),
     ]
@@ -134,13 +128,12 @@ struct StatusLineConfig: Codable, Equatable {
         "pr": .all,
         "linesAdded": .all,
         "linesRemoved": .all,
-        // Model — Claude, OpenCode, and Cursor (via afterAgentResponse hook)
+        // Model — Claude and Cursor (via afterAgentResponse hook)
         "model": .all,
-        // Claude + OpenCode — populated by both via their respective APIs
-        "cost": .claudeOrOpencode,
-        "inputTokens": .claudeOrOpencode,
-        "outputTokens": .claudeOrOpencode,
         // Claude-only — requires the Claude statusLine hook
+        "cost": .claudeOnly,
+        "inputTokens": .claudeOnly,
+        "outputTokens": .claudeOnly,
         "context": .claudeOnly,
         "effort": .claudeOnly,
         "thinking": .claudeOnly,
@@ -154,9 +147,6 @@ struct StatusLineConfig: Codable, Equatable {
         "rate7dReset": .claudeOnly,
         "outputStyle": .claudeOnly,
         "exceeds200k": .claudeOnly,
-        // OpenCode-only — populated by OpenCode HTTP API
-        "sessionStatus": .opencodeOnly,
-        "openCodeMode": .opencodeOnly,
         // App-level — sourced from app state, not from tool hooks
         "profileName": .all,
     ]
@@ -166,7 +156,6 @@ struct StatusLineConfig: Codable, Equatable {
         "agentName", "sessionName", "linesAdded",
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
-        "sessionStatus", "openCodeMode",
         "pr", "profileName",
     ]
 
@@ -502,11 +491,6 @@ struct StatusLineData: Codable {
         let mode: String?
     }
 
-    struct SessionStatus: Codable {
-        let state: String?
-        enum CodingKeys: String, CodingKey { case state }
-    }
-
     let model: Model?
     var cost: Cost?
     let contextWindow: ContextWindow?
@@ -521,8 +505,6 @@ struct StatusLineData: Codable {
     let sessionName: String?
     let version: String?
     let exceeds200kTokens: Bool?
-    let sessionStatus: SessionStatus?
-    let openCodeMode: String?
     var pr: PullRequest?
 
     enum CodingKeys: String, CodingKey {
@@ -540,8 +522,6 @@ struct StatusLineData: Codable {
         case sessionName = "session_name"
         case version
         case exceeds200kTokens = "exceeds_200k_tokens"
-        case sessionStatus = "session_status"
-        case openCodeMode = "open_code_mode"
         case pr
     }
 }

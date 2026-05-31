@@ -190,7 +190,6 @@ private struct ProfileEditorSheet: View {
         case .claude: return appSettings.cliOptions
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
-        case .opencode: return appSettings.opencodeCliOptions
         case .shell: return []
         }
     }
@@ -488,7 +487,6 @@ private struct ProfileEditorSheet: View {
         case .claude: SettingsPersistence.save(appSettings: appSettings)
         case .codex: SettingsPersistence.saveCodexOptions(appSettings: appSettings)
         case .cursor: SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-        case .opencode: SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
         case .shell: break
         }
     }
@@ -506,10 +504,6 @@ private struct ProfileEditorSheet: View {
         case .cursor:
             if let i = appSettings.cursorCliOptions.firstIndex(where: { $0.id == optionID }) {
                 appSettings.cursorCliOptions[i].isAvailable = true
-            }
-        case .opencode:
-            if let i = appSettings.opencodeCliOptions.firstIndex(where: { $0.id == optionID }) {
-                appSettings.opencodeCliOptions[i].isAvailable = true
             }
         case .shell:
             break

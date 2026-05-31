@@ -25,7 +25,6 @@ Settings files are always present after first app launch. All are plain JSON and
 | `settings.json` | Claude CLI options |
 | `codex-settings.json` | Codex CLI options |
 | `cursor-settings.json` | Cursor CLI options |
-| `opencode-settings.json` | OpenCode CLI options |
 | `statusline-settings.json` | Status line display settings |
 | `active-tools-settings.json` | Which agent tools are active |
 | `default-branch.json` | Default git branch setting |

@@ -171,7 +171,7 @@ pr-screenshots:
 
 reset-app-state:
 	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
-	    opencode-settings.json statusline-settings.json active-tools-settings.json \
+	    statusline-settings.json active-tools-settings.json \
 	    default-branch.json notification-settings.json restart-settings.json \
 	    worktree-cleanup.json existing-worktree-management.json debug-settings.json \
 	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \
@@ -186,7 +186,7 @@ reset-app-state:
 
 reset-app-state-dev:
 	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
-	    opencode-settings.json statusline-settings.json active-tools-settings.json \
+	    statusline-settings.json active-tools-settings.json \
 	    default-branch.json notification-settings.json restart-settings.json \
 	    worktree-cleanup.json existing-worktree-management.json debug-settings.json \
 	    pr-tracking-settings.json tracing-settings.json pr-polling-settings.json \

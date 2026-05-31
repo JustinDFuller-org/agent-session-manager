@@ -6,7 +6,7 @@ Settings → Panes → New Pane exposes a **Default Branch** toggle and branch-n
 
 ## Behavior
 
-The setting is wired into the shared New Pane worktree flow for Claude Code, Cursor, Codex, and OpenCode.
+The setting is wired into the shared New Pane worktree flow for Claude Code, Cursor, and Codex.
 
 - When enabled, a plain name that does not resolve to an existing checkout or ref creates a new linked worktree from the configured default branch.
 - When disabled, unresolved input fails with a ref-not-found error.
