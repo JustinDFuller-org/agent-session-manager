@@ -6,20 +6,20 @@ import XCTest
 final class WorktreeCleanupTests: XCTestCase {
     func testPaneWorktreeIsManagedStored() throws {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: nil, worktreeIsManaged: true)
+        let pane = Pane(name: "test", tab: tab, harness: .claude, worktreeDirectory: nil, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
     }
 
     func testPaneWorktreeIsManagedFalseByDefault() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let pane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: nil, worktreeIsManaged: false)
+        let pane = Pane(name: "test", tab: tab, harness: .claude, worktreeDirectory: nil, worktreeIsManaged: false)
         XCTAssertFalse(pane.worktreeIsManaged)
     }
 
-    func testPaneWorktreeIsManagedWorksForAllCLITypes() {
+    func testPaneWorktreeIsManagedWorksForAllHarnesses() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
-        let claudePane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: nil, worktreeIsManaged: true)
-        let codexPane = Pane(name: "test", tab: tab, cliType: .codex, worktreeDirectory: nil, worktreeIsManaged: true)
+        let claudePane = Pane(name: "test", tab: tab, harness: .claude, worktreeDirectory: nil, worktreeIsManaged: true)
+        let codexPane = Pane(name: "test", tab: tab, harness: .codex, worktreeDirectory: nil, worktreeIsManaged: true)
         XCTAssertTrue(claudePane.worktreeIsManaged)
         XCTAssertTrue(codexPane.worktreeIsManaged)
     }
@@ -27,7 +27,7 @@ final class WorktreeCleanupTests: XCTestCase {
     func testPaneWorktreeIsManagedFalseForExternalUntracked() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         let override = URL(filePath: "/some/external/path")
-        let pane = Pane(name: "test", tab: tab, cliType: .claude, worktreeDirectory: override, worktreeIsManaged: false)
+        let pane = Pane(name: "test", tab: tab, harness: .claude, worktreeDirectory: override, worktreeIsManaged: false)
         XCTAssertFalse(pane.worktreeIsManaged)
         XCTAssertEqual(pane.worktreeDirectory, override)
     }
@@ -113,7 +113,7 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
 
         let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: "test-wt")
         let pane = Pane(
-            name: "test-wt", tab: tab, cliType: .claude, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
+            name: "test-wt", tab: tab, harness: .claude, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: worktreeURL.path))
@@ -132,7 +132,7 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         try FileManager.default.createDirectory(at: externalPath, withIntermediateDirectories: true)
 
         let pane = Pane(
-            name: "external", tab: tab, cliType: .claude, worktreeDirectory: externalPath, worktreeIsManaged: false)
+            name: "external", tab: tab, harness: .claude, worktreeDirectory: externalPath, worktreeIsManaged: false)
         XCTAssertFalse(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)
@@ -150,7 +150,7 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
 
         let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: wtName)
         let pane = Pane(
-            name: "takeover", tab: tab, cliType: .codex, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
+            name: "takeover", tab: tab, harness: .codex, worktreeDirectory: worktreeURL, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)
@@ -162,7 +162,7 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         let tab = Tab(name: "CleanupTab", directory: repo)
         let nonexistent = URL(filePath: "/tmp/nonexistent-worktree-\(UUID().uuidString)")
         let pane = Pane(
-            name: "nonexistent", tab: tab, cliType: .claude, worktreeDirectory: nonexistent, worktreeIsManaged: true)
+            name: "nonexistent", tab: tab, harness: .claude, worktreeDirectory: nonexistent, worktreeIsManaged: true)
         XCTAssertTrue(pane.worktreeIsManaged)
 
         try await tab.cleanupWorktree(for: pane)
@@ -176,7 +176,7 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
 
         let worktreeURL = Tab.worktreeDirectoryURL(repoRoot: repo, name: "after-close-wt")
         let pane = Pane(
-            name: "after-close-wt", tab: tab, cliType: .claude,
+            name: "after-close-wt", tab: tab, harness: .claude,
             worktreeDirectory: worktreeURL, worktreeIsManaged: true)
         tab.panes.append(pane)
 

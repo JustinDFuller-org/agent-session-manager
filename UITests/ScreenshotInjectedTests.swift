@@ -30,7 +30,33 @@ final class ScreenshotInjectedTests: XCTestCase {
         app?.terminate()
         try? FileManager.default.removeItem(at: sessionURL)
         try? FileManager.default.removeItem(at: worktreeBaseRefURL)
+        try? FileManager.default.removeItem(at: UITestAppSupport.directory.appending(path: "invariants"))
         super.tearDown()
+    }
+
+    func testInvariantDashboardScreenshot() {
+        let directory = UITestAppSupport.directory.appending(path: "invariants")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let jsonl = """
+            {"_type":"metadata","schemaVersion":1}
+            {"id":"11111111-1111-1111-1111-111111111111","invariantID":"statusline.worktree.name","integration":"Status Line","severity":"warning","description":"The reported worktree name must match the pane working directory.","timestamp":"2026-05-30T12:00:00Z","context":{"pane.name":"feature-invariants","reported":"wrong-name","computed":"feature-invariants"}}
+            {"id":"22222222-2222-2222-2222-222222222222","invariantID":"statusline.lines.source","integration":"Status Line","severity":"warning","description":"Displayed line counts must come from the pane's git diff.","timestamp":"2026-05-30T12:01:00Z","context":{"pane.name":"feature-invariants","reported_added":"3","computed_added":"5"}}
+            """
+        try? Data(jsonl.utf8).write(to: directory.appending(path: "invariants.jsonl"))
+
+        app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
+        app.launch()
+        app.activate()
+        app.typeKey("i", modifierFlags: [.command, .shift])
+
+        let dashboard = app.windows["Invariant Dashboard"]
+        XCTAssertTrue(dashboard.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            dashboard.textFields["invariant-dashboard-filter-field"]
+                .waitForExistence(timeout: 5)
+        )
+        screenshot("invariant-dashboard", app: app)
     }
 
     func testPaneStatusScreenshot() {
@@ -46,7 +72,7 @@ final class ScreenshotInjectedTests: XCTestCase {
                     {
                       "id": "\(Self.runningPaneID)",
                       "name": "running-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": false,
                       "worktreeDirectory": "\(workspaceDir)",
@@ -55,7 +81,7 @@ final class ScreenshotInjectedTests: XCTestCase {
                     {
                       "id": "\(Self.mergedPaneID)",
                       "name": "merged-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": true,
                       "worktreeDirectory": "\(workspaceDir)",
@@ -95,7 +121,7 @@ final class ScreenshotInjectedTests: XCTestCase {
                     {
                       "id": "\(Self.notifPaneID)",
                       "name": "test-pane",
-                      "cliType": "claude",
+                      "harness": "claude",
                       "isPriority": false,
                       "isMerged": true,
                       "worktreeDirectory": "\(workspaceDir)",

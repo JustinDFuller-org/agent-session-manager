@@ -47,7 +47,7 @@ struct ProfileEnvVar: Codable, Equatable {
 struct Profile: Identifiable, Codable, Equatable {
     var id: UUID
     var name: String
-    var cliType: CLIType
+    var harness: Harness
     var cliOptions: [ProfileCLIOption]
     var envVars: [ProfileEnvVar]
     var statusLineConfig: StatusLineConfig?
@@ -55,14 +55,14 @@ struct Profile: Identifiable, Codable, Equatable {
     init(
         id: UUID = UUID(),
         name: String,
-        cliType: CLIType,
+        harness: Harness,
         cliOptions: [ProfileCLIOption] = [],
         envVars: [ProfileEnvVar] = [],
         statusLineConfig: StatusLineConfig? = nil
     ) {
         self.id = id
         self.name = name
-        self.cliType = cliType
+        self.harness = harness
         self.cliOptions = cliOptions
         self.envVars = envVars
         self.statusLineConfig = statusLineConfig
@@ -93,11 +93,11 @@ struct Profile: Identifiable, Codable, Equatable {
     @MainActor
     static func fromGlobalSettings(
         name: String,
-        cliType: CLIType,
+        harness: Harness,
         appSettings: AppSettings
     ) -> Profile {
         let globalOptions: [CLIOptionConfig]
-        switch cliType {
+        switch harness {
         case .claude: globalOptions = appSettings.cliOptions
         case .codex: globalOptions = appSettings.codexCliOptions
         case .cursor: globalOptions = appSettings.cursorCliOptions
@@ -114,7 +114,7 @@ struct Profile: Identifiable, Codable, Equatable {
         }
 
         let envVars: [ProfileEnvVar]
-        if cliType == .claude {
+        if harness == .claude {
             envVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
                 ProfileEnvVar(
                     id: ev.id,
@@ -128,7 +128,7 @@ struct Profile: Identifiable, Codable, Equatable {
 
         return Profile(
             name: name,
-            cliType: cliType,
+            harness: harness,
             cliOptions: options,
             envVars: envVars
         )

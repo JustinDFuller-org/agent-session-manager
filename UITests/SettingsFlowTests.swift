@@ -216,21 +216,19 @@ final class SettingsFlowTests: BaseTestCase {
     }
 
     private func verifyTracingAndDashboard() {
-        // ── Tracing tab ──────────────────────────────────────────────────────
-        let tracingTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tracing").firstMatch
-        waitFor(tracingTab)
-        tracingTab.click()
+        // ── Debug tab ──────────────────────────────────────────────────────
+        let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
+        waitFor(debugTab)
+        debugTab.click()
 
-        let tracingToggle = app.checkBoxes["settings-tracing-enabled-toggle"]
-        waitFor(tracingToggle)
-        if tracingToggle.value as? Int == 0 {
-            tracingToggle.click()
+        let debugToggle = app.checkBoxes["settings-debug-mode-toggle"]
+        waitFor(debugToggle)
+        if debugToggle.value as? Int == 0 {
+            debugToggle.click()
         }
 
-        // File section controls appear when tracing is enabled
-        let fileSection = app.staticTexts["File"]
-        waitFor(fileSection)
-        XCTAssertTrue(fileSection.exists)
+        waitFor(app.buttons["settings-open-trace-dashboard-button"])
+        waitFor(app.buttons["settings-open-invariant-dashboard-button"])
 
         app.typeKey("w", modifierFlags: .command)
 
@@ -247,6 +245,9 @@ final class SettingsFlowTests: BaseTestCase {
             dashboard.descendants(matching: .any)
                 .matching(identifier: "trace-dashboard-sidebar-list").firstMatch.exists
         )
+
+        app.typeKey("i", modifierFlags: [.command, .shift])
+        waitFor(app.windows["Invariant Dashboard"])
     }
 
     func testProfileEditorShowAllOptions() {

@@ -80,7 +80,7 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
 
     func testWizardApplyAddsCheckedTools() {
         let settings = AppSettings()
-        settings.activeTools = [CLIType.claude.rawValue]
+        settings.activeTools = [Harness.claude.rawValue]
 
         // Simulate wizard finishing with codex detected and checked
         settings.setActive(.codex, true)
@@ -100,7 +100,7 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
 
     func testWizardApplyIsAdditive() {
         let settings = AppSettings()
-        settings.activeTools = [CLIType.claude.rawValue, CLIType.codex.rawValue]
+        settings.activeTools = [Harness.claude.rawValue, Harness.codex.rawValue]
 
         // Apply only opencode — existing tools must remain
         settings.setActive(.opencode, true)

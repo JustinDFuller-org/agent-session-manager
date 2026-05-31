@@ -33,7 +33,7 @@ Settings files are always present after first app launch. All are plain JSON and
 | `restart-settings.json` | Auto-restart behavior |
 | `worktree-cleanup.json` | Worktree cleanup policy |
 | `existing-worktree-management.json` | How existing worktrees are managed |
-| `tracing-settings.json` | Tracing enabled/output target/file path |
+| `debug-settings.json` | Unified Debug mode enabled state |
 | `pr-tracking-settings.json` | PR tracking preferences |
 | `pr-polling-settings.json` | PR polling interval |
 | `terminal-settings.json` | Terminal rendering settings |
@@ -42,27 +42,26 @@ Settings files are always present after first app launch. All are plain JSON and
 | `env-var-settings.json` | Environment variable config |
 | `profiles.json` | Named profiles |
 | `session-name-settings.json` | Session naming settings |
-| `debug-settings.json` | Debug logging enabled/file path/max size |
 
 **Example — read all settings as pretty JSON:**
 
 ```bash
 BASE=~/Library/Application\ Support/agent-session-manager
 jq '.' "$BASE/settings.json"
-jq '.' "$BASE/tracing-settings.json"
+jq '.' "$BASE/debug-settings.json"
 ```
 
 ---
 
 ## Traces
 
-Traces are **off by default**. The user must enable them in **Settings → Tracing**.
+Traces are **off by default**. The user must enable them in **Settings → Debug**.
 
 **Check if tracing is enabled:**
 
 ```bash
 jq '.enabled' \
-  ~/Library/Application\ Support/agent-session-manager/tracing-settings.json
+  ~/Library/Application\ Support/agent-session-manager/debug-settings.json
 ```
 
 **Default traces directory:**
@@ -71,7 +70,7 @@ jq '.enabled' \
 ~/Library/Application Support/agent-session-manager/traces/
 ```
 
-(The user may have configured a custom directory; check `filePath` in `tracing-settings.json`.)
+The traces directory is fixed.
 
 **Directory layout:**
 
@@ -193,64 +192,20 @@ See `feature-tracing` for deeper tracing documentation.
 
 ---
 
-## Debug Logs
+## Invariants
 
-Debug logging is **off by default**. The user must enable it in **Settings → General → Debug**.
+Invariant logging is enabled by the same **Settings → Debug** switch as tracing.
 
-**Check if debug logging is enabled:**
+```text
+invariants/
+  invariants.jsonl
+```
+
+Each valid record contains an occurrence UUID, stable invariant ID, integration, severity, description, timestamp, and context dictionary. Repeated IDs are separate occurrences.
 
 ```bash
-jq '.enabled' \
-  ~/Library/Application\ Support/agent-session-manager/debug-settings.json
+jq 'select(._type != "metadata")' \
+  ~/Library/Application\ Support/agent-session-manager/invariants/invariants.jsonl
 ```
 
-**Default file path:**
-
-```
-~/Library/Application Support/agent-session-manager/debug-trace.log
-```
-
-(The user may have configured a custom path; check the `path` field in `debug-settings.json`.)
-
-### Format
-
-Human-readable text, one entry per line, with timestamps. Example entries:
-
-```
-2024-05-18 12:00:01.234 [session] restored 3 tabs
-2024-05-18 12:00:01.567 [git] cwd=/Users/user/project args=["status","--porcelain"]
-2024-05-18 12:00:02.100 [worktree] resolved user_ref=issue-42 path=/Users/user/project/.worktrees/issue-42
-2024-05-18 12:00:05.800 [notify] pane=my-feature kind=attention
-2024-05-18 12:00:05.801 [banner] willPresent title="Attention needed"
-```
-
-### Contents
-
-- Process launches (executable, arguments, working directory)
-- Git commands (cwd, args)
-- Worktree resolution (user ref → resolved path)
-- Session save/restore events
-- Notification and banner pipeline decisions
-- Bell (`0x07`) and OSC 777 attention events
-- Terminal snapshots (when terminal capture is enabled)
-- Notification environment snapshots (UNUserNotificationCenter auth status)
-
-### Example Commands
-
-```bash
-LOG=~/Library/Application\ Support/agent-session-manager/debug-trace.log
-
-# Tail the log live
-tail -f "$LOG"
-
-# Show only git command lines
-grep '\[git\]' "$LOG"
-
-# Show notification-related lines
-grep -E '\[(notify|banner)\]' "$LOG"
-
-# Show last 100 lines
-tail -100 "$LOG"
-```
-
-See `feature-debug-logging` for full debug logging documentation.
+See `feature-invariants` for deeper invariant reporting documentation.

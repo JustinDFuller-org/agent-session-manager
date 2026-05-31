@@ -26,9 +26,9 @@ final class StatusLineConfigWizardDefaultTests: XCTestCase {
         XCTAssertEqual(ids, ["worktree", "linesAdded", "linesRemoved"])
     }
 
-    func testWizardDefaultChipLabelStyle() {
+    func testWizardDefaultFactLabelStyle() {
         let config = StatusLineConfig.wizardDefault()
-        XCTAssertEqual(config.chipLabelStyle, .labelOnly)
+        XCTAssertEqual(config.factLabelStyle, .labelOnly)
     }
 
     func testWizardDefaultRowAlignment() {

@@ -8,11 +8,11 @@ struct StatusLineEditorPhases: OptionSet {
     static let full: StatusLineEditorPhases = [.display, .rows]
 }
 
-/// Chips, alignment, rows, and add-row controls for [`StatusLineConfig`]. Omit PR tracking —
+/// Facts, alignment, rows, and add-row controls for [`StatusLineConfig`]. Omit PR tracking —
 /// that stays on [`AppSettings`].
 struct StatusLineConfigLayoutEditor: View {
     @Binding var config: StatusLineConfig
-    var filterCLI: CLIType?
+    var filterCLI: Harness?
     let phases: StatusLineEditorPhases
     let onPersist: () -> Void
 
@@ -21,8 +21,8 @@ struct StatusLineConfigLayoutEditor: View {
             if phases.contains(.display) {
                 Section("Display") {
                     LabeledContent {
-                        Picker("Chip style", selection: chipStylePickerBinding) {
-                            ForEach(ChipLabelStyle.allCases, id: \.self) { style in
+                        Picker("Fact style", selection: factStylePickerBinding) {
+                            ForEach(FactLabelStyle.allCases, id: \.self) { style in
                                 Text(style.displayName).tag(style)
                             }
                         }
@@ -30,7 +30,7 @@ struct StatusLineConfigLayoutEditor: View {
                         .labelsHidden()
                         .frame(width: 160)
                     } label: {
-                        Text("Chip style")
+                        Text("Fact style")
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
                     }
@@ -66,10 +66,10 @@ struct StatusLineConfigLayoutEditor: View {
         }
     }
 
-    private var chipStylePickerBinding: Binding<ChipLabelStyle> {
+    private var factStylePickerBinding: Binding<FactLabelStyle> {
         Binding(
-            get: { config.chipLabelStyle },
-            set: { newVal in touch { $0.chipLabelStyle = newVal } })
+            get: { config.factLabelStyle },
+            set: { newVal in touch { $0.factLabelStyle = newVal } })
     }
 
     private var rowAlignmentPickerBinding: Binding<RowAlignment> {
@@ -160,7 +160,7 @@ struct StatusLineConfigLayoutEditor: View {
             }
             Menu {
                 if available.isEmpty {
-                    Text(filterCLI == nil ? "All items are already used" : "No more items supported for this CLI")
+                    Text(filterCLI == nil ? "All items are already used" : "No more items supported for this harness")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(available) { item in

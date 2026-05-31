@@ -83,10 +83,11 @@ struct ContentView: View {
                 SettingsPersistence.restoreEnvVarOptions(into: appSettings)
                 SettingsPersistence.restoreProfiles(into: appSettings)
                 SettingsPersistence.restoreSessionNameSettings(into: appSettings)
-                SettingsPersistence.restoreTracingSettings(into: appSettings)
+                SettingsPersistence.restoreDebugSettings(into: appSettings)
                 SettingsPersistence.restoreShellSettings(into: appSettings)
                 SettingsPersistence.restoreOnboarding(into: appSettings)
                 TracingService.shared.configure(from: appSettings)
+                InvariantReporter.shared.configure(from: appSettings)
                 let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
                 cleanup.start()
                 traceCleanupService = cleanup
@@ -242,7 +243,7 @@ struct ContentView: View {
     private func refreshActivePane() {
         guard let tab = appState.activeTab else { return }
         let pane = appState.activePane ?? tab.panes.last
-        guard let pane, pane.cliType != .shell else { return }
+        guard let pane, pane.harness != .shell else { return }
         handleRefreshPane(pane)
     }
 

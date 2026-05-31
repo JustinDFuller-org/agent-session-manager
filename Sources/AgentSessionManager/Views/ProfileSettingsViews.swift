@@ -51,7 +51,7 @@ struct ProfilesContent: View {
                                     Text(profile.name)
                                         .font(.system(.body, design: .monospaced))
                                         .fontWeight(.medium)
-                                    Text(profile.cliType.displayName)
+                                    Text(profile.harness.displayName)
                                         .font(.caption2)
                                         .padding(.horizontal, 5)
                                         .padding(.vertical, 8)
@@ -169,7 +169,7 @@ private struct ProfileEditorSheet: View {
     let onSave: (Profile) -> Void
 
     @State private var name: String = ""
-    @State private var cliType: CLIType = .claude
+    @State private var harness: Harness = .claude
     @State private var optionStates: [String: ProfileEditorOptionState] = [:]
     @State private var envVarStates: [String: ProfileEditorOptionState] = [:]
     @State private var useCustomStatusLine = false
@@ -181,12 +181,12 @@ private struct ProfileEditorSheet: View {
 
     @FocusState private var isNameFocused: Bool
 
-    private var activeToolList: [CLIType] {
-        CLIType.allCases.filter { appSettings.isActive($0) }
+    private var activeToolList: [Harness] {
+        Harness.allCases.filter { appSettings.isActive($0) }
     }
 
     private var activeOptions: [CLIOptionConfig] {
-        switch cliType {
+        switch harness {
         case .claude: return appSettings.cliOptions
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
@@ -225,17 +225,17 @@ private struct ProfileEditorSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("CLI")
+                        Text("Harness")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Picker("CLI", selection: $cliType) {
+                        Picker("Harness", selection: $harness) {
                             ForEach(activeToolList, id: \.self) { type in
                                 Text(type.displayName).tag(type)
                             }
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
-                        .onChange(of: cliType) { _, _ in
+                        .onChange(of: harness) { _, _ in
                             initializeFromGlobal()
                         }
                     }
@@ -301,7 +301,7 @@ private struct ProfileEditorSheet: View {
                         }
                     }
 
-                    if cliType == .claude {
+                    if harness == .claude {
                         let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
                         if !availableEnvVars.isEmpty || !hiddenEnvVars.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
@@ -385,14 +385,14 @@ private struct ProfileEditorSheet: View {
                     if useCustomStatusLine {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(
-                                "Customize chips and rows for panes created with this profile. GitHub PR tracking still follows Settings → Status Line → GitHub PR Tracking."
+                                "Customize facts and rows for panes created with this profile. GitHub PR tracking still follows Settings → Status Line → GitHub PR Tracking."
                             )
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             Form {
                                 StatusLineConfigLayoutEditor(
                                     config: $statusLineConfig,
-                                    filterCLI: cliType,
+                                    filterCLI: harness,
                                     phases: .full,
                                     onPersist: {})
                             }
@@ -420,7 +420,7 @@ private struct ProfileEditorSheet: View {
         .onAppear {
             if let existing = profile {
                 name = existing.name
-                cliType = existing.cliType
+                harness = existing.harness
                 for opt in existing.cliOptions {
                     optionStates[opt.id] = ProfileEditorOptionState(
                         enabled: opt.isEnabled, value: opt.value ?? "",
@@ -444,8 +444,8 @@ private struct ProfileEditorSheet: View {
                     showHiddenEnvVars = true
                 }
             } else {
-                if !activeToolList.contains(cliType) {
-                    cliType = activeToolList.first ?? .claude
+                if !activeToolList.contains(harness) {
+                    harness = activeToolList.first ?? .claude
                 }
                 initializeFromGlobal()
             }
@@ -461,7 +461,7 @@ private struct ProfileEditorSheet: View {
                 enabled: option.isDefaultEnabled, value: "")
         }
         envVarStates = [:]
-        if cliType == .claude {
+        if harness == .claude {
             for envVar in appSettings.envVarOptions where envVar.isAvailable {
                 envVarStates[envVar.id] = ProfileEditorOptionState(
                     enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
@@ -484,7 +484,7 @@ private struct ProfileEditorSheet: View {
     }
 
     private func persistCLIOptions() {
-        switch cliType {
+        switch harness {
         case .claude: SettingsPersistence.save(appSettings: appSettings)
         case .codex: SettingsPersistence.saveCodexOptions(appSettings: appSettings)
         case .cursor: SettingsPersistence.saveCursorOptions(appSettings: appSettings)
@@ -494,7 +494,7 @@ private struct ProfileEditorSheet: View {
     }
 
     private func onAddToGlobal(optionID: String) {
-        switch cliType {
+        switch harness {
         case .claude:
             if let i = appSettings.cliOptions.firstIndex(where: { $0.id == optionID }) {
                 appSettings.cliOptions[i].isAvailable = true
@@ -545,7 +545,7 @@ private struct ProfileEditorSheet: View {
         let cliOptions = visibleOptions + hiddenEnabled
 
         let envVars: [ProfileEnvVar]
-        if cliType == .claude {
+        if harness == .claude {
             let visibleEnvVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
                 let state = envVarStates[ev.id] ?? ProfileEditorOptionState(enabled: false, value: "")
                 return ProfileEnvVar(
@@ -566,7 +566,7 @@ private struct ProfileEditorSheet: View {
         let saved = Profile(
             id: profile?.id ?? UUID(),
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            cliType: cliType,
+            harness: harness,
             cliOptions: cliOptions,
             envVars: envVars,
             statusLineConfig: useCustomStatusLine ? statusLineConfig : nil

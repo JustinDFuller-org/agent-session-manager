@@ -9,12 +9,12 @@ final class TraceDashboardTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         appSettings = AppSettings()
-        appSettings.tracingEnabled = false
+        appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
     }
 
     override func tearDown() async throws {
-        appSettings.tracingEnabled = false
+        appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
         try await super.tearDown()
     }

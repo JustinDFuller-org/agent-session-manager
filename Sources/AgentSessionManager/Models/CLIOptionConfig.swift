@@ -473,7 +473,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             isDefaultEnabled: false),
     ]
 
-    static func recommendedDefaults(for cli: CLIType) -> [CLIOptionConfig] {
+    static func recommendedDefaults(for cli: Harness) -> [CLIOptionConfig] {
         let catalog: [CLIOptionConfig]
         let recommendedIDs: Set<String>
 

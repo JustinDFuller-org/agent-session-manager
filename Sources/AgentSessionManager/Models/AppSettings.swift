@@ -95,7 +95,7 @@ final class AppSettings {
     var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
     var envVarOptions: [EnvVarConfig] = EnvVarConfig.all
     var statusLineConfig = StatusLineConfig()
-    var activeTools: Set<String> = [CLIType.claude.rawValue]
+    var activeTools: Set<String> = [Harness.claude.rawValue]
     var defaultBranch: String = "main"
     var isDefaultBranchEnabled: Bool = true
     var notificationSidebarSide: SidebarSide = .right
@@ -110,10 +110,7 @@ final class AppSettings {
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
     var worktreeBaseRef: WorktreeBaseRef = .fresh
-    var tracingEnabled: Bool = false
-    /// Empty string means the default traces/ directory under Application Support.
-    var tracingFilePath: String = ""
-    var tracingFileMaxBytes: Int = AppSettings.defaultTracingFileMaxBytes
+    var debugModeEnabled: Bool = false
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30
@@ -128,37 +125,38 @@ final class AppSettings {
     var preferredShell: String = ""
     var hasCompletedOnboarding: Bool = false
 
-    nonisolated static let defaultTracingFileMaxBytes = 10 * 1024 * 1024
+    nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 
-    /// Resolved traces directory URL.
+    /// Fixed traces directory URL used while Debug mode is enabled.
     var resolvedTracingDirectoryURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let defaultDir = appSupport
+        return
+            appSupport
             .appending(path: PersistenceHelpers.appSupportSubdirectory)
             .appending(path: "traces")
-        let raw = tracingFilePath.trimmingCharacters(in: .whitespacesAndNewlines)
-        if raw.isEmpty {
-            return defaultDir.standardizedFileURL
-        }
-        let expanded = (raw as NSString).expandingTildeInPath
-        return URL(fileURLWithPath: expanded).standardizedFileURL
+            .standardizedFileURL
     }
 
-    var tracingFileMaxSizeMegabytes: Int {
-        get { max(1, tracingFileMaxBytes / (1024 * 1024)) }
-        set { tracingFileMaxBytes = max(1, min(512, newValue)) * 1024 * 1024 }
+    /// Fixed invariant log directory URL used while Debug mode is enabled.
+    var resolvedInvariantDirectoryURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return
+            appSupport
+            .appending(path: PersistenceHelpers.appSupportSubdirectory)
+            .appending(path: "invariants")
+            .standardizedFileURL
     }
 
-    func isActive(_ tool: CLIType) -> Bool {
+    func isActive(_ tool: Harness) -> Bool {
         activeTools.contains(tool.rawValue)
     }
 
-    func setActive(_ tool: CLIType, _ active: Bool) {
+    func setActive(_ tool: Harness, _ active: Bool) {
         if active { activeTools.insert(tool.rawValue) } else { activeTools.remove(tool.rawValue) }
     }
 
-    /// User-facing CLI types currently enabled in Tools, in canonical `CLIType.allCases` order.
-    var activeCLITypes: [CLIType] {
-        CLIType.allCases.filter { isActive($0) }
+    /// User-facing harness types currently enabled in Tools, in canonical `Harness.allCases` order.
+    var activeHarnesses: [Harness] {
+        Harness.allCases.filter { isActive($0) }
     }
 }

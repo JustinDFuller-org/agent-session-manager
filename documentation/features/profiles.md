@@ -24,10 +24,10 @@ Options hidden from the New Pane sheet are still passed to the selected harness 
 
 ## Applying a Profile
 
-In the New Pane sheet, choose a profile from the **Profile** picker. The CLI type is locked to the profile's type. Only options marked **Show** in the profile are displayed. All other profile options are applied silently.
+In the New Pane sheet, choose a profile from the **Profile** picker. The harness is locked to the profile's harness. Only options marked **Show** in the profile are displayed. All other profile options are applied silently.
 
 If you change any option while a profile is selected, the picker label updates to show **(modified)**. You can click **Save Profile & Create** to save the modified form as a new or updated profile before creating the pane.
 
 ## Profile Ordering
 
-Profiles appear in the order defined in **Settings → Profiles**. Use the up/down arrows to reorder them. The first profile that matches the active CLI type is pre-selected when the New Pane sheet opens.
+Profiles appear in the order defined in **Settings → Profiles**. Use the up/down arrows to reorder them. The first profile that matches the active harness is pre-selected when the New Pane sheet opens.

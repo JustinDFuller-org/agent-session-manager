@@ -12,7 +12,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `main-window-tab` | Main window with one tab open |
 | `new-pane-sheet` | New Pane sheet overlay |
 | `split-panes` | Tab with two panes side by side |
-| `pane-status-indicators` | Pane header with status badge and empty-state chip row (em-dash placeholders) |
+| `pane-status-indicators` | Pane header with status badge and empty-state fact row (em-dash placeholders) |
 | `notification-sidebar` | Notification sidebar open |
 | `pr-merged-alert` | PR merged alert overlay |
 | `settings-panes` | Settings → Panes |
@@ -21,7 +21,8 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `settings-shortcuts` | Settings → Shortcuts |
 | `settings-status-line` | Settings → Status Line |
 | `settings-notifications` | Settings → Notifications |
-| `settings-tracing` | Settings → Tracing |
+| `settings-debug` | Settings → Debug |
+| `invariant-dashboard` | Invariant Dashboard with injected sample violations |
 
 `BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui-dev` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
 

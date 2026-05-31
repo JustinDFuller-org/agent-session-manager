@@ -126,10 +126,10 @@ final class Tab: Identifiable {
         tabName: String,
         paneName: String,
         extraArgs: [String],
-        cliType: CLIType,
+        harness: Harness,
         enabled: Bool
     ) -> [String] {
-        guard enabled, cliType == .claude else { return extraArgs }
+        guard enabled, harness == .claude else { return extraArgs }
         guard !extraArgs.contains("--name"), !extraArgs.contains("-n") else { return extraArgs }
         let raw = "\(tabName)/\(paneName)"
         let escaped = raw.replacingOccurrences(of: "'", with: "'\\''")
@@ -496,7 +496,7 @@ final class Tab: Identifiable {
     func addPane(
         name: String,
         extraArgs: [String] = [],
-        cliType: CLIType = .claude,
+        harness: Harness = .claude,
         worktreeDirectory: URL? = nil,
         worktreeIsManaged: Bool = false,
         id: UUID? = nil,
@@ -531,7 +531,7 @@ final class Tab: Identifiable {
             id: paneID,
             name: name,
             tab: self,
-            cliType: cliType,
+            harness: harness,
             worktreeDirectory: worktreeDirectory,
             worktreeIsManaged: worktreeIsManaged,
             profileID: profileID
@@ -539,10 +539,10 @@ final class Tab: Identifiable {
         pane.extraArgs = extraArgs
         let cwd = worktreeDirectory?.path ?? directory.path
 
-        if cliType != .shell {
+        if harness != .shell {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
@@ -555,7 +555,7 @@ final class Tab: Identifiable {
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
-            switch cliType {
+            switch harness {
             case .shell:
                 controller.pendingCommand = nil
             case .claude:
@@ -614,11 +614,11 @@ final class Tab: Identifiable {
         let cwd = new.pendingDirectory ?? directory.path
         let monitor = StatusLineMonitor(
             paneID: pane.id, paneName: pane.name,
-            workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date(),
+            workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
             tabID: self.id, tabName: self.name)
         monitor.start()
         pane.statusLineMonitor = monitor
-        if pane.cliType == .claude {
+        if pane.harness == .claude {
             let extra = Tab.extractExtraArgs(from: old.pendingCommand ?? "")
             let continued = Tab.injectContinueFlagIntoArgs(extra)
             new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
@@ -629,7 +629,7 @@ final class Tab: Identifiable {
 
     /// Refreshes a pane with a fresh environment and new CLI args (from the settings sheet).
     func refreshPaneWithArgs(
-        _ pane: Pane, extraArgs: [String], cliType: CLIType, extraEnvVars: [String: String] = [:],
+        _ pane: Pane, extraArgs: [String], harness: Harness, extraEnvVars: [String: String] = [:],
         appSettings: AppSettings? = nil
     ) {
         guard let old = pane.terminalController else { return }
@@ -643,14 +643,14 @@ final class Tab: Identifiable {
         controller.pendingDirectory = cwd
         controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
-        switch cliType {
+        switch harness {
         case .shell:
             controller.pendingCommand = nil
             pane.statusLineMonitor = nil
         case .claude:
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
@@ -664,7 +664,7 @@ final class Tab: Identifiable {
         case .codex:
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
@@ -672,7 +672,7 @@ final class Tab: Identifiable {
         case .cursor:
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
@@ -683,14 +683,14 @@ final class Tab: Identifiable {
         case .opencode:
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, cliType: cliType, processStartTime: Date(),
+                workingDirectory: cwd, harness: harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
             controller.pendingCommand = "opencode\(extra)"
         }
 
-        pane.cliType = cliType
+        pane.harness = harness
         pane.terminalController = controller
         pane.restartToken = UUID()
     }
@@ -706,7 +706,7 @@ final class Tab: Identifiable {
         old.terminate()
         pane.statusLineMonitor?.stop()
         pane.statusLineMonitor = nil
-        pane.cliType = .shell
+        pane.harness = .shell
         pane.terminalController = new
         pane.restartToken = UUID()
     }
@@ -716,7 +716,7 @@ final class Tab: Identifiable {
         let cwd = activePane?.terminalController?.pendingDirectory
         addPane(
             name: "shell",
-            cliType: .shell,
+            harness: .shell,
             worktreeDirectory: cwd.map { URL(filePath: $0) },
             appSettings: appSettings
         )
@@ -787,7 +787,7 @@ extension Tab {
     @discardableResult
     func addPaneWithLoadingState(
         name: String,
-        cliType: CLIType = .claude,
+        harness: Harness = .claude,
         worktreeIsManaged: Bool = false,
         profileID: UUID? = nil
     ) -> Pane {
@@ -800,7 +800,7 @@ extension Tab {
         let pane = Pane(
             name: name,
             tab: self,
-            cliType: cliType,
+            harness: harness,
             worktreeIsManaged: worktreeIsManaged,
             profileID: profileID
         )
@@ -839,10 +839,10 @@ extension Tab {
 
         let cwd = resolved.processDirectory.path
 
-        if pane.cliType != .shell {
+        if pane.harness != .shell {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, cliType: pane.cliType, processStartTime: Date(),
+                workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name)
             monitor.start()
             pane.statusLineMonitor = monitor
@@ -855,7 +855,7 @@ extension Tab {
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
-            switch pane.cliType {
+            switch pane.harness {
             case .shell:
                 controller.pendingCommand = nil
             case .claude:

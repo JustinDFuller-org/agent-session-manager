@@ -2,10 +2,10 @@ import XCTest
 
 @testable import AgentSessionManager
 
-final class CLIToolDetectorTests: XCTestCase {
+final class HarnessDetectorTests: XCTestCase {
     func testDetectsInstalledToolsFromFakeRunner() async {
         let installed: Set<String> = ["claude", "codex"]
-        let result = await CLIToolDetector.detectInstalled(shell: "/bin/zsh") { _, command in
+        let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, command in
             installed.contains(command)
         }
         XCTAssertTrue(result.contains(.claude))
@@ -15,28 +15,28 @@ final class CLIToolDetectorTests: XCTestCase {
     }
 
     func testReturnsEmptySetWhenNothingInstalled() async {
-        let result = await CLIToolDetector.detectInstalled(shell: "/bin/zsh") { _, _ in false }
+        let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, _ in false }
         XCTAssertTrue(result.isEmpty)
     }
 
     func testDetectsAllTools() async {
-        let result = await CLIToolDetector.detectInstalled(shell: "/bin/zsh") { _, _ in true }
-        for tool in CLIType.allCases {
+        let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, _ in true }
+        for tool in Harness.allCases {
             XCTAssertTrue(result.contains(tool), "Expected \(tool) to be detected")
         }
     }
 
     func testCursorMapsToAgentBinary() async {
-        // Cursor's cliCommandDescription is "agent", not "cursor".
-        let result = await CLIToolDetector.detectInstalled(shell: "/bin/zsh") { _, command in
+        // Cursor's commandDescription is "agent", not "cursor".
+        let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, command in
             command == "agent"
         }
         XCTAssertTrue(result.contains(.cursor))
         XCTAssertFalse(result.contains(.claude))
     }
 
-    func testCLITypeAllCasesExcludesShell() {
-        // CLIToolDetector only probes CLIType.allCases which excludes .shell.
-        XCTAssertFalse(CLIType.allCases.contains(.shell))
+    func testHarnessAllCasesExcludesShell() {
+        // HarnessDetector only probes Harness.allCases which excludes .shell.
+        XCTAssertFalse(Harness.allCases.contains(.shell))
     }
 }

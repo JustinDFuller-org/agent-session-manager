@@ -1,6 +1,6 @@
 # Status Line
 
-Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of chips; each chip displays one fact about the running session.
+Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
 The catalog controls which chips can be selected for a harness. Catalog availability does not guarantee that a provider currently populates the field: unavailable provider data renders as `—`. For example, Codex can select `model` but does not populate it, and OpenCode can select `version` but does not populate it. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the per-harness audit.
 
@@ -41,9 +41,9 @@ The status line enforces five invariants that guarantee consistent values regard
 
 ### I1. Worktree name is the pane's working directory
 
-The `worktree` chip always shows `URL(filePath: workingDirectory).lastPathComponent`. The app owns this fact; it does not rely on what a CLI reports. If the CLI sends a different name, the app logs a mismatch and uses its own value.
+The `worktree` fact always shows `URL(filePath: workingDirectory).lastPathComponent`. The app owns this fact; it does not rely on what a CLI reports. If the CLI sends a different name, the app logs a mismatch and uses its own value.
 
-### I2. Each fact has exactly one chip
+### I2. Each fact is shown once
 
 The old `gitWorktree` item duplicated what `worktree` already shows. It has been removed. Saved configurations containing `gitWorktree` rows are silently migrated on first load.
 
@@ -55,9 +55,9 @@ The old `gitWorktree` item duplicated what `worktree` already shows. It has been
 
 Items in the Add Item dropdown are sorted by label using `localizedStandardCompare`. The internal `itemOrder` array (which governs default row construction) is unchanged.
 
-### I5. Worktree chip is a single fact (name + branch)
+### I5. Worktree fact is a single item (name + branch)
 
-The `worktree` chip renders as `name • branch` when both values are available, or just `name` when branch is absent. The old `worktreeBranch` item, which duplicated the branch half of this fact, has been removed. Saved configurations containing `worktreeBranch` rows are migrated on first load: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped.
+The `worktree` fact renders as `name • branch` when both values are available, or just `name` when branch is absent. The old `worktreeBranch` item, which duplicated the branch half of this fact, has been removed. Saved configurations containing `worktreeBranch` rows are migrated on first load: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped.
 
 ## Onboarding
 
@@ -77,17 +77,22 @@ See [setup-wizard.md](setup-wizard.md) for the full wizard flow.
 
 1. Open **Settings → Status Line**
 2. Use **+ Add Row** to add a new row
-3. Click **Add Item** inside any row to see available items (filtered by the CLI type of the current pane, alphabetically sorted)
+3. Click **Add Item** inside any row to see available items (filtered by the harness of the current pane, alphabetically sorted)
 4. Click the minus icon to remove an item
 5. Use the up/down arrows to reorder rows
 
-## Invariant Violation Trace Events
+## Invariant Violations
 
-When an invariant is violated, the app records a trace event (see [tracing.md](tracing.md)) and uses the authoritative value. These events are the primary signal that an upstream contract has changed.
+When an invariant is violated, the app reports it through `InvariantReporter`, records the preserved trace event (see [tracing.md](tracing.md)), and uses the authoritative value. With Debug mode enabled, occurrences are also appended to `invariants/invariants.jsonl` and shown in the Invariant Dashboard.
+
+| Invariant ID | Preserved trace event | When emitted |
+|-------|-------------|---|
+| `statusline.worktree.name` | `statusline.worktree.name_mismatch` | Claude JSON `worktree.name` or `workspace.git_worktree` disagrees with the app's computed worktree name (I1) |
+| `statusline.lines.source` | `statusline.lines.source_mismatch` | Claude JSON `cost.total_lines_added`/`total_lines_removed` disagrees with cached `git diff --shortstat HEAD` (I3) |
+
+Migration-only events remain trace events:
 
 | Event | When emitted |
 |-------|-------------|
-| `statusline.worktree.name_mismatch` | Claude JSON `worktree.name` or `workspace.git_worktree` disagrees with the app's computed worktree name (I1) |
-| `statusline.lines.source_mismatch` | Claude JSON `cost.total_lines_added`/`total_lines_removed` disagrees with cached `git diff --shortstat HEAD` (I3) |
 | `statusline.migration.gitworktree_dropped` | A saved config row contained `gitWorktree`; it was removed (I2) |
 | `statusline.migration.worktreebranch_merged` | A saved config row contained `worktreeBranch`; it was replaced by `worktree` (`substituted=true`) or dropped (`substituted=false`) (I5) |

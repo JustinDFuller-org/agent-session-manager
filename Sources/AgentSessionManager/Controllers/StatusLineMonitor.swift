@@ -27,7 +27,7 @@ final class StatusLineMonitor {
     /// Written by Claude Code `Notification` hook stdin when `isClaudeHookAttentionEnabled` is on.
     let attentionSignalFilePath: String
     private let workingDirectory: String?
-    private let cliType: CLIType
+    private let harness: Harness
     private let isClaude: Bool
     private var source: DispatchSourceFileSystemObject?
     private var attentionSource: DispatchSourceFileSystemObject?
@@ -51,7 +51,7 @@ final class StatusLineMonitor {
         paneID: UUID,
         paneName: String = "",
         workingDirectory: String? = nil,
-        cliType: CLIType,
+        harness: Harness,
         processStartTime: Date = Date(),
         tabID: UUID = UUID(),
         tabName: String = ""
@@ -61,8 +61,8 @@ final class StatusLineMonitor {
         self.tabID = tabID
         self.tabName = tabName
         self.workingDirectory = workingDirectory
-        self.cliType = cliType
-        self.isClaude = cliType == .claude
+        self.harness = harness
+        self.isClaude = harness == .claude
         filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
         attentionSignalFilePath =
@@ -70,13 +70,13 @@ final class StatusLineMonitor {
 
         if !isClaude, let cwd = workingDirectory {
             let provider: any StatusLineDataProvider
-            if cliType == .opencode {
+            if harness == .opencode {
                 provider = OpenCodeDataProvider(workingDirectory: cwd, processStartTime: processStartTime)
-            } else if cliType == .cursor {
+            } else if harness == .cursor {
                 provider = CursorDataProvider(
                     workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
             } else {
-                let toolCmd = cliType.cliCommandDescription
+                let toolCmd = harness.commandDescription
                 provider = ToolAgnosticDataProvider(
                     workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
             }
@@ -314,9 +314,9 @@ final class StatusLineMonitor {
         let wantedName = URL(filePath: cwd).lastPathComponent
 
         if let reported = data.worktree?.name, reported != wantedName {
-            TracingService.shared.record(
-                "statusline.worktree.name_mismatch",
-                attributes: [
+            InvariantReporter.shared.violated(
+                .statusLineWorktreeName,
+                context: [
                     "pane.name": paneName, "pane.id": paneID.uuidString,
                     "tab.id": tabID.uuidString, "tab.name": tabName,
                     "field": "worktree.name",
@@ -327,9 +327,9 @@ final class StatusLineMonitor {
         if let reported = data.workspace?.gitWorktree, reported != cwd,
             URL(filePath: reported).lastPathComponent != wantedName
         {
-            TracingService.shared.record(
-                "statusline.worktree.name_mismatch",
-                attributes: [
+            InvariantReporter.shared.violated(
+                .statusLineWorktreeName,
+                context: [
                     "pane.name": paneName, "pane.id": paneID.uuidString,
                     "tab.id": tabID.uuidString, "tab.name": tabName,
                     "field": "workspace.git_worktree",
@@ -346,11 +346,11 @@ final class StatusLineMonitor {
 
         if let reportedAdded = data.cost?.totalLinesAdded,
             let reportedRemoved = data.cost?.totalLinesRemoved,
-            (reportedAdded != computedAdded || reportedRemoved != computedRemoved)
+            reportedAdded != computedAdded || reportedRemoved != computedRemoved
         {
-            TracingService.shared.record(
-                "statusline.lines.source_mismatch",
-                attributes: [
+            InvariantReporter.shared.violated(
+                .statusLineLinesSource,
+                context: [
                     "pane.name": paneName, "pane.id": paneID.uuidString,
                     "tab.id": tabID.uuidString, "tab.name": tabName,
                     "computed_added": "\(computedAdded)",

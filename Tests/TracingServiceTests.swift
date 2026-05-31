@@ -9,20 +9,24 @@ final class TracingServiceTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        testTraceDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("tracing-test-\(UUID().uuidString)", isDirectory: true)
+        let subdirectory = "tracing-test-\(UUID().uuidString)"
+        PersistenceHelpers.overrideAppSupportSubdirectory = subdirectory
+        testTraceDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(subdirectory, isDirectory: true)
+            .appendingPathComponent("traces", isDirectory: true)
         try FileManager.default.createDirectory(at: testTraceDir, withIntermediateDirectories: true)
         appSettings = AppSettings()
-        appSettings.tracingEnabled = false
+        appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
     }
 
     override func tearDown() async throws {
-        appSettings.tracingEnabled = false
+        appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
         if let testTraceDir {
-            try? FileManager.default.removeItem(at: testTraceDir)
+            try? FileManager.default.removeItem(at: testTraceDir.deletingLastPathComponent())
         }
+        PersistenceHelpers.overrideAppSupportSubdirectory = nil
         try await super.tearDown()
     }
 
@@ -34,8 +38,7 @@ final class TracingServiceTests: XCTestCase {
     }
 
     func testRecordWritesFileWhenEnabled() throws {
-        appSettings.tracingEnabled = true
-        appSettings.tracingFilePath = testTraceDir.path
+        appSettings.debugModeEnabled = true
         TracingService.shared.configure(from: appSettings)
 
         // Emit a span with pane.id so it routes to a named pane file
@@ -71,8 +74,7 @@ final class TracingServiceTests: XCTestCase {
     }
 
     func testGlobalFileWrittenForSpansWithoutPaneId() throws {
-        appSettings.tracingEnabled = true
-        appSettings.tracingFilePath = testTraceDir.path
+        appSettings.debugModeEnabled = true
         TracingService.shared.configure(from: appSettings)
 
         TracingService.shared.record("global.event", attributes: ["key": "value"])
@@ -83,7 +85,8 @@ final class TracingServiceTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2)
 
-        let globalFile = testTraceDir
+        let globalFile =
+            testTraceDir
             .appendingPathComponent("_global")
             .appendingPathComponent("global.jsonl")
         XCTAssertTrue(FileManager.default.fileExists(atPath: globalFile.path))
@@ -112,12 +115,11 @@ final class TracingServiceTests: XCTestCase {
     }
 
     func testReconfigureDisablesOutput() throws {
-        appSettings.tracingEnabled = true
-        appSettings.tracingFilePath = testTraceDir.path
+        appSettings.debugModeEnabled = true
         TracingService.shared.configure(from: appSettings)
         XCTAssertTrue(TracingService.shared.isEnabled)
 
-        appSettings.tracingEnabled = false
+        appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
         XCTAssertFalse(TracingService.shared.isEnabled)
 
@@ -130,7 +132,10 @@ final class TracingServiceTests: XCTestCase {
         var foundFile = false
         let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
         while let file = enumerator?.nextObject() as? URL {
-            if file.pathExtension == "jsonl" { foundFile = true; break }
+            if file.pathExtension == "jsonl" {
+                foundFile = true
+                break
+            }
         }
         XCTAssertFalse(foundFile)
     }

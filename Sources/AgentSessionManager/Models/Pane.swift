@@ -6,15 +6,15 @@ enum PaneSetupState {
     case failed(error: String)
 }
 
-enum CLIType: String, Codable, CaseIterable {
+enum Harness: String, Codable, CaseIterable {
     case claude
     case codex
     case cursor
     case opencode
     case shell
 
-    /// User-facing tool types — excludes `.shell` which is an internal session type.
-    static var allCases: [CLIType] { [.claude, .codex, .cursor, .opencode] }
+    /// User-facing harness types — excludes `.shell` which is an internal session type.
+    static var allCases: [Harness] { [.claude, .codex, .cursor, .opencode] }
 
     var displayName: String {
         switch self {
@@ -26,7 +26,7 @@ enum CLIType: String, Codable, CaseIterable {
         }
     }
 
-    var cliCommandDescription: String {
+    var commandDescription: String {
         switch self {
         case .claude: return "claude"
         case .codex: return "codex"
@@ -42,7 +42,7 @@ enum CLIType: String, Codable, CaseIterable {
 final class Pane: Identifiable {
     let id: UUID
     var name: String
-    var cliType: CLIType
+    var harness: Harness
     var worktreeDirectory: URL?
     var worktreeIsManaged: Bool = false
     weak var tab: Tab?
@@ -59,14 +59,14 @@ final class Pane: Identifiable {
         id: UUID = UUID(),
         name: String,
         tab: Tab,
-        cliType: CLIType = .claude,
+        harness: Harness = .claude,
         worktreeDirectory: URL? = nil,
         worktreeIsManaged: Bool = false,
         profileID: UUID? = nil
     ) {
         self.id = id
         self.name = name
-        self.cliType = cliType
+        self.harness = harness
         self.worktreeDirectory = worktreeDirectory
         self.worktreeIsManaged = worktreeIsManaged
         self.tab = tab

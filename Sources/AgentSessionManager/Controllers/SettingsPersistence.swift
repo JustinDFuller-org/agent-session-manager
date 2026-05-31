@@ -104,7 +104,7 @@ struct SettingsPersistence {
     private static var existingWorktreeManagementURL: URL {
         appSupportDir.appending(path: "existing-worktree-management.json")
     }
-    private static var tracingSettingsURL: URL { appSupportDir.appending(path: "tracing-settings.json") }
+    private static var debugSettingsURL: URL { appSupportDir.appending(path: "debug-settings.json") }
     private static var prTrackingSettingsURL: URL { appSupportDir.appending(path: "pr-tracking-settings.json") }
     private static var terminalSettingsURL: URL { appSupportDir.appending(path: "terminal-settings.json") }
     private static var prPollingSettingsURL: URL { appSupportDir.appending(path: "pr-polling-settings.json") }
@@ -219,7 +219,7 @@ struct SettingsPersistence {
             let data = try? Data(contentsOf: activeToolsURL),
             let saved = try? JSONDecoder().decode([String].self, from: data)
         else { return }
-        let knownRaws = Set(CLIType.allCases.map(\.rawValue))
+        let knownRaws = Set(Harness.allCases.map(\.rawValue))
         appSettings.activeTools = Set(saved).intersection(knownRaws)
     }
 
@@ -349,46 +349,22 @@ struct SettingsPersistence {
         appSettings.existingWorktreeManagement = behavior
     }
 
-    private struct TracingSettings: Codable {
+    private struct DebugSettings: Codable {
+        var schemaVersion: Int
         var enabled: Bool = false
-        var filePath: String = ""
-        var maxFileBytes: Int = AppSettings.defaultTracingFileMaxBytes
-
-        enum CodingKeys: String, CodingKey {
-            case enabled, filePath, maxFileBytes
-        }
-
-        init(enabled: Bool, filePath: String, maxFileBytes: Int) {
-            self.enabled = enabled
-            self.filePath = filePath
-            self.maxFileBytes = maxFileBytes
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
-            filePath = try container.decodeIfPresent(String.self, forKey: .filePath) ?? ""
-            maxFileBytes =
-                try container.decodeIfPresent(Int.self, forKey: .maxFileBytes) ?? (10 * 1024 * 1024)
-        }
     }
 
-    static func saveTracingSettings(appSettings: AppSettings) {
-        let payload = TracingSettings(
-            enabled: appSettings.tracingEnabled,
-            filePath: appSettings.tracingFilePath,
-            maxFileBytes: max(1_048_576, appSettings.tracingFileMaxBytes)
-        )
+    static func saveDebugSettings(appSettings: AppSettings) {
+        let payload = DebugSettings(schemaVersion: 1, enabled: appSettings.debugModeEnabled)
         guard let data = try? JSONEncoder().encode(payload) else { return }
-        try? data.write(to: tracingSettingsURL)
+        try? data.write(to: debugSettingsURL)
     }
 
-    static func restoreTracingSettings(into appSettings: AppSettings) {
-        guard let data = try? Data(contentsOf: tracingSettingsURL) else { return }
-        guard let settings = try? JSONDecoder().decode(TracingSettings.self, from: data) else { return }
-        appSettings.tracingEnabled = settings.enabled
-        appSettings.tracingFilePath = settings.filePath
-        appSettings.tracingFileMaxBytes = max(1_048_576, settings.maxFileBytes)
+    static func restoreDebugSettings(into appSettings: AppSettings) {
+        guard let data = try? Data(contentsOf: debugSettingsURL) else { return }
+        guard let settings = try? JSONDecoder().decode(DebugSettings.self, from: data) else { return }
+        guard settings.schemaVersion == 1 else { return }
+        appSettings.debugModeEnabled = settings.enabled
     }
 
     static func savePRTracking(appSettings: AppSettings) {

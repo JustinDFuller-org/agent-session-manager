@@ -9,13 +9,13 @@ final class StatusLineMonitorTracingTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         appSettings = AppSettings()
-        appSettings.tracingEnabled = true
+        appSettings.debugModeEnabled = true
         TracingService.shared.configure(from: appSettings)
         TracingService.shared.enableTestCapture()
     }
 
     override func tearDown() async throws {
-        appSettings.tracingEnabled = false
+        appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
         TracingService.shared.resetForTesting()
         try await super.tearDown()
@@ -27,7 +27,7 @@ final class StatusLineMonitorTracingTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: paneID,
             paneName: "my-feature-branch",
-            cliType: .claude,
+            harness: .claude,
             tabID: tabID,
             tabName: "work-tab"
         )
@@ -49,7 +49,7 @@ final class StatusLineMonitorTracingTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: paneID,
             paneName: "stop-test-pane",
-            cliType: .claude,
+            harness: .claude,
             tabID: tabID,
             tabName: "stop-test-tab"
         )
@@ -69,7 +69,7 @@ final class StatusLineMonitorTracingTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: paneID,
             paneName: "",
-            cliType: .claude
+            harness: .claude
         )
         monitor.start()
         monitor.stop()

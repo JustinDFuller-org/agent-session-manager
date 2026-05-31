@@ -9,7 +9,7 @@ struct NewPaneSheet: View {
     var refreshingPane: Pane?
 
     @State private var sessionInput = ""
-    @State private var selectedCLIType: CLIType = .claude
+    @State private var selectedHarness: Harness = .claude
     @State private var selectedProfileID: UUID?
     @State private var optionStates: [String: OptionState] = [:]
     @State private var envVarStates: [String: OptionState] = [:]
@@ -22,12 +22,12 @@ struct NewPaneSheet: View {
 
     @FocusState private var isSessionInputFocused: Bool
 
-    private var activeToolList: [CLIType] {
-        CLIType.allCases.filter { appSettings.isActive($0) }
+    private var activeToolList: [Harness] {
+        Harness.allCases.filter { appSettings.isActive($0) }
     }
 
     private var activeOptions: [CLIOptionConfig] {
-        switch selectedCLIType {
+        switch selectedHarness {
         case .claude: return appSettings.cliOptions
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
@@ -97,7 +97,7 @@ struct NewPaneSheet: View {
 
     private var isFormModifiedFromProfile: Bool {
         guard let profile = selectedProfile else { return true }
-        if selectedCLIType != profile.cliType { return true }
+        if selectedHarness != profile.harness { return true }
         for opt in profile.cliOptions {
             let state = optionStates[opt.id]
             if state?.enabled != opt.isEnabled { return true }
@@ -160,7 +160,7 @@ struct NewPaneSheet: View {
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
                 suggestedName: selectedProfile?.name ?? "",
-                cliType: selectedCLIType,
+                harness: selectedHarness,
                 onSave: { name in
                     saveCurrentFormAsProfile(name: name)
                     create()
@@ -170,14 +170,14 @@ struct NewPaneSheet: View {
         .onAppear {
             if let pane = refreshingPane {
                 sessionInput = pane.name
-                selectedCLIType = pane.cliType
+                selectedHarness = pane.harness
                 selectedProfileID = pane.profileID
             }
-            if !activeToolList.contains(selectedCLIType) {
-                selectedCLIType = activeToolList.first ?? .claude
+            if !activeToolList.contains(selectedHarness) {
+                selectedHarness = activeToolList.first ?? .claude
             }
             if !isRefreshing && selectedProfileID == nil {
-                let filtered = appSettings.profiles.filter { activeToolList.contains($0.cliType) }
+                let filtered = appSettings.profiles.filter { activeToolList.contains($0.harness) }
                 selectedProfileID = filtered.first?.id
             }
             applyProfileOrDefaults()
@@ -194,7 +194,7 @@ struct NewPaneSheet: View {
 
     @ViewBuilder
     private var profilePickerSection: some View {
-        let profiles = appSettings.profiles.filter { activeToolList.contains($0.cliType) }
+        let profiles = appSettings.profiles.filter { activeToolList.contains($0.harness) }
         if !profiles.isEmpty || selectedProfileID != nil {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Profile")
@@ -205,7 +205,7 @@ struct NewPaneSheet: View {
                     ForEach(profiles) { profile in
                         HStack {
                             Text(profile.name)
-                            Text("(\(profile.cliType.displayName))")
+                            Text("(\(profile.harness.displayName))")
                                 .foregroundStyle(.secondary)
                         }
                         .tag(profile.id as UUID?)
@@ -224,7 +224,7 @@ struct NewPaneSheet: View {
     @ViewBuilder
     private var cliPickerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("CLI")
+            Text("Harness")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             if activeToolList.isEmpty {
@@ -238,7 +238,7 @@ struct NewPaneSheet: View {
                 }
                 .font(.subheadline)
             } else {
-                Picker("CLI", selection: $selectedCLIType) {
+                Picker("Harness", selection: $selectedHarness) {
                     ForEach(activeToolList, id: \.self) { type in
                         Text(type.displayName).tag(type)
                     }
@@ -246,7 +246,7 @@ struct NewPaneSheet: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .accessibilityIdentifier("new-pane-cli-picker")
-                .onChange(of: selectedCLIType) { _, _ in
+                .onChange(of: selectedHarness) { _, _ in
                     initializeOptionStatesFromGlobal()
                     isSessionInputFocused = true
                 }
@@ -301,7 +301,7 @@ struct NewPaneSheet: View {
 
     @ViewBuilder
     private var envVarSection: some View {
-        if selectedCLIType == .claude {
+        if selectedHarness == .claude {
             if !visibleEnvVars.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Environment Variables")
@@ -348,7 +348,7 @@ struct NewPaneSheet: View {
 
     @ViewBuilder
     private var hiddenEnvVarSection: some View {
-        if selectedCLIType == .claude && !hiddenEnvVarOptions.isEmpty {
+        if selectedHarness == .claude && !hiddenEnvVarOptions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Button {
                     showHiddenEnvVars.toggle()
@@ -425,7 +425,7 @@ struct NewPaneSheet: View {
     }
 
     private func applyProfile(_ profile: Profile) {
-        selectedCLIType = profile.cliType
+        selectedHarness = profile.harness
         optionStates = [:]
         for opt in profile.cliOptions {
             optionStates[opt.id] = OptionState(enabled: opt.isEnabled, value: opt.value ?? "")
@@ -443,7 +443,7 @@ struct NewPaneSheet: View {
             optionStates[option.id] = OptionState(enabled: enabled, value: "")
         }
         envVarStates = [:]
-        if selectedCLIType == .claude {
+        if selectedHarness == .claude {
             for envVar in appSettings.envVarOptions where envVar.isAvailable {
                 let value = envVar.isDefaultEnabled ? envVar.defaultValue : ""
                 envVarStates[envVar.id] = OptionState(enabled: envVar.isDefaultEnabled, value: value)
@@ -464,7 +464,7 @@ struct NewPaneSheet: View {
         }
 
         let envVars: [ProfileEnvVar]
-        if selectedCLIType == .claude {
+        if selectedHarness == .claude {
             envVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
                 let state = envVarStates[ev.id] ?? OptionState(enabled: false, value: "")
                 let showOnCreate = selectedProfile?.envVars.first { $0.id == ev.id }?.showOnPaneCreate ?? false
@@ -478,7 +478,7 @@ struct NewPaneSheet: View {
 
         let profile = Profile(
             name: name,
-            cliType: selectedCLIType,
+            harness: selectedHarness,
             cliOptions: cliOptions,
             envVars: envVars,
             statusLineConfig: nil
@@ -499,7 +499,7 @@ struct NewPaneSheet: View {
 
         if let pane = refreshingPane {
             tab.refreshPaneWithArgs(
-                pane, extraArgs: extraArgs, cliType: selectedCLIType, extraEnvVars: extraEnvVars,
+                pane, extraArgs: extraArgs, harness: selectedHarness, extraEnvVars: extraEnvVars,
                 appSettings: appSettings)
             pane.profileID = selectedProfileID
             resetForm()
@@ -509,7 +509,7 @@ struct NewPaneSheet: View {
 
         let pane = tab.addPaneWithLoadingState(
             name: trimmed,
-            cliType: selectedCLIType,
+            harness: selectedHarness,
             worktreeIsManaged: true,
             profileID: selectedProfileID
         )
@@ -524,7 +524,7 @@ struct NewPaneSheet: View {
         let existingWorktreeManagement = appSettings.existingWorktreeManagement
         let autoSetSessionName = appSettings.autoSetSessionName
         let tabName = tab.name
-        let cliType = selectedCLIType
+        let harness = selectedHarness
         let statusLineOverride = selectedProfile?.statusLineConfig
 
         Task {
@@ -586,7 +586,7 @@ struct NewPaneSheet: View {
                     tabName: tabName,
                     paneName: resolved.paneTitle,
                     extraArgs: extraArgs,
-                    cliType: cliType,
+                    harness: harness,
                     enabled: autoSetSessionName
                 )
                 await MainActor.run {
@@ -644,7 +644,7 @@ struct NewPaneSheet: View {
     }
 
     private func buildExtraEnvVars() -> [String: String] {
-        guard selectedCLIType == .claude else { return [:] }
+        guard selectedHarness == .claude else { return [:] }
         var envVars: [String: String] = [:]
         for envVar in appSettings.envVarOptions {
             guard let state = envVarStates[envVar.id], state.enabled else { continue }
@@ -657,7 +657,7 @@ struct NewPaneSheet: View {
     }
 
     private func newPaneAddToGlobal(optionID: String) {
-        switch selectedCLIType {
+        switch selectedHarness {
         case .claude:
             if let i = appSettings.cliOptions.firstIndex(where: { $0.id == optionID }) {
                 appSettings.cliOptions[i].isAvailable = true
@@ -696,7 +696,7 @@ struct NewPaneSheet: View {
 private struct SaveProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     let suggestedName: String
-    let cliType: CLIType
+    let harness: Harness
     let onSave: (String) -> Void
 
     @State private var profileName = ""
@@ -719,7 +719,7 @@ private struct SaveProfileSheet: View {
                     .textFieldStyle(.roundedBorder)
                     .focused($isFocused)
                     .onSubmit { if isValid { submit() } }
-                Text("CLI: \(cliType.displayName)")
+                Text("Harness: \(harness.displayName)")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

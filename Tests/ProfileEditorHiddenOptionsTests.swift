@@ -10,7 +10,7 @@ struct ProfileEditorHiddenOptionsTests {
     func saveIncludesHiddenEnabledOption() throws {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--continue", isEnabled: true, value: nil),
                 ProfileCLIOption(id: "--verbose", isEnabled: true, value: nil),
@@ -25,7 +25,7 @@ struct ProfileEditorHiddenOptionsTests {
     func saveExcludesHiddenDisabledOption() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--verbose", isEnabled: false, value: nil)
             ]
@@ -38,7 +38,7 @@ struct ProfileEditorHiddenOptionsTests {
     func saveIncludesGloballyAvailableOptions() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--continue", isEnabled: true, value: nil),
                 ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-sonnet-4-6"),
@@ -53,7 +53,7 @@ struct ProfileEditorHiddenOptionsTests {
     func hiddenEnabledOptionRoundTrips() throws {
         let profile = Profile(
             name: "Hidden Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--verbose", isEnabled: true, value: nil),
                 ProfileCLIOption(id: "--bare", isEnabled: true, value: nil),
@@ -81,7 +81,7 @@ struct ProfileEditorHiddenOptionsTests {
     func hiddenStringOptionWithValue() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [
                 ProfileCLIOption(id: "--model", isEnabled: true, value: "claude-opus-4-8")
             ]
@@ -95,7 +95,7 @@ struct ProfileEditorHiddenOptionsTests {
     func hiddenEnvVarRoundTrips() throws {
         let profile = Profile(
             name: "Env Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [],
             envVars: [
                 ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: "claude-sonnet-4-6")
@@ -112,7 +112,7 @@ struct ProfileEditorHiddenOptionsTests {
     func hiddenEnvVarIncludedInBuild() {
         let profile = Profile(
             name: "Test",
-            cliType: .claude,
+            harness: .claude,
             cliOptions: [],
             envVars: [
                 ProfileEnvVar(id: "ANTHROPIC_MODEL", isEnabled: true, value: "claude-opus-4-8"),

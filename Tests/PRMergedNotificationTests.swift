@@ -23,7 +23,7 @@ final class PRMergedNotificationTests: XCTestCase {
     // MARK: - StatusLineMonitor: merged transition detection
 
     func testMergedTransitionFiresCallback() {
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
         var capturedNumber: Int?
         var capturedTitle: String?
@@ -45,7 +45,7 @@ final class PRMergedNotificationTests: XCTestCase {
     }
 
     func testNoFireOnFirstObservationAsMerged() {
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
@@ -55,7 +55,7 @@ final class PRMergedNotificationTests: XCTestCase {
     }
 
     func testNoDoubleFireForSameMerge() {
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
@@ -66,7 +66,7 @@ final class PRMergedNotificationTests: XCTestCase {
     }
 
     func testResetAfterStop() {
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
@@ -85,7 +85,7 @@ final class PRMergedNotificationTests: XCTestCase {
     func testClosedToMergedDoesNotFire() {
         // "closed" is not "merged" — no fire on closed→merged transition either (closed is already final)
         // But the monitor does fire if it goes closed→merged since lastKnownPRState != nil
-        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, cliType: .claude)
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 

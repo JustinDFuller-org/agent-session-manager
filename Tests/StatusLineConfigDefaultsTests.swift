@@ -5,7 +5,7 @@ import XCTest
 final class StatusLineConfigDefaultsTests: XCTestCase {
     func testDefaultInitProducesLabelOnly() {
         let config = StatusLineConfig()
-        XCTAssertEqual(config.chipLabelStyle, .labelOnly)
+        XCTAssertEqual(config.factLabelStyle, .labelOnly)
     }
 
     func testDefaultInitProducesSpaceBetween() {
@@ -16,7 +16,7 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
     func testDecodingMissingFieldsFallsBackToLabelOnly() throws {
         let json = Data("{}".utf8)
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
-        XCTAssertEqual(config.chipLabelStyle, .labelOnly)
+        XCTAssertEqual(config.factLabelStyle, .labelOnly)
     }
 
     func testDecodingMissingFieldsFallsBackToSpaceBetween() throws {
@@ -26,9 +26,9 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
     }
 
     func testDecodingExplicitSymbolOnlyPreservesIt() throws {
-        let json = Data(#"{"chipLabelStyle":"symbolOnly"}"#.utf8)
+        let json = Data(#"{"factLabelStyle":"symbolOnly"}"#.utf8)
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
-        XCTAssertEqual(config.chipLabelStyle, .symbolOnly)
+        XCTAssertEqual(config.factLabelStyle, .symbolOnly)
     }
 
     func testDecodingExplicitLeadingPreservesIt() throws {

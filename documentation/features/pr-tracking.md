@@ -2,9 +2,9 @@
 
 ## What it does
 
-GitHub PR Tracking detects the pull request associated with the current git branch and displays its status in the status line at the bottom of each pane. The PR chip shows the build status with a colored circle, the PR number, and the PR state (draft, open, merged, closed).
+GitHub PR Tracking detects the pull request associated with the current git branch and displays its status in the status line at the bottom of each pane. The PR fact shows the build status with a colored circle, the PR number, and the PR state (draft, open, merged, closed).
 
-Clicking the PR chip opens a popover with detailed information: PR title, failing status checks (with links), unresolved comment count, and a link to open the PR in the browser.
+Clicking the PR fact opens a popover with detailed information: PR title, failing status checks (with links), unresolved comment count, and a link to open the PR in the browser.
 
 This works for all CLI tools (Claude Code, Codex, Cursor, OpenCode) because it runs independently of any tool's session data. It uses `gh pr view <branch>` to query the GitHub CLI and `gh api graphql` for unresolved review comment counts.
 
@@ -14,7 +14,7 @@ This works for all CLI tools (Claude Code, Codex, Cursor, OpenCode) because it r
 2. Open **Settings** (⌘,) and go to the **Status Line** tab.
 3. Enable the **Track pull requests** toggle in the **GitHub PR Tracking** section.
 4. Add the **PR** item to a status line row (it appears in the "Add Item" menu as "PR").
-5. When you create a pane on a branch that already has an open pull request, the PR chip appears in the status line with the format `<circle> #<number> (<state>)`.
+5. When you create a pane on a branch that already has an open pull request, the PR fact appears in the status line with the format `<circle> #<number> (<state>)`.
 
 ## Circle colors
 
@@ -31,7 +31,7 @@ The colored circle represents the build and conflict status:
 | `draft` or `open` | Gray | All status checks were cancelled |
 | `draft` or `open` | Gray (secondary) | No status checks configured |
 
-## PR chip display
+## PR fact display
 
 The status line shows: `<circle> #<number> (<state>)`
 
@@ -44,7 +44,7 @@ Examples:
 
 ## Popover
 
-Click the PR chip to open a popover showing:
+Click the PR fact to open a popover showing:
 
 - **PR number** with the colored status circle
 - **PR title** (truncated to 2 lines)
@@ -89,6 +89,6 @@ The setting is persisted to `~/Library/Application Support/agent-session-manager
 
 ### Hiding Claude Code's native PR footer badge
 
-When PR tracking is enabled, the app injects both `showPRStatus: false` and `prStatusFooterEnabled: false` into the per-pane `--settings` file passed to Claude Code. This suppresses Claude Code's own `PR #N` footer badge so the app's PR chip is the sole PR indicator, avoiding duplication.
+When PR tracking is enabled, the app injects both `showPRStatus: false` and `prStatusFooterEnabled: false` into the per-pane `--settings` file passed to Claude Code. This suppresses Claude Code's own `PR #N` footer badge so the app's PR fact is the sole PR indicator, avoiding duplication.
 
 > **Note:** Claude Code renamed this setting from `showPRStatus` to `prStatusFooterEnabled` in version 2.1.145+. Both keys are injected for backward compatibility — unknown keys are ignored by each version, so writing both is safe.

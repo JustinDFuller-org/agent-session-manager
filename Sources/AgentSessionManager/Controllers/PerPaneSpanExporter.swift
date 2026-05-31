@@ -77,7 +77,8 @@ final class PerPaneSpanExporter: SpanExporter {
         if let existing = writers[key] { return existing.fileURL }
 
         if key == "_global" {
-            return tracesDirectory
+            return
+                tracesDirectory
                 .appendingPathComponent("_global", isDirectory: true)
                 .appendingPathComponent("global.jsonl")
         }
@@ -94,7 +95,8 @@ final class PerPaneSpanExporter: SpanExporter {
         let tabDirName = sanitize("\(tabName)-\(String(tabId.prefix(8)))")
         let fileName = sanitize("\(paneName)-\(String(paneId.prefix(8))).jsonl")
 
-        return tracesDirectory
+        return
+            tracesDirectory
             .appendingPathComponent(tabDirName, isDirectory: true)
             .appendingPathComponent(fileName)
     }
@@ -184,25 +186,18 @@ final class PerPaneSpanExporter: SpanExporter {
         } catch {
             return
         }
-        trimIfNeeded(at: url, maxBytes: maxBytes)
+        try? JSONLTrimmer.trimIfNeeded(
+            at: url,
+            maxBytes: maxBytes,
+            marker: "--- [truncated older trace entries] ---"
+        )
     }
 
     static func trimIfNeeded(at url: URL, maxBytes: Int) {
-        guard
-            let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-            let size = (attrs[.size] as? NSNumber)?.intValue,
-            size > maxBytes
-        else { return }
-        guard let existing = try? Data(contentsOf: url), !existing.isEmpty else { return }
-
-        let targetKeep = maxBytes - 512
-        let dropCount = max(0, existing.count - targetKeep)
-        var cut = dropCount
-        while cut < existing.count, existing[cut] != UInt8(ascii: "\n") { cut += 1 }
-        if cut < existing.count { cut += 1 }
-
-        var newData = Data("--- [truncated older trace entries] ---\n".utf8)
-        if cut < existing.count { newData.append(existing[cut...]) }
-        try? newData.write(to: url, options: .atomic)
+        try? JSONLTrimmer.trimIfNeeded(
+            at: url,
+            maxBytes: maxBytes,
+            marker: "--- [truncated older trace entries] ---"
+        )
     }
 }
