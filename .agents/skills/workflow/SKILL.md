@@ -15,7 +15,7 @@ description: "Development workflow for this repo: plan → test → implement �
 - **Unit tests** (`Tests/`) — fast, `swift test`, for logic and model behavior
 - **UI tests** (`UITests/`) — full app, `make test-ui-dev`, for user-visible behavior
 
-Every new behavior needs **both** a unit test and a UI test. Every changed behavior needs its tests updated.
+Every new behavior needs **both** a unit test and a UI test. Every changed behavior needs its tests updated. UI tests must drive real flows — create tabs/panes through the real sheets, trigger real notifications — not write a fabricated `sessions.json` or use `--inject-pane-*` launch flags to force state.
 
 **3. Implement** — Write the minimal code to make the tests pass. Refactor code and tests together as implementation reveals better structure. Build must be clean: `swift build`.
 
@@ -30,7 +30,7 @@ make screenshots                                                  # capture UI s
 make pr-screenshots                                               # upload screenshots and embed under ## Example in PR body
 ```
 
-UI test regressions are easy to miss and costly to fix later. **Never skip this step.** The git pre-commit hook runs unit tests, format, and lint; the pre-push hook runs UI smoke tests (`AppLaunchTests`, `NewTabTests`, `NewPaneTests`), so most regressions will be caught before they reach a PR. Run `make setup-hooks` once to install them.
+Screenshots must depict real app state produced through real flows; screenshots captured via injected or forced state are being migrated away (see issue #221). UI test regressions are easy to miss and costly to fix later. **Never skip this step.** The git pre-commit hook runs unit tests, format, and lint; the pre-push hook runs UI smoke tests (`AppLaunchTests`, `NewTabTests`, `NewPaneTests`), so most regressions will be caught before they reach a PR. Run `make setup-hooks` once to install them.
 
 Use `make test-ui-dev` (not `make test-ui`) so tests run against the dev build and write to `agent-session-manager.dev` instead of the production app support directory. If a test run is interrupted before tearDown completes, the settings will be left dirty — run `make reset-app-state-dev` to clean them up (`make reset-app-state` for the prod directory).
 
@@ -92,7 +92,7 @@ When a new settings file is added to the app, update it in **two places**:
 
 ## Screenshot maintenance
 
-Screenshots are captured by `UITests/ScreenshotTests.swift` (normal flow) and `UITests/ScreenshotInjectedTests.swift` (state-injected views). The `make screenshots` target runs both classes; `make pr-screenshots` runs them and uploads to a gist, then rewrites the `## Example` section of the open PR.
+Screenshots are captured by `UITests/ScreenshotTests.swift` (real-flow, canonical) and `UITests/ScreenshotInjectedTests.swift` (legacy injected path, under active migration — see issue #221). New screenshots go in `ScreenshotTests.swift`; do not add entries to `ScreenshotInjectedTests.swift`. The `make screenshots` target runs both classes; `make pr-screenshots` runs them and uploads to a gist, then rewrites the `## Example` section of the open PR.
 
 The `## Example` section is auto-generated from the PNGs actually produced — no manifest to keep in sync.
 

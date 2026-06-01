@@ -90,3 +90,4 @@ Print the PR URL the script printed on its final line.
 - Never force-push
 - Never commit files that likely contain secrets (.env, credentials, keys)
 - Never skip the script and perform steps by hand
+- Never introduce a new fake or injected screenshot to satisfy `ship`; the `## Example` images must reflect real app behavior (see issue #221)
