@@ -2,6 +2,10 @@
 
 Agent Session Manager records contract violations separately from traces so repeated mismatches remain visible during dogfooding.
 
+Production writes under `~/Library/Application Support/agent-session-manager/`. Development builds use the isolated `~/Library/Application Support/agent-session-manager.dev/` directory.
+
+Production writes under `~/Library/Application Support/agent-session-manager/`. Development builds use the isolated `~/Library/Application Support/agent-session-manager.dev/` directory.
+
 ## Enabling
 
 Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are always routed through tracing, but durable invariant JSONL output is written only while Debug mode is enabled.
@@ -28,3 +32,7 @@ The file starts with versioned metadata and is trimmed to 10 MB with an invarian
 ## Dashboard
 
 Open **Invariant Dashboard** from **Settings → Debug**, the Window menu, or `⌘⇧I`. The dashboard shows newest violations first, supports filtering, and displays the selected occurrence context.
+
+For read-only incident diagnosis, use `agent-data-access`; its collector filters invariant occurrences by candidate `context["pane.id"]`.
+
+For read-only incident diagnosis, use `agent-data-access`; its collector filters invariant occurrences by candidate `context["pane.id"]`.

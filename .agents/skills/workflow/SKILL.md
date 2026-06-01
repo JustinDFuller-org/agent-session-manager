@@ -11,6 +11,8 @@ description: "Development workflow for this repo: plan → test → implement �
 
 **1.7 Documentation** — Create or update `documentation/features/<feature>.md` describing what the feature does, how to use it, and how to configure it. Ensure there is an `.agents/skills` entry linking to the feature documentation.
 
+**1.8 Runtime telemetry** — For every runtime behavior feature, fix, or refactor, load `instrument-runtime-telemetry` before implementation. Add or update spans, invariants, telemetry tests, and catalogs as required by that checklist.
+
 **2. Test** — Write tests before or alongside implementation. This repo has two test layers:
 - **Unit tests** (`Tests/`) — fast, `swift test`, for logic and model behavior
 - **UI tests** (`UITests/`) — full app, `make test-ui-dev`, for user-visible behavior
