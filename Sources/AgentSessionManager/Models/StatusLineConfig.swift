@@ -420,16 +420,16 @@ struct StatusLineData: Codable {
         }
 
         init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            usedPercentage = Self.flexInt(c, key: .usedPercentage)
-            remainingPercentage = Self.flexInt(c, key: .remainingPercentage)
-            totalInputTokens = Self.flexInt(c, key: .totalInputTokens)
-            totalOutputTokens = Self.flexInt(c, key: .totalOutputTokens)
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            usedPercentage = Self.flexInt(container, key: .usedPercentage)
+            remainingPercentage = Self.flexInt(container, key: .remainingPercentage)
+            totalInputTokens = Self.flexInt(container, key: .totalInputTokens)
+            totalOutputTokens = Self.flexInt(container, key: .totalOutputTokens)
         }
 
-        private static func flexInt(_ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int? {
-            if let v = try? c.decodeIfPresent(Int.self, forKey: key) { return v }
-            if let v = try? c.decodeIfPresent(Double.self, forKey: key) { return Int(v) }
+        private static func flexInt(_ container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int? {
+            if let decoded = try? container.decodeIfPresent(Int.self, forKey: key) { return decoded }
+            if let decoded = try? container.decodeIfPresent(Double.self, forKey: key) { return Int(decoded) }
             return nil
         }
     }

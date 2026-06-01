@@ -7,5 +7,4 @@ struct GridLayout {
 
     var totalCells: Int { columns * rows }
     var emptyCells: Int { totalCells - paneCount }
-
 }

@@ -220,7 +220,6 @@ struct StatusLineConfigLayoutEditor: View {
         config = next
         onPersist()
     }
-
 }
 
 struct StatusLineContent: View {

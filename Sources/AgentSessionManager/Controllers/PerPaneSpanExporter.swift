@@ -154,8 +154,8 @@ final class PerPaneSpanExporter: SpanExporter {
     // MARK: - Private helpers
 
     private func attributeString(_ span: SpanData, _ key: String) -> String? {
-        guard case .string(let v) = span.attributes[key] else { return nil }
-        return v
+        guard case .string(let str) = span.attributes[key] else { return nil }
+        return str
     }
 
     private func jsonEscape(_ str: String) -> String {

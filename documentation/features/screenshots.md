@@ -43,3 +43,15 @@ The Makefile passes `$(CURDIR)/screenshots` via `TEST_RUNNER_SCREENSHOTS_OUTPUT_
 The [workflow skill](../../.agents/skills/workflow/SKILL.md) runs `make screenshots` as part of step 4 (Verify) and `make pr-screenshots` as the last step 4 action. Screenshots are uploaded to a gist and embedded under the `## Example` section of the PR body — not posted as a separate comment.
 
 Run `make pr-screenshots` after the PR is open to capture fresh screenshots, upload them, and update the `## Example` section in the PR body in place.
+
+## Authenticity
+
+Screenshots must show real app state produced through real flows — the same sequence of interactions a user would take. The following entries in the table above are produced by `ScreenshotInjectedTests.swift`, which writes fabricated `sessions.json` data or forces UI state rather than driving real flows; they are flagged for migration in issue #221:
+
+- `invariant-dashboard` — injected sample violations
+- `pane-status-indicators` — injected sessions + `--inject-pane-working`
+- `notification-sidebar` — injected `pendingNotifications` payload
+- `pr-merged-alert` — injected PR-merged notification payload
+- `activity-indicator-states` — blocked by the `--uitesting` terminal bypass (root fake)
+
+Do not add new entries to `ScreenshotInjectedTests.swift`. New screenshots belong in `ScreenshotTests.swift`, which drives the app through real UI flows.

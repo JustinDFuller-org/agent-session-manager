@@ -14,25 +14,87 @@ final class SettingsFlowTests: BaseTestCase {
     }
 
     func testSettingsFlow() {
-        // ── Panes tab ────────────────────────────────────────────────────────
+        verifyPanesTab()
+        verifyNotificationsTab()
+
+        // ── Shortcuts tab ────────────────────────────────────────────────────
+        let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
+        waitFor(shortcutsTab)
+        shortcutsTab.click()
+        let closeTabShortcut = app.staticTexts["Close Active Tab"]
+        waitFor(closeTabShortcut)
+        XCTAssertTrue(closeTabShortcut.exists)
+
+        // ── Status Line tab ──────────────────────────────────────────────────
+        let statusLineTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-status-line")
+            .firstMatch
+        waitFor(statusLineTab)
+        statusLineTab.click()
+        let prTrackingToggle = app.checkBoxes["settings-pr-tracking-toggle"]
+        waitFor(prTrackingToggle)
+        XCTAssertEqual(prTrackingToggle.value as? Int, 1)
+        prTrackingToggle.click()
+        XCTAssertEqual(prTrackingToggle.value as? Int, 0)
+        prTrackingToggle.click()
+        XCTAssertEqual(prTrackingToggle.value as? Int, 1)
+
+        // ── Panes tab (base ref picker) ──────────────────────────────────────
+        let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
+        waitFor(worktreesTab)
+        worktreesTab.click()
+        let baseRefPicker = app.descendants(matching: .any).matching(identifier: "settings-worktree-base-ref-picker")
+            .firstMatch
+        waitFor(baseRefPicker)
+        XCTAssertTrue(baseRefPicker.exists)
+        let freshButton = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Fresh'")).firstMatch
+        waitFor(freshButton)
+        let headButton = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'HEAD'")).firstMatch
+        waitFor(headButton)
+        headButton.click()
+        XCTAssertEqual(freshButton.value as? Int, 0)
+        XCTAssertEqual(headButton.value as? Int, 1)
+
+        // ── Profiles tab ─────────────────────────────────────────────────────
+        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        profilesTab.click()
+        createProfile(named: "Alpha")
+        createProfile(named: "Beta")
+        let moveDownButtons = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'profile-move-down-'")
+        )
+        XCTAssertGreaterThan(moveDownButtons.count, 0)
+        let moveUpButtons = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'profile-move-up-'")
+        )
+        XCTAssertGreaterThan(moveUpButtons.count, 0)
+        let profileNames = app.staticTexts.matching(
+            NSPredicate(format: "value == 'Alpha' OR value == 'Beta'")
+        )
+        let nameBefore = profileNames.firstMatch.value as? String
+        moveDownButtons.firstMatch.click()
+        let nameAfter = profileNames.firstMatch.value as? String
+        XCTAssertNotEqual(nameBefore, nameAfter, "Profile order should swap after move-down")
+
+        verifyDebugTab()
+    }
+
+    private func verifyPanesTab() {
         app.typeKey(",", modifierFlags: .command)
         let generalTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
         waitFor(generalTab)
         generalTab.click()
 
-        // Default branch field exists and shows the value from BaseTestCase setup ("ui-root")
         let branchField = app.textFields["settings-default-branch-field"]
         waitFor(branchField)
         XCTAssertTrue(branchField.exists)
         XCTAssertEqual(branchField.value as? String, "ui-root")
 
-        // Field accepts input
         branchField.click()
         branchField.typeKey("a", modifierFlags: .command)
         branchField.typeText("develop")
         XCTAssertEqual(branchField.value as? String, "develop")
 
-        // Toggle hides then restores the field
         let branchToggle = app.checkBoxes["settings-default-branch-toggle"]
         waitFor(branchToggle)
         branchToggle.click()
@@ -40,30 +102,27 @@ final class SettingsFlowTests: BaseTestCase {
         branchToggle.click()
         waitFor(app.textFields["settings-default-branch-field"])
 
-        // Continue-on-restart toggle exists and defaults to on
         let continueToggle = app.checkBoxes["settings-continue-on-restart-toggle"]
         waitFor(continueToggle)
         XCTAssertTrue(continueToggle.exists)
         XCTAssertEqual(continueToggle.value as? Int, 1)
 
-        // Auto session name toggle exists
         let autoSessionNameToggle = app.checkBoxes["settings-auto-session-name-toggle"]
         waitFor(autoSessionNameToggle)
         XCTAssertTrue(autoSessionNameToggle.exists)
 
-        // Shell picker is in Panes (not CLI Tools)
         let shellPicker = app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
         waitFor(shellPicker)
         XCTAssertTrue(shellPicker.exists, "Shell picker should exist under General tab")
+    }
 
-        // ── Notifications tab ────────────────────────────────────────────────
+    private func verifyNotificationsTab() {
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
             .firstMatch
         waitFor(notificationsTab)
         notificationsTab.click()
 
-        // Regression: banner toggle and open-notification-settings button are reachable
         let bannerToggle = app.checkBoxes["settings-macos-banner-notifications-toggle"]
         waitFor(bannerToggle)
 
@@ -91,79 +150,9 @@ final class SettingsFlowTests: BaseTestCase {
             .matching(identifier: "settings-sidebar-side")
             .firstMatch
         waitFor(sidebarSide)
+    }
 
-        // ── Shortcuts tab ────────────────────────────────────────────────────
-        let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
-        waitFor(shortcutsTab)
-        shortcutsTab.click()
-
-        let closeTabShortcut = app.staticTexts["Close Active Tab"]
-        waitFor(closeTabShortcut)
-        XCTAssertTrue(closeTabShortcut.exists)
-
-        // ── Status Line tab ──────────────────────────────────────────────────
-        let statusLineTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-status-line")
-            .firstMatch
-        waitFor(statusLineTab)
-        statusLineTab.click()
-
-        let prTrackingToggle = app.checkBoxes["settings-pr-tracking-toggle"]
-        waitFor(prTrackingToggle)
-        XCTAssertEqual(prTrackingToggle.value as? Int, 1)
-        prTrackingToggle.click()
-        XCTAssertEqual(prTrackingToggle.value as? Int, 0)
-        prTrackingToggle.click()
-        XCTAssertEqual(prTrackingToggle.value as? Int, 1)
-
-        // ── Panes tab (base ref picker) ──────────────────────────────────────
-        let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
-        waitFor(worktreesTab)
-        worktreesTab.click()
-
-        // SwiftUI Picker with .pickerStyle(.segmented) may not appear as SegmentedControl in XCTest.
-        // Query the containing element to verify it exists, then interact with its buttons from app scope.
-        let baseRefPicker = app.descendants(matching: .any).matching(identifier: "settings-worktree-base-ref-picker")
-            .firstMatch
-        waitFor(baseRefPicker)
-        XCTAssertTrue(baseRefPicker.exists)
-
-        // Segmented picker segments may appear as radio buttons or other types, not just AXButton.
-        let freshButton = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Fresh'")).firstMatch
-        waitFor(freshButton)
-
-        let headButton = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'HEAD'")).firstMatch
-        waitFor(headButton)
-        headButton.click()
-        // Verify Fresh is no longer selected and HEAD is selected
-        XCTAssertEqual(freshButton.value as? Int, 0)
-        XCTAssertEqual(headButton.value as? Int, 1)
-
-        // ── Profiles tab ─────────────────────────────────────────────────────
-        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
-        waitFor(profilesTab)
-        profilesTab.click()
-
-        createProfile(named: "Alpha")
-        createProfile(named: "Beta")
-
-        let moveDownButtons = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'profile-move-down-'")
-        )
-        XCTAssertGreaterThan(moveDownButtons.count, 0)
-
-        let moveUpButtons = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'profile-move-up-'")
-        )
-        XCTAssertGreaterThan(moveUpButtons.count, 0)
-
-        let profileNames = app.staticTexts.matching(
-            NSPredicate(format: "value == 'Alpha' OR value == 'Beta'")
-        )
-        let nameBefore = profileNames.firstMatch.value as? String
-        moveDownButtons.firstMatch.click()
-        let nameAfter = profileNames.firstMatch.value as? String
-        XCTAssertNotEqual(nameBefore, nameAfter, "Profile order should swap after move-down")
-
+    private func verifyDebugTab() {
         let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
         waitFor(debugTab)
         debugTab.click()
@@ -297,7 +286,7 @@ final class SettingsFlowTests: BaseTestCase {
             NSPredicate(
                 format: "identifier BEGINSWITH 'profile-move-up-' OR identifier BEGINSWITH 'profile-move-down-'")
         )
-        if profileMenuButtons.count > 0 {
+        if !profileMenuButtons.isEmpty {
             let menuButton = app.buttons.matching(
                 NSPredicate(format: "label == 'More'")
             ).firstMatch

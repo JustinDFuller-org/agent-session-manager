@@ -5,7 +5,6 @@ import Testing
 
 @Suite("ProfileEditorHiddenOptions")
 struct ProfileEditorHiddenOptionsTests {
-
     @Test("profile with hidden-but-enabled option round-trips via JSON")
     func hiddenEnabledOptionRoundTrips() throws {
         let profile = Profile(
@@ -50,5 +49,4 @@ struct ProfileEditorHiddenOptionsTests {
         #expect(decoded.envVars.first?.isEnabled == true)
         #expect(decoded.envVars.first?.value == "claude-sonnet-4-6")
     }
-
 }

@@ -293,5 +293,4 @@ struct SettingsPersistence {
             try container.encode(enabled, forKey: .enabled)
         }
     }
-
 }

@@ -42,6 +42,15 @@ The terminal pane is the selected harness's UI, not a setup script runner. Users
 
 Concretely: `buildClaudeCommand()` and similar functions must only emit the final tool invocation (`claude ...`, `codex ...`). All prerequisite work runs in the app layer (e.g. `Tab.resolveOrAttachWorktree()` when attaching to an existing branch/worktree) and surfaces errors through SwiftUI UI (sheets, inline error text), not through the terminal.
 
+## No Fake UI Tests / Screenshots
+
+UI tests and screenshots are the primary evidence that the app actually works. For every PR they must answer: did this change work, and did it break anything? A test or screenshot that uses fabricated data, injected state, or a test-only code branch to make the app merely *look* like it works gives false confidence and is forbidden.
+
+Concretely:
+- Tests must build their state through the same flows a user would — create tabs/panes via the real sheets, trigger real notifications, run a real harness — not by writing a fabricated `sessions.json` or forcing UI state.
+- Production code under `Sources/` must not contain branches whose only purpose is to alter behavior for tests/screenshots (`--inject-pane-*`, `uiTestActivityStateOverride`, the `!isUITesting` terminal bypass, etc.). The existing ones are tracked for removal in issue #221.
+- Do not add new fakes. Making the existing fakes real is an active, in-progress migration — see issue #221.
+
 ## Build & Run Commands
 
 ```bash
@@ -74,6 +83,8 @@ make open-results # open .xcresult bundle to inspect failures
 **IMPORTANT**: Update the test suite with every change. Unit tests live in `Tests/` (e.g. `CLIOptionConfigTests.swift`, `WorktreeListParserTests.swift`). UI tests live in `UITests/`. The app passes `--uitesting-skip-restore` during UI test runs to bypass session restoration.
 
 Run `make setup-hooks` after cloning to install git hooks: `swift test` on commit, UI smoke tests on push.
+
+**No fake UI tests or screenshots**: see the `## No Fake UI Tests / Screenshots` rule above and the migration backlog in issue #221.
 
 ## Architecture
 
