@@ -562,7 +562,9 @@ struct NewPaneSheet: View {
                         excludingPaneID: pane.id)
                 }
                 if inUse {
-                    await MainActor.run { pane.setupState = .failed(error: "A pane with this worktree is already open.") }
+                    await MainActor.run {
+                        pane.setupState = .failed(error: "A pane with this worktree is already open.")
+                    }
                     return
                 }
                 guard let managed = await resolveManaged(for: resolved, policy: existingWorktreeManagement, pane: pane)
@@ -592,8 +594,8 @@ struct NewPaneSheet: View {
 
 // MARK: - Create helpers
 
-private extension NewPaneSheet {
-    func buildExtraArgs() -> [String] {
+extension NewPaneSheet {
+    fileprivate func buildExtraArgs() -> [String] {
         var args: [String] = []
         for option in activeOptions {
             guard let state = optionStates[option.id], state.enabled else { continue }
@@ -613,7 +615,7 @@ private extension NewPaneSheet {
         return args
     }
 
-    func buildExtraEnvVars() -> [String: String] {
+    fileprivate func buildExtraEnvVars() -> [String: String] {
         guard selectedHarness == .claude else { return [:] }
         var envVars: [String: String] = [:]
         for envVar in appSettings.envVarOptions {
@@ -624,7 +626,7 @@ private extension NewPaneSheet {
         return envVars
     }
 
-    func resolveManaged(
+    fileprivate func resolveManaged(
         for resolved: WorktreeResolution,
         policy: ExistingWorktreeManagement,
         pane: Pane
@@ -654,7 +656,7 @@ private extension NewPaneSheet {
         }
     }
 
-    func setupErrorMessage(from error: Error) -> String {
+    fileprivate func setupErrorMessage(from error: Error) -> String {
         if let worktreeError = error as? WorktreeResolutionError {
             return worktreeError.localizedDescription
         } else if let gitError = error as? GitCommandError {

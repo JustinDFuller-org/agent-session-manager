@@ -116,13 +116,17 @@ struct StatusLineView: View {
             }
         case "rate5h":
             if let pct = data?.rateLimits?.fiveHour?.usedPercentage {
-                RateProgressView(value: pct, barWidth: 32, label: String(format: "%.0f%%", pct), tint: progressTint(Int(pct)))
+                RateProgressView(
+                    value: pct, barWidth: 32,
+                    label: String(format: "%.0f%%", pct), tint: progressTint(Int(pct)))
             } else {
                 Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "rate7d":
             if let pct = data?.rateLimits?.sevenDay?.usedPercentage {
-                RateProgressView(value: pct, barWidth: 32, label: String(format: "%.0f%%", pct), tint: progressTint(Int(pct)))
+                RateProgressView(
+                    value: pct, barWidth: 32,
+                    label: String(format: "%.0f%%", pct), tint: progressTint(Int(pct)))
             } else {
                 Text("—").font(.caption).foregroundStyle(.secondary)
             }
@@ -280,13 +284,13 @@ private struct PRPopoverContent: View {
                 }
             }
 
-            if let count = pr.unresolvedCommentCount, count > 0 {
+            if let commentCount = pr.unresolvedCommentCount, commentCount > 0 {
                 Divider()
 
                 HStack(spacing: 4) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 10))
-                    Text("\(count) unresolved \(count == 1 ? "comment" : "comments")")
+                    Text("\(commentCount) unresolved \(commentCount == 1 ? "comment" : "comments")")
                         .font(.caption)
                 }
                 .foregroundStyle(.secondary)

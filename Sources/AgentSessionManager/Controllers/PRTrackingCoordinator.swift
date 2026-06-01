@@ -320,7 +320,7 @@ final class PRTrackingCoordinator {
 
     private func parseRateLimitHeader(_ header: String) -> Int? {
         for line in header.components(separatedBy: .newlines)
-            where line.lowercased().hasPrefix("x-ratelimit-remaining:") {
+        where line.lowercased().hasPrefix("x-ratelimit-remaining:") {
             return Int(
                 line.dropFirst("x-ratelimit-remaining:".count)
                     .trimmingCharacters(in: .whitespaces))
