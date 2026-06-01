@@ -192,6 +192,7 @@ final class PRTrackingCoordinator {
             "pr.poll.cycle",
             attributes: ["pane_count": String(paneIDs.count)])
         currentCycleHandle = cycleHandle
+        guard let cycleHandle else { return }
 
         Task { @MainActor [weak self] in
             guard let self, self.cycleToken == token else {

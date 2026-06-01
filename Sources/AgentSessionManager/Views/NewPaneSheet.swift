@@ -627,7 +627,7 @@ extension NewPaneSheet {
     }
 
     fileprivate func resolveManaged(
-        for resolved: WorktreeResolution,
+        for resolved: ResolvedWorktree,
         policy: ExistingWorktreeManagement,
         pane: Pane
     ) async -> Bool? {
