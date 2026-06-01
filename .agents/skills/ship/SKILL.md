@@ -56,11 +56,12 @@ Write the body to `.ship-pr-body.md` (gitignored).
 
 ## Step 4: Invoke the script
 
-Build the `bash scripts/ship.sh` invocation from what you gathered:
+Always run `bash scripts/ship.sh`, adding flags only for state that needs action:
 
 - Include `--commit-msg-file .ship-commit-msg` only if there were changes to commit.
 - Include `--pr-title "..."` and `--pr-body-file .ship-pr-body.md` only if no PR existed.
-- Include `--screenshots-only` only if no commit is needed and a PR already exists.
+
+The script auto-detects a clean tree and an existing PR — `--screenshots-only` is no longer required and is kept only as a back-compat fast-path to skip commit/push/ensure-PR.
 
 Example (commit + new PR):
 ```bash
@@ -70,14 +71,19 @@ bash scripts/ship.sh \
   --pr-body-file .ship-pr-body.md
 ```
 
-Example (already committed and PR exists):
+Example (already committed and PR exists — no flags needed):
 ```bash
-bash scripts/ship.sh --screenshots-only
+bash scripts/ship.sh
 ```
 
 ## Step 5: Handle failure
 
-If the script exits non-zero, read the `INVARIANT VIOLATED:` line it printed. Investigate the named root cause — for example, if `build-screenshots` failed, read the Xcode test logs from `$RESULTS_PATH`. Fix the root cause, then re-invoke `scripts/ship.sh` with the same flags.
+If the script exits non-zero, read the `INVARIANT VIOLATED:` line it printed. The script prints a compact filtered view of the Xcode output on failure; full logs are at `.build/ship-*.log`:
+
+- Pre-flight build failure → `.build/ship-preflight-build.log`
+- Screenshots build failure → `.build/ship-screenshots.log`
+
+Fix the root cause, then re-invoke `scripts/ship.sh`.
 
 **Do not** silently retry, bypass the invariant, or improvise an alternative path.
 

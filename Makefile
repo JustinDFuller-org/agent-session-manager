@@ -166,6 +166,14 @@ screenshots: xcodeproj
 		-only-testing:AgentSessionManagerUITests/ScreenshotTests \
 		-only-testing:AgentSessionManagerUITests/ScreenshotInjectedTests
 
+build-for-testing: xcodeproj
+	xcodebuild build-for-testing \
+		-project $(APP_NAME).xcodeproj \
+		-scheme $(SCHEME) \
+		-configuration Dev \
+		-destination 'platform=macOS' \
+		-derivedDataPath $(DERIVED_DATA)
+
 pr-screenshots:
 	@bash "$(CURDIR)/scripts/pr-screenshots.sh"
 

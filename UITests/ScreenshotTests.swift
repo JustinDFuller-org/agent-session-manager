@@ -21,7 +21,7 @@ final class ScreenshotTests: BaseTestCase {
         baseBranchField.click()
         baseBranchField.typeText("main")
         screenshot("new-tab-sheet-filled")
-        baseBranchField.tripleClick()
+        baseBranchField.typeKey("a", modifierFlags: .command)
         baseBranchField.typeKey(.delete, modifierFlags: [])
         app.buttons["new-tab-choose-dir-button"].click()
         let createBtn = app.buttons["new-tab-create-button"]
