@@ -88,6 +88,20 @@ final class ScreenshotTests: BaseTestCase {
         app.typeKey("w", modifierFlags: .command)
     }
 
+    func testPaneStatusIndicatorsScreenshot() {
+        createTab(named: "Status")
+        createPane(named: "running-pane")
+
+        let idleDot = app.descendants(matching: .any)
+            .matching(identifier: "pane-activity-idle-running-pane").firstMatch
+        XCTAssertTrue(idleDot.waitForExistence(timeout: 15))
+        let statusLineRow = app.descendants(matching: .any)
+            .matching(identifier: "status-line-row").firstMatch
+        XCTAssertTrue(statusLineRow.waitForExistence(timeout: 5))
+
+        screenshot("pane-status-indicators")
+    }
+
     func testTraceDashboard() {
         // 1. Enable Debug mode
         app.typeKey(",", modifierFlags: .command)
