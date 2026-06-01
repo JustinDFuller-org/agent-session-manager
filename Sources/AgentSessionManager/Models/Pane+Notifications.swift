@@ -56,5 +56,4 @@ extension Pane {
             }
         }
     }
-
 }

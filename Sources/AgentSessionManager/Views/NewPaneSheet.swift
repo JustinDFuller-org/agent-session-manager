@@ -515,32 +515,8 @@ struct NewPaneSheet: View {
         guard canSubmit else { return }
         let trimmed = trimmedInput
         guard !trimmed.isEmpty, validationError == nil else { return }
-        var extraArgs: [String] = []
-        for option in activeOptions {
-            guard let state = optionStates[option.id], state.enabled else { continue }
-            switch option.optionType {
-            case .boolean:
-                extraArgs.append(option.id)
-            case .string:
-                let value = state.value.trimmingCharacters(in: .whitespaces)
-                if value.isEmpty {
-                    extraArgs.append(option.id)
-                } else {
-                    let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
-                    extraArgs.append(contentsOf: [option.id, "'\(escaped)'"])
-                }
-            }
-        }
-        var extraEnvVars: [String: String] = [:]
-        if selectedHarness == .claude {
-            for envVar in appSettings.envVarOptions {
-                guard let state = envVarStates[envVar.id], state.enabled else { continue }
-                let value = state.value.trimmingCharacters(in: .whitespaces)
-                if !value.isEmpty {
-                    extraEnvVars[envVar.id] = value
-                }
-            }
-        }
+        let extraArgs = buildExtraArgs()
+        let extraEnvVars = buildExtraEnvVars()
 
         if let pane = refreshingPane {
             tab.refreshPane(
@@ -579,7 +555,6 @@ struct NewPaneSheet: View {
                     defaultBranch: defaultBranch,
                     baseRef: worktreeBaseRef
                 )
-
                 let inUse = await MainActor.run {
                     appState.isCheckoutInUse(
                         directory: tab.directory,
@@ -592,71 +567,22 @@ struct NewPaneSheet: View {
                     }
                     return
                 }
-
-                let managed: Bool
-                if resolved.isExternalTakeover {
-                    switch existingWorktreeManagement {
-                    case .always:
-                        managed = true
-                    case .never:
-                        managed = false
-                    case .ask:
-                        let response = await MainActor.run { () -> NSApplication.ModalResponse in
-                            let alert = NSAlert()
-                            alert.messageText = "Manage existing worktree?"
-                            alert.informativeText =
-                                "A checkout for this repo already exists:\n\(resolved.processDirectory.path)\n\nTake over management so the worktree can be cleaned up later?"
-                            alert.addButton(withTitle: "Manage")
-                            alert.addButton(withTitle: "Don't Manage")
-                            alert.addButton(withTitle: "Cancel")
-                            return alert.runModal()
-                        }
-                        switch response {
-                        case .alertFirstButtonReturn:
-                            managed = true
-                        case .alertSecondButtonReturn:
-                            managed = false
-                        default:
-                            await MainActor.run {
-                                pane.setupState = .failed(error: "Cancelled.")
-                            }
-                            return
-                        }
-                    }
-                } else {
-                    managed = true
-                }
-
+                guard let managed = await resolveManaged(for: resolved, policy: existingWorktreeManagement, pane: pane)
+                else { return }
                 let effectiveExtraArgs = Tab.applyAutoSessionName(
-                    tabName: tabName,
-                    paneName: resolved.paneTitle,
-                    extraArgs: extraArgs,
-                    harness: harness,
-                    enabled: autoSetSessionName
+                    tabName: tabName, paneName: resolved.paneTitle,
+                    extraArgs: extraArgs, harness: harness, enabled: autoSetSessionName
                 )
                 await MainActor.run {
                     tab.completeSetup(
-                        for: pane,
-                        resolved: resolved,
-                        managed: managed,
-                        effectiveExtraArgs: effectiveExtraArgs,
-                        extraEnvVars: extraEnvVars,
-                        statusLineConfigOverride: statusLineOverride,
-                        appSettings: appSettings
+                        for: pane, resolved: resolved, managed: managed,
+                        effectiveExtraArgs: effectiveExtraArgs, extraEnvVars: extraEnvVars,
+                        statusLineConfigOverride: statusLineOverride, appSettings: appSettings
                     )
                     SessionPersistence.save(appState: appState)
                 }
             } catch {
-                await MainActor.run {
-                    if let worktreeError = error as? WorktreeResolutionError {
-                        pane.setupState = .failed(error: worktreeError.localizedDescription)
-                    } else if let gitError = error as? GitCommandError {
-                        pane.setupState = .failed(error: gitError.localizedDescription)
-                    } else {
-                        pane.setupState = .failed(
-                            error: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
-                    }
-                }
+                await MainActor.run { pane.setupState = .failed(error: setupErrorMessage(from: error)) }
             }
         }
     }
@@ -664,7 +590,81 @@ struct NewPaneSheet: View {
     private func resetForm() {
         sessionInput = ""
     }
+}
 
+// MARK: - Create helpers
+
+extension NewPaneSheet {
+    fileprivate func buildExtraArgs() -> [String] {
+        var args: [String] = []
+        for option in activeOptions {
+            guard let state = optionStates[option.id], state.enabled else { continue }
+            switch option.optionType {
+            case .boolean:
+                args.append(option.id)
+            case .string:
+                let value = state.value.trimmingCharacters(in: .whitespaces)
+                if value.isEmpty {
+                    args.append(option.id)
+                } else {
+                    let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
+                    args.append(contentsOf: [option.id, "'\(escaped)'"])
+                }
+            }
+        }
+        return args
+    }
+
+    fileprivate func buildExtraEnvVars() -> [String: String] {
+        guard selectedHarness == .claude else { return [:] }
+        var envVars: [String: String] = [:]
+        for envVar in appSettings.envVarOptions {
+            guard let state = envVarStates[envVar.id], state.enabled else { continue }
+            let value = state.value.trimmingCharacters(in: .whitespaces)
+            if !value.isEmpty { envVars[envVar.id] = value }
+        }
+        return envVars
+    }
+
+    fileprivate func resolveManaged(
+        for resolved: WorktreeResolution,
+        policy: ExistingWorktreeManagement,
+        pane: Pane
+    ) async -> Bool? {
+        guard resolved.isExternalTakeover else { return true }
+        switch policy {
+        case .always: return true
+        case .never: return false
+        case .ask:
+            let response = await MainActor.run { () -> NSApplication.ModalResponse in
+                let alert = NSAlert()
+                alert.messageText = "Manage existing worktree?"
+                alert.informativeText =
+                    "A checkout for this repo already exists:\n\(resolved.processDirectory.path)\n\nTake over management so the worktree can be cleaned up later?"
+                alert.addButton(withTitle: "Manage")
+                alert.addButton(withTitle: "Don't Manage")
+                alert.addButton(withTitle: "Cancel")
+                return alert.runModal()
+            }
+            switch response {
+            case .alertFirstButtonReturn: return true
+            case .alertSecondButtonReturn: return false
+            default:
+                await MainActor.run { pane.setupState = .failed(error: "Cancelled.") }
+                return nil
+            }
+        }
+    }
+
+    fileprivate func setupErrorMessage(from error: Error) -> String {
+        if let worktreeError = error as? WorktreeResolutionError {
+            return worktreeError.localizedDescription
+        } else if let gitError = error as? GitCommandError {
+            return gitError.localizedDescription
+        } else {
+            return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
 }
 
 // MARK: - Save Profile Sheet

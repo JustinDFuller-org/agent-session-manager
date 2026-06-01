@@ -67,5 +67,4 @@ struct Profile: Identifiable, Codable, Equatable {
         self.envVars = envVars
         self.statusLineConfig = statusLineConfig
     }
-
 }

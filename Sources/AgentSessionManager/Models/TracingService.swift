@@ -168,5 +168,4 @@ final class TracingService: @unchecked Sendable {
             return try await body()
         }
     }
-
 }
