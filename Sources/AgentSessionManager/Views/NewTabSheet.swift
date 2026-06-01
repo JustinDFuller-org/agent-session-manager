@@ -2,10 +2,12 @@ import SwiftUI
 
 struct NewTabSheet: View {
     @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
     @State private var directory: URL?
+    @State private var baseBranch = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -57,6 +59,18 @@ struct NewTabSheet: View {
                 }
             }
 
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Base Branch")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField(
+                    "Defaults to \(appSettings.isDefaultBranchEnabled ? appSettings.defaultBranch : "global default")",
+                    text: $baseBranch
+                )
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("new-tab-base-branch-field")
+            }
+
             if name.isEmpty || directory == nil {
                 Text("Both a name and directory are required.")
                     .font(.caption)
@@ -71,7 +85,12 @@ struct NewTabSheet: View {
                     .accessibilityIdentifier("new-tab-cancel-button")
                 Button("Create") {
                     if let dir = directory, !name.isEmpty {
-                        let tab = Tab(name: name, directory: dir)
+                        let trimmed = baseBranch.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let tab = Tab(
+                            name: name,
+                            directory: dir,
+                            baseBranchOverride: trimmed.isEmpty ? nil : trimmed
+                        )
                         appState.tabs.append(tab)
                         appState.activeTabID = tab.id
                         dismiss()

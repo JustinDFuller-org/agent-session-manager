@@ -17,3 +17,14 @@ The **Starting Point** setting controls whether fallback creation starts from fr
 Implementation: `NewPaneSheet.create`, `Tab.resolveOrAttachWorktree`, and `SettingsPersistence.saveDefaultBranch` / `restoreDefaultBranch`.
 
 See [worktree-creation.md](worktree-creation.md) for the full resolution order.
+
+## Per-Tab Base Branch Override
+
+Each tab can carry its own base branch via the **Base Branch** field in the New Tab sheet (File → New Tab, or ⌘T).
+
+- **Set at creation time only.** Leaving the field blank means the tab inherits the global default branch.
+- **Override takes precedence over the global toggle.** When a tab has a non-empty `baseBranchOverride`, that branch is used as the worktree base even if the global Default Branch toggle is off.
+- **Persisted per tab** in `sessions.json` under `baseBranchOverride`. Legacy sessions without the key decode as `nil` (global default applies).
+- **Telemetry** — every pane creation emits a `tab.worktree.base_branch_resolved` span with `base.branch` and `base.branch.source` (`tab-override` | `global-default` | `none`).
+
+**Data flow:** `Tab.baseBranchOverride` → read in `NewPaneSheet.create()` → passed as `defaultBranch:` to `Tab.resolveOrAttachWorktree`.

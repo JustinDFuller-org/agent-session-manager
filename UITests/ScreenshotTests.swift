@@ -11,12 +11,18 @@ final class ScreenshotTests: BaseTestCase {
         waitFor(emptyStateHint)
         screenshot("empty-state")
 
-        // 2. New tab sheet — empty, then filled
+        // 2. New tab sheet — empty, then filled (with base branch)
         app.typeKey("t", modifierFlags: .command)
         waitFor(app.textFields["new-tab-name-field"])
         screenshot("new-tab-sheet")
         app.textFields["new-tab-name-field"].typeText("Alpha")
+        let baseBranchField = app.textFields["new-tab-base-branch-field"]
+        waitFor(baseBranchField)
+        baseBranchField.click()
+        baseBranchField.typeText("main")
         screenshot("new-tab-sheet-filled")
+        baseBranchField.tripleClick()
+        baseBranchField.typeKey(.delete, modifierFlags: [])
         app.buttons["new-tab-choose-dir-button"].click()
         let createBtn = app.buttons["new-tab-create-button"]
         waitFor(createBtn)

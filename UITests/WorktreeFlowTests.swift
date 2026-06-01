@@ -171,6 +171,40 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertFalse(paneLabel.waitForExistence(timeout: 2))
     }
 
+    func testBaseBranchOverrideCreatesWorktreeFromOverrideBranch() {
+        // Create a qa-ui branch in the workspace so the override has a valid base
+        GitUITestWorkspace.runGitOrFail(["branch", "qa-ui", "HEAD"], cwd: GitUITestWorkspace.directoryURL)
+
+        // Open New Tab sheet, fill name + directory via UITesting Choose path, and set base branch
+        app.typeKey("t", modifierFlags: .command)
+        let nameField = app.textFields["new-tab-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("OverrideTab")
+        app.buttons["new-tab-choose-dir-button"].click()
+        waitFor(app.buttons["new-tab-create-button"])
+        let baseBranchField = app.textFields["new-tab-base-branch-field"]
+        waitFor(baseBranchField)
+        baseBranchField.click()
+        baseBranchField.typeText("qa-ui")
+        app.buttons["new-tab-create-button"].click()
+        waitFor(app.buttons["tab-button-OverrideTab"].firstMatch)
+
+        // Open a pane with a novel name — should branch from qa-ui without worktree error
+        let uniqueName = "qa-override-\(UUID().uuidString.prefix(8))"
+        app.typeKey("p", modifierFlags: .command)
+        let paneField = app.textFields["new-pane-name-field"]
+        waitFor(paneField)
+        paneField.click()
+        paneField.typeText(uniqueName)
+        app.buttons["new-pane-open-button"].click()
+
+        XCTAssertFalse(app.scrollViews["new-pane-worktree-error"].waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.staticTexts.matching(identifier: "pane-name-\(uniqueName)").firstMatch
+                .waitForExistence(timeout: paneWait))
+    }
+
     private func openPrimaryCheckoutPane() {
         app.typeKey("p", modifierFlags: .command)
         let field = app.textFields["new-pane-name-field"]

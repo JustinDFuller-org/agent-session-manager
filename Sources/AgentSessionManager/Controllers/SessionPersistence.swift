@@ -112,6 +112,7 @@ struct PersistedTab: Codable {
     var id: UUID
     var name: String
     var directory: String
+    var baseBranchOverride: String?
     var panes: [PersistedPane]
 }
 
@@ -193,6 +194,7 @@ struct SessionPersistence {
                 id: tab.id,
                 name: tab.name,
                 directory: tab.directory.path,
+                baseBranchOverride: tab.baseBranchOverride,
                 panes: tab.panes.compactMap { pane -> PersistedPane? in
                     guard pane.harness != .shell else { return nil }
                     return PersistedPane(
@@ -243,7 +245,12 @@ struct SessionPersistence {
 
         for persistedTab in session.tabs {
             guard let dir = URL(string: "file://\(persistedTab.directory)") else { continue }
-            let tab = Tab(id: persistedTab.id, name: persistedTab.name, directory: dir)
+            let tab = Tab(
+                id: persistedTab.id,
+                name: persistedTab.name,
+                directory: dir,
+                baseBranchOverride: persistedTab.baseBranchOverride
+            )
             for persistedPane in persistedTab.panes {
                 let worktreeDir: URL?
                 if let pathStr = persistedPane.worktreeDirectory, !pathStr.isEmpty {

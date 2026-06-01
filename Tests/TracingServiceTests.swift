@@ -139,4 +139,39 @@ final class TracingServiceTests: XCTestCase {
         }
         XCTAssertFalse(foundFile)
     }
+
+    func testBaseBranchResolvedSpanWritesExpectedAttributes() throws {
+        appSettings.debugModeEnabled = true
+        TracingService.shared.configure(from: appSettings)
+
+        let paneID = "aabbccdd-0000-0000-0000-000000000001"
+        TracingService.shared.record(
+            "tab.worktree.base_branch_resolved",
+            attributes: [
+                "pane.id": paneID,
+                "pane.name": "my-feature",
+                "tab.id": "aabbccdd-0000-0000-0000-000000000002",
+                "tab.name": "WorkTab",
+                "base.branch": "qa",
+                "base.branch.source": "tab-override",
+            ]
+        )
+
+        let expectation = XCTestExpectation(description: "span written")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { expectation.fulfill() }
+        wait(for: [expectation], timeout: 2)
+
+        var foundContent: String?
+        let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
+        while let file = enumerator?.nextObject() as? URL {
+            if file.pathExtension == "jsonl" {
+                foundContent = try? String(contentsOf: file, encoding: .utf8)
+                break
+            }
+        }
+        XCTAssertNotNil(foundContent)
+        XCTAssertTrue(foundContent?.contains("tab.worktree.base_branch_resolved") ?? false)
+        XCTAssertTrue(foundContent?.contains("tab-override") ?? false)
+        XCTAssertTrue(foundContent?.contains("base.branch") ?? false)
+    }
 }

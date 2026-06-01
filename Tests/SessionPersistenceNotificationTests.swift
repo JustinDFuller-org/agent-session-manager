@@ -152,4 +152,34 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         }
         XCTAssertEqual(extraArgs, ["--model", "claude-opus-4-5", "--continue"])
     }
+
+    func testBaseBranchOverrideRoundTripsInPersistedTab() throws {
+        let id = UUID()
+        let tab = PersistedTab(id: id, name: "T", directory: "/tmp", baseBranchOverride: "qa", panes: [])
+        let data = try JSONEncoder().encode(tab)
+        let decoded = try JSONDecoder().decode(PersistedTab.self, from: data)
+        XCTAssertEqual(decoded.baseBranchOverride, "qa")
+    }
+
+    func testBaseBranchOverrideNilRoundTrips() throws {
+        let id = UUID()
+        let tab = PersistedTab(id: id, name: "T", directory: "/tmp", panes: [])
+        let data = try JSONEncoder().encode(tab)
+        let decoded = try JSONDecoder().decode(PersistedTab.self, from: data)
+        XCTAssertNil(decoded.baseBranchOverride)
+    }
+
+    func testLegacyTabWithoutBaseBranchOverrideDecodesNil() throws {
+        let json = Data(
+            """
+            {
+              "id": "00000000-0000-0000-0000-000000000001",
+              "name": "T",
+              "directory": "/tmp",
+              "panes": []
+            }
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedTab.self, from: json)
+        XCTAssertNil(decoded.baseBranchOverride)
+    }
 }

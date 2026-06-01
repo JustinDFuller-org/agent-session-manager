@@ -74,4 +74,58 @@ final class WorktreeResolutionLocalOnlyTests: XCTestCase {
 
         try? FileManager.default.removeItem(at: repo)
     }
+
+    func testBaseBranchOverrideUsedAsWorktreeBase() async throws {
+        let repo = try makeGitRepo(branchName: "main")
+        // Create qa branch with a sentinel file
+        try runGit(["-c", "user.email=t@t.com", "-c", "user.name=t", "checkout", "-b", "qa"], cwd: repo)
+        let sentinel = repo.appending(path: "qa-only.txt")
+        try "qa".write(to: sentinel, atomically: true, encoding: .utf8)
+        try runGit(["-c", "user.email=t@t.com", "-c", "user.name=t", "add", "qa-only.txt"], cwd: repo)
+        try runGit(
+            ["-c", "user.email=t@t.com", "-c", "user.name=t", "commit", "-m", "qa sentinel"],
+            cwd: repo
+        )
+        try runGit(["checkout", "main"], cwd: repo)
+
+        // Simulate what NewPaneSheet does: resolve the effective branch from the tab override
+        let tab = Tab(name: "T", directory: repo, baseBranchOverride: "qa")
+        let effectiveBranch = tab.baseBranchOverride
+
+        let resolved = try await tab.resolveOrAttachWorktree(
+            userRef: "override-feature",
+            defaultBranch: effectiveBranch,
+            baseRef: .fresh
+        )
+
+        // Worktree branched from qa must contain the sentinel file
+        let worktreeSentinel = resolved.checkoutURL.appending(path: "qa-only.txt")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: worktreeSentinel.path),
+            "Worktree should be based on qa branch and contain qa-only.txt"
+        )
+
+        try? FileManager.default.removeItem(at: repo)
+    }
+}
+
+@MainActor
+final class TabBaseBranchOverrideModelTests: XCTestCase {
+    func testBaseBranchOverrideDefaultsNil() {
+        let tab = Tab(name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        XCTAssertNil(tab.baseBranchOverride)
+    }
+
+    func testBaseBranchOverrideStoresValue() {
+        let tab = Tab(name: "T", directory: URL(fileURLWithPath: "/tmp"), baseBranchOverride: "qa")
+        XCTAssertEqual(tab.baseBranchOverride, "qa")
+    }
+
+    func testEmptyStringNormalizationAtCallSite() {
+        // NewTabSheet trims and converts empty string to nil before passing to Tab init
+        let raw = "   "
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let override: String? = trimmed.isEmpty ? nil : trimmed
+        XCTAssertNil(override)
+    }
 }
