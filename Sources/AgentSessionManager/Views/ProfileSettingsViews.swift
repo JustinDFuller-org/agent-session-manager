@@ -151,7 +151,6 @@ struct ProfilesContent: View {
             )
         }
     }
-
 }
 
 private struct ProfileEditorSheet: View {

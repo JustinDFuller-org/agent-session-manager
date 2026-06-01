@@ -144,7 +144,7 @@ final class PerPaneSpanExporterTests: XCTestCase {
         let tracer = provider.get(instrumentationName: "test", instrumentationVersion: nil)
         let builder = tracer.spanBuilder(spanName: name)
         let span = builder.startSpan()
-        for (k, v) in attrs { span.setAttribute(key: k, value: v) }
+        for (attrKey, attrValue) in attrs { span.setAttribute(key: attrKey, value: attrValue) }
         span.end()
         return (span as! RecordEventsReadableSpan).toSpanData()
     }

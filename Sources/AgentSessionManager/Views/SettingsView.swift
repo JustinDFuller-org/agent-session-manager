@@ -92,7 +92,6 @@ struct SettingsView: View {
         }
         .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
     }
-
 }
 
 struct DefaultValueLabel: View {
@@ -463,7 +462,6 @@ private struct ToolsContent: View {
             .formStyle(.grouped)
         }
     }
-
 }
 
 struct CLIOptionsContent: View {

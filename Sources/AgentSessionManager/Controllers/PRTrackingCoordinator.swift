@@ -9,6 +9,15 @@ import Observation
 final class PRTrackingCoordinator {
     static let shared = PRTrackingCoordinator()
 
+    struct QueryResult {
+        var outData: Data
+        var exitStatus: Int32
+        var result: String
+        var count: Int
+        var startTime: Date
+        var endTime: Date
+    }
+
     struct SubscriberRecord {
         var workingDirectory: String
         var owner: String?
@@ -207,119 +216,138 @@ final class PRTrackingCoordinator {
                 TracingService.shared.end(handle: cycleHandle, attributes: ["result": "cancelled"])
                 return
             }
-            guard SettingsPersistence.isPRTrackingEnabled() else { return }
-            let query = self.buildBatchQuery()
-            guard !query.isEmpty else { return }
-            let settings = SettingsPersistence.prPollingSettings()
-            let tempPath = NSTemporaryDirectory() + "agent-session-manager-graphql-\(UUID().uuidString).json"
-            guard let jsonData = try? JSONSerialization.data(withJSONObject: ["query": query]),
-                (try? jsonData.write(to: URL(filePath: tempPath))) != nil
-            else { return }
-            let task = Process()
-            let outPipe = Pipe()
-            let errPipe = Pipe()
-            task.executableURL = URL(filePath: "/bin/zsh")
-            task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
-            task.standardOutput = outPipe
-            task.standardError = errPipe
-            let timeoutWork = DispatchWorkItem { [weak task] in task?.terminate() }
-            self.timeoutWorkItem = timeoutWork
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + Double(settings.timeoutSeconds), execute: timeoutWork)
-            let count =
-                self.subscribers.values.filter { $0.owner != nil && $0.repo != nil && $0.branchName != nil }.count
-            let queryStartTime = Date()
-            task.terminationHandler = { [weak self] process in
-                let queryEndTime = Date()
-                timeoutWork.cancel()
-                try? FileManager.default.removeItem(atPath: tempPath)
-                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                let result = process.terminationStatus == 0 ? "ok" : "error"
-                Task { @MainActor [weak self] in
-                    guard let self, self.cycleToken == token else {
-                        TracingService.shared.end(handle: cycleHandle, attributes: ["result": "cancelled"])
-                        return
-                    }
-                    TracingService.shared.record(
-                        "pr.graphql.query",
-                        parent: cycleHandle,
-                        startTime: queryStartTime,
-                        endTime: queryEndTime,
-                        attributes: [
-                            "pane_count": String(count),
-                            "result": result,
-                            "exit_code": String(process.terminationStatus),
-                        ])
-                    self.activeBatchProcess = nil
-                    guard !outData.isEmpty, let text = String(data: outData, encoding: .utf8) else {
-                        TracingService.shared.end(handle: cycleHandle, attributes: ["result": "empty_response"])
-                        self.currentCycleHandle = nil
-                        return
-                    }
-                    let separators = ["\r\n\r\n", "\n\n"]
-                    var headerSection = ""
-                    var jsonText = text
-                    for separator in separators {
-                        let parts = text.components(separatedBy: separator)
-                        if parts.count >= 2 {
-                            headerSection = parts[0]
-                            jsonText = parts.dropFirst().joined(separator: separator)
-                            break
-                        }
-                    }
-                    var remainingPoints: Int?
-                    for line in headerSection.components(separatedBy: .newlines) {
-                        if line.lowercased().hasPrefix("x-ratelimit-remaining:") {
-                            remainingPoints =
-                                Int(
-                                    line.dropFirst("x-ratelimit-remaining:".count)
-                                        .trimmingCharacters(in: .whitespaces))
-                        }
-                    }
-                    if let points = remainingPoints {
-                        self.adjustInterval(remainingPoints: points)
-                    }
-                    guard let responseData = jsonText.data(using: .utf8),
-                        let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
-                        let dataDict = json["data"] as? [String: Any]
-                    else {
-                        TracingService.shared.end(handle: cycleHandle, attributes: ["result": "parse_failed"])
-                        self.currentCycleHandle = nil
-                        return
-                    }
-                    var parsedCount = 0
-                    for (paneID, _) in self.subscribers {
-                        let alias = "pane_" + paneID.uuidString.replacingOccurrences(of: "-", with: "")
-                        guard let repoData = dataDict[alias] as? [String: Any],
-                            let pullRequests = repoData["pullRequests"] as? [String: Any],
-                            let nodes = pullRequests["nodes"] as? [[String: Any]],
-                            let node = nodes.first
-                        else {
-                            self.subscribers[paneID]?.lastData = nil
-                            self.subscribers[paneID]?.callback(nil)
-                            continue
-                        }
-                        if let pr = Self.parsePRFromGraphQLNode(node) {
-                            parsedCount += 1
-                            self.subscribers[paneID]?.lastData = pr
-                            self.subscribers[paneID]?.callback(pr)
-                        }
-                    }
-                    var parsedAttrs: [String: String] = ["pr_count": String(parsedCount)]
-                    if let points = remainingPoints { parsedAttrs["rate_limit_remaining"] = String(points) }
-                    TracingService.shared.record("pr.response.parsed", parent: cycleHandle, attributes: parsedAttrs)
-                    TracingService.shared.end(handle: cycleHandle, attributes: ["result": "ok"])
-                    self.currentCycleHandle = nil
-                }
-            }
-            self.activeBatchProcess = task
-            do {
-                try task.run()
-            } catch {
-                self.activeBatchProcess = nil
-                try? FileManager.default.removeItem(atPath: tempPath)
+            self.dispatchBatchQuery(token: token, cycleHandle: cycleHandle)
+        }
+    }
+
+    private func dispatchBatchQuery(token: UInt64, cycleHandle: SpanHandle) {
+        guard SettingsPersistence.isPRTrackingEnabled() else { return }
+        let query = buildBatchQuery()
+        guard !query.isEmpty else { return }
+        let settings = SettingsPersistence.prPollingSettings()
+        let tempPath = NSTemporaryDirectory() + "agent-session-manager-graphql-\(UUID().uuidString).json"
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: ["query": query]),
+            (try? jsonData.write(to: URL(filePath: tempPath))) != nil
+        else { return }
+        let task = Process()
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.executableURL = URL(filePath: "/bin/zsh")
+        task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
+        task.standardOutput = outPipe
+        task.standardError = errPipe
+        let timeoutWork = DispatchWorkItem { [weak task] in task?.terminate() }
+        timeoutWorkItem = timeoutWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(settings.timeoutSeconds), execute: timeoutWork)
+        let count = subscribers.values.filter { $0.owner != nil && $0.repo != nil && $0.branchName != nil }.count
+        let queryStartTime = Date()
+        task.terminationHandler = { [weak self] process in
+            let queryResult = QueryResult(
+                outData: outPipe.fileHandleForReading.readDataToEndOfFile(),
+                exitStatus: process.terminationStatus,
+                result: process.terminationStatus == 0 ? "ok" : "error",
+                count: count,
+                startTime: queryStartTime,
+                endTime: Date()
+            )
+            timeoutWork.cancel()
+            try? FileManager.default.removeItem(atPath: tempPath)
+            Task { @MainActor [weak self] in
+                self?.handleBatchResponse(queryResult, token: token, cycleHandle: cycleHandle)
             }
         }
+        activeBatchProcess = task
+        do {
+            try task.run()
+        } catch {
+            activeBatchProcess = nil
+            try? FileManager.default.removeItem(atPath: tempPath)
+        }
+    }
+
+    private func handleBatchResponse(_ queryResult: QueryResult, token: UInt64, cycleHandle: SpanHandle) {
+        guard cycleToken == token else {
+            TracingService.shared.end(handle: cycleHandle, attributes: ["result": "cancelled"])
+            return
+        }
+        TracingService.shared.record(
+            "pr.graphql.query",
+            parent: cycleHandle,
+            startTime: queryResult.startTime,
+            endTime: queryResult.endTime,
+            attributes: [
+                "pane_count": String(queryResult.count),
+                "result": queryResult.result,
+                "exit_code": String(queryResult.exitStatus),
+            ])
+        activeBatchProcess = nil
+        guard !queryResult.outData.isEmpty, let text = String(data: queryResult.outData, encoding: .utf8) else {
+            TracingService.shared.end(handle: cycleHandle, attributes: ["result": "empty_response"])
+            currentCycleHandle = nil
+            return
+        }
+        let (headerSection, jsonText) = splitHeaderAndBody(from: text)
+        let remainingPoints = parseRateLimitHeader(headerSection)
+        if let points = remainingPoints {
+            adjustInterval(remainingPoints: points)
+        }
+        guard let responseData = jsonText.data(using: .utf8),
+            let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+            let dataDict = json["data"] as? [String: Any]
+        else {
+            TracingService.shared.end(handle: cycleHandle, attributes: ["result": "parse_failed"])
+            currentCycleHandle = nil
+            return
+        }
+        let parsedCount = deliverPRResults(from: dataDict)
+        var parsedAttrs: [String: String] = ["pr_count": String(parsedCount)]
+        if let points = remainingPoints { parsedAttrs["rate_limit_remaining"] = String(points) }
+        TracingService.shared.record("pr.response.parsed", parent: cycleHandle, attributes: parsedAttrs)
+        TracingService.shared.end(handle: cycleHandle, attributes: ["result": "ok"])
+        currentCycleHandle = nil
+    }
+
+    private func splitHeaderAndBody(from text: String) -> (header: String, body: String) {
+        let separators = ["\r\n\r\n", "\n\n"]
+        for separator in separators {
+            let parts = text.components(separatedBy: separator)
+            if parts.count >= 2 {
+                return (parts[0], parts.dropFirst().joined(separator: separator))
+            }
+        }
+        return ("", text)
+    }
+
+    private func parseRateLimitHeader(_ header: String) -> Int? {
+        for line in header.components(separatedBy: .newlines)
+            where line.lowercased().hasPrefix("x-ratelimit-remaining:") {
+            return Int(
+                line.dropFirst("x-ratelimit-remaining:".count)
+                    .trimmingCharacters(in: .whitespaces))
+        }
+        return nil
+    }
+
+    private func deliverPRResults(from dataDict: [String: Any]) -> Int {
+        var parsedCount = 0
+        for (paneID, _) in subscribers {
+            let alias = "pane_" + paneID.uuidString.replacingOccurrences(of: "-", with: "")
+            guard let repoData = dataDict[alias] as? [String: Any],
+                let pullRequests = repoData["pullRequests"] as? [String: Any],
+                let nodes = pullRequests["nodes"] as? [[String: Any]],
+                let node = nodes.first
+            else {
+                subscribers[paneID]?.lastData = nil
+                subscribers[paneID]?.callback(nil)
+                continue
+            }
+            if let pr = Self.parsePRFromGraphQLNode(node) {
+                parsedCount += 1
+                subscribers[paneID]?.lastData = pr
+                subscribers[paneID]?.callback(pr)
+            }
+        }
+        return parsedCount
     }
 
     func buildBatchQuery() -> String {

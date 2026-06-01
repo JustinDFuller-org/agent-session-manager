@@ -243,5 +243,4 @@ struct PaneView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("pane-loading-overlay-\(pane.name)")
     }
-
 }

@@ -198,5 +198,4 @@ final class WorktreeFlowTests: BaseTestCase {
         waitForDisappear(field, timeout: 25)
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(folder)").firstMatch, timeout: 10)
     }
-
 }
