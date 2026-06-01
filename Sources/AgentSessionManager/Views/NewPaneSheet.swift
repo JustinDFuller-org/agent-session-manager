@@ -540,15 +540,41 @@ struct NewPaneSheet: View {
         resetForm()
         dismiss()
 
-        let defaultBranch: String? = appSettings.isDefaultBranchEnabled ? appSettings.defaultBranch : nil
+        let defaultBranch: String?
+        let branchSource: String
+        if let override = tab.baseBranchOverride, !override.isEmpty {
+            defaultBranch = override
+            branchSource = "tab-override"
+        } else if appSettings.isDefaultBranchEnabled {
+            defaultBranch = appSettings.defaultBranch
+            branchSource = "global-default"
+        } else {
+            defaultBranch = nil
+            branchSource = "none"
+        }
         let worktreeBaseRef = appSettings.worktreeBaseRef
         let existingWorktreeManagement = appSettings.existingWorktreeManagement
         let autoSetSessionName = appSettings.autoSetSessionName
         let tabName = tab.name
         let harness = selectedHarness
         let statusLineOverride = selectedProfile?.statusLineConfig
+        let paneID = pane.id
+        let paneName = trimmed
+        let tabID = tab.id
+        let resolvedDefaultBranch = defaultBranch
 
         Task {
+            TracingService.shared.record(
+                "tab.worktree.base_branch_resolved",
+                attributes: [
+                    "pane.id": paneID.uuidString,
+                    "pane.name": paneName,
+                    "tab.id": tabID.uuidString,
+                    "tab.name": tabName,
+                    "base.branch": resolvedDefaultBranch ?? "",
+                    "base.branch.source": branchSource,
+                ]
+            )
             do {
                 let resolved = try await tab.resolveOrAttachWorktree(
                     userRef: trimmed,

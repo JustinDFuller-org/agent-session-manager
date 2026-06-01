@@ -66,13 +66,15 @@ final class Tab: Identifiable {
     let id: UUID
     var name: String
     var directory: URL
+    var baseBranchOverride: String?
     var panes: [Pane] = []
     var lastActivePaneID: UUID?
 
-    init(id: UUID = UUID(), name: String, directory: URL) {
+    init(id: UUID = UUID(), name: String, directory: URL, baseBranchOverride: String? = nil) {
         self.id = id
         self.name = name
         self.directory = directory
+        self.baseBranchOverride = baseBranchOverride
     }
 
     var hasRunningPane: Bool {
