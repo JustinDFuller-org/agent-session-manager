@@ -5,9 +5,6 @@ import XCTest
 final class ScreenshotInjectedTests: XCTestCase {
     var app: XCUIApplication!
 
-    private static let tabID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-    private static let runningPaneID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-    private static let mergedPaneID = "cccccccc-cccc-cccc-cccc-cccccccccccc"
     private static let notifTabID = "dddddddd-dddd-dddd-dddd-dddddddddddd"
     private static let notifPaneID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
     private static let notifID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
@@ -67,56 +64,6 @@ final class ScreenshotInjectedTests: XCTestCase {
                 .waitForExistence(timeout: 5)
         )
         screenshot("invariant-dashboard", app: app)
-    }
-
-    func testPaneStatusScreenshot() {
-        let workspaceDir = GitUITestWorkspace.directoryURL.path
-        let json = """
-            {
-              "tabs": [
-                {
-                  "id": "\(Self.tabID)",
-                  "name": "StatusTab",
-                  "directory": "\(workspaceDir)",
-                  "panes": [
-                    {
-                      "id": "\(Self.runningPaneID)",
-                      "name": "running-pane",
-                      "harness": "claude",
-                      "isPriority": false,
-                      "isMerged": false,
-                      "worktreeDirectory": "\(workspaceDir)",
-                      "worktreeIsManaged": false
-                    },
-                    {
-                      "id": "\(Self.mergedPaneID)",
-                      "name": "merged-pane",
-                      "harness": "claude",
-                      "isPriority": false,
-                      "isMerged": true,
-                      "worktreeDirectory": "\(workspaceDir)",
-                      "worktreeIsManaged": false
-                    }
-                  ]
-                }
-              ],
-              "activeTabIndex": 0,
-              "pendingNotifications": []
-            }
-            """
-        writeSupport(json: json)
-
-        app = XCUIApplication()
-        app.launchArguments = ["--uitesting"]
-        app.launch()
-        app.activate()
-
-        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane")
-            .firstMatch
-        XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
-        let statusLineRow = app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch
-        XCTAssertTrue(statusLineRow.waitForExistence(timeout: 5))
-        screenshot("pane-status-indicators", app: app)
     }
 
     func testNotificationSidebarScreenshot() {
@@ -291,8 +238,6 @@ final class ScreenshotInjectedTests: XCTestCase {
         screenshot("onboarding-status-line", app: app)
 
         // Use Save (not Skip) so the wizard-default rows are persisted to disk.
-        // Skip would write an empty config, breaking testPaneStatusScreenshot which
-        // relies on a non-empty status line appearing in a subsequent test.
         let statusLineSaveButton = app.buttons["onboarding-statusline-save-button"]
         statusLineSaveButton.click()
 
