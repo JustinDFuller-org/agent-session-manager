@@ -17,12 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: swift-actions/setup-swift@v2
+      - uses: swift-actions/setup-swift@v3
         with:
           swift-version: "6.1"
 
       - name: Cache swift-format build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/swift-format-bin
           key: swift-format-linux-6.1-v1
