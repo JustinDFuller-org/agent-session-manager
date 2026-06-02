@@ -102,6 +102,19 @@ final class ScreenshotTests: BaseTestCase {
         screenshot("pane-status-indicators")
     }
 
+    func testFocusedPaneScreenshot() {
+        createTab(named: "Focus")
+        createPane(named: "reader")
+        createPane(named: "worker")
+
+        let readerHeader = app.descendants(matching: .any).matching(identifier: "pane-header-reader").firstMatch
+        waitFor(readerHeader)
+        readerHeader.doubleClick()
+        waitFor(app.buttons["pane-show-all-reader"].firstMatch)
+
+        screenshot("focused-pane")
+    }
+
     func testTraceDashboard() {
         // 1. Enable Debug mode
         app.typeKey(",", modifierFlags: .command)
@@ -154,5 +167,77 @@ final class ScreenshotTests: BaseTestCase {
         waitFor(waterfall, timeout: 10)
 
         screenshot("trace-waterfall")
+    }
+
+    func testInvariantDashboardScreenshot() throws {
+        // 1. Enable Debug mode
+        app.typeKey(",", modifierFlags: .command)
+        let debugTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-debug").firstMatch
+        waitFor(debugTab)
+        debugTab.click()
+        let debugToggle = app.checkBoxes["settings-debug-mode-toggle"]
+        waitFor(debugToggle)
+        if debugToggle.value as? Int == 0 {
+            debugToggle.click()
+        }
+        app.typeKey("w", modifierFlags: .command)
+
+        // 2. Create a real Claude pane and find the monitor file created for it
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+        let existingStatusFiles = Set(
+            (try? FileManager.default.contentsOfDirectory(
+                at: temporaryDirectory,
+                includingPropertiesForKeys: nil
+            ))?
+            .filter { $0.lastPathComponent.hasPrefix("agent-session-manager-status-") }
+            .map(\.path) ?? []
+        )
+        createTab(named: "invariant-demo")
+        createPane(named: "worker")
+
+        let monitorFileExpectation = expectation(description: "Claude status-line monitor file exists")
+        var monitorFile: URL?
+        let deadline = Date().addingTimeInterval(10)
+        repeat {
+            monitorFile =
+                (try? FileManager.default.contentsOfDirectory(
+                    at: temporaryDirectory,
+                    includingPropertiesForKeys: nil
+                ))?
+                .first {
+                    $0.lastPathComponent.hasPrefix("agent-session-manager-status-")
+                        && !existingStatusFiles.contains($0.path)
+                }
+            if monitorFile != nil {
+                monitorFileExpectation.fulfill()
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        wait(for: [monitorFileExpectation], timeout: 0.1)
+        XCTAssertNotNil(monitorFile)
+
+        // 3. Exercise the same file ingress Claude uses and let production enforcement report the mismatch
+        try Data(#"{"worktree":{"name":"wrong-name","branch":"main"}}"#.utf8)
+            .write(to: XCTUnwrap(monitorFile))
+
+        // 4. Open the dashboard and require the real violation before capturing it
+        app.typeKey("i", modifierFlags: [.command, .shift])
+        let dashboard = app.windows["Invariant Dashboard"]
+        waitFor(dashboard)
+        let refreshButton = dashboard.buttons["invariant-dashboard-refresh-button"]
+        waitFor(refreshButton)
+
+        let violation = dashboard.staticTexts["statusline.worktree.name"]
+        let violationDeadline = Date().addingTimeInterval(10)
+        repeat {
+            refreshButton.click()
+            if violation.exists { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < violationDeadline
+        XCTAssertTrue(violation.exists, "Expected the real worktree-name violation to appear")
+
+        screenshot("invariant-dashboard")
     }
 }

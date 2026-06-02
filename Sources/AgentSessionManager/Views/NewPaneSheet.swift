@@ -528,6 +528,7 @@ struct NewPaneSheet: View {
             return
         }
 
+        tab.setFocusedPane(id: nil, reason: "pane_created")
         let pane = tab.addPaneWithLoadingState(
             name: trimmed,
             harness: selectedHarness,

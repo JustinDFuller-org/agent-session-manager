@@ -20,6 +20,9 @@ struct ContentView: View {
     var body: some View {
         @Bindable var appState = appState
         let hasNotifications = !appState.notifications.isEmpty
+        let hideNotificationSidebar =
+            appSettings.hideNotificationSidebarWhileFocused
+            && appState.activeTab?.focusedPaneID != nil
         VStack(spacing: 0) {
             TabBarView()
                 .frame(height: 44)
@@ -30,6 +33,7 @@ struct ContentView: View {
                 if appSettings.notificationSidebarSide == .left
                     && (hasNotifications
                         || appSettings.alwaysShowNotificationsSidebar)
+                    && !hideNotificationSidebar
                 {
                     NotificationSidebarView()
                         .environment(appState)
@@ -50,6 +54,7 @@ struct ContentView: View {
                 if appSettings.notificationSidebarSide == .right
                     && (hasNotifications
                         || appSettings.alwaysShowNotificationsSidebar)
+                    && !hideNotificationSidebar
                 {
                     Divider()
                     NotificationSidebarView()
@@ -62,7 +67,6 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
         .task {
-            await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
             if let config = SettingsPersistence.load(DefaultBranchConfig.self, from: "default-branch.json") {
                 appSettings.isDefaultBranchEnabled = config.isEnabled
                 appSettings.defaultBranch = config.branchName
@@ -172,13 +176,27 @@ struct ContentView: View {
                 {
                     appSettings.paneActivityIndicatorsEnabled = config.enabled
                 }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.FocusModeConfig.self, from: "focus-mode-settings.json")
+                {
+                    appSettings.focusModeTabSwitchBehavior = config.tabSwitchBehavior
+                    appSettings.hideNotificationSidebarWhileFocused = config.hideNotificationSidebar
+                }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
+                if let bundleIdentifier = Bundle.main.bundleIdentifier {
+                    BundleIdentityVerifier.checkPreferredURL(
+                        runningURL: Bundle.main.bundleURL,
+                        preferredURL: NSWorkspace.shared.urlForApplication(
+                            withBundleIdentifier: bundleIdentifier),
+                        bundleIdentifier: bundleIdentifier)
+                }
                 let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
                 traceCleanupService = cleanup
                 SessionPersistence.restore(into: appState, appSettings: appSettings)
                 await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
             }
+            await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
             if AgentSessionManagerApp.isUITesting {
                 for arg in CommandLine.arguments {
                     if arg.hasPrefix("--inject-pane-loading="),
@@ -203,10 +221,6 @@ struct ContentView: View {
                         }
                     }
                 }
-            }
-            if AgentSessionManagerApp.shouldSimulateBannerClick {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                MacNotificationCoordinator.shared.simulateLegacyNotificationActivationForUITesting()
             }
             if !AgentSessionManagerApp.isUITesting
                 || CommandLine.arguments.contains("--uitesting-show-onboarding")
@@ -380,7 +394,10 @@ struct ContentView: View {
 
     private func switchTab(index: Int) {
         guard index < appState.tabs.count else { return }
-        appState.switchToTab(id: appState.tabs[index].id)
+        appState.switchToTab(
+            id: appState.tabs[index].id,
+            focusModeTabSwitchBehavior: appSettings.focusModeTabSwitchBehavior
+        )
     }
 
     private func closeActiveTab() {

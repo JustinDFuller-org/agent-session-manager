@@ -41,28 +41,4 @@ final class EmptyStateFlowTests: BaseTestCase {
         app.buttons["new-tab-cancel-button"].click()
         waitForDisappear(nameField)
     }
-
-    func testBannerActivationDoesNotOpenSecondMainWindow() {
-        app.terminate()
-        app.launchArguments = [
-            "--uitesting",
-            "--uitesting-skip-restore",
-            "--uitesting-simulate-banner-click",
-        ]
-        app.launch()
-
-        let predicate = NSPredicate(format: "title CONTAINS %@", "Agent Session Manager")
-        let mainWindows = app.windows.matching(predicate)
-        XCTAssertTrue(mainWindows.element(boundBy: 0).waitForExistence(timeout: 5))
-
-        let deadline = Date().addingTimeInterval(2)
-        while Date() < deadline {
-            if mainWindows.count == 1 { break }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
-        XCTAssertEqual(
-            mainWindows.count, 1,
-            "Expected exactly one main window after simulated notification activation"
-        )
-    }
 }

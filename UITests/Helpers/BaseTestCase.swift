@@ -67,7 +67,7 @@ class BaseTestCase: XCTestCase {
             "terminal-settings.json", "worktree-base-ref.json", "exit-behavior.json",
             "env-var-settings.json", "profiles.json", "session-name-settings.json",
             "shell-settings.json", "onboarding-settings.json",
-            "activity-indicator-settings.json",
+            "activity-indicator-settings.json", "focus-mode-settings.json",
         ] {
             try? FileManager.default.removeItem(at: support.appending(path: file))
         }

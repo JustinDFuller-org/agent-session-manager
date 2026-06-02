@@ -70,7 +70,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let window = mainWindow else { return }
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationWillBecomeActive(_ notification: Notification) {

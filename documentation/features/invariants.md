@@ -4,8 +4,6 @@ Agent Session Manager records contract violations separately from traces so repe
 
 Production writes under `~/Library/Application Support/agent-session-manager/`. Development builds use the isolated `~/Library/Application Support/agent-session-manager.dev/` directory.
 
-Production writes under `~/Library/Application Support/agent-session-manager/`. Development builds use the isolated `~/Library/Application Support/agent-session-manager.dev/` directory.
-
 ## Enabling
 
 Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are always routed through tracing, but durable invariant JSONL output is written only while Debug mode is enabled.
@@ -16,6 +14,7 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 |---|---|---|---|
 | `statusline.worktree.name` | Status Line | warning | `statusline.worktree.name_mismatch` |
 | `statusline.lines.source` | Status Line | warning | `statusline.lines.source_mismatch` |
+| `app.bundle_identity.preferred_url` | App Bundle | warning | `app.bundle_identity.preferred_url_mismatch` |
 
 Each occurrence has its own UUID. Repeated violations of the same invariant remain separate dashboard rows.
 
@@ -32,7 +31,5 @@ The file starts with versioned metadata and is trimmed to 10 MB with an invarian
 ## Dashboard
 
 Open **Invariant Dashboard** from **Settings → Debug**, the Window menu, or `⌘⇧I`. The dashboard shows newest violations first, supports filtering, and displays the selected occurrence context.
-
-For read-only incident diagnosis, use `agent-data-access`; its collector filters invariant occurrences by candidate `context["pane.id"]`.
 
 For read-only incident diagnosis, use `agent-data-access`; its collector filters invariant occurrences by candidate `context["pane.id"]`.

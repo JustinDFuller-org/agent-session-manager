@@ -13,6 +13,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `new-pane-sheet` | New Pane sheet overlay |
 | `split-panes` | Tab with two panes side by side |
 | `pane-status-indicators` | Pane header with status badge and empty-state fact row (em-dash placeholders) |
+| `focused-pane` | One focused terminal pane with the tab bar and Show All Panes control visible |
 | `notification-sidebar` | Notification sidebar open |
 | `pr-merged-alert` | PR merged alert overlay |
 | `settings-panes` | Settings → Panes |
@@ -22,7 +23,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `settings-status-line` | Settings → Status Line |
 | `settings-notifications` | Settings → Notifications |
 | `settings-debug` | Settings → Debug |
-| `invariant-dashboard` | Invariant Dashboard with injected sample violations |
+| `invariant-dashboard` | Invariant Dashboard with a real status-line worktree-name violation |
 
 `BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui-dev` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
 
@@ -48,10 +49,11 @@ Run `make pr-screenshots` after the PR is open to capture fresh screenshots, upl
 
 Screenshots must show real app state produced through real flows — the same sequence of interactions a user would take. The following entries in the table above are produced by `ScreenshotInjectedTests.swift`, which writes fabricated `sessions.json` data or forces UI state rather than driving real flows; they are flagged for migration in issue #221:
 
-- `invariant-dashboard` — injected sample violations
 - `pane-status-indicators` — injected sessions + `--inject-pane-working`
 - `notification-sidebar` — injected `pendingNotifications` payload
 - `pr-merged-alert` — injected PR-merged notification payload
 - `activity-indicator-states` — blocked by the `--uitesting` terminal bypass (root fake)
+
+`invariant-dashboard` is real-flow coverage: `ScreenshotTests` enables Debug mode, creates a Claude pane, writes a mismatching payload to that pane monitor's existing status-line input file, and waits for the production invariant reporter and dashboard refresh path to show `statusline.worktree.name`.
 
 Do not add new entries to `ScreenshotInjectedTests.swift`. New screenshots belong in `ScreenshotTests.swift`, which drives the app through real UI flows.

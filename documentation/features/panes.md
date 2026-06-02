@@ -20,6 +20,10 @@ Choose **Open** or press Return to create the pane.
 
 Each pane shows a configurable status bar at the bottom (model, cost, context usage, worktree name, and more). Configure items in **Settings → Status Line**.
 
+## Focus mode
+
+When a tab contains multiple panes, double-click a pane header or right-click and choose **Focus This Pane** to give that terminal the full tab body while keeping the tab bar visible. See [focus-pane.md](focus-pane.md).
+
 ## Session persistence
 
 Open panes are saved to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch, the app restores tabs and restarts the CLI in any pane whose checkout still exists on disk (see restore rules in [worktree-creation.md](worktree-creation.md)).

@@ -55,9 +55,41 @@ struct PaneGridView: View {
             let cellHeight = max(1, (geo.size.height - totalVertical) / rows)
             let cols = Array(repeating: GridItem(.flexible(), spacing: spacing), count: layout.columns)
 
-            LazyVGrid(columns: cols, spacing: spacing) {
-                ForEach(tab.panes) { pane in
-                    PaneView(pane: pane, onClosePane: onClosePane, onRefreshPane: onRefreshPane)
+            if let focusedPaneID = tab.focusedPaneID {
+                ZStack(alignment: .topLeading) {
+                    ForEach(tab.panes) { pane in
+                        let isFocused = focusedPaneID == pane.id
+
+                        PaneView(
+                            pane: pane,
+                            isFocused: isFocused,
+                            canFocus: tab.panes.count > 1,
+                            onClosePane: onClosePane,
+                            onRefreshPane: onRefreshPane
+                        )
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("pane-\(pane.name)")
+                        .accessibilityHidden(!isFocused)
+                        .allowsHitTesting(isFocused)
+                        .frame(
+                            width: max(1, geo.size.width - padding * 2),
+                            height: max(1, geo.size.height - padding * 2)
+                        )
+                        .offset(x: isFocused ? padding : geo.size.width + padding, y: padding)
+                        .id(pane.id)
+                    }
+                }
+                .clipped()
+            } else {
+                LazyVGrid(columns: cols, spacing: spacing) {
+                    ForEach(tab.panes) { pane in
+                        PaneView(
+                            pane: pane,
+                            isFocused: false,
+                            canFocus: tab.panes.count > 1,
+                            onClosePane: onClosePane,
+                            onRefreshPane: onRefreshPane
+                        )
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pane-\(pane.name)")
                         .frame(height: cellHeight)
@@ -82,12 +114,13 @@ struct PaneGridView: View {
                         } isTargeted: { isTargeted in
                             dragTargetPaneID = isTargeted ? pane.id : nil
                         }
+                    }
+                    ForEach(0..<layout.emptyCells, id: \.self) { _ in
+                        Color.clear.frame(height: cellHeight)
+                    }
                 }
-                ForEach(0..<layout.emptyCells, id: \.self) { _ in
-                    Color.clear.frame(height: cellHeight)
-                }
+                .padding(padding)
             }
-            .padding(padding)
         }
         .contentShape(Rectangle())
         .contextMenu {

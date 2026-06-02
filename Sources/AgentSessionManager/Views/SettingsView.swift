@@ -352,6 +352,41 @@ private struct PanesContent: View {
                         }
                 }
             }
+            Section("Focus Mode") {
+                SettingRow(
+                    title: "When Switching Tabs",
+                    description: appSettings.focusModeTabSwitchBehavior.description,
+                    defaultValue: "Remember Focus"
+                ) {
+                    Picker("When Switching Tabs", selection: $appSettings.focusModeTabSwitchBehavior) {
+                        ForEach(FocusModeTabSwitchBehavior.allCases, id: \.self) { behavior in
+                            Text(behavior.displayName).tag(behavior)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings-focus-mode-tab-switch-picker")
+                    .onChange(of: appSettings.focusModeTabSwitchBehavior) {
+                        SettingsPersistence.saveFocusModeSettings(appSettings: appSettings)
+                    }
+                }
+                SettingRow(
+                    title: "Hide Notification Sidebar",
+                    description: "Use the full tab-body width while a pane is focused."
+                ) {
+                    Toggle(
+                        "Hide Notification Sidebar While Focused",
+                        isOn: $appSettings.hideNotificationSidebarWhileFocused
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-focus-mode-hide-sidebar-toggle")
+                    .onChange(of: appSettings.hideNotificationSidebarWhileFocused) {
+                        SettingsPersistence.saveFocusModeSettings(appSettings: appSettings)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .onAppear {

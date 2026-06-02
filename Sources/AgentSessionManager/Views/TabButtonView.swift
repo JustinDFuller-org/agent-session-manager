@@ -55,14 +55,20 @@ struct TabButtonView: View {
             .contentShape(Rectangle())
             .highPriorityGesture(
                 TapGesture().onEnded {
-                    appState.switchToTab(id: tab.id)
+                    appState.switchToTab(
+                        id: tab.id,
+                        focusModeTabSwitchBehavior: appSettings.focusModeTabSwitchBehavior
+                    )
                 }
             )
             .accessibilityIdentifier("tab-button-\(tab.name)")
             .accessibilityValue(isActive ? "active" : "inactive")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(.default) {
-                appState.switchToTab(id: tab.id)
+                appState.switchToTab(
+                    id: tab.id,
+                    focusModeTabSwitchBehavior: appSettings.focusModeTabSwitchBehavior
+                )
             }
             .onHover { isHovering in
                 if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
@@ -120,7 +126,10 @@ struct TabButtonView: View {
                 appState.closeTab(tab)
             }
             Button("Create Pane") {
-                appState.switchToTab(id: tab.id)
+                appState.switchToTab(
+                    id: tab.id,
+                    focusModeTabSwitchBehavior: appSettings.focusModeTabSwitchBehavior
+                )
                 NotificationCenter.default.post(name: .newPane, object: nil)
             }
         }
