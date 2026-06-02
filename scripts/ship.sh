@@ -15,6 +15,18 @@ step() {
     echo "==> step: $1"
 }
 
+run_xcode_step() {
+    local label="$1"; shift
+    local logfile="$REPO_ROOT/.build/ship-$label.log"
+    mkdir -p "$REPO_ROOT/.build"
+    if ! "$@" > "$logfile" 2>&1; then
+        echo "--- $label failed; filtered output (full log: $logfile) ---" >&2
+        grep -E "error:|warning:|Test Case .*(passed|failed)|Executed .* test|\*\* (BUILD|TEST) (FAILED|SUCCEEDED) \*\*" "$logfile" | tail -60 >&2 || true
+        return 1
+    fi
+    grep -E "Test Suite .*(passed|failed)|Executed .* test|\*\* (BUILD|TEST) SUCCEEDED \*\*" "$logfile" | tail -5 || true
+}
+
 COMMIT_MSG_FILE=""
 PR_TITLE=""
 PR_BODY_FILE=""
@@ -46,6 +58,9 @@ done
 
 BRANCH=$(git -C "$REPO_ROOT" branch --show-current)
 
+PORCELAIN=$(git -C "$REPO_ROOT" status --porcelain)
+PR_URL=$(gh pr view --json url --jq '.url' 2>/dev/null || echo "")
+
 # --- Invariant 1: Pre-flight ---
 step "pre-flight"
 
@@ -59,22 +74,21 @@ git -C "$REPO_ROOT" rev-parse HEAD > /dev/null 2>&1 || \
 gh auth status > /dev/null 2>&1 || \
     die "pre-flight: gh auth status failed — run 'gh auth login'"
 
-PR_URL=""
+run_xcode_step "preflight-build" make -C "$REPO_ROOT" build-for-testing || \
+    die "pre-flight: test build failed — sources/UITests do not compile; see .build/ship-preflight-build.log"
 
 if [[ "$SCREENSHOTS_ONLY" == false ]]; then
 
-    # --- Invariant 2: Commit (if --commit-msg-file provided) ---
-    if [[ -n "$COMMIT_MSG_FILE" ]]; then
+    # --- Invariant 2: Commit ---
+    if [[ -n "$PORCELAIN" ]]; then
         step "commit"
 
+        [[ -n "$COMMIT_MSG_FILE" ]] || \
+            die "commit: working tree is dirty but --commit-msg-file was not provided; clean the tree or pass --commit-msg-file"
         [[ -f "$COMMIT_MSG_FILE" ]] || \
             die "commit: commit message file not found: $COMMIT_MSG_FILE"
         [[ -s "$COMMIT_MSG_FILE" ]] || \
             die "commit: commit message file is empty: $COMMIT_MSG_FILE"
-
-        PORCELAIN=$(git -C "$REPO_ROOT" status --porcelain)
-        [[ -n "$PORCELAIN" ]] || \
-            die "commit: --commit-msg-file provided but working tree is clean — nothing to commit"
 
         BEFORE_HEAD=$(git -C "$REPO_ROOT" rev-parse HEAD)
         git -C "$REPO_ROOT" add -A
@@ -83,11 +97,6 @@ if [[ "$SCREENSHOTS_ONLY" == false ]]; then
 
         [[ "$AFTER_HEAD" != "$BEFORE_HEAD" ]] || \
             die "commit: HEAD did not advance after commit"
-    else
-        PORCELAIN=$(git -C "$REPO_ROOT" status --porcelain)
-        if [[ -n "$PORCELAIN" ]]; then
-            die "commit: working tree is dirty but --commit-msg-file was not provided; clean the tree or pass --commit-msg-file"
-        fi
     fi
 
     # --- Invariant 3: Push ---
@@ -102,8 +111,6 @@ if [[ "$SCREENSHOTS_ONLY" == false ]]; then
 
     # --- Invariant 4: Ensure PR ---
     step "ensure-pr"
-
-    PR_URL=$(gh pr view --json url --jq '.url' 2>/dev/null || echo "")
 
     if [[ -z "$PR_URL" ]]; then
         [[ -n "$PR_TITLE" ]] || \
@@ -123,7 +130,6 @@ if [[ "$SCREENSHOTS_ONLY" == false ]]; then
 fi
 
 if [[ "$SCREENSHOTS_ONLY" == true ]]; then
-    PR_URL=$(gh pr view --json url --jq '.url' 2>/dev/null || echo "")
     [[ -n "$PR_URL" ]] || \
         die "ensure-pr: no PR found for branch '$BRANCH' — run without --screenshots-only to create one"
 fi
@@ -140,12 +146,13 @@ done < <(grep -hoE 'screenshot\("[^"]+"' "$REPO_ROOT"/UITests/Screenshot*.swift 
 [[ ${#EXPECTED_NAMES[@]} -gt 0 ]] || \
     die "build-screenshots: no screenshot(...) calls found in UITests/Screenshot*.swift"
 
-make -C "$REPO_ROOT" screenshots
+run_xcode_step "screenshots" make -C "$REPO_ROOT" screenshots || \
+    die "build-screenshots: xcodebuild failed; see .build/ship-screenshots.log"
 
 ACTUAL_NAMES=()
 while IFS= read -r f; do
     [[ -n "$f" ]] && ACTUAL_NAMES+=("$(basename "$f")")
-done < <(ls "$REPO_ROOT/screenshots/"*.png 2>/dev/null | sort)
+done < <(find "$REPO_ROOT/screenshots/" -maxdepth 1 -name "*.png" 2>/dev/null | sort)
 
 MISSING=()
 for expected in "${EXPECTED_NAMES[@]}"; do
