@@ -6,6 +6,16 @@ final class TabPaneFlowTests: BaseTestCase {
         try? Data("\"head\"".utf8).write(to: UITestAppSupport.directory.appending(path: "worktree-base-ref.json"))
     }
 
+    func testPaneStatusDotFlow() {
+        createTab(named: "StatusTab")
+        createPane(named: "running-pane")
+
+        // Circle shapes don't appear under otherElements — search all descendants.
+        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane")
+            .firstMatch
+        XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
+    }
+
     func testTabPaneFlow() {
         // Create first tab and assert initial state
         createTab(named: "WorkTab")
