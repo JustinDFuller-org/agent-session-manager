@@ -1,4 +1,3 @@
-import UniformTypeIdentifiers
 import UserNotifications
 import XCTest
 
@@ -122,6 +121,7 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertEqual(content.title, "Agent Session Manager")
         XCTAssertEqual(content.subtitle, "Tab / Pane")
         XCTAssertEqual(content.body, "Build is 50%% complete")
+        XCTAssertTrue(content.attachments.isEmpty)
     }
 
     func testPRMergedContentIncludesContextTitleAndEscapedPercent() {
@@ -130,6 +130,7 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertEqual(content.title, "PR Merged")
         XCTAssertEqual(content.subtitle, "Tab / Pane")
         XCTAssertEqual(content.body, "PR #42 merged: Reach 100%%")
+        XCTAssertTrue(content.attachments.isEmpty)
     }
 
     func testBundleAppIconMainBundleFallbackDoesNotCrash() {
@@ -200,43 +201,13 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertNil(MacNotificationCoordinator.bundleAppIcon(in: emptyBundle))
     }
 
-    func testNotificationAttachmentOptionsUsePNGTypeHint() {
-        let hint =
-            MacNotificationCoordinator.notificationAttachmentOptions[
-                UNNotificationAttachmentOptionsTypeHintKey
-            ] as? String
-        XCTAssertEqual(hint, UTType.png.identifier)
-    }
-
-    func testMakeAttachmentReturnsNilForNilImage() {
-        XCTAssertNil(MacNotificationCoordinator.makeAttachment(from: nil))
-    }
-
-    func testMakeAttachmentReturnsAttachmentForValidImage() {
-        let attachment = MacNotificationCoordinator.makeAttachment(from: Self.makeTestImage())
-        XCTAssertNotNil(attachment)
-    }
-
-    func testMakeAttachmentIdentifierIsAppIcon() {
-        let attachment = MacNotificationCoordinator.makeAttachment(from: Self.makeTestImage())
-        XCTAssertEqual(attachment?.identifier, "app-icon")
-    }
-
-    private static func makeTestImage() -> NSImage {
-        let bitmapRep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: 64,
-            pixelsHigh: 64,
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        )!
-        let image = NSImage(size: NSSize(width: 64, height: 64))
-        image.addRepresentation(bitmapRep)
-        return image
+    func testErrorAttributesAreBoundedAndIncludeNSErrorContext() {
+        let longDomain = String(repeating: "x", count: 256)
+        let attributes = MacNotificationCoordinator.errorAttributes(
+            NSError(domain: longDomain, code: 104),
+            result: "schedule_error")
+        XCTAssertEqual(attributes["error.domain"]?.count, 128)
+        XCTAssertEqual(attributes["error.code"], "104")
+        XCTAssertEqual(attributes["result"], "schedule_error")
     }
 }

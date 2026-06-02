@@ -27,6 +27,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "Displayed line counts must come from the pane's git diff.",
         traceEventName: "statusline.lines.source_mismatch"
     )
+
+    static let appBundleIdentityPreferredURL = Invariant(
+        id: "app.bundle_identity.preferred_url",
+        integration: "App Bundle",
+        severity: .warning,
+        description: "Launch Services must prefer the running app bundle URL for its bundle identifier.",
+        traceEventName: "app.bundle_identity.preferred_url_mismatch"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {

@@ -94,8 +94,4 @@ extension AgentSessionManagerApp {
     static var isUITesting: Bool {
         CommandLine.arguments.contains("--uitesting")
     }
-
-    static var shouldSimulateBannerClick: Bool {
-        CommandLine.arguments.contains("--uitesting-simulate-banner-click")
-    }
 }

@@ -34,11 +34,20 @@ This means:
 
 Legacy shortcuts (`make build`, `make run`, `make watch`) still work as production aliases.
 
+Packaged apps always stage into the shared git common root, even when the command runs inside a worktree:
+
+| Build | Canonical bundle |
+|---|---|
+| Production | `<git-common-root>/AgentSessionManager.app` |
+| Dev | `<git-common-root>/AgentSessionManagerDev.app` |
+
+Run `make repair-launch-services` to unregister stale prod/dev URLs, register canonical bundles that exist, and verify Launch Services resolves each packaged bundle ID to the canonical URL. `make app` and `make app-dev` run this repair automatically.
+
 ## Xcode
 
-The project includes three build configurations:
-- **Debug** — standard debug build with production bundle ID
-- **Release** — optimized build with production bundle ID
-- **Dev** — optimized build with `.dev` bundle ID and `DEV_BUILD` compilation condition
+The project includes three build configurations. Their products use `.xcode-*` bundle identifiers so DerivedData apps cannot impersonate either packaged app:
+- **Debug** — `com.justinfuller.agent-session-manager.xcode-debug`
+- **Release** — `com.justinfuller.agent-session-manager.xcode-release`
+- **Dev** — `com.justinfuller.agent-session-manager.xcode-dev` with the `DEV_BUILD` compilation condition
 
 Use the `Dev` configuration in Xcode to build the dev variant.

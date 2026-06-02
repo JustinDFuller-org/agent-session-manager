@@ -1,16 +1,10 @@
 import AppKit
-import UniformTypeIdentifiers
 import UserNotifications
 
 enum MacNotificationUserInfoKey {
     static let paneID = "paneID"
     static let tabID = "tabID"
     static let notificationKind = "notificationKind"
-}
-
-enum MacNotificationFailureSite: String {
-    case requestAuthorization
-    case scheduleLocalNotification
 }
 
 /// Posts macOS banner notifications when a pane rings the terminal bell (with user permission).
@@ -30,11 +24,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         self.appSettings = appSettings
     }
 
-    /// Options for notification image attachments (PNG type hint for UserNotifications).
-    static let notificationAttachmentOptions: [AnyHashable: Any] = [
-        UNNotificationAttachmentOptionsTypeHintKey: UTType.png.identifier
-    ]
-
     /// Loads the app icon directly from the bundle's compiled .icns file so the correct icon is
     /// used for both prod (AppIcon) and dev (AppIcon-Dev) builds. Falls back to
     /// `NSApp.applicationIconImage` when loading from `Bundle.main` and no .icns is found.
@@ -47,49 +36,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             return app.applicationIconImage
         }
         return nil
-    }
-
-    /// Converts an NSImage to a UNNotificationAttachment by writing a temp PNG file.
-    /// The notification system copies the file on attachment creation, so the temp file is
-    /// removed only after a successful attachment init. Returns nil if the image is unavailable
-    /// or conversion fails.
-    static func makeAttachment(from image: NSImage?) -> UNNotificationAttachment? {
-        guard let image,
-            let tiffData = image.tiffRepresentation,
-            let bitmapRep = NSBitmapImageRep(data: tiffData),
-            let pngData = bitmapRep.representation(using: .png, properties: [:])
-        else { return nil }
-        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(
-                "agent-session-manager-notification-icon-\(UUID().uuidString).png")
-        do {
-            try pngData.write(to: tempURL)
-            let attachment = try UNNotificationAttachment(
-                identifier: "app-icon",
-                url: tempURL,
-                options: notificationAttachmentOptions)
-            try? FileManager.default.removeItem(at: tempURL)
-            return attachment
-        } catch {
-            return nil
-        }
-    }
-
-    /// Best-effort PNG attachment for notification rich content; traces when icon or conversion fails.
-    static func notificationIconAttachment() -> UNNotificationAttachment? {
-        guard let image = bundleAppIcon() else {
-            TracingService.shared.record(
-                "notification.icon.unavailable",
-                attributes: ["reason": "bundle_app_icon_nil"])
-            return nil
-        }
-        guard let attachment = makeAttachment(from: image) else {
-            TracingService.shared.record(
-                "notification.icon.unavailable",
-                attributes: ["reason": "attachment_creation_failed"])
-            return nil
-        }
-        return attachment
     }
 
     nonisolated static func escapedBannerBody(_ value: String) -> String {
@@ -131,6 +77,9 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         do {
             granted = try await center.requestAuthorization(options: [.alert, .sound])
         } catch {
+            TracingService.shared.record(
+                "notification.auth.requested",
+                attributes: Self.errorAttributes(error, result: "request_error"))
             return
         }
         TracingService.shared.record(
@@ -160,28 +109,26 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 MacNotificationUserInfoKey.paneID: paneID.uuidString,
                 MacNotificationUserInfoKey.tabID: tabID.uuidString,
             ]
-            if let attachment = Self.notificationIconAttachment() {
-                content.attachments = [attachment]
-            }
             let identifier = "pane-\(paneID.uuidString)"
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+            let paneAttributes = Self.paneAttributes(
+                paneID: paneID, paneName: paneName, tabID: tabID, tabName: tabName)
             do {
                 try await center.add(request)
                 TracingService.shared.record(
                     "notification.pane_attention.posted",
-                    attributes: [
-                        "pane.name": paneName,
+                    attributes: paneAttributes.merging([
                         "title": "Agent Session Manager",
                         "reason": reason,
                         "source": source.rawValue,
-                    ])
+                        "result": "posted",
+                    ]) { _, new in new })
             } catch {
                 TracingService.shared.record(
                     "notification.pane_attention.skipped",
-                    attributes: [
-                        "pane.name": paneName,
-                        "reason": "schedule_error",
-                    ])
+                    attributes: paneAttributes.merging(
+                        Self.errorAttributes(error, result: "schedule_error")
+                    ) { _, new in new })
             }
         }
     }
@@ -209,20 +156,24 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 MacNotificationUserInfoKey.tabID: tabID.uuidString,
                 MacNotificationUserInfoKey.notificationKind: NotificationKind.prMerged.rawValue,
             ]
-            if let attachment = Self.notificationIconAttachment() {
-                content.attachments = [attachment]
-            }
             let identifier = "pr-merged-\(paneID.uuidString)"
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+            let paneAttributes = Self.paneAttributes(
+                paneID: paneID, paneName: paneName, tabID: tabID, tabName: tabName)
             do {
                 try await center.add(request)
                 TracingService.shared.record(
                     "notification.pr_merged.posted",
-                    attributes: [
-                        "pane.name": paneName,
+                    attributes: paneAttributes.merging([
                         "pr.title": prTitle,
-                    ])
+                        "result": "posted",
+                    ]) { _, new in new })
             } catch {
+                TracingService.shared.record(
+                    "notification.pr_merged.skipped",
+                    attributes: paneAttributes.merging(
+                        Self.errorAttributes(error, result: "schedule_error")
+                    ) { _, new in new })
             }
         }
     }
@@ -244,12 +195,13 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     /// Navigates to the pane identified by `paneIDStr`/`tabIDStr` and, for PR merged
     /// notifications, additionally posts `prMergedActionRequested` so the alert appears.
     /// Extracted for testability — does not call `NSApp.activate`.
-    func handleNotificationNavigation(paneIDStr: String, tabIDStr: String, kind: String?) {
+    @discardableResult
+    func handleNotificationNavigation(paneIDStr: String, tabIDStr: String, kind: String?) -> String {
         guard
             let paneID = UUID(uuidString: paneIDStr),
-            let tabID = UUID(uuidString: tabIDStr),
-            let state = appState
-        else { return }
+            let tabID = UUID(uuidString: tabIDStr)
+        else { return "invalid_context" }
+        guard let state = appState else { return "state_unavailable" }
         state.focusPane(tabID: tabID, paneID: paneID)
         if kind == NotificationKind.prMerged.rawValue {
             NotificationCenter.default.post(
@@ -258,6 +210,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 userInfo: ["paneID": paneIDStr, "tabID": tabIDStr]
             )
         }
+        return "navigated"
     }
 
     func handleNotificationResponse(_ response: UNNotificationResponse) {
@@ -265,8 +218,19 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         guard
             let paneIDStr = userInfo[MacNotificationUserInfoKey.paneID] as? String,
             let tabIDStr = userInfo[MacNotificationUserInfoKey.tabID] as? String
-        else { return }
+        else {
+            TracingService.shared.record(
+                "notification.response.navigation",
+                attributes: ["result": "missing_context"])
+            return
+        }
         let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
+        let tab = UUID(uuidString: tabIDStr).flatMap { tabID in
+            appState?.tabs.first { $0.id == tabID }
+        }
+        let pane = UUID(uuidString: paneIDStr).flatMap { paneID in
+            tab?.panes.first { $0.id == paneID }
+        }
         isHandlingNotificationResponse = true
         defer { isHandlingNotificationResponse = false }
 
@@ -280,7 +244,17 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             ])
         #endif
 
-        handleNotificationNavigation(paneIDStr: paneIDStr, tabIDStr: tabIDStr, kind: kind)
+        let result = handleNotificationNavigation(paneIDStr: paneIDStr, tabIDStr: tabIDStr, kind: kind)
+        TracingService.shared.record(
+            "notification.response.navigation",
+            attributes: [
+                "pane.id": paneIDStr,
+                "pane.name": pane?.name ?? "unknown",
+                "tab.id": tabIDStr,
+                "tab.name": tab?.name ?? "unknown",
+                "notification.kind": kind ?? "attention",
+                "result": result,
+            ])
 
         #if DEV_BUILD
         WindowSnapshot.record(event: "notification.click.after_navigation")
@@ -293,12 +267,24 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         #endif
     }
 
-    /// UI tests: simulates the activation path triggered by a notification click.
-    func simulateLegacyNotificationActivationForUITesting() {
-        guard AgentSessionManagerApp.isUITesting else { return }
-        isHandlingNotificationResponse = true
-        defer { isHandlingNotificationResponse = false }
-        (NSApp.delegate as? AppDelegate)?.focusMainWindow()
+    nonisolated static func paneAttributes(
+        paneID: UUID, paneName: String, tabID: UUID, tabName: String
+    ) -> [String: String] {
+        [
+            "pane.id": paneID.uuidString,
+            "pane.name": paneName,
+            "tab.id": tabID.uuidString,
+            "tab.name": tabName,
+        ]
+    }
+
+    nonisolated static func errorAttributes(_ error: Error, result: String) -> [String: String] {
+        let nsError = error as NSError
+        return [
+            "error.domain": String(nsError.domain.prefix(128)),
+            "error.code": String(nsError.code),
+            "result": result,
+        ]
     }
 
     /// Options passed to `willPresent` — exposed for unit tests.

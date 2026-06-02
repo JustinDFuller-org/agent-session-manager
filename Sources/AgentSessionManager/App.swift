@@ -62,7 +62,6 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .controlBackgroundColor))
         .task {
-            await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
             if let config = SettingsPersistence.load(DefaultBranchConfig.self, from: "default-branch.json") {
                 appSettings.isDefaultBranchEnabled = config.isEnabled
                 appSettings.defaultBranch = config.branchName
@@ -174,11 +173,19 @@ struct ContentView: View {
                 }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
+                if let bundleIdentifier = Bundle.main.bundleIdentifier {
+                    BundleIdentityVerifier.checkPreferredURL(
+                        runningURL: Bundle.main.bundleURL,
+                        preferredURL: NSWorkspace.shared.urlForApplication(
+                            withBundleIdentifier: bundleIdentifier),
+                        bundleIdentifier: bundleIdentifier)
+                }
                 let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
                 traceCleanupService = cleanup
                 SessionPersistence.restore(into: appState, appSettings: appSettings)
                 await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
             }
+            await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
             if AgentSessionManagerApp.isUITesting {
                 for arg in CommandLine.arguments {
                     if arg.hasPrefix("--inject-pane-loading="),
@@ -203,10 +210,6 @@ struct ContentView: View {
                         }
                     }
                 }
-            }
-            if AgentSessionManagerApp.shouldSimulateBannerClick {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                MacNotificationCoordinator.shared.simulateLegacyNotificationActivationForUITesting()
             }
             if !AgentSessionManagerApp.isUITesting
                 || CommandLine.arguments.contains("--uitesting-show-onboarding")
