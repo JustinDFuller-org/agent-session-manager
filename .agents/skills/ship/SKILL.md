@@ -21,11 +21,9 @@ gh pr view --json url,state 2>/dev/null || true
 
 ## Step 2: Draft commit message (if needed)
 
-If the working tree has staged or unstaged changes, draft a conventional-commit message in present tense that focuses on "why" over "what", following the repository's existing commit style. End the message with:
+If the working tree has staged or unstaged changes, draft a conventional-commit message in present tense that focuses on "why" over "what", following the repository's existing commit style.
 
-```
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
-```
+Do not add an AI `Co-Authored-By` trailer unless the current tool provides an exact configured trailer. Never copy another tool's trailer or invent an email address. If no exact trailer is configured, omit the AI trailer.
 
 Write it to `.ship-commit-msg` (gitignored).
 
@@ -35,7 +33,7 @@ If no PR exists for the current branch, draft a PR title and body using this tem
 
 ```
 > [!NOTE]
-> This PR title, description, and code were generated with Claude Code.
+> This PR title, description, and code were generated with [active agent tool].
 
 ## Summary
 
@@ -53,6 +51,8 @@ Screenshots go here instead of a comment
 ```
 
 Write the body to `.ship-pr-body.md` (gitignored).
+
+Use the current tool's display name for `[active agent tool]`: `OpenAI Codex`, `Claude Code`, or `Cursor`. If the tool is different, use its actual display name. Never attribute one tool's work to another tool.
 
 ## Step 4: Invoke the script
 

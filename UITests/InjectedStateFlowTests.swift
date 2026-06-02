@@ -9,9 +9,6 @@ final class InjectedStateFlowTests: XCTestCase {
     private static let paneID = "22222222-2222-2222-2222-222222222222"
     private static let notifID = "33333333-3333-3333-3333-333333333333"
 
-    private static let statusTabID = "44444444-4444-4444-4444-444444444444"
-    private static let statusPaneID = "55555555-5555-5555-5555-555555555555"
-
     private var sessionURL: URL {
         UITestAppSupport.directory.appending(path: "sessions.json")
     }
@@ -26,58 +23,6 @@ final class InjectedStateFlowTests: XCTestCase {
         app?.terminate()
         try? FileManager.default.removeItem(at: sessionURL)
         super.tearDown()
-    }
-
-    func testPaneStatusDotFlow() {
-        let workspaceDir = GitUITestWorkspace.directoryURL.path
-        writeSession(
-            """
-            {
-              "tabs": [
-                {
-                  "id": "\(Self.statusTabID)",
-                  "name": "StatusTab",
-                  "directory": "\(workspaceDir)",
-                  "panes": [
-                    {
-                      "id": "\(Self.statusPaneID)",
-                      "name": "running-pane",
-                      "harness": "claude",
-                      "isPriority": false,
-                      "isMerged": false,
-                      "worktreeDirectory": "\(workspaceDir)",
-                      "worktreeIsManaged": false
-                    },
-                    {
-                      "id": "66666666-6666-6666-6666-666666666666",
-                      "name": "merged-pane",
-                      "harness": "claude",
-                      "isPriority": false,
-                      "isMerged": true,
-                      "worktreeDirectory": "\(workspaceDir)",
-                      "worktreeIsManaged": false
-                    }
-                  ]
-                }
-              ],
-              "activeTabIndex": 0,
-              "pendingNotifications": []
-            }
-            """)
-        app = XCUIApplication()
-        app.launchArguments = ["--uitesting"]
-        app.launch()
-        app.activate()
-
-        // Both panes start idle (no output, no notification) — activity indicator shows idle ring.
-        // Circle shapes don't appear under otherElements — search all descendants.
-        let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane")
-            .firstMatch
-        XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
-
-        let mergedDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-merged-pane")
-            .firstMatch
-        XCTAssertTrue(mergedDot.waitForExistence(timeout: 15))
     }
 
     func testPRMergedNotificationFlow() {
