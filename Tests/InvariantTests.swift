@@ -45,6 +45,31 @@ final class InvariantTests: XCTestCase {
         XCTAssertEqual(event?.attributes["field"], "worktree.name")
     }
 
+    func testBundleIdentityPreferredURLMatchingPathPassesWithoutViolation() {
+        InvariantReporter.shared.enableTestCapture()
+        let runningURL = URL(filePath: "/tmp/AgentSessionManager.app")
+
+        XCTAssertTrue(
+            BundleIdentityVerifier.checkPreferredURL(
+                runningURL: runningURL,
+                preferredURL: runningURL,
+                bundleIdentifier: "com.justinfuller.agent-session-manager"))
+        XCTAssertTrue(InvariantReporter.shared.violationsForTesting.isEmpty)
+    }
+
+    func testBundleIdentityPreferredURLMismatchReportsInvariant() {
+        InvariantReporter.shared.enableTestCapture()
+
+        XCTAssertFalse(
+            BundleIdentityVerifier.checkPreferredURL(
+                runningURL: URL(filePath: "/tmp/current/AgentSessionManager.app"),
+                preferredURL: URL(filePath: "/tmp/stale/AgentSessionManager.app"),
+                bundleIdentifier: "com.justinfuller.agent-session-manager"))
+        let violation = InvariantReporter.shared.violationsForTesting.first
+        XCTAssertEqual(violation?.invariantID, "app.bundle_identity.preferred_url")
+        XCTAssertEqual(violation?.context["preferred.url"], "/tmp/stale/AgentSessionManager.app")
+    }
+
     func testWriterSynchronouslyAppendsMetadataAndViolation() throws {
         let writer = InvariantLogWriter(directory: directory, maxBytes: 10_000)
         try writer.append(InvariantViolation(invariant: .statusLineLinesSource, context: ["key": "value"]))

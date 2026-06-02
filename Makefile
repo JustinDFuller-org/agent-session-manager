@@ -1,10 +1,11 @@
 APP_NAME = AgentSessionManager
 SCREENSHOTS_DIR = screenshots
 APP_NAME_DEV = AgentSessionManagerDev
+GIT_COMMON_ROOT := $(shell dirname "$$(git rev-parse --path-format=absolute --git-common-dir)")
 BUILD_DIR = .build/release
 BUILD_DIR_DEV = .build/debug
-APP_BUNDLE = $(APP_NAME).app
-APP_BUNDLE_DEV = $(APP_NAME_DEV).app
+APP_BUNDLE = $(GIT_COMMON_ROOT)/$(APP_NAME).app
+APP_BUNDLE_DEV = $(GIT_COMMON_ROOT)/$(APP_NAME_DEV).app
 SCHEME = AgentSessionManager
 DERIVED_DATA = .build/DerivedData
 RESULTS_PATH = .build/TestResults.xcresult
@@ -53,8 +54,7 @@ app-prd: build
 	fi
 	codesign --force --deep --sign - $(APP_BUNDLE)
 	touch $(APP_BUNDLE)
-	$(LSREGISTER) -u $(APP_BUNDLE) 2>/dev/null || true
-	$(LSREGISTER) -f $(APP_BUNDLE)
+	$(MAKE) repair-launch-services
 
 run: run-prd
 
@@ -115,8 +115,7 @@ app-dev: build-dev
 	fi
 	codesign --force --deep --sign - $(APP_BUNDLE_DEV)
 	touch $(APP_BUNDLE_DEV)
-	$(LSREGISTER) -u $(APP_BUNDLE_DEV) 2>/dev/null || true
-	$(LSREGISTER) -f $(APP_BUNDLE_DEV)
+	$(MAKE) repair-launch-services
 
 run-dev: app-dev
 	open $(APP_BUNDLE_DEV)
@@ -228,6 +227,9 @@ restart-dev:
 	pkill -x $(APP_NAME_DEV) 2>/dev/null || true
 	sleep 0.5
 	open $(APP_BUNDLE_DEV)
+
+repair-launch-services:
+	@bash scripts/repair-launch-services.sh "$(APP_BUNDLE)" "$(APP_BUNDLE_DEV)"
 
 clean:
 	rm -rf $(APP_BUNDLE) $(APP_BUNDLE_DEV) .build $(APP_NAME).xcodeproj

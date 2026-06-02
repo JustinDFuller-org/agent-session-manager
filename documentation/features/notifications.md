@@ -4,7 +4,7 @@ Agent Session Manager surfaces terminal bell events (sent by Claude Code and sim
 
 **In-app vs macOS:** The sidebar and pane/tab dots are **purely in-app** and do not require notification permission. **macOS banners** use `UNUserNotificationCenter` and require permission in **System Settings → Notifications** for Agent Session Manager. If `requestAuthorization` fails (for example `UNErrorDomain` code **1**, often meaning notifications are not allowed for the app), fix that in System Settings or by resetting the app’s notification registration — **in-app alerts still work** when a bell or hook fires; only banners are affected.
 
-**Bundle IDs (must match the app you run):** Notification permission is per bundle identifier. **Production** (`make app` / `make run`): `com.justinfuller.agent-session-manager`. **Dev** (`make run-dev`): `com.justinfuller.agent-session-manager.dev`. If you allow notifications for one variant but launch the other, banners will not work until you enable the matching entry under **System Settings → Notifications**.
+**Bundle IDs (must match the app you run):** Notification permission is per bundle identifier. **Production** (`make app` / `make run`): `com.justinfuller.agent-session-manager` at `<git-common-root>/AgentSessionManager.app`. **Dev** (`make app-dev` / `make run-dev`): `com.justinfuller.agent-session-manager.dev` at `<git-common-root>/AgentSessionManagerDev.app`. Every worktree stages into those same two canonical paths. If Launch Services resolves either ID to an older generated bundle, run `make repair-launch-services`.
 
 **Diagnosing notification failures:** Enable **Settings → Debug** and inspect the trace stream for notification spans. Compare to an **Xcode** build (development-signed) if a **SwiftPM `make app`** build still misbehaves after `make app` (ad-hoc codesign runs automatically).
 
@@ -86,15 +86,15 @@ The **banner header icon** (small app icon in the corner of a macOS notification
 
 1. **Full standalone `.icns`** — `make app` / `make app-dev` compile the asset catalog with `actool --standalone-icon-behavior all`, producing a multi-resolution `AppIcon.icns` or `AppIcon-Dev.icns` in `Contents/Resources` (not a minimal placeholder).
 2. **Plist keys** — `CFBundleIconFile` and `CFBundleIconName` are synced from `actool`’s partial Info.plist after compile (dev uses `AppIcon-Dev` for both).
-3. **Launch Services** — After codesign, the Makefile unregisters and re-registers the bundle with `lsregister` so icon changes take effect on rebuild.
+3. **Launch Services** — After codesign, the Makefile runs `make repair-launch-services`. It unregisters stale prod/dev URLs, registers canonical bundles that exist, and verifies `NSWorkspace.urlForApplication(withBundleIdentifier:)` resolves each registered identity correctly.
 4. **Runtime registration** — On launch, `NSApp.applicationIconImage` is set from the bundle `.icns` so ad-hoc builds run from a worktree (outside `/Applications`) still expose a concrete bitmap to the system.
 
-**Optional attachment** — The same icon may also be attached as a PNG for rich notification content; that does not control the header icon and may not appear in all notification styles on macOS.
+Notification payloads intentionally do not include a rich-content attachment. The header icon comes from the registered app bundle, and omitting a temporary attachment avoids Notification Center data-store move failures while scheduling.
 
 - **Production** (`make run`): green icon via `AppIcon` / `AppIcon.icns`.
 - **Dev** (`make run-dev`): yellow-tinted icon via `AppIcon-Dev` / `AppIcon-Dev.icns`.
 
-There are no user-configurable settings for the notification icon. After changing icons, run `make clean && make run` (or `make run-dev`). If the banner still shows a generic white icon, remove Agent Session Manager from **System Settings → Notifications**, rebuild, and allow notifications again. Ad-hoc-signed local builds may still show a generic icon on some macOS versions until the app is signed with a Developer ID and notarized.
+There are no user-configurable settings for the notification icon. After changing icons, run `make clean && make run` (or `make run-dev`). If routing is stale, run `make repair-launch-services`. If the banner still shows a generic white icon, remove Agent Session Manager from **System Settings → Notifications**, rebuild, and allow notifications again. Ad-hoc-signed local builds may still show a generic icon on some macOS versions until the app is signed with a Developer ID and notarized.
 
 ## See also
 
