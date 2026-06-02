@@ -5,6 +5,8 @@ struct PaneView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     let pane: Pane
+    let isFocused: Bool
+    let canFocus: Bool
     let onClosePane: (Pane) -> Void
     let onRefreshPane: (Pane) -> Void
 
@@ -61,6 +63,17 @@ struct PaneView: View {
             }
         }
         .contextMenu {
+            if isFocused {
+                Button("Show All Panes") {
+                    showAllPanes(reason: "context_menu")
+                }
+                Divider()
+            } else if canFocus {
+                Button("Focus This Pane") {
+                    focusPane(reason: "context_menu")
+                }
+                Divider()
+            }
             Button("Close This Pane") {
                 onClosePane(pane)
             }
@@ -105,48 +118,22 @@ struct PaneView: View {
     }
 
     private var paneHeader: some View {
-        let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
         return HStack(spacing: 0) {
-            HStack(spacing: 6) {
-                let hasNotification = pendingNotification != nil
-                let activityState =
-                    pane.uiTestActivityStateOverride
-                    ?? paneActivityState(
-                        processState: pane.terminalController?.processState,
-                        isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
-                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
-                        hasNotification: hasNotification
-                    )
-                ActivityIndicatorView(
-                    state: activityState,
-                    enabled: appSettings.paneActivityIndicatorsEnabled,
-                    prefix: "pane",
-                    name: pane.name,
-                    isPriority: pendingNotification?.isPriority ?? false
-                )
+            paneHeaderLabel
 
-                Text(pane.name)
-                    .accessibilityIdentifier("pane-name-\(pane.name)")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Spacer()
-            }
-            .padding(.leading, 10)
-            .padding(.trailing, 4)
-            .padding(.vertical, 5)
-            .contentShape(Rectangle())
-            .onHover { isHovering in
-                if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
-            }
-            .draggable(pane.id.uuidString) {
-                Text(pane.name)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+            if isFocused {
+                Button {
+                    showAllPanes(reason: "header_button")
+                } label: {
+                    Label("Show All Panes", systemImage: "rectangle.split.2x2")
+                        .font(.system(size: 10))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Show all panes")
+                .accessibilityIdentifier("pane-show-all-\(pane.name)")
+                .accessibilityLabel("Show all panes")
+                .padding(.trailing, 6)
             }
 
             Button {
@@ -166,6 +153,74 @@ struct PaneView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pane-header-\(pane.name)")
+    }
+
+    @ViewBuilder
+    private var paneHeaderLabel: some View {
+        let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
+        let label = HStack(spacing: 6) {
+            let hasNotification = pendingNotification != nil
+            let activityState =
+                pane.uiTestActivityStateOverride
+                ?? paneActivityState(
+                    processState: pane.terminalController?.processState,
+                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                    sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                    hasNotification: hasNotification
+                )
+            ActivityIndicatorView(
+                state: activityState,
+                enabled: appSettings.paneActivityIndicatorsEnabled,
+                prefix: "pane",
+                name: pane.name,
+                isPriority: pendingNotification?.isPriority ?? false
+            )
+
+            Text(pane.name)
+                .accessibilityIdentifier("pane-name-\(pane.name)")
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer()
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 4)
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            if isFocused {
+                showAllPanes(reason: "header_double_click")
+            } else if canFocus {
+                focusPane(reason: "header_double_click")
+            }
+        }
+
+        if isFocused {
+            label
+        } else {
+            label
+                .onHover { isHovering in
+                    if isHovering { NSCursor.openHand.push() } else { NSCursor.pop() }
+                }
+                .draggable(pane.id.uuidString) {
+                    Text(pane.name)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                }
+        }
+    }
+
+    private func focusPane(reason: String) {
+        appState.setActivePane(id: pane.id)
+        pane.tab?.setFocusedPane(id: pane.id, reason: reason)
+    }
+
+    private func showAllPanes(reason: String) {
+        pane.tab?.setFocusedPane(id: nil, reason: reason)
     }
 
     @ViewBuilder

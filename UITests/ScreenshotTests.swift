@@ -102,6 +102,19 @@ final class ScreenshotTests: BaseTestCase {
         screenshot("pane-status-indicators")
     }
 
+    func testFocusedPaneScreenshot() {
+        createTab(named: "Focus")
+        createPane(named: "reader")
+        createPane(named: "worker")
+
+        let readerHeader = app.descendants(matching: .any).matching(identifier: "pane-header-reader").firstMatch
+        waitFor(readerHeader)
+        readerHeader.doubleClick()
+        waitFor(app.buttons["pane-show-all-reader"].firstMatch)
+
+        screenshot("focused-pane")
+    }
+
     func testTraceDashboard() {
         // 1. Enable Debug mode
         app.typeKey(",", modifierFlags: .command)
