@@ -45,7 +45,7 @@ Use `make test-ui-dev` (not `make test-ui`) so tests run against the dev build a
 ```
 gh pr create --title "[conventional-type]: [issue title] (#[N])" --body "$(cat <<'EOF'
 > [!NOTE]
-> This PR title, description, and code were generated with Claude Code.
+> This PR title, description, and code were generated with [active agent tool].
 
 ## Summary
 
@@ -62,6 +62,8 @@ One or two sentence overview.
 EOF
 )"
 ```
+
+Use the current tool's display name for `[active agent tool]`: `OpenAI Codex`, `Claude Code`, or `Cursor`. If the tool is different, use its actual display name. Never attribute one tool's work to another tool. Do not add an AI `Co-Authored-By` trailer unless the current tool provides an exact configured trailer; never copy another tool's trailer or invent an email address.
 
 4. Run `make pr-screenshots` to upload screenshots and embed them under `## Example` in the PR body.
 
