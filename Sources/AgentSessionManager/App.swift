@@ -20,6 +20,9 @@ struct ContentView: View {
     var body: some View {
         @Bindable var appState = appState
         let hasNotifications = !appState.notifications.isEmpty
+        let hideNotificationSidebar =
+            appSettings.hideNotificationSidebarWhileFocused
+            && appState.activeTab?.focusedPaneID != nil
         VStack(spacing: 0) {
             TabBarView()
                 .frame(height: 44)
@@ -30,6 +33,7 @@ struct ContentView: View {
                 if appSettings.notificationSidebarSide == .left
                     && (hasNotifications
                         || appSettings.alwaysShowNotificationsSidebar)
+                    && !hideNotificationSidebar
                 {
                     NotificationSidebarView()
                         .environment(appState)
@@ -50,6 +54,7 @@ struct ContentView: View {
                 if appSettings.notificationSidebarSide == .right
                     && (hasNotifications
                         || appSettings.alwaysShowNotificationsSidebar)
+                    && !hideNotificationSidebar
                 {
                     Divider()
                     NotificationSidebarView()
@@ -170,6 +175,12 @@ struct ContentView: View {
                     SettingsPersistence.ActivityIndicatorConfig.self, from: "activity-indicator-settings.json")
                 {
                     appSettings.paneActivityIndicatorsEnabled = config.enabled
+                }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.FocusModeConfig.self, from: "focus-mode-settings.json")
+                {
+                    appSettings.focusModeTabSwitchBehavior = config.tabSwitchBehavior
+                    appSettings.hideNotificationSidebarWhileFocused = config.hideNotificationSidebar
                 }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
@@ -383,7 +394,10 @@ struct ContentView: View {
 
     private func switchTab(index: Int) {
         guard index < appState.tabs.count else { return }
-        appState.switchToTab(id: appState.tabs[index].id)
+        appState.switchToTab(
+            id: appState.tabs[index].id,
+            focusModeTabSwitchBehavior: appSettings.focusModeTabSwitchBehavior
+        )
     }
 
     private func closeActiveTab() {

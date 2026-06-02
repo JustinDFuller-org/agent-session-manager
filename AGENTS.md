@@ -189,6 +189,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - observability-dashboard: `feature-observability-dashboard`
 - worktree-cleanup: `feature-worktree-cleanup`
 - panes: `feature-panes`
+- focus-pane: `feature-focus-pane`
 - codex-cli: `feature-codex-cli`
 - continue-on-restart: `feature-continue-on-restart`
 - tab-pane-reordering: `feature-tab-pane-reordering`

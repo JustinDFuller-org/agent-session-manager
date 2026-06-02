@@ -86,6 +86,25 @@ enum ExistingWorktreeManagement: String, Codable, CaseIterable {
     }
 }
 
+enum FocusModeTabSwitchBehavior: String, Codable, CaseIterable {
+    case rememberFocus
+    case showAllPanes
+
+    var displayName: String {
+        switch self {
+        case .rememberFocus: return "Remember Focus"
+        case .showAllPanes: return "Show All Panes"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .rememberFocus: return "Return to the focused pane when switching back to a tab."
+        case .showAllPanes: return "Restore the pane grid whenever you leave a tab."
+        }
+    }
+}
+
 @Observable
 @MainActor
 final class AppSettings {
@@ -122,6 +141,8 @@ final class AppSettings {
     var preferredShell: String = ""
     var hasCompletedOnboarding: Bool = false
     var paneActivityIndicatorsEnabled: Bool = true
+    var focusModeTabSwitchBehavior: FocusModeTabSwitchBehavior = .rememberFocus
+    var hideNotificationSidebarWhileFocused: Bool = true
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 

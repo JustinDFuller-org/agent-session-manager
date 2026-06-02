@@ -69,6 +69,7 @@ final class Tab: Identifiable {
     var baseBranchOverride: String?
     var panes: [Pane] = []
     var lastActivePaneID: UUID?
+    var focusedPaneID: UUID?
 
     init(id: UUID = UUID(), name: String, directory: URL, baseBranchOverride: String? = nil) {
         self.id = id
@@ -679,6 +680,7 @@ final class Tab: Identifiable {
 
     /// Opens a new plain shell pane in this tab, in the same working directory as the active pane.
     func openShellPane(activePane: Pane?, appSettings: AppSettings? = nil) {
+        setFocusedPane(id: nil, reason: "shell_pane_opened")
         let cwd = activePane?.terminalController?.pendingDirectory
         addPane(
             name: "shell",
@@ -689,6 +691,9 @@ final class Tab: Identifiable {
     }
 
     func closePane(_ pane: Pane) {
+        if focusedPaneID == pane.id {
+            setFocusedPane(id: nil, reason: "focused_pane_closed")
+        }
         pane.terminalController?.terminate()
         pane.installTerminalController(nil)
         pane.removeStatusLineMonitor()
@@ -707,6 +712,41 @@ final class Tab: Identifiable {
 }
 
 extension Tab {
+    func setFocusedPane(id: UUID?, reason: String) {
+        let boundedReason = String(reason.prefix(64))
+        if let id {
+            guard panes.count > 1, let pane = panes.first(where: { $0.id == id }) else { return }
+            guard focusedPaneID != id else { return }
+            focusedPaneID = id
+            TracingService.shared.record(
+                "pane.focus_mode.changed",
+                attributes: [
+                    "pane.id": pane.id.uuidString,
+                    "pane.name": pane.name,
+                    "tab.id": self.id.uuidString,
+                    "tab.name": name,
+                    "state": "focused",
+                    "reason": boundedReason,
+                ])
+        } else {
+            guard let focusedPaneID, let pane = panes.first(where: { $0.id == focusedPaneID }) else {
+                self.focusedPaneID = nil
+                return
+            }
+            self.focusedPaneID = nil
+            TracingService.shared.record(
+                "pane.focus_mode.changed",
+                attributes: [
+                    "pane.id": pane.id.uuidString,
+                    "pane.name": pane.name,
+                    "tab.id": self.id.uuidString,
+                    "tab.name": name,
+                    "state": "grid",
+                    "reason": boundedReason,
+                ])
+        }
+    }
+
     /// Appends `--continue` to a command string if not already present.
     nonisolated static func injectContinueFlag(into command: String) -> String {
         if command.contains("--continue") { return command }

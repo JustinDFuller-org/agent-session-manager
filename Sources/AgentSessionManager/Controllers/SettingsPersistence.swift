@@ -109,6 +109,7 @@ struct SettingsPersistence {
     private static var activityIndicatorSettingsURL: URL {
         appSupportDir.appending(path: "activity-indicator-settings.json")
     }
+    private static var focusModeSettingsURL: URL { appSupportDir.appending(path: "focus-mode-settings.json") }
 
     static func save<Value: Encodable>(_ value: Value, to filename: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
@@ -292,5 +293,19 @@ struct SettingsPersistence {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(enabled, forKey: .enabled)
         }
+    }
+
+    struct FocusModeConfig: Codable {
+        var tabSwitchBehavior: FocusModeTabSwitchBehavior = .rememberFocus
+        var hideNotificationSidebar: Bool = true
+    }
+
+    static func saveFocusModeSettings(appSettings: AppSettings) {
+        let payload = FocusModeConfig(
+            tabSwitchBehavior: appSettings.focusModeTabSwitchBehavior,
+            hideNotificationSidebar: appSettings.hideNotificationSidebarWhileFocused
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: focusModeSettingsURL)
     }
 }

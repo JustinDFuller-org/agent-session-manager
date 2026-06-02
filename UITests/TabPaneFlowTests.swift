@@ -16,6 +16,41 @@ final class TabPaneFlowTests: BaseTestCase {
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
     }
 
+    func testFocusPaneFlow() {
+        createTab(named: "FocusTab")
+        createPane(named: "reader")
+        createPane(named: "worker")
+
+        let readerHeader = app.descendants(matching: .any).matching(identifier: "pane-header-reader").firstMatch
+        let workerName = app.staticTexts["pane-name-worker"].firstMatch
+        let sidebar = app.descendants(matching: .any).matching(identifier: "notification-sidebar").firstMatch
+        waitFor(readerHeader)
+        waitFor(workerName)
+        waitFor(sidebar)
+
+        readerHeader.doubleClick()
+
+        let showAll = app.buttons["pane-show-all-reader"].firstMatch
+        waitFor(showAll)
+        XCTAssertTrue(app.buttons["tab-button-FocusTab"].firstMatch.exists)
+        waitForDisappear(workerName)
+        waitForDisappear(sidebar)
+
+        showAll.click()
+        waitFor(workerName)
+        waitFor(sidebar)
+
+        let workerHeader = app.descendants(matching: .any).matching(identifier: "pane-header-worker").firstMatch
+        waitFor(workerHeader)
+        workerHeader.rightClick()
+        let focusMenuItem = app.menuItems["Focus This Pane"]
+        waitFor(focusMenuItem)
+        focusMenuItem.click()
+
+        waitFor(app.buttons["pane-show-all-worker"].firstMatch)
+        waitForDisappear(app.staticTexts["pane-name-reader"].firstMatch)
+    }
+
     func testTabPaneFlow() {
         // Create first tab and assert initial state
         createTab(named: "WorkTab")

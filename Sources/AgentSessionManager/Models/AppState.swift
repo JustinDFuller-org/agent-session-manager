@@ -17,11 +17,18 @@ final class AppState {
         activeTab?.panes.first { $0.id == activePaneID }
     }
 
-    func switchToTab(id: UUID) {
+    func switchToTab(id: UUID, focusModeTabSwitchBehavior: FocusModeTabSwitchBehavior = .rememberFocus) {
+        if focusModeTabSwitchBehavior == .showAllPanes {
+            activeTab?.setFocusedPane(id: nil, reason: "tab_switched")
+        }
         activeTab?.lastActivePaneID = activePaneID
         activeTabID = id
+        let focused = activeTab?.focusedPaneID
         let saved = activeTab?.lastActivePaneID
-        activePaneID = activeTab?.panes.first(where: { $0.id == saved })?.id ?? activeTab?.panes.first?.id
+        activePaneID =
+            activeTab?.panes.first(where: { $0.id == focused })?.id
+            ?? activeTab?.panes.first(where: { $0.id == saved })?.id
+            ?? activeTab?.panes.first?.id
     }
 
     func setActivePane(id: UUID?) {
@@ -162,6 +169,9 @@ final class AppState {
                 "tab.name": notification.tabName,
                 "reason": "navigated",
             ])
+        activeTab?.setFocusedPane(id: nil, reason: "notification_navigation")
+        tabs.first(where: { $0.id == notification.tabID })?
+            .setFocusedPane(id: nil, reason: "notification_navigation")
         switchToTab(id: notification.tabID)
         setActivePane(id: notification.paneID)
         if notification.kind == .prMerged {
@@ -177,7 +187,19 @@ final class AppState {
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {
-        TracingService.shared.record("pane.activated", attributes: ["pane.name": "", "tab.name": ""])
+        activeTab?.setFocusedPane(id: nil, reason: "notification_navigation")
+        guard let tab = tabs.first(where: { $0.id == tabID }),
+            let pane = tab.panes.first(where: { $0.id == paneID })
+        else { return }
+        tab.setFocusedPane(id: nil, reason: "notification_navigation")
+        TracingService.shared.record(
+            "pane.activated",
+            attributes: [
+                "pane.id": pane.id.uuidString,
+                "pane.name": pane.name,
+                "tab.id": tab.id.uuidString,
+                "tab.name": tab.name,
+            ])
         switchToTab(id: tabID)
         setActivePane(id: paneID)
     }

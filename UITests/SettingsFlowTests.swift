@@ -114,6 +114,13 @@ final class SettingsFlowTests: BaseTestCase {
         let shellPicker = app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
         waitFor(shellPicker)
         XCTAssertTrue(shellPicker.exists, "Shell picker should exist under General tab")
+
+        let focusModePicker = app.descendants(matching: .any)
+            .matching(identifier: "settings-focus-mode-tab-switch-picker").firstMatch
+        waitFor(focusModePicker)
+        let hideSidebarToggle = app.checkBoxes["settings-focus-mode-hide-sidebar-toggle"]
+        waitFor(hideSidebarToggle)
+        XCTAssertEqual(hideSidebarToggle.value as? Int, 1)
     }
 
     private func verifyNotificationsTab() {
