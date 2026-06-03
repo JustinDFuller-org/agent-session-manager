@@ -1,6 +1,6 @@
 # Agent Harness Feature Matrix
 
-This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, and Codex as of **May 30, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
+This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, and Codex as of **June 2, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
 
 ## Legend
 
@@ -29,10 +29,10 @@ This is the canonical, code-observed audit of Agent Session Manager integration 
 | Session restore | Implemented | Implemented | Implemented | Persisted resolved checkout directories are restored for every harness when they still exist. |
 | Continue on app restart | Implemented | N/A | N/A | Automatic restore-time `--continue` injection is Claude-only. |
 | Auto session names | Implemented | N/A | N/A | Automatic `--name '<tab>/<pane>'` injection is Claude-only. |
-| Restart existing process | Partial | Partial | Partial | Controller replacement does not rewire notification callbacks. |
-| Quick refresh and continue | Partial | Partial | Partial | Monitor/controller replacement does not rewire notifications. Cursor also loses `AGENT_SESSION_MANAGER_PANE_ID`. |
-| Refresh with new settings | Partial | Partial | Partial | Replaces monitor/controller without rewiring notifications. Cursor does restore its pane ID on this path. |
-| Rich status provider | Implemented | Partial | Missing | Claude uses `statusLine`; Cursor adds hook model data; Codex has baseline app data only. |
+| Restart existing process | Implemented | Implemented | Implemented | Controller replacement preserves the existing monitor and callback wiring. |
+| Quick refresh and continue | Implemented | Implemented | Implemented | Monitor replacement goes through `Pane.installStatusLineMonitor`, which reattaches callbacks. Cursor quick refresh preserves `AGENT_SESSION_MANAGER_PANE_ID`. |
+| Refresh with new settings | Implemented | Implemented | Implemented | Monitor/controller replacement goes through pane install methods that rewire callbacks. |
+| Rich status provider | Implemented | Partial | Partial | Claude uses `statusLine`; Cursor adds hook model data; Codex adds version-gated SQLite/rollout data for 0.136.x. |
 | Shared baseline status | Implemented | Implemented | Implemented | Worktree, branch, duration, lines changed, PR, and profile chips are app-owned where data is available. Cursor and Codex fetch versions. |
 | Native attention integration | Implemented | Partial | Missing | Claude uses `Notification`; Cursor uses `stop`, but setting changes do not refresh existing panes. |
 | Shared terminal attention | Implemented | Implemented | Implemented | BEL and OSC 777 flow through `TerminalController`. |
@@ -48,10 +48,10 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 
 | Chip ID | Claude Code | Cursor | Codex | Source or gap |
 |---|---|---|---|---|
-| `model` | Implemented | Implemented | **Missing** | Claude hook JSON; Cursor `afterAgentResponse` hook. Codex provider does not populate model data. |
+| `model` | Implemented | Implemented | Partial | Claude hook JSON; Cursor `afterAgentResponse` hook; Codex SQLite/rollout metadata for supported versions. |
 | `worktree` | Implemented | Implemented | Implemented | App-owned checkout directory plus Git branch. |
 | `cost` | Implemented | N/A | N/A | Claude hook JSON. |
-| `context` | Implemented | N/A | N/A | Claude hook JSON percentage. |
+| `context` | Implemented | N/A | Partial | Claude hook JSON percentage; Codex rollout token count for supported versions. |
 | `effort` | Implemented | N/A | N/A | Claude hook JSON. |
 | `thinking` | Implemented | N/A | N/A | Claude hook JSON. |
 | `vimMode` | Implemented | N/A | N/A | Claude hook JSON. |
@@ -60,13 +60,13 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 | `linesAdded` | Implemented | Implemented | Implemented | App-owned `git diff --shortstat HEAD`. |
 | `linesRemoved` | Implemented | Implemented | Implemented | App-owned `git diff --shortstat HEAD`. |
 | `duration` | Implemented | Implemented | Implemented | App-owned process duration. |
-| `contextRemaining` | Implemented | N/A | N/A | Claude hook JSON percentage. |
-| `inputTokens` | Implemented | N/A | N/A | Claude hook JSON. |
-| `outputTokens` | Implemented | N/A | N/A | Claude hook JSON. |
-| `rate5h` | Implemented | N/A | N/A | Claude hook JSON. |
-| `rate7d` | Implemented | N/A | N/A | Claude hook JSON. |
-| `rate5hReset` | Implemented | N/A | N/A | Claude hook JSON. |
-| `rate7dReset` | Implemented | N/A | N/A | Claude hook JSON. |
+| `contextRemaining` | Implemented | N/A | Partial | Claude hook JSON percentage; Codex rollout token count for supported versions. |
+| `inputTokens` | Implemented | N/A | Partial | Claude hook JSON; Codex rollout token count for supported versions. |
+| `outputTokens` | Implemented | N/A | Partial | Claude hook JSON; Codex rollout token count for supported versions. |
+| `rate5h` | Implemented | N/A | Partial | Claude hook JSON; Codex primary 300-minute rate window for supported versions. |
+| `rate7d` | Implemented | N/A | Partial | Claude hook JSON; Codex secondary 10,080-minute rate window for supported versions. |
+| `rate5hReset` | Implemented | N/A | Partial | Claude hook JSON; Codex primary 300-minute rate window for supported versions. |
+| `rate7dReset` | Implemented | N/A | Partial | Claude hook JSON; Codex secondary 10,080-minute rate window for supported versions. |
 | `version` | Implemented | Implemented | Implemented | Claude hook JSON; Cursor and Codex run `<command> --version`. |
 | `outputStyle` | Implemented | N/A | N/A | Claude hook JSON. |
 | `exceeds200k` | Implemented | N/A | N/A | Claude hook JSON. |
@@ -87,10 +87,8 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 
 ## Known Gaps
 
-- New panes call `wireTerminalBellForNotifications` while they are still loading, before terminal controllers and status monitors exist. `completeSetup` does not wire them afterward.
-- Restart, quick refresh, refresh-with-settings, and shell replacement create new controllers or monitors without rewiring notification callbacks.
-- Cursor quick refresh rebuilds the environment snapshot without restoring `AGENT_SESSION_MANAGER_PANE_ID`, so Cursor hook output is no longer keyed to that pane.
 - Cursor attention-toggle changes do not refresh existing Cursor providers. Claude has `refreshClaudeIntegrationFromSettings`; Cursor has no equivalent.
+- Codex rollout parsing is currently supported only for Codex `0.136.x`; unknown versions degrade to baseline/state DB facts.
 
 ## Harness Guides
 
