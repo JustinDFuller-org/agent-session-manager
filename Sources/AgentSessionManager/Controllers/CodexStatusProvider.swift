@@ -12,6 +12,29 @@ struct StatusProviderContext {
     let launchArgs: [String]
     let environment: [String: String]
     let detectedHarnessVersion: String?
+    let codexHookRecordPath: String?
+}
+
+struct CodexHookSessionRecord: Codable, Equatable {
+    let paneID: String
+    let tabID: String
+    let sessionID: String
+    let cwd: String
+    let model: String?
+    let transcriptPath: String?
+    let hookEventName: String
+    let timestamp: Double
+
+    enum CodingKeys: String, CodingKey {
+        case paneID = "pane_id"
+        case tabID = "tab_id"
+        case sessionID = "session_id"
+        case cwd
+        case model
+        case transcriptPath = "transcript_path"
+        case hookEventName = "hook_event_name"
+        case timestamp
+    }
 }
 
 struct CodexThreadState: Equatable {
@@ -30,6 +53,7 @@ struct CodexThreadState: Equatable {
 struct CodexThreadSelection: Equatable {
     let thread: CodexThreadState?
     let candidateCount: Int
+    let freshCandidateCount: Int
 }
 
 private struct CodexThreadRank {
@@ -40,15 +64,19 @@ private struct CodexThreadRank {
 }
 
 enum CodexVersionAdapter {
-    static func supports(_ version: String?) -> Bool {
-        guard let version else { return false }
+    static func normalize(_ version: String?) -> String? {
+        guard let version else { return nil }
         let trimmed = version.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized =
             trimmed
             .replacingOccurrences(of: "codex-cli", with: "")
             .replacingOccurrences(of: "codex", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalized.hasPrefix("0.136.")
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    static func supports(_ version: String?) -> Bool {
+        normalize(version)?.hasPrefix("0.136.") == true
     }
 }
 
@@ -59,7 +87,7 @@ final class CodexStateStore {
         self.databaseURL = databaseURL
     }
 
-    func selectThread(cwd: String, processStartTime: Date) throws -> CodexThreadSelection {
+    func selectThread(sessionID: String, rolloutPath: String?) throws -> CodexThreadState? {
         var db: OpaquePointer?
         let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
         guard sqlite3_open_v2(databaseURL.path, &db, flags, nil) == SQLITE_OK, let db else {
@@ -88,12 +116,13 @@ final class CodexStateStore {
             columns.contains("archived_at_ms") ? "archived_at_ms" : "NULL AS archived_at_ms",
             columns.contains("archived_at") ? "archived_at" : "NULL AS archived_at",
         ].joined(separator: ", ")
+        let hasRolloutPathColumn = columns.contains("rollout_path")
         let sql = """
             SELECT \(selectedColumns)
             FROM threads
-            WHERE cwd = ?1
+            WHERE id = ?1 \(hasRolloutPathColumn && rolloutPath != nil ? "OR rollout_path = ?2" : "")
             ORDER BY updated_at_ms DESC, created_at_ms DESC
-            LIMIT 25
+            LIMIT 1
             """
 
         var statement: OpaquePointer?
@@ -102,79 +131,34 @@ final class CodexStateStore {
         }
         defer { sqlite3_finalize(statement) }
 
-        sqlite3_bind_text(statement, 1, cwd, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
-
-        var rows: [CodexThreadState] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            let archivedValue = optionalInt(statement, 8) ?? 0
-            let archivedText = text(statement, 8)?.lowercased()
-            let archivedAtMs = optionalInt64(statement, 9)
-            let archivedAt = text(statement, 10)
-            let isArchived =
-                archivedValue != 0
-                || archivedText == "true"
-                || archivedText == "yes"
-                || (archivedAtMs ?? 0) > 0
-                || archivedAt != nil
-            rows.append(
-                CodexThreadState(
-                    id: text(statement, 0) ?? "",
-                    rolloutPath: text(statement, 1),
-                    model: text(statement, 2),
-                    cliVersion: text(statement, 3),
-                    tokensUsed: optionalInt(statement, 4),
-                    gitBranch: text(statement, 5),
-                    createdAtMs: optionalInt64(statement, 6),
-                    updatedAtMs: optionalInt64(statement, 7),
-                    isArchived: isArchived,
-                    candidateCount: 0
-                ))
-        }
-        guard !rows.isEmpty else {
-            return CodexThreadSelection(thread: nil, candidateCount: 0)
+        sqlite3_bind_text(statement, 1, sessionID, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        if hasRolloutPathColumn, let rolloutPath {
+            sqlite3_bind_text(statement, 2, rolloutPath, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
         }
 
-        let processStartMs = Int64(processStartTime.timeIntervalSince1970 * 1000)
-        let hasActiveRows = rows.contains { $0.isArchived == false }
-        let candidates = hasActiveRows ? rows.filter { $0.isArchived == false } : rows
-        let ranked = candidates.map {
-            row -> CodexThreadRank in
-            let timestamp = row.createdAtMs ?? row.updatedAtMs
-            let distance = timestamp.map { abs($0 - processStartMs) } ?? Int64.max
-            let beforeStart = timestamp.map { $0 < processStartMs } ?? true
-            return CodexThreadRank(
-                row: row,
-                distance: distance,
-                beforeStart: beforeStart,
-                updated: row.updatedAtMs ?? row.createdAtMs ?? 0)
-        }.sorted { lhs, rhs in
-            if lhs.distance != rhs.distance { return lhs.distance < rhs.distance }
-            if lhs.beforeStart != rhs.beforeStart { return rhs.beforeStart }
-            return lhs.updated > rhs.updated
-        }
-
-        guard let best = ranked.first else {
-            return CodexThreadSelection(thread: nil, candidateCount: rows.count)
-        }
-        if ranked.count > 1 {
-            let next = ranked[1]
-            if best.distance == next.distance, best.beforeStart == next.beforeStart, best.updated == next.updated {
-                throw CodexStateStoreError.ambiguousSession
-            }
-        }
-        let selected = CodexThreadState(
-            id: best.row.id,
-            rolloutPath: best.row.rolloutPath,
-            model: best.row.model,
-            cliVersion: best.row.cliVersion,
-            tokensUsed: best.row.tokensUsed,
-            gitBranch: best.row.gitBranch,
-            createdAtMs: best.row.createdAtMs,
-            updatedAtMs: best.row.updatedAtMs,
-            isArchived: best.row.isArchived,
-            candidateCount: rows.count
+        guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+        let archivedValue = optionalInt(statement, 8) ?? 0
+        let archivedText = text(statement, 8)?.lowercased()
+        let archivedAtMs = optionalInt64(statement, 9)
+        let archivedAt = text(statement, 10)
+        let isArchived =
+            archivedValue != 0
+            || archivedText == "true"
+            || archivedText == "yes"
+            || (archivedAtMs ?? 0) > 0
+            || archivedAt != nil
+        return CodexThreadState(
+            id: text(statement, 0) ?? "",
+            rolloutPath: text(statement, 1),
+            model: text(statement, 2),
+            cliVersion: CodexVersionAdapter.normalize(text(statement, 3)),
+            tokensUsed: optionalInt(statement, 4),
+            gitBranch: text(statement, 5),
+            createdAtMs: optionalInt64(statement, 6),
+            updatedAtMs: optionalInt64(statement, 7),
+            isArchived: isArchived,
+            candidateCount: 1
         )
-        return CodexThreadSelection(thread: selected, candidateCount: rows.count)
     }
 
     private func availableColumns(db: OpaquePointer) throws -> Set<String> {
@@ -244,7 +228,8 @@ struct CodexRolloutParser {
                 outputStyle: nil,
                 vim: nil,
                 sessionName: nil,
-                version: payload?["cli_version"] as? String ?? object["cli_version"] as? String,
+                version: CodexVersionAdapter.normalize(
+                    payload?["cli_version"] as? String ?? object["cli_version"] as? String),
                 exceeds200kTokens: nil,
                 pr: nil,
                 sessionStatus: nil
@@ -253,19 +238,57 @@ struct CodexRolloutParser {
 
         guard type == "event_msg",
             let payload = object["payload"] as? [String: Any],
-            payload["type"] as? String == "token_count"
+            let payloadType = payload["type"] as? String
         else { return nil }
 
+        if payloadType == "turn_context" {
+            let model =
+                payload["model"] as? String
+                ?? (payload["turn_context"] as? [String: Any])?["model"] as? String
+                ?? (payload["info"] as? [String: Any])?["model"] as? String
+            return model.map {
+                StatusLineData(
+                    model: StatusLineData.Model(id: $0, displayName: $0),
+                    cost: nil,
+                    contextWindow: nil,
+                    rateLimits: nil,
+                    worktree: nil,
+                    workspace: nil,
+                    effort: nil,
+                    thinking: nil,
+                    agent: nil,
+                    outputStyle: nil,
+                    vim: nil,
+                    sessionName: nil,
+                    version: nil,
+                    exceeds200kTokens: nil,
+                    pr: nil,
+                    sessionStatus: nil
+                )
+            }
+        }
+
+        guard payloadType == "token_count" else { return nil }
+
         let info = payload["info"] as? [String: Any]
-        let usage = info?["total_token_usage"] as? [String: Any] ?? payload["total_token_usage"] as? [String: Any]
-        let input = int(usage?["input_tokens"]) ?? int(usage?["total_input_tokens"])
-        let output = int(usage?["output_tokens"]) ?? int(usage?["total_output_tokens"])
+        let totalUsage = info?["total_token_usage"] as? [String: Any] ?? payload["total_token_usage"] as? [String: Any]
+        let lastUsage = info?["last_token_usage"] as? [String: Any] ?? payload["last_token_usage"] as? [String: Any]
+        let input = int(totalUsage?["input_tokens"]) ?? int(totalUsage?["total_input_tokens"])
+        let output = int(totalUsage?["output_tokens"]) ?? int(totalUsage?["total_output_tokens"])
         let contextWindow =
             int(info?["model_context_window"]) ?? int(payload["model_context_window"])
-            ?? int(usage?["model_context_window"])
-        let used = (input ?? 0) + (output ?? 0)
-        let usedPct = contextWindow.flatMap { $0 > 0 ? Int((Double(used) / Double($0)) * 100) : nil }
-        let remainingPct = usedPct.map { max(0, 100 - $0) }
+            ?? int(totalUsage?["model_context_window"])
+        let contextTokens =
+            int(lastUsage?["total_tokens"])
+            ?? (int(lastUsage?["input_tokens"]) ?? int(lastUsage?["total_input_tokens"])).flatMap { lastInput in
+                (int(lastUsage?["output_tokens"]) ?? int(lastUsage?["total_output_tokens"])).map { lastInput + $0 }
+            }
+        let usedPct = contextWindow.flatMap { window -> Int? in
+            guard window > 0, let contextTokens else { return nil }
+            let raw = Int((Double(contextTokens) / Double(window)) * 100)
+            return min(100, max(0, raw))
+        }
+        let remainingPct = usedPct.map { min(100, max(0, 100 - $0)) }
         let model = payload["model"] as? String ?? info?["model"] as? String
 
         return StatusLineData(
@@ -331,6 +354,7 @@ final class CodexRolloutTailer {
     var onTrace: ((String, [String: String]) -> Void)?
     private var source: DispatchSourceFileSystemObject?
     private var offset: UInt64 = 0
+    private var pendingLineBuffer = Data()
 
     init(rolloutPath: String, expectedCWD: String) {
         self.rolloutPath = rolloutPath
@@ -339,7 +363,13 @@ final class CodexRolloutTailer {
 
     func start() {
         onTrace?("statusline.codex.tailer_started", [:])
-        readNewLines()
+        if let handle = FileHandle(forReadingAtPath: rolloutPath) {
+            defer { try? handle.close() }
+            if let data = try? handle.readToEnd() {
+                offset = UInt64(data.count)
+                process(data: data, catchUp: true)
+            }
+        }
         let fd = open(rolloutPath, O_EVTONLY)
         guard fd >= 0 else { return }
         let watcher = DispatchSource.makeFileSystemObjectSource(
@@ -367,20 +397,47 @@ final class CodexRolloutTailer {
             try handle.seek(toOffset: offset)
             let data = try handle.readToEnd() ?? Data()
             offset += UInt64(data.count)
-            var lineCount = 0
-            var updateCount = 0
-            for line in data.split(separator: UInt8(ascii: "\n")).prefix(200) {
-                lineCount += 1
-                guard line.count <= 64 * 1024 else { continue }
-                if let update = CodexRolloutParser.parseLine(Data(line), expectedCWD: expectedCWD) {
-                    updateCount += 1
-                    onUpdate?(update)
-                }
-            }
+            process(data: data, catchUp: false)
+        } catch {}
+    }
+
+    private func process(data: Data, catchUp: Bool) {
+        guard !data.isEmpty || !pendingLineBuffer.isEmpty else {
             onTrace?(
                 "statusline.codex.tailer_read",
-                ["line_count": "\(lineCount)", "update_count": "\(updateCount)"])
-        } catch {}
+                ["line_count": "0", "update_count": "0", "catch_up": catchUp ? "true" : "false"])
+            return
+        }
+
+        pendingLineBuffer.append(data)
+        guard let lastNewline = pendingLineBuffer.lastIndex(of: UInt8(ascii: "\n")) else { return }
+
+        let completeData = pendingLineBuffer[..<lastNewline]
+        let afterNewline = pendingLineBuffer.index(after: lastNewline)
+        pendingLineBuffer = Data(pendingLineBuffer[afterNewline...])
+
+        var lines = completeData.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
+        if catchUp, lines.count > 200 {
+            lines = lines.suffix(200)
+        }
+
+        var lineCount = 0
+        var updateCount = 0
+        for line in lines {
+            lineCount += 1
+            guard line.count <= 64 * 1024 else { continue }
+            if let update = CodexRolloutParser.parseLine(Data(line), expectedCWD: expectedCWD) {
+                updateCount += 1
+                onUpdate?(update)
+            }
+        }
+        onTrace?(
+            "statusline.codex.tailer_read",
+            [
+                "line_count": "\(lineCount)",
+                "update_count": "\(updateCount)",
+                "catch_up": catchUp ? "true" : "false",
+            ])
     }
 }
 
@@ -390,14 +447,26 @@ final class CodexStatusProvider: StatusLineDataProvider {
 
     private let context: StatusProviderContext
     private let stateStore: CodexStateStore
+    private let startupRetryInterval: TimeInterval
+    private let startupTimeout: TimeInterval
     private let baseline: ToolAgnosticDataProvider
     private var tailer: CodexRolloutTailer?
+    private var stateTask: Task<Void, Never>?
     private var latestHarnessData: StatusLineData?
     private var latestBaselineData: StatusLineData?
+    private var boundSessionID: String?
+    private var boundTranscriptPath: String?
 
-    init(context: StatusProviderContext, stateStore: CodexStateStore = CodexStateStore()) {
+    init(
+        context: StatusProviderContext,
+        stateStore: CodexStateStore = CodexStateStore(),
+        startupRetryInterval: TimeInterval = 0.5,
+        startupTimeout: TimeInterval = 15
+    ) {
         self.context = context
         self.stateStore = stateStore
+        self.startupRetryInterval = startupRetryInterval
+        self.startupTimeout = startupTimeout
         self.baseline = ToolAgnosticDataProvider(
             workingDirectory: context.workingDirectory,
             toolCommand: context.harness.commandDescription,
@@ -406,109 +475,200 @@ final class CodexStatusProvider: StatusLineDataProvider {
     }
 
     func start() {
-        trace("statusline.provider.started")
         baseline.onUpdate = { [weak self] data in
             guard let self else { return }
             self.latestBaselineData = data
             self.emitMerged()
         }
         baseline.start()
-        Task { [weak self] in
-            await self?.loadCodexState()
+        stateTask = Task { [weak self] in
+            await self?.bindCodexSession()
         }
     }
 
     func stop() {
+        stateTask?.cancel()
+        stateTask = nil
         baseline.stop()
         tailer?.stop()
         tailer = nil
-        trace("statusline.provider.stopped")
     }
 
-    private func loadCodexState() async {
-        do {
-            let selection = try stateStore.selectThread(
-                cwd: context.workingDirectory,
-                processStartTime: context.processStartTime
-            )
-            trace(
-                "statusline.codex.state_read",
-                attributes: ["candidate_count": "\(selection.candidateCount)"])
-            guard let thread = selection.thread else {
-                trace(
-                    "statusline.codex.selection_failed",
-                    attributes: ["reason": "no_match", "candidate_count": "\(selection.candidateCount)"])
-                return
-            }
-            trace(
-                "statusline.codex.thread_selected",
-                attributes: [
-                    "thread_id_prefix": String(thread.id.prefix(12)),
-                    "created_at_ms": thread.createdAtMs.map(String.init) ?? "",
-                    "updated_at_ms": thread.updatedAtMs.map(String.init) ?? "",
-                    "cli_version": thread.cliVersion ?? context.detectedHarnessVersion ?? "",
-                    "candidate_count": "\(thread.candidateCount)",
-                ])
-            let stateData = StatusLineData(
-                model: thread.model.map { StatusLineData.Model(id: $0, displayName: $0) },
-                cost: nil,
-                contextWindow: thread.tokensUsed.map {
-                    StatusLineData.ContextWindow(
-                        usedPercentage: nil,
-                        remainingPercentage: nil,
-                        totalInputTokens: $0,
-                        totalOutputTokens: nil)
-                },
-                rateLimits: nil,
-                worktree: nil,
-                workspace: nil,
-                effort: nil,
-                thinking: nil,
-                agent: nil,
-                outputStyle: nil,
-                vim: nil,
-                sessionName: nil,
-                version: thread.cliVersion ?? context.detectedHarnessVersion,
-                exceeds200kTokens: nil,
-                pr: nil,
-                sessionStatus: nil
-            )
-            await MainActor.run {
-                self.latestHarnessData = stateData
-                self.emitMerged()
-            }
-            guard CodexVersionAdapter.supports(thread.cliVersion ?? context.detectedHarnessVersion) else {
-                trace("statusline.codex.schema_unsupported")
-                return
-            }
-            guard let rolloutPath = thread.rolloutPath, FileManager.default.fileExists(atPath: rolloutPath) else {
-                trace("statusline.codex.rollout_unavailable")
-                return
-            }
-            await MainActor.run {
-                self.startTailer(path: rolloutPath)
-            }
-        } catch CodexStateStoreError.ambiguousSession {
-            trace("statusline.provider.update_failed")
-            trace("statusline.codex.selection_failed", attributes: ["reason": "ambiguous_after_scoring"])
-            trace("statusline.codex.session_ambiguous")
-        } catch CodexStateStoreError.schemaUnavailable {
-            trace("statusline.provider.update_failed")
-            trace("statusline.codex.selection_failed", attributes: ["reason": "schema_unavailable"])
-            trace("statusline.codex.state_unavailable")
-        } catch CodexStateStoreError.openFailed {
-            trace("statusline.provider.update_failed")
-            trace("statusline.codex.selection_failed", attributes: ["reason": "open_failed"])
-            trace("statusline.codex.state_unavailable")
-        } catch CodexStateStoreError.queryFailed {
-            trace("statusline.provider.update_failed")
-            trace("statusline.codex.selection_failed", attributes: ["reason": "query_failed"])
-            trace("statusline.codex.state_unavailable")
-        } catch {
-            trace("statusline.provider.update_failed")
-            trace("statusline.codex.selection_failed", attributes: ["reason": "unknown"])
-            trace("statusline.codex.state_unavailable")
+    private func bindCodexSession() async {
+        guard let hookRecordPath = context.codexHookRecordPath else {
+            traceRetryableSelectionFailure(reason: "missing_hook_path", retryReason: "missing_hook_path", attempt: 1)
+            return
         }
+        let deadline = Date().addingTimeInterval(startupTimeout)
+        var attempt = 0
+
+        while !Task.isCancelled {
+            attempt += 1
+            if let record = readHookRecord(path: hookRecordPath) {
+                guard record.paneID == context.paneID.uuidString, record.tabID == context.tabID.uuidString else {
+                    traceRetryableSelectionFailure(
+                        reason: "hook_context_mismatch",
+                        retryReason: "hook_context_mismatch",
+                        attempt: attempt,
+                        extraAttributes: [
+                            "hook_record_available": "true",
+                            "hook_event_name": record.hookEventName,
+                        ])
+                    return
+                }
+                boundSessionID = record.sessionID
+                boundTranscriptPath = record.transcriptPath
+                trace(
+                    "statusline.codex.hook_bound",
+                    attributes: [
+                        "hook_record_available": "true",
+                        "hook_event_name": record.hookEventName,
+                        "retry_attempt": "\(attempt)",
+                        "session_id_prefix": String(record.sessionID.prefix(12)),
+                        "transcript_available": record.transcriptPath.map {
+                            FileManager.default.fileExists(atPath: $0) ? "true" : "false"
+                        } ?? "false",
+                    ])
+                let stateData = StatusLineData(
+                    model: record.model.map { StatusLineData.Model(id: $0, displayName: $0) },
+                    cost: nil,
+                    contextWindow: nil,
+                    rateLimits: nil,
+                    worktree: nil,
+                    workspace: nil,
+                    effort: nil,
+                    thinking: nil,
+                    agent: nil,
+                    outputStyle: nil,
+                    vim: nil,
+                    sessionName: nil,
+                    version: CodexVersionAdapter.normalize(context.detectedHarnessVersion),
+                    exceeds200kTokens: nil,
+                    pr: nil,
+                    sessionStatus: nil
+                )
+                await MainActor.run {
+                    self.latestHarnessData = stateData
+                    self.emitMerged()
+                }
+                await startBoundTailerOrEnrichment(record: record, deadline: deadline)
+                return
+            }
+
+            traceRetryableSelectionFailure(
+                reason: "hook_record_unavailable",
+                retryReason: "waiting_for_hook_record",
+                attempt: attempt,
+                extraAttributes: ["hook_record_available": "false"])
+            if await sleepUntilNextStartupRetry(deadline: deadline) { continue }
+            return
+        }
+    }
+
+    private func startBoundTailerOrEnrichment(record: CodexHookSessionRecord, deadline: Date) async {
+        if let path = record.transcriptPath, FileManager.default.fileExists(atPath: path) {
+            await MainActor.run { self.startTailer(path: path) }
+        }
+
+        var attempt = 0
+        while !Task.isCancelled {
+            attempt += 1
+            do {
+                let thread = try stateStore.selectThread(
+                    sessionID: record.sessionID, rolloutPath: record.transcriptPath)
+                trace(
+                    "statusline.codex.sqlite_enrichment",
+                    attributes: [
+                        "result": thread == nil ? "no_match" : "matched",
+                        "retry_attempt": "\(attempt)",
+                        "session_id_prefix": String(record.sessionID.prefix(12)),
+                        "rollout_path_matched": thread?.rolloutPath == record.transcriptPath ? "true" : "false",
+                    ])
+                if let thread {
+                    let tailerPath = thread.rolloutPath ?? record.transcriptPath
+                    await MainActor.run {
+                        self.latestHarnessData = self.mergeHarnessData(
+                            StatusLineData(
+                                model: thread.model.map { StatusLineData.Model(id: $0, displayName: $0) },
+                                cost: nil,
+                                contextWindow: nil,
+                                rateLimits: nil,
+                                worktree: nil,
+                                workspace: nil,
+                                effort: nil,
+                                thinking: nil,
+                                agent: nil,
+                                outputStyle: nil,
+                                vim: nil,
+                                sessionName: nil,
+                                version: thread.cliVersion,
+                                exceeds200kTokens: nil,
+                                pr: nil,
+                                sessionStatus: nil
+                            ))
+                        self.emitMerged()
+                        if self.tailer == nil, let tailerPath, FileManager.default.fileExists(atPath: tailerPath) {
+                            self.startTailer(path: tailerPath)
+                        }
+                    }
+                    if tailer != nil || tailerPath == nil { return }
+                }
+            } catch let error as CodexStateStoreError {
+                trace(
+                    "statusline.codex.sqlite_enrichment",
+                    attributes: ["result": sqliteResult(for: error), "retry_attempt": "\(attempt)"])
+            } catch {
+                trace(
+                    "statusline.codex.sqlite_enrichment",
+                    attributes: ["result": "unknown", "retry_attempt": "\(attempt)"])
+            }
+            if await sleepUntilNextStartupRetry(deadline: deadline) { continue }
+            return
+        }
+    }
+
+    private func readHookRecord(path: String) -> CodexHookSessionRecord? {
+        guard let data = try? Data(contentsOf: URL(filePath: path)), !data.isEmpty else { return nil }
+        return try? JSONDecoder().decode(CodexHookSessionRecord.self, from: data)
+    }
+
+    private func sqliteResult(for error: CodexStateStoreError) -> String {
+        switch error {
+        case .schemaUnavailable:
+            return "schema_unavailable"
+        case .openFailed:
+            return "open_failed"
+        case .queryFailed:
+            return "query_failed"
+        case .ambiguousSession:
+            return "ambiguous_session"
+        }
+    }
+
+    private func traceRetryableSelectionFailure(
+        reason: String,
+        retryReason: String,
+        attempt: Int,
+        extraAttributes: [String: String] = [:]
+    ) {
+        var attributes = [
+            "reason": reason,
+            "retry_reason": retryReason,
+            "retry_attempt": "\(attempt)",
+        ]
+        for (key, value) in extraAttributes {
+            attributes[key] = value
+        }
+        trace("statusline.codex.selection_failed", attributes: attributes)
+    }
+
+    private func sleepUntilNextStartupRetry(deadline: Date) async -> Bool {
+        guard Date() < deadline, startupRetryInterval > 0 else { return false }
+        let remaining = max(0, deadline.timeIntervalSinceNow)
+        let sleepSeconds = min(startupRetryInterval, remaining)
+        guard sleepSeconds > 0 else { return false }
+        try? await Task.sleep(nanoseconds: UInt64(sleepSeconds * 1_000_000_000))
+        return !Task.isCancelled && Date() <= deadline
     }
 
     private func startTailer(path: String) {
@@ -552,7 +712,6 @@ final class CodexStatusProvider: StatusLineDataProvider {
             if let rateLimits = harness.rateLimits { data.rateLimits = rateLimits }
             if let version = harness.version { data.version = version }
         }
-        trace("statusline.provider.update_applied")
         onUpdate?(data)
     }
 

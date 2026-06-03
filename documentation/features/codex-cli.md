@@ -51,9 +51,9 @@ Codex-specific flags can be enabled or disabled in **Settings → CLI Tools → 
 
 Codex uses app-owned baseline status plus a version-gated local Codex provider.
 
-Baseline facts populate from the app side: worktree, branch, duration, changed lines, version, profile, and PR data. For Codex `0.136.x`, the provider also reads `~/.codex/state_5.sqlite` read-only to find the active thread for the pane working directory, preferring non-archived rows closest to the pane process start time. It then tails that thread's rollout JSONL for model, token, context, and rate-limit facts. Unsupported facts, such as cost, are omitted for Codex panes.
+Baseline facts populate from the app side: worktree, branch, duration, changed lines, version, profile, and PR data. Codex panes launch with app-owned lifecycle hooks that write a pane-scoped session record containing the Codex `session_id`, `cwd`, model, and `transcript_path`. The provider waits up to 15 seconds for that hook record, pins the session id/transcript path for the pane lifetime, and tails only that transcript for model, token, context, and rate-limit facts. Unsupported facts, such as cost, are omitted for Codex panes.
 
-Unknown Codex versions degrade to baseline facts plus model/version from SQLite when available. Rollout parsing is treated as an internal, versioned integration and ignores content-bearing records. Provider traces record bounded selection, rollout, and field-presence diagnostics without logging prompts, transcript lines, auth data, or environment values.
+For Codex `0.136.x`, `~/.codex/state_5.sqlite` is optional enrichment by exact session id or exact transcript/rollout path only. The provider never selects a session by latest same-cwd row. Unknown Codex versions degrade to baseline facts plus hook model/version when available. Rollout parsing is treated as an internal, versioned integration and ignores content-bearing records. Input/output token chips use cumulative `total_token_usage`; context chips use `last_token_usage.total_tokens` divided by `model_context_window`. Provider traces record bounded hook binding, SQLite enrichment, transcript tailing, and field-presence diagnostics without logging prompts, transcript lines, auth data, or environment values.
 
 ## Session Persistence
 

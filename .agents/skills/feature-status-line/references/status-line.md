@@ -109,9 +109,9 @@ The `worktree` fact renders as `name • branch` when both values are available,
 | `statusline.payload.applied` | `pane.name`, `reason`, `cost_usd`, `used_pct`, `inode` | I7: every successful payload apply |
 | `statusline.payload.decode_failed` | `pane.name`, `reason`, `error`, `byte_count`, `payload_prefix` | I7: read or JSON decode failure |
 | `statusline.payload.stale_recovered` | `pane.name`, `file_mtime`, `stale_age_seconds` | I6: vnode watcher missed a write; timer recovered |
-| `statusline.codex.state_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `candidate_count` | Codex state DB opened/read |
-| `statusline.codex.thread_selected` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `thread_id_prefix`, `created_at_ms`, `updated_at_ms`, `cli_version`, `candidate_count` | Codex selected a state row |
-| `statusline.codex.selection_failed` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`, `candidate_count` | Codex state selection failed |
-| `statusline.codex.tailer_started` | `pane.id`, `pane.name`, `tab.id`, `tab.name` | Codex rollout tailer starts |
-| `statusline.codex.tailer_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `line_count`, `update_count` | Codex rollout tailer reads a bounded batch |
+| `statusline.codex.hook_bound` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `hook_record_available`, `hook_event_name`, `retry_attempt`, `session_id_prefix`, `transcript_available` | Codex hook record bound the pane to a session |
+| `statusline.codex.sqlite_enrichment` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result`, `retry_attempt`, `session_id_prefix`, `rollout_path_matched` | Codex SQLite enrichment by exact session id/path |
+| `statusline.codex.selection_failed` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`, `retry_attempt`, `retry_reason`, `hook_record_available`, `hook_event_name` | Codex hook binding failed or was still waiting |
+| `statusline.codex.tailer_started` | `pane.id`, `pane.name`, `tab.id`, `tab.name` | Codex transcript tailer starts |
+| `statusline.codex.tailer_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `line_count`, `update_count`, `catch_up` | Codex rollout tailer reads a bounded batch |
 | `statusline.codex.parsed_update` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `has_model`, `has_tokens`, `has_context`, `has_rate_limits` | Codex rollout parsing produced a supported update |

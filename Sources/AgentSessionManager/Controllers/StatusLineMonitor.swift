@@ -29,6 +29,10 @@ final class StatusLineMonitor {
     let attentionSignalFilePath: String
     /// Written by Claude Code lifecycle hooks so activity does not depend on noisy PTY reads.
     let activitySignalFilePath: String
+    /// Written by Codex lifecycle hooks to bind this pane to the exact Codex session.
+    let codexHookRecordFilePath: String
+    /// App-owned Codex hook script invoked by lifecycle hooks for this pane.
+    let codexHookScriptFilePath: String
     private let workingDirectory: String?
     private let harness: Harness
     private let isClaude: Bool
@@ -74,7 +78,12 @@ final class StatusLineMonitor {
             NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
         activitySignalFilePath =
             NSTemporaryDirectory() + "agent-session-manager-claude-activity-\(paneID.uuidString).json"
+        codexHookRecordFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-codex-session-\(paneID.uuidString).json"
+        codexHookScriptFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-codex-hook-\(paneID.uuidString).py"
         let resolvedPaneName = self.paneName
+        let resolvedCodexHookRecordPath = codexHookRecordFilePath
         providerContext = workingDirectory.map { cwd in
             StatusProviderContext(
                 paneID: paneID,
@@ -86,7 +95,8 @@ final class StatusLineMonitor {
                 processStartTime: processStartTime,
                 launchArgs: [],
                 environment: [:],
-                detectedHarnessVersion: nil
+                detectedHarnessVersion: nil,
+                codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil
             )
         }
 
@@ -280,6 +290,8 @@ final class StatusLineMonitor {
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
         try? FileManager.default.removeItem(atPath: activitySignalFilePath)
+        try? FileManager.default.removeItem(atPath: codexHookRecordFilePath)
+        try? FileManager.default.removeItem(atPath: codexHookScriptFilePath)
     }
 
     private func startStatusWatcher() {
@@ -629,6 +641,40 @@ final class StatusLineMonitor {
             "Elicitation": [["hooks": attentionHook]],
         ]
         return settings
+    }
+}
+
+extension StatusLineMonitor {
+    func writeCodexHookScript() {
+        let script = """
+            #!/usr/bin/env python3
+            import json
+            import os
+            import sys
+            import time
+
+            payload = json.load(sys.stdin)
+            record = {
+                "pane_id": os.environ.get("AGENT_SESSION_MANAGER_PANE_ID", ""),
+                "tab_id": os.environ.get("AGENT_SESSION_MANAGER_TAB_ID", ""),
+                "session_id": payload.get("session_id", ""),
+                "cwd": payload.get("cwd", ""),
+                "model": payload.get("model"),
+                "transcript_path": payload.get("transcript_path"),
+                "hook_event_name": payload.get("hook_event_name", ""),
+                "timestamp": time.time()
+            }
+            path = os.environ["AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH"]
+            tmp_path = path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as handle:
+                json.dump(record, handle, separators=(",", ":"))
+            os.replace(tmp_path, path)
+            """
+        try? script.write(to: URL(filePath: codexHookScriptFilePath), atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: codexHookScriptFilePath)
+        FileManager.default.createFile(atPath: codexHookRecordFilePath, contents: nil)
     }
 }
 

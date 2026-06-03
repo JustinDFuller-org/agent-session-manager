@@ -16,7 +16,7 @@ final class CodexStatusProviderTests: XCTestCase {
         try? FileManager.default.removeItem(at: tempDir)
     }
 
-    func testStateStoreSelectsThreadByCwdAndProcessStart() throws {
+    func testStateStoreSelectsThreadByExactSessionID() throws {
         let dbURL = tempDir.appending(path: "state_5.sqlite")
         try executeSQL(
             """
@@ -40,10 +40,9 @@ final class CodexStatusProviderTests: XCTestCase {
         )
 
         let selection = try CodexStateStore(databaseURL: dbURL)
-            .selectThread(cwd: "/repo", processStartTime: Date(timeIntervalSince1970: 2))
-        let selected = selection.thread
+            .selectThread(sessionID: "new", rolloutPath: nil)
+        let selected = selection
 
-        XCTAssertEqual(selection.candidateCount, 2)
         XCTAssertEqual(selected?.id, "new")
         XCTAssertEqual(selected?.rolloutPath, "/new.jsonl")
         XCTAssertEqual(selected?.model, "gpt-5.1-codex")
@@ -54,7 +53,7 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertEqual(selected?.updatedAtMs, 4000)
     }
 
-    func testStateStoreChoosesClosestSameCwdThreadInsteadOfThrowing() throws {
+    func testStateStoreSelectsThreadByExactRolloutPath() throws {
         let dbURL = tempDir.appending(path: "state_5.sqlite")
         try executeSQL(
             """
@@ -76,14 +75,38 @@ final class CodexStatusProviderTests: XCTestCase {
         )
 
         let selection = try CodexStateStore(databaseURL: dbURL)
-            .selectThread(cwd: "/repo", processStartTime: Date(timeIntervalSince1970: 2))
+            .selectThread(sessionID: "missing", rolloutPath: "/near.jsonl")
 
-        XCTAssertEqual(selection.candidateCount, 3)
-        XCTAssertEqual(selection.thread?.id, "near-active")
-        XCTAssertFalse(selection.thread?.isArchived ?? true)
+        XCTAssertEqual(selection?.id, "near-active")
+        XCTAssertFalse(selection?.isArchived ?? true)
     }
 
-    func testStateStoreReturnsNoMatchWithCandidateCount() throws {
+    func testStateStoreIgnoresSameCwdRowsWithoutExactMatch() throws {
+        let dbURL = tempDir.appending(path: "state_5.sqlite")
+        try executeSQL(
+            """
+            CREATE TABLE threads (
+              id TEXT,
+              cwd TEXT,
+              rollout_path TEXT,
+              model TEXT,
+              cli_version TEXT,
+              created_at_ms INTEGER,
+              updated_at_ms INTEGER,
+              is_archived INTEGER
+            );
+            INSERT INTO threads VALUES ('stale', '/repo', '/stale.jsonl', 'gpt-stale', '0.136.0', 1000, 1000, 0);
+            """,
+            at: dbURL
+        )
+
+        let selection = try CodexStateStore(databaseURL: dbURL)
+            .selectThread(sessionID: "other-session", rolloutPath: "/other.jsonl")
+
+        XCTAssertNil(selection)
+    }
+
+    func testStateStoreReturnsNoMatch() throws {
         let dbURL = tempDir.appending(path: "state_5.sqlite")
         try executeSQL(
             """
@@ -94,10 +117,9 @@ final class CodexStatusProviderTests: XCTestCase {
         )
 
         let selection = try CodexStateStore(databaseURL: dbURL)
-            .selectThread(cwd: "/repo", processStartTime: Date(timeIntervalSince1970: 2))
+            .selectThread(sessionID: "missing", rolloutPath: nil)
 
-        XCTAssertEqual(selection.candidateCount, 0)
-        XCTAssertNil(selection.thread)
+        XCTAssertNil(selection)
     }
 
     func testStateStoreReportsMissingSchema() throws {
@@ -106,7 +128,7 @@ final class CodexStatusProviderTests: XCTestCase {
 
         XCTAssertThrowsError(
             try CodexStateStore(databaseURL: dbURL)
-                .selectThread(cwd: "/repo", processStartTime: Date())
+                .selectThread(sessionID: "missing", rolloutPath: nil)
         ) { error in
             XCTAssertEqual(error as? CodexStateStoreError, .schemaUnavailable)
         }
@@ -115,7 +137,7 @@ final class CodexStatusProviderTests: XCTestCase {
     func testRolloutParserMapsTokenCountAndRateLimits() throws {
         let line = Data(
             """
-            {"type":"event_msg","payload":{"type":"token_count","model":"gpt-5.1-codex","total_token_usage":{"input_tokens":300,"output_tokens":100},"model_context_window":1000,"rate_limits":{"primary":{"window_minutes":300,"used_percentage":25,"resets_at":2000000000},"secondary":{"window_minutes":10080,"used_percentage":50,"resets_at":2000003600}}}}
+            {"type":"event_msg","payload":{"type":"token_count","model":"gpt-5.1-codex","total_token_usage":{"input_tokens":300,"output_tokens":100},"last_token_usage":{"total_tokens":250},"model_context_window":1000,"rate_limits":{"primary":{"window_minutes":300,"used_percentage":25,"resets_at":2000000000},"secondary":{"window_minutes":10080,"used_percentage":50,"resets_at":2000003600}}}}
             """.utf8)
 
         let data = CodexRolloutParser.parseLine(line, expectedCWD: "/repo")
@@ -123,8 +145,8 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertEqual(data?.model?.id, "gpt-5.1-codex")
         XCTAssertEqual(data?.contextWindow?.totalInputTokens, 300)
         XCTAssertEqual(data?.contextWindow?.totalOutputTokens, 100)
-        XCTAssertEqual(data?.contextWindow?.usedPercentage, 40)
-        XCTAssertEqual(data?.contextWindow?.remainingPercentage, 60)
+        XCTAssertEqual(data?.contextWindow?.usedPercentage, 25)
+        XCTAssertEqual(data?.contextWindow?.remainingPercentage, 75)
         XCTAssertEqual(data?.rateLimits?.fiveHour?.usedPercentage, 25)
         XCTAssertEqual(data?.rateLimits?.fiveHour?.resetsAt, 2_000_000_000)
         XCTAssertEqual(data?.rateLimits?.sevenDay?.usedPercentage, 50)
@@ -134,7 +156,7 @@ final class CodexStatusProviderTests: XCTestCase {
     func testRolloutParserMapsCodex136SessionMetaPayload() throws {
         let line = Data(
             """
-            {"type":"session_meta","payload":{"cwd":"/repo","cli_version":"0.136.0","model":"gpt-5.1-codex"}}
+            {"type":"session_meta","payload":{"cwd":"/repo","cli_version":"codex-cli 0.136.0","model":"gpt-5.1-codex"}}
             """.utf8)
 
         let data = CodexRolloutParser.parseLine(line, expectedCWD: "/repo")
@@ -146,7 +168,7 @@ final class CodexStatusProviderTests: XCTestCase {
     func testRolloutParserMapsCodex136NestedTokenCountShape() throws {
         let line = Data(
             """
-            {"type":"event_msg","payload":{"type":"token_count","info":{"model":"gpt-5.1-codex","total_token_usage":{"input_tokens":320,"output_tokens":80},"model_context_window":2000},"rate_limits":{"primary":{"window_minutes":300,"used_percent":12.5,"resets_at":2000000000},"secondary":{"window_minutes":10080,"used_percent":44,"resets_at":2000003600}}}}
+            {"type":"event_msg","payload":{"type":"token_count","info":{"model":"gpt-5.1-codex","total_token_usage":{"input_tokens":320,"output_tokens":80},"last_token_usage":{"total_tokens":200},"model_context_window":2000},"rate_limits":{"primary":{"window_minutes":300,"used_percent":12.5,"resets_at":2000000000},"secondary":{"window_minutes":10080,"used_percent":44,"resets_at":2000003600}}}}
             """.utf8)
 
         let data = CodexRolloutParser.parseLine(line, expectedCWD: "/repo")
@@ -154,10 +176,50 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertEqual(data?.model?.id, "gpt-5.1-codex")
         XCTAssertEqual(data?.contextWindow?.totalInputTokens, 320)
         XCTAssertEqual(data?.contextWindow?.totalOutputTokens, 80)
-        XCTAssertEqual(data?.contextWindow?.usedPercentage, 20)
-        XCTAssertEqual(data?.contextWindow?.remainingPercentage, 80)
+        XCTAssertEqual(data?.contextWindow?.usedPercentage, 10)
+        XCTAssertEqual(data?.contextWindow?.remainingPercentage, 90)
         XCTAssertEqual(data?.rateLimits?.fiveHour?.usedPercentage, 12.5)
         XCTAssertEqual(data?.rateLimits?.sevenDay?.usedPercentage, 44)
+    }
+
+    func testRolloutParserMapsTurnContextModelBeforeTokenUsage() throws {
+        let line = Data(
+            """
+            {"type":"event_msg","payload":{"type":"turn_context","model":"gpt-5.1-codex"}}
+            """.utf8)
+
+        let data = CodexRolloutParser.parseLine(line, expectedCWD: "/repo")
+
+        XCTAssertEqual(data?.model?.id, "gpt-5.1-codex")
+        XCTAssertNil(data?.contextWindow)
+    }
+
+    func testRolloutParserUsesLastTokenUsageForContextAndTotalUsageForTokenTotals() throws {
+        let line = Data(
+            """
+            {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":900,"output_tokens":100},"last_token_usage":{"total_tokens":250},"model_context_window":1000}}}
+            """.utf8)
+
+        let data = CodexRolloutParser.parseLine(line, expectedCWD: "/repo")
+
+        XCTAssertEqual(data?.contextWindow?.totalInputTokens, 900)
+        XCTAssertEqual(data?.contextWindow?.totalOutputTokens, 100)
+        XCTAssertEqual(data?.contextWindow?.usedPercentage, 25)
+        XCTAssertEqual(data?.contextWindow?.remainingPercentage, 75)
+    }
+
+    func testRolloutParserClampsContextPercentageAtOneHundred() throws {
+        let line = Data(
+            """
+            {"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1200,"output_tokens":300},"last_token_usage":{"total_tokens":1500},"model_context_window":1000}}}
+            """.utf8)
+
+        let data = CodexRolloutParser.parseLine(line, expectedCWD: "/repo")
+
+        XCTAssertEqual(data?.contextWindow?.usedPercentage, 100)
+        XCTAssertEqual(data?.contextWindow?.remainingPercentage, 0)
+        XCTAssertEqual(data?.contextWindow?.totalInputTokens, 1200)
+        XCTAssertEqual(data?.contextWindow?.totalOutputTokens, 300)
     }
 
     func testRolloutParserIgnoresContentRecords() {
@@ -167,8 +229,70 @@ final class CodexStatusProviderTests: XCTestCase {
 
     func testVersionAdapterRejectsUnknownCodexVersions() {
         XCTAssertTrue(CodexVersionAdapter.supports("codex 0.136.2"))
+        XCTAssertEqual(CodexVersionAdapter.normalize("codex-cli 0.136.0"), "0.136.0")
         XCTAssertFalse(CodexVersionAdapter.supports("codex 0.137.0"))
         XCTAssertFalse(CodexVersionAdapter.supports(nil))
+    }
+
+    func testTailerStartupUsesLatestTwoHundredCompleteLines() throws {
+        let rolloutURL = tempDir.appending(path: "rollout.jsonl")
+        let lines =
+            (1...250).map {
+                codexTokenLine(model: "model-\($0)", input: $0, output: 1, contextTokens: $0, window: 1000)
+            }.joined(separator: "\n") + "\n"
+        try lines.write(to: rolloutURL, atomically: true, encoding: .utf8)
+
+        let tailer = CodexRolloutTailer(rolloutPath: rolloutURL.path, expectedCWD: tempDir.path)
+        var models: [String] = []
+        var traces: [(String, [String: String])] = []
+        tailer.onUpdate = { data in
+            if let model = data.model?.id {
+                models.append(model)
+            }
+        }
+        tailer.onTrace = { name, attributes in
+            traces.append((name, attributes))
+        }
+
+        tailer.start()
+        tailer.stop()
+
+        XCTAssertEqual(models.count, 200)
+        XCTAssertEqual(models.first, "model-51")
+        XCTAssertEqual(models.last, "model-250")
+        XCTAssertTrue(
+            traces.contains {
+                $0.0 == "statusline.codex.tailer_read"
+                    && $0.1["catch_up"] == "true"
+                    && $0.1["line_count"] == "200"
+            })
+    }
+
+    func testTailerBuffersPartialJsonlUntilNewlineArrives() throws {
+        let rolloutURL = tempDir.appending(path: "rollout.jsonl")
+        let partial =
+            #"{"type":"event_msg","payload":{"type":"token_count","model":"partial","total_token_usage":{"input_tokens":10,"output_tokens":2},"last_token_usage":{"total_tokens":6},"model_context_window":100}}"#
+        try partial.write(to: rolloutURL, atomically: true, encoding: .utf8)
+
+        let tailer = CodexRolloutTailer(rolloutPath: rolloutURL.path, expectedCWD: tempDir.path)
+        let expectation = XCTestExpectation(description: "tailer parses partial line after newline")
+        var observed: StatusLineData?
+        tailer.onUpdate = { data in
+            observed = data
+            expectation.fulfill()
+        }
+
+        tailer.start()
+        XCTAssertNil(observed)
+        let handle = try FileHandle(forWritingTo: rolloutURL)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("\n".utf8))
+        try handle.close()
+        wait(for: [expectation], timeout: 2)
+        tailer.stop()
+
+        XCTAssertEqual(observed?.model?.id, "partial")
+        XCTAssertEqual(observed?.contextWindow?.usedPercentage, 6)
     }
 
     func testCapabilityFilteringSupportsCodexTokensButNotCost() {
@@ -196,8 +320,10 @@ final class CodexStatusProviderTests: XCTestCase {
         let rolloutURL = tempDir.appending(path: "rollout.jsonl")
         try """
         {"type":"session_meta","payload":{"cwd":"\(tempDir.path)","cli_version":"0.136.0","model":"gpt-5.1-codex"}}
-        {"type":"event_msg","payload":{"type":"token_count","info":{"model":"gpt-5.1-codex","total_token_usage":{"input_tokens":320,"output_tokens":80},"model_context_window":2000},"rate_limits":{"primary":{"window_minutes":300,"used_percent":12.5,"resets_at":2000000000},"secondary":{"window_minutes":10080,"used_percent":44,"resets_at":2000003600}}}}
-        """.write(to: rolloutURL, atomically: true, encoding: .utf8)
+            {"type":"event_msg","payload":{"type":"token_count","info":{"model":"gpt-5.1-codex","total_token_usage":{"input_tokens":320,"output_tokens":80},"last_token_usage":{"total_tokens":400},"model_context_window":2000},"rate_limits":{"primary":{"window_minutes":300,"used_percent":12.5,"resets_at":2000000000},"secondary":{"window_minutes":10080,"used_percent":44,"resets_at":2000003600}}}}
+        """
+        .appending("\n")
+        .write(to: rolloutURL, atomically: true, encoding: .utf8)
 
         let dbURL = tempDir.appending(path: "state_5.sqlite")
         try executeSQL(
@@ -218,6 +344,8 @@ final class CodexStatusProviderTests: XCTestCase {
             at: dbURL
         )
 
+        let hookRecordURL = tempDir.appending(path: "hook-record.json")
+        try writeHookRecord(to: hookRecordURL, sessionID: "thread-abcdef1234567890", transcriptPath: rolloutURL.path)
         let provider = CodexStatusProvider(
             context: StatusProviderContext(
                 paneID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
@@ -229,13 +357,14 @@ final class CodexStatusProviderTests: XCTestCase {
                 processStartTime: Date(timeIntervalSince1970: 1),
                 launchArgs: [],
                 environment: [:],
-                detectedHarnessVersion: "0.136.0"
+                detectedHarnessVersion: "0.136.0",
+                codexHookRecordPath: hookRecordURL.path
             ),
             stateStore: CodexStateStore(databaseURL: dbURL)
         )
         let expectation = XCTestExpectation(description: "provider emits merged Codex status")
         var observed: StatusLineData?
-        provider.onUpdate = { data in
+        provider.onUpdate = { (data: StatusLineData) in
             if data.model?.id == "gpt-5.1-codex",
                 data.contextWindow?.totalInputTokens == 320,
                 data.rateLimits?.fiveHour?.usedPercentage == 12.5,
@@ -261,8 +390,8 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertNil(observed?.cost?.totalCostUsd)
 
         let events = TracingService.shared.recordedEventsForTesting
-        XCTAssertTrue(events.contains { $0.name == "statusline.codex.state_read" })
-        XCTAssertTrue(events.contains { $0.name == "statusline.codex.thread_selected" })
+        XCTAssertTrue(events.contains { $0.name == "statusline.codex.hook_bound" })
+        XCTAssertTrue(events.contains { $0.name == "statusline.codex.sqlite_enrichment" })
         XCTAssertTrue(events.contains { $0.name == "statusline.codex.tailer_started" })
         XCTAssertTrue(events.contains { $0.name == "statusline.codex.tailer_read" })
         XCTAssertTrue(
@@ -275,7 +404,248 @@ final class CodexStatusProviderTests: XCTestCase {
             })
     }
 
-    private func executeSQL(_ sql: String, at url: URL) throws {
+    func testProviderStartupRetrySucceedsWhenSQLiteRowAppearsAfterStart() throws {
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+        defer { TracingService.shared.resetForTesting() }
+
+        let rolloutURL = tempDir.appending(path: "rollout.jsonl")
+        try codexTokenLine(model: "late-row", input: 30, output: 5, contextTokens: 10, window: 100)
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        let dbURL = tempDir.appending(path: "state_5.sqlite")
+        let hookRecordURL = tempDir.appending(path: "late-hook-record.json")
+        try writeHookRecord(
+            to: hookRecordURL, sessionID: "thread-abcdef1234567890", transcriptPath: nil, model: "late-row")
+        let provider = CodexStatusProvider(
+            context: makeContext(processStartTime: Date(), hookRecordPath: hookRecordURL.path),
+            stateStore: CodexStateStore(databaseURL: dbURL),
+            startupRetryInterval: 0.05,
+            startupTimeout: 1
+        )
+        let expectation = XCTestExpectation(description: "provider retries until SQLite row exists")
+        provider.onUpdate = { data in
+            if data.model?.id == "late-row", data.contextWindow?.usedPercentage == 10 {
+                expectation.fulfill()
+            }
+        }
+
+        provider.start()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.12) {
+            try? self.createThreadDatabase(
+                at: dbURL,
+                rolloutPath: rolloutURL.path,
+                model: "late-row",
+                createdAtMs: Int64(Date().timeIntervalSince1970 * 1000)
+            )
+        }
+        wait(for: [expectation], timeout: 2)
+        provider.stop()
+
+        let stateReads = TracingService.shared.recordedEventsForTesting.filter {
+            $0.name == "statusline.codex.sqlite_enrichment"
+        }
+        XCTAssertGreaterThanOrEqual(stateReads.count, 1)
+        XCTAssertTrue(stateReads.contains { $0.attributes["retry_attempt"] != nil })
+    }
+
+    func testProviderStartupRetrySucceedsWhenHookRecordAppearsAfterStart() throws {
+        let rolloutURL = tempDir.appending(path: "rollout.jsonl")
+        try codexTokenLine(model: "late-hook", input: 9, output: 3, contextTokens: 6, window: 100)
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        let hookRecordURL = tempDir.appending(path: "late-hook-record.json")
+        let provider = CodexStatusProvider(
+            context: makeContext(processStartTime: Date(), hookRecordPath: hookRecordURL.path),
+            stateStore: CodexStateStore(databaseURL: tempDir.appending(path: "missing.sqlite")),
+            startupRetryInterval: 0.05,
+            startupTimeout: 1
+        )
+        let expectation = XCTestExpectation(description: "provider retries until hook record exists")
+        provider.onUpdate = { data in
+            if data.model?.id == "late-hook", data.contextWindow?.usedPercentage == 6 {
+                expectation.fulfill()
+            }
+        }
+
+        provider.start()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.12) {
+            try? self.writeHookRecord(
+                to: hookRecordURL,
+                sessionID: "thread-abcdef1234567890",
+                transcriptPath: rolloutURL.path,
+                model: "late-hook")
+        }
+        wait(for: [expectation], timeout: 2)
+        provider.stop()
+    }
+
+    func testProviderStartupRetrySucceedsWhenRolloutFileAppearsAfterSQLiteRow() throws {
+        let rolloutURL = tempDir.appending(path: "late-rollout.jsonl")
+        let dbURL = tempDir.appending(path: "state_5.sqlite")
+        let hookRecordURL = tempDir.appending(path: "late-rollout-hook-record.json")
+        try writeHookRecord(
+            to: hookRecordURL,
+            sessionID: "thread-abcdef1234567890",
+            transcriptPath: rolloutURL.path,
+            model: "late-rollout")
+        try createThreadDatabase(
+            at: dbURL,
+            rolloutPath: rolloutURL.path,
+            model: "late-rollout",
+            createdAtMs: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        let provider = CodexStatusProvider(
+            context: makeContext(processStartTime: Date(), hookRecordPath: hookRecordURL.path),
+            stateStore: CodexStateStore(databaseURL: dbURL),
+            startupRetryInterval: 0.05,
+            startupTimeout: 1
+        )
+        let expectation = XCTestExpectation(description: "provider retries until rollout exists")
+        provider.onUpdate = { data in
+            if data.model?.id == "late-rollout", data.contextWindow?.usedPercentage == 15 {
+                expectation.fulfill()
+            }
+        }
+
+        provider.start()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.12) {
+            try? self.codexTokenLine(model: "late-rollout", input: 20, output: 4, contextTokens: 15, window: 100)
+                .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        }
+        wait(for: [expectation], timeout: 2)
+        provider.stop()
+    }
+
+    func testProviderIgnoresStaleRowsWhileWaitingForFreshThread() throws {
+        let staleRolloutURL = tempDir.appending(path: "stale.jsonl")
+        let freshRolloutURL = tempDir.appending(path: "fresh.jsonl")
+        try codexTokenLine(model: "stale-model", input: 1, output: 1, contextTokens: 1, window: 100)
+            .write(to: staleRolloutURL, atomically: true, encoding: .utf8)
+        let dbURL = tempDir.appending(path: "state_5.sqlite")
+        try executeSQL(
+            """
+            CREATE TABLE threads (
+              id TEXT,
+              cwd TEXT,
+              rollout_path TEXT,
+              model TEXT,
+              cli_version TEXT,
+              tokens_used INTEGER,
+              git_branch TEXT,
+              created_at_ms INTEGER,
+              updated_at_ms INTEGER,
+              is_archived INTEGER
+            );
+            INSERT INTO threads VALUES ('stale-thread', '\(tempDir.path)', '\(staleRolloutURL.path)', 'stale-model', '0.136.0', 1, 'main', 1000, 1000, 0);
+            """,
+            at: dbURL
+        )
+        try writeHookRecord(
+            to: tempDir.appending(path: "fresh-hook-record.json"),
+            sessionID: "fresh-thread",
+            transcriptPath: freshRolloutURL.path,
+            model: "fresh-model")
+
+        let provider = CodexStatusProvider(
+            context: makeContext(
+                processStartTime: Date(timeIntervalSince1970: 100),
+                hookRecordPath: tempDir.appending(path: "fresh-hook-record.json").path),
+            stateStore: CodexStateStore(databaseURL: dbURL),
+            startupRetryInterval: 0.05,
+            startupTimeout: 1
+        )
+        let expectation = XCTestExpectation(description: "provider waits for fresh thread")
+        var observedModels: [String] = []
+        provider.onUpdate = { data in
+            if let model = data.model?.id {
+                observedModels.append(model)
+            }
+            if data.model?.id == "fresh-model", data.contextWindow?.usedPercentage == 22 {
+                expectation.fulfill()
+            }
+        }
+
+        provider.start()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.12) {
+            try? self.codexTokenLine(model: "fresh-model", input: 12, output: 3, contextTokens: 22, window: 100)
+                .write(to: freshRolloutURL, atomically: true, encoding: .utf8)
+            let nowMs = Int64(Date(timeIntervalSince1970: 100).timeIntervalSince1970 * 1000)
+            try? self.executeSQL(
+                """
+                INSERT INTO threads VALUES ('fresh-thread', '\(self.tempDir.path)', '\(freshRolloutURL.path)', 'fresh-model', '0.136.0', 12, 'main', \(nowMs), \(nowMs), 0);
+                """,
+                at: dbURL
+            )
+        }
+        wait(for: [expectation], timeout: 2)
+        provider.stop()
+
+        XCTAssertFalse(observedModels.contains("stale-model"))
+    }
+
+    func testProviderDoesNotDuplicateGenericProviderSpansAndCodexTracesIncludePaneContext() throws {
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+        defer { TracingService.shared.resetForTesting() }
+
+        let rolloutURL = tempDir.appending(path: "rollout.jsonl")
+        try codexTokenLine(model: "trace-model", input: 5, output: 2, contextTokens: 7, window: 100)
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        let dbURL = tempDir.appending(path: "state_5.sqlite")
+        let hookRecordURL = tempDir.appending(path: "trace-hook-record.json")
+        try writeHookRecord(to: hookRecordURL, sessionID: "thread-abcdef1234567890", transcriptPath: rolloutURL.path)
+        try createThreadDatabase(
+            at: dbURL,
+            rolloutPath: rolloutURL.path,
+            model: "trace-model",
+            createdAtMs: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        let provider = CodexStatusProvider(
+            context: makeContext(processStartTime: Date(), hookRecordPath: hookRecordURL.path),
+            stateStore: CodexStateStore(databaseURL: dbURL),
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.5
+        )
+        let expectation = XCTestExpectation(description: "provider emits trace-model update")
+        provider.onUpdate = { data in
+            if data.model?.id == "trace-model", data.contextWindow?.usedPercentage == 7 {
+                expectation.fulfill()
+            }
+        }
+
+        provider.start()
+        wait(for: [expectation], timeout: 2)
+        provider.stop()
+
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertFalse(events.contains { $0.name == "statusline.provider.started" })
+        XCTAssertFalse(events.contains { $0.name == "statusline.provider.stopped" })
+        XCTAssertFalse(events.contains { $0.name == "statusline.provider.update_applied" })
+        let codexEvents = events.filter { $0.name.hasPrefix("statusline.codex.") }
+        XCTAssertFalse(codexEvents.isEmpty)
+        XCTAssertTrue(
+            codexEvents.allSatisfy {
+                $0.attributes["pane.name"] == "codex-pane"
+                    && $0.attributes["tab.name"] == "repo"
+                    && $0.attributes["pane.id"] == "11111111-1111-1111-1111-111111111111"
+                    && $0.attributes["tab.id"] == "22222222-2222-2222-2222-222222222222"
+            })
+    }
+
+    func testBuildCodexCommandRegistersAppOwnedHooks() {
+        let command = Tab.buildCodexCommand(hookScriptPath: "/tmp/hook path.py", extraArgs: " --model gpt-5.1")
+
+        XCTAssertTrue(command.contains("codex --dangerously-bypass-hook-trust"))
+        XCTAssertTrue(command.contains("features.hooks=true"))
+        XCTAssertTrue(command.contains("hooks.SessionStart="))
+        XCTAssertTrue(command.contains("hooks.UserPromptSubmit="))
+        XCTAssertTrue(command.contains("hooks.Stop="))
+        XCTAssertTrue(command.contains("/tmp/hook path.py"))
+        XCTAssertTrue(command.hasSuffix(" --model gpt-5.1"))
+    }
+}
+
+extension CodexStatusProviderTests {
+    fileprivate func executeSQL(_ sql: String, at url: URL) throws {
         var db: OpaquePointer?
         XCTAssertEqual(sqlite3_open(url.path, &db), SQLITE_OK)
         defer { sqlite3_close(db) }
@@ -287,7 +657,7 @@ final class CodexStatusProviderTests: XCTestCase {
         }
     }
 
-    private func run(_ arguments: [String], in directory: URL) throws {
+    fileprivate func run(_ arguments: [String], in directory: URL) throws {
         let process = Process()
         process.executableURL = URL(filePath: "/usr/bin/env")
         process.arguments = arguments
@@ -297,5 +667,81 @@ final class CodexStatusProviderTests: XCTestCase {
         try process.run()
         process.waitUntilExit()
         XCTAssertEqual(process.terminationStatus, 0, arguments.joined(separator: " "))
+    }
+
+    fileprivate func createThreadDatabase(
+        at dbURL: URL,
+        rolloutPath: String,
+        model: String,
+        createdAtMs: Int64
+    ) throws {
+        try executeSQL(
+            """
+            CREATE TABLE IF NOT EXISTS threads (
+              id TEXT,
+              cwd TEXT,
+              rollout_path TEXT,
+              model TEXT,
+              cli_version TEXT,
+              tokens_used INTEGER,
+              git_branch TEXT,
+              created_at_ms INTEGER,
+              updated_at_ms INTEGER,
+              is_archived INTEGER
+            );
+            DELETE FROM threads WHERE id = 'thread-abcdef1234567890';
+            INSERT INTO threads VALUES ('thread-abcdef1234567890', '\(tempDir.path)', '\(rolloutPath)', '\(model)', 'codex-cli 0.136.0', 30, 'main', \(createdAtMs), \(createdAtMs), 0);
+            """,
+            at: dbURL
+        )
+    }
+
+    fileprivate func makeContext(processStartTime: Date, hookRecordPath: String? = nil) -> StatusProviderContext {
+        StatusProviderContext(
+            paneID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            paneName: "codex-pane",
+            tabID: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+            tabName: "repo",
+            workingDirectory: tempDir.path,
+            harness: .codex,
+            processStartTime: processStartTime,
+            launchArgs: [],
+            environment: [:],
+            detectedHarnessVersion: "codex-cli 0.136.0",
+            codexHookRecordPath: hookRecordPath ?? tempDir.appending(path: "hook-record.json").path
+        )
+    }
+
+    fileprivate func writeHookRecord(
+        to url: URL,
+        sessionID: String,
+        transcriptPath: String?,
+        model: String = "gpt-5.1-codex"
+    ) throws {
+        let record = CodexHookSessionRecord(
+            paneID: "11111111-1111-1111-1111-111111111111",
+            tabID: "22222222-2222-2222-2222-222222222222",
+            sessionID: sessionID,
+            cwd: tempDir.path,
+            model: model,
+            transcriptPath: transcriptPath,
+            hookEventName: "SessionStart",
+            timestamp: Date().timeIntervalSince1970
+        )
+        let data = try JSONEncoder().encode(record)
+        try data.write(to: url, options: .atomic)
+    }
+
+    fileprivate func codexTokenLine(
+        model: String,
+        input: Int,
+        output: Int,
+        contextTokens: Int,
+        window: Int
+    ) -> String {
+        """
+        {"type":"event_msg","payload":{"type":"token_count","model":"\(model)","total_token_usage":{"input_tokens":\(input),"output_tokens":\(output)},"last_token_usage":{"total_tokens":\(contextTokens)},"model_context_window":\(window)}}
+        """
+        .appending("\n")
     }
 }
