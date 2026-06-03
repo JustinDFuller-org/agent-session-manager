@@ -1,0 +1,771 @@
+import Foundation
+import SQLite3
+
+struct StatusProviderContext {
+    let paneID: UUID
+    let paneName: String
+    let tabID: UUID
+    let tabName: String
+    let workingDirectory: String
+    let harness: Harness
+    let processStartTime: Date
+    let launchArgs: [String]
+    let environment: [String: String]
+    let detectedHarnessVersion: String?
+    let codexHookRecordPath: String?
+}
+
+struct CodexHookSessionRecord: Codable, Equatable {
+    let paneID: String
+    let tabID: String
+    let sessionID: String
+    let cwd: String
+    let model: String?
+    let transcriptPath: String?
+    let hookEventName: String
+    let timestamp: Double
+
+    enum CodingKeys: String, CodingKey {
+        case paneID = "pane_id"
+        case tabID = "tab_id"
+        case sessionID = "session_id"
+        case cwd
+        case model
+        case transcriptPath = "transcript_path"
+        case hookEventName = "hook_event_name"
+        case timestamp
+    }
+}
+
+struct CodexThreadState: Equatable {
+    let id: String
+    let rolloutPath: String?
+    let model: String?
+    let cliVersion: String?
+    let tokensUsed: Int?
+    let gitBranch: String?
+    let createdAtMs: Int64?
+    let updatedAtMs: Int64?
+    let isArchived: Bool
+    let candidateCount: Int
+}
+
+struct CodexThreadSelection: Equatable {
+    let thread: CodexThreadState?
+    let candidateCount: Int
+    let freshCandidateCount: Int
+}
+
+private struct CodexThreadRank {
+    let row: CodexThreadState
+    let distance: Int64
+    let beforeStart: Bool
+    let updated: Int64
+}
+
+enum CodexVersionAdapter {
+    static func normalize(_ version: String?) -> String? {
+        guard let version else { return nil }
+        let trimmed = version.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized =
+            trimmed
+            .replacingOccurrences(of: "codex-cli", with: "")
+            .replacingOccurrences(of: "codex", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    static func supports(_ version: String?) -> Bool {
+        normalize(version)?.hasPrefix("0.136.") == true
+    }
+}
+
+final class CodexStateStore {
+    let databaseURL: URL
+
+    init(databaseURL: URL = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".codex/state_5.sqlite")) {
+        self.databaseURL = databaseURL
+    }
+
+    func selectThread(sessionID: String, rolloutPath: String?) throws -> CodexThreadState? {
+        var db: OpaquePointer?
+        let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
+        guard sqlite3_open_v2(databaseURL.path, &db, flags, nil) == SQLITE_OK, let db else {
+            defer { if db != nil { sqlite3_close(db) } }
+            throw CodexStateStoreError.openFailed(message: db.map { String(cString: sqlite3_errmsg($0)) } ?? "nil db")
+        }
+        defer { sqlite3_close(db) }
+
+        let columns = try availableColumns(db: db)
+        let required = Set(["id", "cwd"])
+        guard required.isSubset(of: columns) else {
+            throw CodexStateStoreError.schemaUnavailable
+        }
+
+        let selectedColumns = [
+            "id",
+            columns.contains("rollout_path") ? "rollout_path" : "NULL AS rollout_path",
+            columns.contains("model") ? "model" : "NULL AS model",
+            columns.contains("cli_version") ? "cli_version" : "NULL AS cli_version",
+            columns.contains("tokens_used") ? "tokens_used" : "NULL AS tokens_used",
+            columns.contains("git_branch") ? "git_branch" : "NULL AS git_branch",
+            columns.contains("created_at_ms") ? "created_at_ms" : "NULL AS created_at_ms",
+            columns.contains("updated_at_ms") ? "updated_at_ms" : "NULL AS updated_at_ms",
+            columns.contains("is_archived")
+                ? "is_archived" : columns.contains("archived") ? "archived" : "0 AS archived",
+            columns.contains("archived_at_ms") ? "archived_at_ms" : "NULL AS archived_at_ms",
+            columns.contains("archived_at") ? "archived_at" : "NULL AS archived_at",
+        ].joined(separator: ", ")
+        let hasRolloutPathColumn = columns.contains("rollout_path")
+        let sql = """
+            SELECT \(selectedColumns)
+            FROM threads
+            WHERE id = ?1 \(hasRolloutPathColumn && rolloutPath != nil ? "OR rollout_path = ?2" : "")
+            ORDER BY updated_at_ms DESC, created_at_ms DESC
+            LIMIT 1
+            """
+
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else {
+            throw CodexStateStoreError.queryFailed(message: String(cString: sqlite3_errmsg(db)))
+        }
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_text(statement, 1, sessionID, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        if hasRolloutPathColumn, let rolloutPath {
+            sqlite3_bind_text(statement, 2, rolloutPath, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        }
+
+        guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+        let archivedValue = optionalInt(statement, 8) ?? 0
+        let archivedText = text(statement, 8)?.lowercased()
+        let archivedAtMs = optionalInt64(statement, 9)
+        let archivedAt = text(statement, 10)
+        let isArchived =
+            archivedValue != 0
+            || archivedText == "true"
+            || archivedText == "yes"
+            || (archivedAtMs ?? 0) > 0
+            || archivedAt != nil
+        return CodexThreadState(
+            id: text(statement, 0) ?? "",
+            rolloutPath: text(statement, 1),
+            model: text(statement, 2),
+            cliVersion: CodexVersionAdapter.normalize(text(statement, 3)),
+            tokensUsed: optionalInt(statement, 4),
+            gitBranch: text(statement, 5),
+            createdAtMs: optionalInt64(statement, 6),
+            updatedAtMs: optionalInt64(statement, 7),
+            isArchived: isArchived,
+            candidateCount: 1
+        )
+    }
+
+    private func availableColumns(db: OpaquePointer) throws -> Set<String> {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "PRAGMA table_info(threads)", -1, &statement, nil) == SQLITE_OK,
+            let statement
+        else {
+            throw CodexStateStoreError.schemaUnavailable
+        }
+        defer { sqlite3_finalize(statement) }
+        var columns = Set<String>()
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let name = text(statement, 1) {
+                columns.insert(name)
+            }
+        }
+        guard !columns.isEmpty else { throw CodexStateStoreError.schemaUnavailable }
+        return columns
+    }
+
+    private func text(_ statement: OpaquePointer, _ index: Int32) -> String? {
+        guard let raw = sqlite3_column_text(statement, index) else { return nil }
+        let value = String(cString: raw)
+        return value.isEmpty ? nil : value
+    }
+
+    private func optionalInt(_ statement: OpaquePointer, _ index: Int32) -> Int? {
+        guard sqlite3_column_type(statement, index) != SQLITE_NULL else { return nil }
+        return Int(sqlite3_column_int64(statement, index))
+    }
+
+    private func optionalInt64(_ statement: OpaquePointer, _ index: Int32) -> Int64? {
+        guard sqlite3_column_type(statement, index) != SQLITE_NULL else { return nil }
+        return sqlite3_column_int64(statement, index)
+    }
+}
+
+enum CodexStateStoreError: Error, Equatable {
+    case openFailed(message: String)
+    case schemaUnavailable
+    case queryFailed(message: String)
+    case ambiguousSession
+}
+
+struct CodexRolloutParser {
+    static func parseLine(_ data: Data, expectedCWD: String) -> StatusLineData? {
+        guard
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let type = object["type"] as? String
+        else { return nil }
+
+        if type == "session_meta" {
+            let payload = object["payload"] as? [String: Any]
+            let cwd = payload?["cwd"] as? String ?? object["cwd"] as? String ?? object["workspace"] as? String
+            guard cwd == nil || cwd == expectedCWD else { return nil }
+            let model = payload?["model"] as? String ?? object["model"] as? String
+            return StatusLineData(
+                model: model.map { StatusLineData.Model(id: $0, displayName: $0) },
+                cost: nil,
+                contextWindow: nil,
+                rateLimits: nil,
+                worktree: nil,
+                workspace: nil,
+                effort: nil,
+                thinking: nil,
+                agent: nil,
+                outputStyle: nil,
+                vim: nil,
+                sessionName: nil,
+                version: CodexVersionAdapter.normalize(
+                    payload?["cli_version"] as? String ?? object["cli_version"] as? String),
+                exceeds200kTokens: nil,
+                pr: nil,
+                sessionStatus: nil
+            )
+        }
+
+        guard type == "event_msg",
+            let payload = object["payload"] as? [String: Any],
+            let payloadType = payload["type"] as? String
+        else { return nil }
+
+        if payloadType == "turn_context" {
+            let model =
+                payload["model"] as? String
+                ?? (payload["turn_context"] as? [String: Any])?["model"] as? String
+                ?? (payload["info"] as? [String: Any])?["model"] as? String
+            return model.map {
+                StatusLineData(
+                    model: StatusLineData.Model(id: $0, displayName: $0),
+                    cost: nil,
+                    contextWindow: nil,
+                    rateLimits: nil,
+                    worktree: nil,
+                    workspace: nil,
+                    effort: nil,
+                    thinking: nil,
+                    agent: nil,
+                    outputStyle: nil,
+                    vim: nil,
+                    sessionName: nil,
+                    version: nil,
+                    exceeds200kTokens: nil,
+                    pr: nil,
+                    sessionStatus: nil
+                )
+            }
+        }
+
+        guard payloadType == "token_count" else { return nil }
+
+        let info = payload["info"] as? [String: Any]
+        let totalUsage = info?["total_token_usage"] as? [String: Any] ?? payload["total_token_usage"] as? [String: Any]
+        let lastUsage = info?["last_token_usage"] as? [String: Any] ?? payload["last_token_usage"] as? [String: Any]
+        let input = int(totalUsage?["input_tokens"]) ?? int(totalUsage?["total_input_tokens"])
+        let output = int(totalUsage?["output_tokens"]) ?? int(totalUsage?["total_output_tokens"])
+        let contextWindow =
+            int(info?["model_context_window"]) ?? int(payload["model_context_window"])
+            ?? int(totalUsage?["model_context_window"])
+        let contextTokens =
+            int(lastUsage?["total_tokens"])
+            ?? (int(lastUsage?["input_tokens"]) ?? int(lastUsage?["total_input_tokens"])).flatMap { lastInput in
+                (int(lastUsage?["output_tokens"]) ?? int(lastUsage?["total_output_tokens"])).map { lastInput + $0 }
+            }
+        let usedPct = contextWindow.flatMap { window -> Int? in
+            guard window > 0, let contextTokens else { return nil }
+            let raw = Int((Double(contextTokens) / Double(window)) * 100)
+            return min(100, max(0, raw))
+        }
+        let remainingPct = usedPct.map { min(100, max(0, 100 - $0)) }
+        let model = payload["model"] as? String ?? info?["model"] as? String
+
+        return StatusLineData(
+            model: model.map { StatusLineData.Model(id: $0, displayName: $0) },
+            cost: nil,
+            contextWindow: StatusLineData.ContextWindow(
+                usedPercentage: usedPct,
+                remainingPercentage: remainingPct,
+                totalInputTokens: input,
+                totalOutputTokens: output
+            ),
+            rateLimits: rateLimits(from: payload["rate_limits"] as? [String: Any]),
+            worktree: nil,
+            workspace: nil,
+            effort: nil,
+            thinking: nil,
+            agent: nil,
+            outputStyle: nil,
+            vim: nil,
+            sessionName: nil,
+            version: nil,
+            exceeds200kTokens: nil,
+            pr: nil,
+            sessionStatus: nil
+        )
+    }
+
+    private static func rateLimits(from raw: [String: Any]?) -> StatusLineData.RateLimits? {
+        guard let raw else { return nil }
+        return StatusLineData.RateLimits(
+            fiveHour: rate(raw["primary"] as? [String: Any], expectedWindowMinutes: 300),
+            sevenDay: rate(raw["secondary"] as? [String: Any], expectedWindowMinutes: 10_080)
+        )
+    }
+
+    private static func rate(_ raw: [String: Any]?, expectedWindowMinutes: Int) -> StatusLineData.RateLimit? {
+        guard let raw, int(raw["window_minutes"]) == expectedWindowMinutes else { return nil }
+        return StatusLineData.RateLimit(
+            usedPercentage: double(raw["used_percentage"]) ?? double(raw["used_percent"]),
+            resetsAt: int(raw["resets_at"])
+        )
+    }
+
+    private static func int(_ value: Any?) -> Int? {
+        if let int = value as? Int { return int }
+        if let double = value as? Double { return Int(double) }
+        if let string = value as? String { return Int(string) }
+        return nil
+    }
+
+    private static func double(_ value: Any?) -> Double? {
+        if let double = value as? Double { return double }
+        if let int = value as? Int { return Double(int) }
+        if let string = value as? String { return Double(string) }
+        return nil
+    }
+}
+
+final class CodexRolloutTailer {
+    let rolloutPath: String
+    let expectedCWD: String
+    var onUpdate: ((StatusLineData) -> Void)?
+    var onTrace: ((String, [String: String]) -> Void)?
+    private var source: DispatchSourceFileSystemObject?
+    private var offset: UInt64 = 0
+    private var pendingLineBuffer = Data()
+
+    init(rolloutPath: String, expectedCWD: String) {
+        self.rolloutPath = rolloutPath
+        self.expectedCWD = expectedCWD
+    }
+
+    func start() {
+        onTrace?("statusline.codex.tailer_started", [:])
+        if let handle = FileHandle(forReadingAtPath: rolloutPath) {
+            defer { try? handle.close() }
+            if let data = try? handle.readToEnd() {
+                offset = UInt64(data.count)
+                process(data: data, catchUp: true)
+            }
+        }
+        let fd = open(rolloutPath, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let watcher = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        watcher.setEventHandler { [weak self] in
+            self?.readNewLines()
+        }
+        watcher.setCancelHandler { close(fd) }
+        watcher.resume()
+        source = watcher
+    }
+
+    func stop() {
+        source?.cancel()
+        source = nil
+    }
+
+    private func readNewLines() {
+        guard let handle = FileHandle(forReadingAtPath: rolloutPath) else { return }
+        defer { try? handle.close() }
+        do {
+            try handle.seek(toOffset: offset)
+            let data = try handle.readToEnd() ?? Data()
+            offset += UInt64(data.count)
+            process(data: data, catchUp: false)
+        } catch {}
+    }
+
+    private func process(data: Data, catchUp: Bool) {
+        guard !data.isEmpty || !pendingLineBuffer.isEmpty else {
+            onTrace?(
+                "statusline.codex.tailer_read",
+                ["line_count": "0", "update_count": "0", "catch_up": catchUp ? "true" : "false"])
+            return
+        }
+
+        pendingLineBuffer.append(data)
+        guard let lastNewline = pendingLineBuffer.lastIndex(of: UInt8(ascii: "\n")) else { return }
+
+        let completeData = pendingLineBuffer[..<lastNewline]
+        let afterNewline = pendingLineBuffer.index(after: lastNewline)
+        pendingLineBuffer = Data(pendingLineBuffer[afterNewline...])
+
+        var lines = completeData.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
+        if catchUp, lines.count > 200 {
+            lines = lines.suffix(200)
+        }
+
+        var lineCount = 0
+        var updateCount = 0
+        for line in lines {
+            lineCount += 1
+            guard line.count <= 64 * 1024 else { continue }
+            if let update = CodexRolloutParser.parseLine(Data(line), expectedCWD: expectedCWD) {
+                updateCount += 1
+                onUpdate?(update)
+            }
+        }
+        onTrace?(
+            "statusline.codex.tailer_read",
+            [
+                "line_count": "\(lineCount)",
+                "update_count": "\(updateCount)",
+                "catch_up": catchUp ? "true" : "false",
+            ])
+    }
+}
+
+final class CodexStatusProvider: StatusLineDataProvider {
+    var onUpdate: ((StatusLineData) -> Void)?
+    var onAttention: ((PaneAttentionEvent) -> Void)?
+
+    private let context: StatusProviderContext
+    private let stateStore: CodexStateStore
+    private let startupRetryInterval: TimeInterval
+    private let startupTimeout: TimeInterval
+    private let baseline: ToolAgnosticDataProvider
+    private var tailer: CodexRolloutTailer?
+    private var stateTask: Task<Void, Never>?
+    private var latestHarnessData: StatusLineData?
+    private var latestBaselineData: StatusLineData?
+    private var boundSessionID: String?
+    private var boundTranscriptPath: String?
+
+    init(
+        context: StatusProviderContext,
+        stateStore: CodexStateStore = CodexStateStore(),
+        startupRetryInterval: TimeInterval = 0.5,
+        startupTimeout: TimeInterval = 15
+    ) {
+        self.context = context
+        self.stateStore = stateStore
+        self.startupRetryInterval = startupRetryInterval
+        self.startupTimeout = startupTimeout
+        self.baseline = ToolAgnosticDataProvider(
+            workingDirectory: context.workingDirectory,
+            toolCommand: context.harness.commandDescription,
+            processStartTime: context.processStartTime
+        )
+    }
+
+    func start() {
+        baseline.onUpdate = { [weak self] data in
+            guard let self else { return }
+            self.latestBaselineData = data
+            self.emitMerged()
+        }
+        baseline.start()
+        stateTask = Task { [weak self] in
+            await self?.bindCodexSession()
+        }
+    }
+
+    func stop() {
+        stateTask?.cancel()
+        stateTask = nil
+        baseline.stop()
+        tailer?.stop()
+        tailer = nil
+    }
+
+    private func bindCodexSession() async {
+        guard let hookRecordPath = context.codexHookRecordPath else {
+            traceRetryableSelectionFailure(reason: "missing_hook_path", retryReason: "missing_hook_path", attempt: 1)
+            return
+        }
+        let deadline = Date().addingTimeInterval(startupTimeout)
+        var attempt = 0
+        var didTraceLateWaiting = false
+
+        while !Task.isCancelled {
+            attempt += 1
+            let lateBound = Date() > deadline
+            if let record = readHookRecord(path: hookRecordPath) {
+                guard record.paneID == context.paneID.uuidString, record.tabID == context.tabID.uuidString else {
+                    if attempt == 1 || attempt.isMultiple(of: 20) {
+                        trace(
+                            "statusline.codex.hook_record_ignored",
+                            attributes: [
+                                "reason": "hook_context_mismatch",
+                                "retry_attempt": "\(attempt)",
+                                "late_bound": lateBound ? "true" : "false",
+                                "record_pane_id": record.paneID,
+                                "record_tab_id": record.tabID,
+                                "hook_event_name": record.hookEventName,
+                            ])
+                    }
+                    if !lateBound {
+                        traceRetryableSelectionFailure(
+                            reason: "hook_context_mismatch",
+                            retryReason: "hook_context_mismatch",
+                            attempt: attempt,
+                            extraAttributes: [
+                                "hook_record_available": "true",
+                                "hook_event_name": record.hookEventName,
+                            ])
+                    }
+                    _ = await sleepUntilNextRetry(deadline: nil)
+                    continue
+                }
+                boundSessionID = record.sessionID
+                boundTranscriptPath = record.transcriptPath
+                trace(
+                    "statusline.codex.hook_bound",
+                    attributes: [
+                        "hook_record_available": "true",
+                        "hook_event_name": record.hookEventName,
+                        "retry_attempt": "\(attempt)",
+                        "late_bound": lateBound ? "true" : "false",
+                        "session_id_prefix": String(record.sessionID.prefix(12)),
+                        "transcript_available": record.transcriptPath.map {
+                            FileManager.default.fileExists(atPath: $0) ? "true" : "false"
+                        } ?? "false",
+                    ])
+                let stateData = StatusLineData(
+                    model: record.model.map { StatusLineData.Model(id: $0, displayName: $0) },
+                    cost: nil,
+                    contextWindow: nil,
+                    rateLimits: nil,
+                    worktree: nil,
+                    workspace: nil,
+                    effort: nil,
+                    thinking: nil,
+                    agent: nil,
+                    outputStyle: nil,
+                    vim: nil,
+                    sessionName: nil,
+                    version: CodexVersionAdapter.normalize(context.detectedHarnessVersion),
+                    exceeds200kTokens: nil,
+                    pr: nil,
+                    sessionStatus: nil
+                )
+                await MainActor.run {
+                    self.latestHarnessData = stateData
+                    self.emitMerged()
+                }
+                await startBoundTailerOrEnrichment(record: record, deadline: Date().addingTimeInterval(startupTimeout))
+                return
+            }
+
+            if attempt == 1 || attempt.isMultiple(of: 20) || (lateBound && !didTraceLateWaiting) {
+                trace(
+                    "statusline.codex.hook_waiting",
+                    attributes: [
+                        "retry_attempt": "\(attempt)",
+                        "late_bound": lateBound ? "true" : "false",
+                        "hook_record_available": "false",
+                    ])
+                if lateBound {
+                    didTraceLateWaiting = true
+                }
+            }
+            if !lateBound {
+                traceRetryableSelectionFailure(
+                    reason: "hook_record_unavailable",
+                    retryReason: "waiting_for_hook_record",
+                    attempt: attempt,
+                    extraAttributes: ["hook_record_available": "false"])
+            }
+            _ = await sleepUntilNextRetry(deadline: nil)
+        }
+    }
+
+    private func startBoundTailerOrEnrichment(record: CodexHookSessionRecord, deadline: Date) async {
+        if let path = record.transcriptPath, FileManager.default.fileExists(atPath: path) {
+            await MainActor.run { self.startTailer(path: path) }
+        }
+
+        var attempt = 0
+        while !Task.isCancelled {
+            attempt += 1
+            do {
+                let thread = try stateStore.selectThread(
+                    sessionID: record.sessionID, rolloutPath: record.transcriptPath)
+                trace(
+                    "statusline.codex.sqlite_enrichment",
+                    attributes: [
+                        "result": thread == nil ? "no_match" : "matched",
+                        "retry_attempt": "\(attempt)",
+                        "session_id_prefix": String(record.sessionID.prefix(12)),
+                        "rollout_path_matched": thread?.rolloutPath == record.transcriptPath ? "true" : "false",
+                    ])
+                if let thread {
+                    let tailerPath = thread.rolloutPath ?? record.transcriptPath
+                    await MainActor.run {
+                        self.latestHarnessData = self.mergeHarnessData(
+                            StatusLineData(
+                                model: thread.model.map { StatusLineData.Model(id: $0, displayName: $0) },
+                                cost: nil,
+                                contextWindow: nil,
+                                rateLimits: nil,
+                                worktree: nil,
+                                workspace: nil,
+                                effort: nil,
+                                thinking: nil,
+                                agent: nil,
+                                outputStyle: nil,
+                                vim: nil,
+                                sessionName: nil,
+                                version: thread.cliVersion,
+                                exceeds200kTokens: nil,
+                                pr: nil,
+                                sessionStatus: nil
+                            ))
+                        self.emitMerged()
+                        if self.tailer == nil, let tailerPath, FileManager.default.fileExists(atPath: tailerPath) {
+                            self.startTailer(path: tailerPath)
+                        }
+                    }
+                    if tailer != nil || tailerPath == nil { return }
+                }
+            } catch let error as CodexStateStoreError {
+                trace(
+                    "statusline.codex.sqlite_enrichment",
+                    attributes: ["result": sqliteResult(for: error), "retry_attempt": "\(attempt)"])
+            } catch {
+                trace(
+                    "statusline.codex.sqlite_enrichment",
+                    attributes: ["result": "unknown", "retry_attempt": "\(attempt)"])
+            }
+            if await sleepUntilNextRetry(deadline: deadline) { continue }
+            return
+        }
+    }
+
+    private func readHookRecord(path: String) -> CodexHookSessionRecord? {
+        guard let data = try? Data(contentsOf: URL(filePath: path)), !data.isEmpty else { return nil }
+        return try? JSONDecoder().decode(CodexHookSessionRecord.self, from: data)
+    }
+
+    private func sqliteResult(for error: CodexStateStoreError) -> String {
+        switch error {
+        case .schemaUnavailable:
+            return "schema_unavailable"
+        case .openFailed:
+            return "open_failed"
+        case .queryFailed:
+            return "query_failed"
+        case .ambiguousSession:
+            return "ambiguous_session"
+        }
+    }
+
+    private func traceRetryableSelectionFailure(
+        reason: String,
+        retryReason: String,
+        attempt: Int,
+        extraAttributes: [String: String] = [:]
+    ) {
+        var attributes = [
+            "reason": reason,
+            "retry_reason": retryReason,
+            "retry_attempt": "\(attempt)",
+        ]
+        for (key, value) in extraAttributes {
+            attributes[key] = value
+        }
+        trace("statusline.codex.selection_failed", attributes: attributes)
+    }
+
+    private func sleepUntilNextRetry(deadline: Date?) async -> Bool {
+        guard startupRetryInterval > 0 else { return false }
+        let sleepSeconds: TimeInterval
+        if let deadline {
+            guard Date() < deadline else { return false }
+            sleepSeconds = min(startupRetryInterval, max(0, deadline.timeIntervalSinceNow))
+        } else {
+            sleepSeconds = startupRetryInterval
+        }
+        guard sleepSeconds > 0 else { return false }
+        try? await Task.sleep(nanoseconds: UInt64(sleepSeconds * 1_000_000_000))
+        guard !Task.isCancelled else { return false }
+        if let deadline {
+            return Date() <= deadline
+        }
+        return true
+    }
+
+    private func startTailer(path: String) {
+        tailer?.stop()
+        let next = CodexRolloutTailer(rolloutPath: path, expectedCWD: context.workingDirectory)
+        next.onTrace = { [weak self] name, attributes in
+            self?.trace(name, attributes: attributes)
+        }
+        next.onUpdate = { [weak self] data in
+            guard let self else { return }
+            self.trace(
+                "statusline.codex.parsed_update",
+                attributes: [
+                    "has_model": data.model == nil ? "false" : "true",
+                    "has_tokens": data.contextWindow?.totalInputTokens == nil
+                        && data.contextWindow?.totalOutputTokens == nil ? "false" : "true",
+                    "has_context": data.contextWindow?.usedPercentage == nil ? "false" : "true",
+                    "has_rate_limits": data.rateLimits == nil ? "false" : "true",
+                ])
+            self.latestHarnessData = self.mergeHarnessData(data)
+            self.emitMerged()
+        }
+        tailer = next
+        next.start()
+    }
+
+    private func mergeHarnessData(_ update: StatusLineData) -> StatusLineData {
+        var merged = latestHarnessData ?? update
+        if let model = update.model { merged.model = model }
+        if let contextWindow = update.contextWindow { merged.contextWindow = contextWindow }
+        if let rateLimits = update.rateLimits { merged.rateLimits = rateLimits }
+        if let version = update.version { merged.version = version }
+        return merged
+    }
+
+    private func emitMerged() {
+        guard var data = latestBaselineData else { return }
+        if let harness = latestHarnessData {
+            if harness.model != nil { data.model = harness.model }
+            if let contextWindow = harness.contextWindow { data.contextWindow = contextWindow }
+            if let rateLimits = harness.rateLimits { data.rateLimits = rateLimits }
+            if let version = harness.version { data.version = version }
+        }
+        onUpdate?(data)
+    }
+
+    private func trace(_ name: String, attributes extraAttributes: [String: String] = [:]) {
+        var attributes = [
+            "provider": "codex",
+            "pane.name": context.paneName,
+            "pane.id": context.paneID.uuidString,
+            "tab.id": context.tabID.uuidString,
+            "tab.name": context.tabName,
+        ]
+        for (key, value) in extraAttributes {
+            attributes[key] = value
+        }
+        TracingService.shared.record(name, attributes: attributes)
+    }
+}

@@ -1,8 +1,24 @@
 import Foundation
 
-enum ToolAvailability: Codable {
-    case all
-    case claudeOnly
+enum StatusFactOwner: String, Codable {
+    case app
+    case harness
+    case merged
+}
+
+enum MissingStatusFactBehavior: String, Codable {
+    case pending
+    case unsupported
+}
+
+struct StatusFactCapability: Codable, Equatable {
+    let owner: StatusFactOwner
+    let supportedHarnesses: Set<Harness>
+    let missingBehavior: MissingStatusFactBehavior
+
+    func supports(_ harness: Harness) -> Bool {
+        supportedHarnesses.contains(harness)
+    }
 }
 
 enum FactLabelStyle: String, Codable, CaseIterable {
@@ -51,15 +67,12 @@ struct StatusLineItem: Codable, Identifiable, Hashable {
             ?? StatusLineConfig.itemMetadata[id]?.symbol ?? "circle"
     }
 
-    var availability: ToolAvailability {
-        StatusLineConfig.itemAvailability[id] ?? .all
+    var capability: StatusFactCapability {
+        StatusLineConfig.itemCapabilities[id] ?? StatusLineConfig.appCapability
     }
 
     func supportedBy(_ harness: Harness) -> Bool {
-        switch availability {
-        case .all: return true
-        case .claudeOnly: return harness == .claude
-        }
+        capability.supports(harness)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -120,36 +133,46 @@ struct StatusLineConfig: Codable, Equatable {
         "profileName": ("Profile", "person.crop.rectangle"),
     ]
 
-    static let itemAvailability: [String: ToolAvailability] = [
-        // Agnostic — populated by git queries and process tracking
-        "worktree": .all,
-        "duration": .all,
-        "version": .all,
-        "pr": .all,
-        "linesAdded": .all,
-        "linesRemoved": .all,
-        // Model — Claude and Cursor (via afterAgentResponse hook)
-        "model": .all,
-        // Claude-only — requires the Claude statusLine hook
-        "cost": .claudeOnly,
-        "inputTokens": .claudeOnly,
-        "outputTokens": .claudeOnly,
-        "context": .claudeOnly,
-        "effort": .claudeOnly,
-        "thinking": .claudeOnly,
-        "vimMode": .claudeOnly,
-        "agentName": .claudeOnly,
-        "sessionName": .claudeOnly,
-        "contextRemaining": .claudeOnly,
-        "rate5h": .claudeOnly,
-        "rate7d": .claudeOnly,
-        "rate5hReset": .claudeOnly,
-        "rate7dReset": .claudeOnly,
-        "outputStyle": .claudeOnly,
-        "exceeds200k": .claudeOnly,
-        // App-level — sourced from app state, not from tool hooks
-        "profileName": .all,
+    static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor]
+    static let appCapability = StatusFactCapability(
+        owner: .app, supportedHarnesses: allHarnesses, missingBehavior: .pending)
+    static let mergedCapability = StatusFactCapability(
+        owner: .merged, supportedHarnesses: allHarnesses, missingBehavior: .pending)
+    static let claudeCapability = StatusFactCapability(
+        owner: .harness, supportedHarnesses: [.claude], missingBehavior: .unsupported)
+    static let claudeCodexCapability = StatusFactCapability(
+        owner: .harness, supportedHarnesses: [.claude, .codex], missingBehavior: .pending)
+    static let modelCapability = StatusFactCapability(
+        owner: .merged, supportedHarnesses: allHarnesses, missingBehavior: .pending)
+
+    static let itemCapabilities: [String: StatusFactCapability] = [
+        "worktree": appCapability,
+        "duration": appCapability,
+        "version": mergedCapability,
+        "pr": appCapability,
+        "linesAdded": appCapability,
+        "linesRemoved": appCapability,
+        "profileName": appCapability,
+        "model": modelCapability,
+        "cost": claudeCapability,
+        "inputTokens": claudeCodexCapability,
+        "outputTokens": claudeCodexCapability,
+        "context": claudeCodexCapability,
+        "contextRemaining": claudeCodexCapability,
+        "rate5h": claudeCodexCapability,
+        "rate7d": claudeCodexCapability,
+        "rate5hReset": claudeCodexCapability,
+        "rate7dReset": claudeCodexCapability,
+        "effort": claudeCapability,
+        "thinking": claudeCapability,
+        "vimMode": claudeCapability,
+        "agentName": claudeCapability,
+        "sessionName": claudeCapability,
+        "outputStyle": claudeCapability,
+        "exceeds200k": claudeCapability,
     ]
+
+    static let itemAvailability: [String: StatusFactCapability] = itemCapabilities
 
     static let itemOrder: [String] = [
         "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
@@ -495,22 +518,22 @@ struct StatusLineData: Codable {
         let state: String?
     }
 
-    let model: Model?
+    var model: Model?
     var cost: Cost?
-    let contextWindow: ContextWindow?
-    let rateLimits: RateLimits?
+    var contextWindow: ContextWindow?
+    var rateLimits: RateLimits?
     var worktree: Worktree?
     let workspace: Workspace?
-    let effort: Effort?
-    let thinking: Thinking?
-    let agent: Agent?
-    let outputStyle: OutputStyle?
-    let vim: Vim?
-    let sessionName: String?
-    let version: String?
-    let exceeds200kTokens: Bool?
+    var effort: Effort?
+    var thinking: Thinking?
+    var agent: Agent?
+    var outputStyle: OutputStyle?
+    var vim: Vim?
+    var sessionName: String?
+    var version: String?
+    var exceeds200kTokens: Bool?
     var pr: PullRequest?
-    let sessionStatus: SessionStatus?
+    var sessionStatus: SessionStatus?
 
     enum CodingKeys: String, CodingKey {
         case model
@@ -529,5 +552,15 @@ struct StatusLineData: Codable {
         case exceeds200kTokens = "exceeds_200k_tokens"
         case pr
         case sessionStatus = "session_status"
+    }
+
+    static func empty(pr: PullRequest? = nil) -> StatusLineData {
+        StatusLineData(
+            model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
+            worktree: nil, workspace: nil, effort: nil, thinking: nil,
+            agent: nil, outputStyle: nil, vim: nil,
+            sessionName: nil, version: nil, exceeds200kTokens: nil,
+            pr: pr, sessionStatus: nil
+        )
     }
 }

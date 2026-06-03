@@ -2,36 +2,46 @@
 
 Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
-The catalog controls which chips can be selected for a harness. Catalog availability does not guarantee that a provider currently populates the field: unavailable provider data renders as `—`. For example, Codex can select `model` but does not populate it. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the per-harness audit.
+The catalog controls which chips can be selected for a harness. Each fact declares an owner (`app`, `harness`, or `merged`), supported harnesses, and whether missing data should render as pending or unsupported. Unsupported facts are omitted for that pane; supported facts with no current value render `—`. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the per-harness audit.
 
 ## Item Catalog
 
 | ID | Label | Availability | Source |
 |----|-------|-------------|--------|
 | `agentName` | Agent | Claude only | Claude hook JSON `agent.name` |
-| `context` | Context % | Claude only | Claude hook JSON `context_window.used_percentage` |
-| `contextRemaining` | Context Remaining | Claude only | Claude hook JSON `context_window.remaining_percentage` |
+| `context` | Context % | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `last_token_usage.total_tokens / model_context_window` |
+| `contextRemaining` | Context Remaining | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout context percentage remainder |
 | `cost` | Cost | Claude only | Claude hook JSON `cost.total_cost_usd` |
 | `duration` | Duration | All | App-computed from process start time |
 | `effort` | Effort | Claude only | Claude hook JSON `effort.level` |
 | `exceeds200k` | Exceeds 200k | Claude only | Claude hook JSON `exceeds_200k_tokens` |
-| `inputTokens` | Input Tokens | Claude only | Claude hook JSON |
+| `inputTokens` | Input Tokens | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `total_token_usage.input_tokens` |
 | `linesAdded` | Lines Added | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `linesRemoved` | Lines Removed | All | `git diff --shortstat HEAD` (polled every 15s) |
-| `model` | Model | All | Claude hook JSON / Cursor hook |
+| `model` | Model | All | Claude hook JSON; Cursor hook; Codex state DB/rollout metadata |
 | `outputStyle` | Output Style | Claude only | Claude hook JSON `output_style.name` |
-| `outputTokens` | Output Tokens | Claude only | Claude hook JSON |
+| `outputTokens` | Output Tokens | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `total_token_usage.output_tokens` |
 | `pr` | PR | All | GitHub CLI (`gh pr view`) via PRTrackingCoordinator |
 | `profileName` | Profile | All | App state (selected profile) |
-| `rate5h` | 5h Rate | Claude only | Claude hook JSON `rate_limits.five_hour` |
-| `rate5hReset` | 5h Resets At | Claude only | Claude hook JSON `rate_limits.five_hour.resets_at` |
-| `rate7d` | 7d Rate | Claude only | Claude hook JSON `rate_limits.seven_day` |
-| `rate7dReset` | 7d Resets At | Claude only | Claude hook JSON `rate_limits.seven_day.resets_at` |
+| `rate5h` | 5h Rate | Claude, Codex | Claude hook JSON; Codex 300-minute primary rate window |
+| `rate5hReset` | 5h Resets At | Claude, Codex | Claude hook JSON; Codex 300-minute primary rate window |
+| `rate7d` | 7d Rate | Claude, Codex | Claude hook JSON; Codex 10,080-minute secondary rate window |
+| `rate7dReset` | 7d Resets At | Claude, Codex | Claude hook JSON; Codex 10,080-minute secondary rate window |
 | `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | Claude hook JSON / Cursor and Codex CLI `--version` |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
 | `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
+
+## Providers
+
+`StatusLineMonitor` coordinates one provider path per pane and exposes merged `StatusLineData` to `StatusLineView`.
+
+- Claude panes use the Claude `statusLine` hook payload and preserve the existing I1/I3 enforcement.
+- Cursor panes combine app-owned baseline facts with Cursor hook model data.
+- Codex panes combine app-owned baseline facts with a hook-bound Codex session. Codex lifecycle hooks write the actual `session_id`, `cwd`, model, and `transcript_path` for the pane. The provider starts baseline polling immediately and keeps watching the pane-scoped hook record path until the first valid pane/tab record arrives, even if that happens after the startup window. Once bound, it pins the session id/transcript path for the pane lifetime, tails only that transcript, and uses `~/.codex/state_5.sqlite` only as optional enrichment by exact session id or exact transcript/rollout path. It never selects by latest same-working-directory row.
+
+Codex rollout parsing is intentionally bounded and content-avoiding. It accepts `session_meta.payload`, `turn_context`, and token-count `event_msg.payload.info` records, maps model/version/token/context/rate facts, and ignores message-content records. Startup catch-up reads only the latest 200 complete rollout lines and buffers partial JSONL writes until the newline arrives. Cost remains unsupported for Codex until Codex exposes a stable source.
 
 ## Invariants
 
@@ -94,3 +104,19 @@ Migration-only events remain trace events:
 |-------|-------------|
 | `statusline.migration.gitworktree_dropped` | A saved config row contained `gitWorktree`; it was removed (I2) |
 | `statusline.migration.worktreebranch_merged` | A saved config row contained `worktreeBranch`; it was replaced by `worktree` (`substituted=true`) or dropped (`substituted=false`) (I5) |
+| `statusline.provider.started` | A provider starts for a pane |
+| `statusline.provider.stopped` | A provider stops for a pane |
+| `statusline.provider.update_applied` | A provider snapshot is applied to the pane monitor |
+| `statusline.provider.update_failed` | Reserved for provider snapshot failures |
+| `statusline.codex.hook_waiting` | Codex provider is still waiting for a hook record; includes retry attempt, late-binding state, and hook availability |
+| `statusline.codex.hook_bound` | Codex hook record bound the pane to a session; includes hook availability, event name, session id prefix, retry attempt, late-binding state, and transcript availability |
+| `statusline.codex.hook_record_ignored` | Codex hook record was present but rejected, usually because the pane/tab ids did not match |
+| `statusline.codex.sqlite_enrichment` | Optional Codex SQLite enrichment result; includes exact-match outcome, retry attempt, selected session id prefix, and rollout path match |
+| `statusline.codex.selection_failed` | Codex hook binding failed or was still waiting; retryable startup failures include retry reason/attempt |
+| `statusline.codex.tailer_started` | Codex transcript/rollout tailer starts for the hook-bound session |
+| `statusline.codex.tailer_read` | Codex rollout tailer reads a bounded batch; includes line/update counts and whether the read was startup catch-up |
+| `statusline.codex.parsed_update` | Codex rollout parsing produced a supported update; records model/token/context/rate-limit field presence |
+| `statusline.codex.state_unavailable` | Reserved legacy event for Codex state DB failures |
+| `statusline.codex.session_ambiguous` | Reserved legacy event for ambiguous Codex state rows |
+| `statusline.codex.rollout_unavailable` | Reserved legacy event for missing Codex rollout paths |
+| `statusline.codex.schema_unsupported` | The detected Codex version has no rollout adapter |

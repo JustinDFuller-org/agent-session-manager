@@ -151,12 +151,15 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testAgnosticItemsAreCorrect() {
         let agnosticIds: Set<String> = [
-            "worktree", "duration", "version", "pr", "profileName",
+            "worktree", "duration", "pr", "profileName",
             "linesAdded", "linesRemoved",
         ]
         for id in agnosticIds {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .all, "\(id) should be .all")
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id]?.owner, .app, "\(id) should be app-owned")
+            XCTAssertTrue(StatusLineConfig.itemAvailability[id]?.supports(.codex) == true)
         }
+        XCTAssertEqual(StatusLineConfig.itemAvailability["version"]?.owner, .merged)
+        XCTAssertTrue(StatusLineConfig.itemAvailability["version"]?.supports(.codex) == true)
     }
 
     func testGitWorktreeIsAbsent() {
@@ -167,8 +170,8 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testLinesAddedAndRemovedAreAll() {
-        XCTAssertEqual(StatusLineConfig.itemAvailability["linesAdded"], .all)
-        XCTAssertEqual(StatusLineConfig.itemAvailability["linesRemoved"], .all)
+        XCTAssertEqual(StatusLineConfig.itemAvailability["linesAdded"]?.owner, .app)
+        XCTAssertEqual(StatusLineConfig.itemAvailability["linesRemoved"]?.owner, .app)
     }
 
     func testMigrationDropsGitWorktreeRow() throws {
@@ -201,18 +204,25 @@ final class StatusLineConfigTests: XCTestCase {
             "Expected migration trace event")
     }
 
-    func testClaudeOnlyItemsAreAllOtherItems() {
+    func testHarnessSpecificItemsAreCorrect() {
         let agnosticIds: Set<String> = [
             "worktree", "duration", "version", "pr", "model",
             "profileName", "linesAdded", "linesRemoved",
         ]
-        let claudeOnlyIds: Set<String> = ["cost", "inputTokens", "outputTokens"]
+        let codexSupportedIds: Set<String> = [
+            "inputTokens", "outputTokens", "context", "contextRemaining",
+            "rate5h", "rate7d", "rate5hReset", "rate7dReset",
+        ]
+        let claudeOnlyIds: Set<String> = ["cost"]
         for id in StatusLineConfig.itemMetadata.keys
-        where !agnosticIds.contains(id) && !claudeOnlyIds.contains(id) {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
+        where !agnosticIds.contains(id) && !codexSupportedIds.contains(id) && !claudeOnlyIds.contains(id) {
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude])
         }
         for id in claudeOnlyIds {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id], .claudeOnly, "\(id) should be .claudeOnly")
+            XCTAssertEqual(StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude])
+        }
+        for id in codexSupportedIds {
+            XCTAssertTrue(StatusLineConfig.itemAvailability[id]?.supports(.codex) == true)
         }
     }
 
@@ -223,27 +233,28 @@ final class StatusLineConfigTests: XCTestCase {
         }
     }
 
-    func testSupportedByNonClaudeReturnsOnlyAgnostic() {
-        let agnosticIds: Set<String> = [
+    func testSupportedByNonClaudeUsesCapabilities() {
+        let cursorIds: Set<String> = [
             "worktree", "duration", "version", "pr", "model",
             "profileName", "linesAdded", "linesRemoved",
         ]
+        let codexIds = cursorIds.union([
+            "inputTokens", "outputTokens", "context", "contextRemaining",
+            "rate5h", "rate7d", "rate5hReset", "rate7dReset",
+        ])
         for id in StatusLineConfig.itemMetadata.keys {
             let item = StatusLineItem(id: id, label: "Test", sfSymbol: "circle")
-            for harness: Harness in [.codex, .cursor] {
-                let expected = agnosticIds.contains(id)
-                XCTAssertEqual(
-                    item.supportedBy(harness), expected, "\(id) supportedBy \(harness) should be \(expected)")
-            }
+            XCTAssertEqual(item.supportedBy(.cursor), cursorIds.contains(id))
+            XCTAssertEqual(item.supportedBy(.codex), codexIds.contains(id))
         }
     }
 
     func testDefaultVisibleIncludesMixedAvailability() {
         let defaultVisible = StatusLineConfig().rows.flatMap { $0.items.map(\.id) }
-        let hasAgnostic = defaultVisible.contains { StatusLineConfig.itemAvailability[$0] == .all }
-        let hasClaudeOnly = defaultVisible.contains { StatusLineConfig.itemAvailability[$0] == .claudeOnly }
-        XCTAssertTrue(hasAgnostic, "Default visible items should include at least one agnostic item")
-        XCTAssertTrue(hasClaudeOnly, "Default visible items should include at least one Claude-only item")
+        let hasAppOwned = defaultVisible.contains { StatusLineConfig.itemAvailability[$0]?.owner == .app }
+        let hasHarnessOwned = defaultVisible.contains { StatusLineConfig.itemAvailability[$0]?.owner == .harness }
+        XCTAssertTrue(hasAppOwned, "Default visible items should include at least one app-owned item")
+        XCTAssertTrue(hasHarnessOwned, "Default visible items should include at least one harness-owned item")
     }
 }
 

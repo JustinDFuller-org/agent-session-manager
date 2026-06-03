@@ -112,33 +112,6 @@ final class Tab: Identifiable {
             .joined()
     }
 
-    nonisolated static func isValidWorktreeName(_ name: String) -> Bool {
-        guard !name.isEmpty else { return false }
-        let valid = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        return name.unicodeScalars.allSatisfy { valid.contains($0) }
-    }
-
-    nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: String) -> String {
-        let escapedSettings = settingsPath.replacingOccurrences(of: "'", with: "'\\''")
-        return "claude --settings '\(escapedSettings)'\(extraArgs)"
-    }
-
-    /// Returns `extraArgs` prepended with `--name '<tabName>/<paneName>'` when auto-naming is
-    /// enabled and neither `--name` nor `-n` is already present in `extraArgs`.
-    nonisolated static func applyAutoSessionName(
-        tabName: String,
-        paneName: String,
-        extraArgs: [String],
-        harness: Harness,
-        enabled: Bool
-    ) -> [String] {
-        guard enabled, harness == .claude else { return extraArgs }
-        guard !extraArgs.contains("--name"), !extraArgs.contains("-n") else { return extraArgs }
-        let raw = "\(tabName)/\(paneName)"
-        let escaped = raw.replacingOccurrences(of: "'", with: "'\\''")
-        return ["--name", "'\(escaped)'"] + extraArgs
-    }
-
     /// Parses `git worktree list --porcelain`.
     nonisolated static func parseWorktreeListPorcelain(_ output: String) -> [GitWorktreeListEntry] {
         var entries: [GitWorktreeListEntry] = []
@@ -551,7 +524,17 @@ final class Tab: Identifiable {
                     extraArgs: extra
                 )
             case .codex:
-                controller.pendingCommand = "codex\(extra)"
+                pane.statusLineMonitor?.writeCodexHookScript()
+                controller.pendingEnvironment =
+                    (controller.pendingEnvironment ?? [])
+                    + [
+                        "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
+                        "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
+                        "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(pane.statusLineMonitor!.codexHookRecordFilePath)",
+                    ]
+                controller.pendingCommand = Tab.buildCodexCommand(
+                    hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
+                    extraArgs: extra)
             case .cursor:
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
@@ -622,7 +605,17 @@ final class Tab: Identifiable {
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
-                controller.pendingCommand = "codex\(extra)"
+                monitor.writeCodexHookScript()
+                controller.pendingEnvironment =
+                    (controller.pendingEnvironment ?? [])
+                    + [
+                        "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
+                        "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
+                        "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(monitor.codexHookRecordFilePath)",
+                    ]
+                controller.pendingCommand = Tab.buildCodexCommand(
+                    hookScriptPath: monitor.codexHookScriptFilePath,
+                    extraArgs: extra)
             case .cursor:
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
@@ -643,7 +636,7 @@ final class Tab: Identifiable {
 
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
-        new.pendingCommand = Tab.injectContinueFlag(into: old.pendingCommand ?? "")
+        new.pendingCommand = old.pendingCommand
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
         new.pendingShell = old.pendingShell
@@ -658,6 +651,25 @@ final class Tab: Identifiable {
             let extra = Tab.extractExtraArgs(from: old.pendingCommand ?? "")
             let continued = Tab.injectContinueFlagIntoArgs(extra)
             new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
+        }
+        if pane.harness == .cursor {
+            new.pendingEnvironment =
+                (new.pendingEnvironment ?? [])
+                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+        }
+        if pane.harness == .codex {
+            monitor.writeCodexHookScript()
+            new.pendingEnvironment =
+                (new.pendingEnvironment ?? [])
+                + [
+                    "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
+                    "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
+                    "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(monitor.codexHookRecordFilePath)",
+                ]
+            let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
+            new.pendingCommand = Tab.buildCodexCommand(
+                hookScriptPath: monitor.codexHookScriptFilePath,
+                extraArgs: extra)
         }
         pane.installTerminalController(new)
         pane.restartToken = UUID()
@@ -712,6 +724,51 @@ final class Tab: Identifiable {
 }
 
 extension Tab {
+    nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: String) -> String {
+        "claude --settings \(shellQuote(settingsPath))\(extraArgs)"
+    }
+
+    nonisolated static func buildCodexCommand(hookScriptPath: String, extraArgs: String) -> String {
+        let hookCommand = "/usr/bin/python3 \(shellQuote(hookScriptPath))"
+        let escapedHookCommand =
+            hookCommand
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let commandValue = "[{hooks=[{type=\"command\",command=\"\(escapedHookCommand)\",timeout=5}]}]"
+        let hookEvents = ["SessionStart", "UserPromptSubmit", "Stop", "StopFailure"]
+        let configArgs =
+            hookEvents
+            .map { "-c \(shellQuote("hooks.\($0)=\(commandValue)"))" }
+            .joined(separator: " ")
+        return "codex --dangerously-bypass-hook-trust -c \(shellQuote("features.hooks=true")) \(configArgs)\(extraArgs)"
+    }
+
+    nonisolated static func shellQuote(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
+    }
+
+    /// Returns `extraArgs` prepended with `--name '<tabName>/<paneName>'` when auto-naming is
+    /// enabled and neither `--name` nor `-n` is already present in `extraArgs`.
+    nonisolated static func applyAutoSessionName(
+        tabName: String,
+        paneName: String,
+        extraArgs: [String],
+        harness: Harness,
+        enabled: Bool
+    ) -> [String] {
+        guard enabled, harness == .claude else { return extraArgs }
+        guard !extraArgs.contains("--name"), !extraArgs.contains("-n") else { return extraArgs }
+        let raw = "\(tabName)/\(paneName)"
+        let escaped = raw.replacingOccurrences(of: "'", with: "'\\''")
+        return ["--name", "'\(escaped)'"] + extraArgs
+    }
+
+    nonisolated static func isValidWorktreeName(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+        let valid = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        return name.unicodeScalars.allSatisfy { valid.contains($0) }
+    }
+
     func setFocusedPane(id: UUID?, reason: String) {
         let boundedReason = String(reason.prefix(64))
         if let id {
@@ -875,7 +932,17 @@ extension Tab {
                     extraArgs: extra
                 )
             case .codex:
-                controller.pendingCommand = "codex\(extra)"
+                pane.statusLineMonitor?.writeCodexHookScript()
+                controller.pendingEnvironment =
+                    (controller.pendingEnvironment ?? [])
+                    + [
+                        "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
+                        "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
+                        "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(pane.statusLineMonitor!.codexHookRecordFilePath)",
+                    ]
+                controller.pendingCommand = Tab.buildCodexCommand(
+                    hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
+                    extraArgs: extra)
             case .cursor:
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
