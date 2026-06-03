@@ -501,20 +501,37 @@ final class CodexStatusProvider: StatusLineDataProvider {
         }
         let deadline = Date().addingTimeInterval(startupTimeout)
         var attempt = 0
+        var didTraceLateWaiting = false
 
         while !Task.isCancelled {
             attempt += 1
+            let lateBound = Date() > deadline
             if let record = readHookRecord(path: hookRecordPath) {
                 guard record.paneID == context.paneID.uuidString, record.tabID == context.tabID.uuidString else {
-                    traceRetryableSelectionFailure(
-                        reason: "hook_context_mismatch",
-                        retryReason: "hook_context_mismatch",
-                        attempt: attempt,
-                        extraAttributes: [
-                            "hook_record_available": "true",
-                            "hook_event_name": record.hookEventName,
-                        ])
-                    return
+                    if attempt == 1 || attempt.isMultiple(of: 20) {
+                        trace(
+                            "statusline.codex.hook_record_ignored",
+                            attributes: [
+                                "reason": "hook_context_mismatch",
+                                "retry_attempt": "\(attempt)",
+                                "late_bound": lateBound ? "true" : "false",
+                                "record_pane_id": record.paneID,
+                                "record_tab_id": record.tabID,
+                                "hook_event_name": record.hookEventName,
+                            ])
+                    }
+                    if !lateBound {
+                        traceRetryableSelectionFailure(
+                            reason: "hook_context_mismatch",
+                            retryReason: "hook_context_mismatch",
+                            attempt: attempt,
+                            extraAttributes: [
+                                "hook_record_available": "true",
+                                "hook_event_name": record.hookEventName,
+                            ])
+                    }
+                    _ = await sleepUntilNextRetry(deadline: nil)
+                    continue
                 }
                 boundSessionID = record.sessionID
                 boundTranscriptPath = record.transcriptPath
@@ -524,6 +541,7 @@ final class CodexStatusProvider: StatusLineDataProvider {
                         "hook_record_available": "true",
                         "hook_event_name": record.hookEventName,
                         "retry_attempt": "\(attempt)",
+                        "late_bound": lateBound ? "true" : "false",
                         "session_id_prefix": String(record.sessionID.prefix(12)),
                         "transcript_available": record.transcriptPath.map {
                             FileManager.default.fileExists(atPath: $0) ? "true" : "false"
@@ -551,17 +569,30 @@ final class CodexStatusProvider: StatusLineDataProvider {
                     self.latestHarnessData = stateData
                     self.emitMerged()
                 }
-                await startBoundTailerOrEnrichment(record: record, deadline: deadline)
+                await startBoundTailerOrEnrichment(record: record, deadline: Date().addingTimeInterval(startupTimeout))
                 return
             }
 
-            traceRetryableSelectionFailure(
-                reason: "hook_record_unavailable",
-                retryReason: "waiting_for_hook_record",
-                attempt: attempt,
-                extraAttributes: ["hook_record_available": "false"])
-            if await sleepUntilNextStartupRetry(deadline: deadline) { continue }
-            return
+            if attempt == 1 || attempt.isMultiple(of: 20) || (lateBound && !didTraceLateWaiting) {
+                trace(
+                    "statusline.codex.hook_waiting",
+                    attributes: [
+                        "retry_attempt": "\(attempt)",
+                        "late_bound": lateBound ? "true" : "false",
+                        "hook_record_available": "false",
+                    ])
+                if lateBound {
+                    didTraceLateWaiting = true
+                }
+            }
+            if !lateBound {
+                traceRetryableSelectionFailure(
+                    reason: "hook_record_unavailable",
+                    retryReason: "waiting_for_hook_record",
+                    attempt: attempt,
+                    extraAttributes: ["hook_record_available": "false"])
+            }
+            _ = await sleepUntilNextRetry(deadline: nil)
         }
     }
 
@@ -622,7 +653,7 @@ final class CodexStatusProvider: StatusLineDataProvider {
                     "statusline.codex.sqlite_enrichment",
                     attributes: ["result": "unknown", "retry_attempt": "\(attempt)"])
             }
-            if await sleepUntilNextStartupRetry(deadline: deadline) { continue }
+            if await sleepUntilNextRetry(deadline: deadline) { continue }
             return
         }
     }
@@ -662,13 +693,22 @@ final class CodexStatusProvider: StatusLineDataProvider {
         trace("statusline.codex.selection_failed", attributes: attributes)
     }
 
-    private func sleepUntilNextStartupRetry(deadline: Date) async -> Bool {
-        guard Date() < deadline, startupRetryInterval > 0 else { return false }
-        let remaining = max(0, deadline.timeIntervalSinceNow)
-        let sleepSeconds = min(startupRetryInterval, remaining)
+    private func sleepUntilNextRetry(deadline: Date?) async -> Bool {
+        guard startupRetryInterval > 0 else { return false }
+        let sleepSeconds: TimeInterval
+        if let deadline {
+            guard Date() < deadline else { return false }
+            sleepSeconds = min(startupRetryInterval, max(0, deadline.timeIntervalSinceNow))
+        } else {
+            sleepSeconds = startupRetryInterval
+        }
         guard sleepSeconds > 0 else { return false }
         try? await Task.sleep(nanoseconds: UInt64(sleepSeconds * 1_000_000_000))
-        return !Task.isCancelled && Date() <= deadline
+        guard !Task.isCancelled else { return false }
+        if let deadline {
+            return Date() <= deadline
+        }
+        return true
     }
 
     private func startTailer(path: String) {

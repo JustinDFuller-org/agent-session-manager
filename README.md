@@ -5,6 +5,8 @@
 
 Keeps your agents (Claude, Codex, Cursor, etc.) managed in a window optimized for multi-agent workflows.
 
+Use tabs and panes to keep parallel coding sessions organized without juggling separate terminal windows.
+
 ## Features
 
 **Tabs** represent a working directory. Each tab has a name and a root directory. Switch between them with ⌘1–⌘9.

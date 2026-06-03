@@ -109,7 +109,9 @@ The `worktree` fact renders as `name • branch` when both values are available,
 | `statusline.payload.applied` | `pane.name`, `reason`, `cost_usd`, `used_pct`, `inode` | I7: every successful payload apply |
 | `statusline.payload.decode_failed` | `pane.name`, `reason`, `error`, `byte_count`, `payload_prefix` | I7: read or JSON decode failure |
 | `statusline.payload.stale_recovered` | `pane.name`, `file_mtime`, `stale_age_seconds` | I6: vnode watcher missed a write; timer recovered |
-| `statusline.codex.hook_bound` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `hook_record_available`, `hook_event_name`, `retry_attempt`, `session_id_prefix`, `transcript_available` | Codex hook record bound the pane to a session |
+| `statusline.codex.hook_waiting` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `retry_attempt`, `late_bound`, `hook_record_available` | Codex provider is still waiting for a hook record |
+| `statusline.codex.hook_bound` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `hook_record_available`, `hook_event_name`, `retry_attempt`, `late_bound`, `session_id_prefix`, `transcript_available` | Codex hook record bound the pane to a session |
+| `statusline.codex.hook_record_ignored` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`, `retry_attempt`, `late_bound`, `record_pane_id`, `record_tab_id`, `hook_event_name` | Codex hook record was present but rejected |
 | `statusline.codex.sqlite_enrichment` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result`, `retry_attempt`, `session_id_prefix`, `rollout_path_matched` | Codex SQLite enrichment by exact session id/path |
 | `statusline.codex.selection_failed` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`, `retry_attempt`, `retry_reason`, `hook_record_available`, `hook_event_name` | Codex hook binding failed or was still waiting |
 | `statusline.codex.tailer_started` | `pane.id`, `pane.name`, `tab.id`, `tab.name` | Codex transcript tailer starts |

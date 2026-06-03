@@ -645,6 +645,114 @@ final class CodexStatusProviderTests: XCTestCase {
 }
 
 extension CodexStatusProviderTests {
+    func testProviderBindsWhenHookRecordAppearsAfterStartupTimeout() throws {
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+        defer { TracingService.shared.resetForTesting() }
+
+        let rolloutURL = tempDir.appending(path: "late-timeout-rollout.jsonl")
+        try codexTokenLine(model: "late-timeout", input: 15, output: 5, contextTokens: 25, window: 100)
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        let hookRecordURL = tempDir.appending(path: "late-timeout-hook-record.json")
+        let provider = CodexStatusProvider(
+            context: makeContext(processStartTime: Date(), hookRecordPath: hookRecordURL.path),
+            stateStore: CodexStateStore(databaseURL: tempDir.appending(path: "missing.sqlite")),
+            startupRetryInterval: 0.02,
+            startupTimeout: 0.1
+        )
+        let expectation = XCTestExpectation(description: "provider binds after startup timeout")
+        provider.onUpdate = { data in
+            if data.model?.id == "late-timeout",
+                data.contextWindow?.totalInputTokens == 15,
+                data.contextWindow?.usedPercentage == 25
+            {
+                expectation.fulfill()
+            }
+        }
+
+        provider.start()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.2) {
+            try? self.writeHookRecord(
+                to: hookRecordURL,
+                sessionID: "thread-abcdef1234567890",
+                transcriptPath: rolloutURL.path,
+                model: "late-timeout",
+                hookEventName: "UserPromptSubmit")
+        }
+        wait(for: [expectation], timeout: 2)
+        provider.stop()
+
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(events.contains { $0.name == "statusline.codex.hook_waiting" })
+        XCTAssertTrue(
+            events.contains {
+                $0.name == "statusline.codex.hook_bound"
+                    && $0.attributes["late_bound"] == "true"
+                    && $0.attributes["hook_event_name"] == "UserPromptSubmit"
+            })
+    }
+
+    func testProviderIgnoresMismatchedHookRecordThenBindsCorrectRecord() throws {
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+        defer { TracingService.shared.resetForTesting() }
+
+        let rolloutURL = tempDir.appending(path: "correct-rollout.jsonl")
+        try codexTokenLine(model: "correct-hook", input: 11, output: 4, contextTokens: 18, window: 100)
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        let hookRecordURL = tempDir.appending(path: "mismatch-hook-record.json")
+        try writeHookRecord(
+            to: hookRecordURL,
+            sessionID: "wrong-thread",
+            transcriptPath: rolloutURL.path,
+            model: "wrong-hook",
+            paneID: "33333333-3333-3333-3333-333333333333")
+        let provider = CodexStatusProvider(
+            context: makeContext(processStartTime: Date(), hookRecordPath: hookRecordURL.path),
+            stateStore: CodexStateStore(databaseURL: tempDir.appending(path: "missing.sqlite")),
+            startupRetryInterval: 0.02,
+            startupTimeout: 0.5
+        )
+        let expectation = XCTestExpectation(description: "provider waits for correct hook record")
+        var observedModels: [String] = []
+        provider.onUpdate = { data in
+            if let model = data.model?.id {
+                observedModels.append(model)
+            }
+            if data.model?.id == "correct-hook", data.contextWindow?.usedPercentage == 18 {
+                expectation.fulfill()
+            }
+        }
+
+        provider.start()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.12) {
+            try? self.writeHookRecord(
+                to: hookRecordURL,
+                sessionID: "thread-abcdef1234567890",
+                transcriptPath: rolloutURL.path,
+                model: "correct-hook",
+                hookEventName: "Stop")
+        }
+        wait(for: [expectation], timeout: 2)
+        provider.stop()
+
+        XCTAssertFalse(observedModels.contains("wrong-hook"))
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(
+            events.contains {
+                $0.name == "statusline.codex.hook_record_ignored"
+                    && $0.attributes["reason"] == "hook_context_mismatch"
+                    && $0.attributes["hook_event_name"] == "SessionStart"
+            })
+        XCTAssertTrue(
+            events.contains {
+                $0.name == "statusline.codex.hook_bound"
+                    && $0.attributes["hook_event_name"] == "Stop"
+            })
+    }
+}
+
+extension CodexStatusProviderTests {
     fileprivate func executeSQL(_ sql: String, at url: URL) throws {
         var db: OpaquePointer?
         XCTAssertEqual(sqlite3_open(url.path, &db), SQLITE_OK)
@@ -716,16 +824,19 @@ extension CodexStatusProviderTests {
         to url: URL,
         sessionID: String,
         transcriptPath: String?,
-        model: String = "gpt-5.1-codex"
+        model: String = "gpt-5.1-codex",
+        hookEventName: String = "SessionStart",
+        paneID: String = "11111111-1111-1111-1111-111111111111",
+        tabID: String = "22222222-2222-2222-2222-222222222222"
     ) throws {
         let record = CodexHookSessionRecord(
-            paneID: "11111111-1111-1111-1111-111111111111",
-            tabID: "22222222-2222-2222-2222-222222222222",
+            paneID: paneID,
+            tabID: tabID,
             sessionID: sessionID,
             cwd: tempDir.path,
             model: model,
             transcriptPath: transcriptPath,
-            hookEventName: "SessionStart",
+            hookEventName: hookEventName,
             timestamp: Date().timeIntervalSince1970
         )
         let data = try JSONEncoder().encode(record)

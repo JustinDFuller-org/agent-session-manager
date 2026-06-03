@@ -39,7 +39,7 @@ The catalog controls which chips can be selected for a harness. Each fact declar
 
 - Claude panes use the Claude `statusLine` hook payload and preserve the existing I1/I3 enforcement.
 - Cursor panes combine app-owned baseline facts with Cursor hook model data.
-- Codex panes combine app-owned baseline facts with a hook-bound Codex session. Codex lifecycle hooks write the actual `session_id`, `cwd`, model, and `transcript_path` for the pane. During startup, the provider waits up to 15 seconds for that pane-scoped hook record, pins the session id/transcript path for the pane lifetime, tails only that transcript, and uses `~/.codex/state_5.sqlite` only as optional enrichment by exact session id or exact transcript/rollout path. It never selects by latest same-working-directory row.
+- Codex panes combine app-owned baseline facts with a hook-bound Codex session. Codex lifecycle hooks write the actual `session_id`, `cwd`, model, and `transcript_path` for the pane. The provider starts baseline polling immediately and keeps watching the pane-scoped hook record path until the first valid pane/tab record arrives, even if that happens after the startup window. Once bound, it pins the session id/transcript path for the pane lifetime, tails only that transcript, and uses `~/.codex/state_5.sqlite` only as optional enrichment by exact session id or exact transcript/rollout path. It never selects by latest same-working-directory row.
 
 Codex rollout parsing is intentionally bounded and content-avoiding. It accepts `session_meta.payload`, `turn_context`, and token-count `event_msg.payload.info` records, maps model/version/token/context/rate facts, and ignores message-content records. Startup catch-up reads only the latest 200 complete rollout lines and buffers partial JSONL writes until the newline arrives. Cost remains unsupported for Codex until Codex exposes a stable source.
 
@@ -108,7 +108,9 @@ Migration-only events remain trace events:
 | `statusline.provider.stopped` | A provider stops for a pane |
 | `statusline.provider.update_applied` | A provider snapshot is applied to the pane monitor |
 | `statusline.provider.update_failed` | Reserved for provider snapshot failures |
-| `statusline.codex.hook_bound` | Codex hook record bound the pane to a session; includes hook availability, event name, session id prefix, retry attempt, and transcript availability |
+| `statusline.codex.hook_waiting` | Codex provider is still waiting for a hook record; includes retry attempt, late-binding state, and hook availability |
+| `statusline.codex.hook_bound` | Codex hook record bound the pane to a session; includes hook availability, event name, session id prefix, retry attempt, late-binding state, and transcript availability |
+| `statusline.codex.hook_record_ignored` | Codex hook record was present but rejected, usually because the pane/tab ids did not match |
 | `statusline.codex.sqlite_enrichment` | Optional Codex SQLite enrichment result; includes exact-match outcome, retry attempt, selected session id prefix, and rollout path match |
 | `statusline.codex.selection_failed` | Codex hook binding failed or was still waiting; retryable startup failures include retry reason/attempt |
 | `statusline.codex.tailer_started` | Codex transcript/rollout tailer starts for the hook-bound session |
