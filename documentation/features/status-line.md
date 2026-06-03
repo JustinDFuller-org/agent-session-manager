@@ -39,9 +39,9 @@ The catalog controls which chips can be selected for a harness. Each fact declar
 
 - Claude panes use the Claude `statusLine` hook payload and preserve the existing I1/I3 enforcement.
 - Cursor panes combine app-owned baseline facts with Cursor hook model data.
-- Codex panes combine app-owned baseline facts with Codex local state. The provider reads `~/.codex/state_5.sqlite` read-only to find the thread for the pane working directory, then tails the selected rollout JSONL only for supported Codex `0.136.x` versions. Unknown versions keep baseline facts plus state DB model/version when available and emit `statusline.codex.schema_unsupported`.
+- Codex panes combine app-owned baseline facts with Codex local state. The provider reads `~/.codex/state_5.sqlite` read-only to find the thread for the pane working directory, preferring non-archived rows closest to the pane process start time, then tails the selected rollout JSONL only for supported Codex `0.136.x` versions. Unknown versions keep baseline facts plus state DB model/version when available and emit `statusline.codex.schema_unsupported`.
 
-Codex rollout parsing is intentionally bounded and content-avoiding. It accepts `session_meta` and token-count `event_msg` payloads, maps token/context/rate facts, and ignores message-content records. Cost remains unsupported for Codex until Codex exposes a stable source.
+Codex rollout parsing is intentionally bounded and content-avoiding. It accepts `session_meta.payload` and token-count `event_msg.payload.info` records, maps model/version/token/context/rate facts, and ignores message-content records. Cost remains unsupported for Codex until Codex exposes a stable source.
 
 ## Invariants
 
@@ -108,6 +108,12 @@ Migration-only events remain trace events:
 | `statusline.provider.stopped` | A provider stops for a pane |
 | `statusline.provider.update_applied` | A provider snapshot is applied to the pane monitor |
 | `statusline.provider.update_failed` | Reserved for provider snapshot failures |
+| `statusline.codex.state_read` | Codex state DB opened/read; includes bounded candidate count |
+| `statusline.codex.thread_selected` | Codex selected a state row; includes thread ID prefix, timestamps, version, and candidate count |
+| `statusline.codex.selection_failed` | Codex state selection failed; reason is one of no match, ambiguous, schema, open, query, or unknown |
+| `statusline.codex.tailer_started` | Codex rollout tailer starts for the selected thread |
+| `statusline.codex.tailer_read` | Codex rollout tailer reads a bounded batch; includes line/update counts |
+| `statusline.codex.parsed_update` | Codex rollout parsing produced a supported update; records model/token/context/rate-limit field presence |
 | `statusline.codex.state_unavailable` | Codex state DB cannot be opened, queried, or matched |
 | `statusline.codex.session_ambiguous` | Multiple Codex state rows match the pane working directory/start time |
 | `statusline.codex.rollout_unavailable` | The selected Codex rollout path is missing |

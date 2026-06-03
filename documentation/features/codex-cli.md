@@ -51,9 +51,9 @@ Codex-specific flags can be enabled or disabled in **Settings → CLI Tools → 
 
 Codex uses app-owned baseline status plus a version-gated local Codex provider.
 
-Baseline facts populate from the app side: worktree, branch, duration, changed lines, version, profile, and PR data. For Codex `0.136.x`, the provider also reads `~/.codex/state_5.sqlite` read-only to find the active thread for the pane working directory, then tails that thread's rollout JSONL for model, token, context, and rate-limit facts. Unsupported facts, such as cost, are omitted for Codex panes.
+Baseline facts populate from the app side: worktree, branch, duration, changed lines, version, profile, and PR data. For Codex `0.136.x`, the provider also reads `~/.codex/state_5.sqlite` read-only to find the active thread for the pane working directory, preferring non-archived rows closest to the pane process start time. It then tails that thread's rollout JSONL for model, token, context, and rate-limit facts. Unsupported facts, such as cost, are omitted for Codex panes.
 
-Unknown Codex versions degrade to baseline facts plus model/version from SQLite when available. Rollout parsing is treated as an internal, versioned integration and ignores content-bearing records.
+Unknown Codex versions degrade to baseline facts plus model/version from SQLite when available. Rollout parsing is treated as an internal, versioned integration and ignores content-bearing records. Provider traces record bounded selection, rollout, and field-presence diagnostics without logging prompts, transcript lines, auth data, or environment values.
 
 ## Session Persistence
 

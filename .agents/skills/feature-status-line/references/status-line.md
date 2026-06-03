@@ -7,24 +7,24 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 | ID | Label | Availability | Source |
 |----|-------|-------------|--------|
 | `agentName` | Agent | Claude only | Claude hook JSON `agent.name` |
-| `context` | Context % | Claude only | Claude hook JSON `context_window.used_percentage` |
-| `contextRemaining` | Context Remaining | Claude only | Claude hook JSON `context_window.remaining_percentage` |
+| `context` | Context % | Claude + Codex | Claude hook JSON `context_window.used_percentage` / Codex rollout token count |
+| `contextRemaining` | Context Remaining | Claude + Codex | Claude hook JSON `context_window.remaining_percentage` / Codex rollout token count |
 | `cost` | Cost | Claude only | Claude hook JSON `cost.total_cost_usd` |
 | `duration` | Duration | All | App-computed from process start time |
 | `effort` | Effort | Claude only | Claude hook JSON `effort.level` |
 | `exceeds200k` | Exceeds 200k | Claude only | Claude hook JSON `exceeds_200k_tokens` |
-| `inputTokens` | Input Tokens | Claude only | Claude hook JSON |
+| `inputTokens` | Input Tokens | Claude + Codex | Claude hook JSON / Codex rollout token count |
 | `linesAdded` | Lines Added | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `linesRemoved` | Lines Removed | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `model` | Model | All | Claude hook JSON / Cursor hook |
 | `outputStyle` | Output Style | Claude only | Claude hook JSON `output_style.name` |
-| `outputTokens` | Output Tokens | Claude only | Claude hook JSON |
+| `outputTokens` | Output Tokens | Claude + Codex | Claude hook JSON / Codex rollout token count |
 | `pr` | PR | All | GitHub CLI (`gh pr view`) via PRTrackingCoordinator |
 | `profileName` | Profile | All | App state (selected profile) |
-| `rate5h` | 5h Rate | Claude only | Claude hook JSON `rate_limits.five_hour` |
-| `rate5hReset` | 5h Resets At | Claude only | Claude hook JSON `rate_limits.five_hour.resets_at` |
-| `rate7d` | 7d Rate | Claude only | Claude hook JSON `rate_limits.seven_day` |
-| `rate7dReset` | 7d Resets At | Claude only | Claude hook JSON `rate_limits.seven_day.resets_at` |
+| `rate5h` | 5h Rate | Claude + Codex | Claude hook JSON `rate_limits.five_hour` / Codex rollout primary rate limit |
+| `rate5hReset` | 5h Resets At | Claude + Codex | Claude hook JSON `rate_limits.five_hour.resets_at` / Codex rollout primary rate limit |
+| `rate7d` | 7d Rate | Claude + Codex | Claude hook JSON `rate_limits.seven_day` / Codex rollout secondary rate limit |
+| `rate7dReset` | 7d Resets At | Claude + Codex | Claude hook JSON `rate_limits.seven_day.resets_at` / Codex rollout secondary rate limit |
 | `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | CLI `--version` flag |
@@ -109,3 +109,9 @@ The `worktree` fact renders as `name • branch` when both values are available,
 | `statusline.payload.applied` | `pane.name`, `reason`, `cost_usd`, `used_pct`, `inode` | I7: every successful payload apply |
 | `statusline.payload.decode_failed` | `pane.name`, `reason`, `error`, `byte_count`, `payload_prefix` | I7: read or JSON decode failure |
 | `statusline.payload.stale_recovered` | `pane.name`, `file_mtime`, `stale_age_seconds` | I6: vnode watcher missed a write; timer recovered |
+| `statusline.codex.state_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `candidate_count` | Codex state DB opened/read |
+| `statusline.codex.thread_selected` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `thread_id_prefix`, `created_at_ms`, `updated_at_ms`, `cli_version`, `candidate_count` | Codex selected a state row |
+| `statusline.codex.selection_failed` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`, `candidate_count` | Codex state selection failed |
+| `statusline.codex.tailer_started` | `pane.id`, `pane.name`, `tab.id`, `tab.name` | Codex rollout tailer starts |
+| `statusline.codex.tailer_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `line_count`, `update_count` | Codex rollout tailer reads a bounded batch |
+| `statusline.codex.parsed_update` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `has_model`, `has_tokens`, `has_context`, `has_rate_limits` | Codex rollout parsing produced a supported update |
