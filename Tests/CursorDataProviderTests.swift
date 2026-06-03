@@ -265,7 +265,8 @@ struct CursorDataProviderTests {
 
     @Test func testModelAvailabilityIncludesCursor() {
         let availability = StatusLineConfig.itemAvailability["model"]
-        #expect(availability == .all)
+        #expect(availability?.supports(.cursor) == true)
+        #expect(availability?.supports(.codex) == true)
     }
 
     @Test func testModelItemSupportedByCursor() {

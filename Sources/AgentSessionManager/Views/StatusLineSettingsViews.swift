@@ -70,7 +70,7 @@ struct StatusLineConfigLayoutEditor: View {
                                         "model": "Claude model name",
                                         "worktree": "Git worktree name and current branch",
                                         "cost": "Total session cost in USD (Claude only)",
-                                        "context": "Context window usage with progress bar (Claude only)",
+                                        "context": "Context window usage with progress bar",
                                         "effort": "Effort level (Claude only)",
                                         "thinking": "Whether extended thinking is on or off (Claude only)",
                                         "vimMode": "Vim editor mode (Claude only)",
@@ -79,13 +79,13 @@ struct StatusLineConfigLayoutEditor: View {
                                         "linesAdded": "Lines added vs HEAD (git diff --shortstat HEAD)",
                                         "linesRemoved": "Lines removed vs HEAD (git diff --shortstat HEAD)",
                                         "duration": "Total session duration",
-                                        "contextRemaining": "Context window remaining percentage (Claude only)",
-                                        "inputTokens": "Total input tokens used (Claude only)",
-                                        "outputTokens": "Total output tokens used (Claude only)",
-                                        "rate5h": "5-hour rate limit usage with progress bar (Claude only)",
-                                        "rate7d": "7-day rate limit usage with progress bar (Claude only)",
-                                        "rate5hReset": "Time until 5-hour rate limit resets (Claude only)",
-                                        "rate7dReset": "Time until 7-day rate limit resets (Claude only)",
+                                        "contextRemaining": "Context window remaining percentage",
+                                        "inputTokens": "Total input tokens used",
+                                        "outputTokens": "Total output tokens used",
+                                        "rate5h": "5-hour rate limit usage with progress bar",
+                                        "rate7d": "7-day rate limit usage with progress bar",
+                                        "rate5hReset": "Time until 5-hour rate limit resets",
+                                        "rate7dReset": "Time until 7-day rate limit resets",
                                         "version": "Tool CLI version",
                                         "outputStyle": "Output style name (Claude only)",
                                         "exceeds200k": "Warning when context exceeds 200k tokens (Claude only)",
@@ -99,22 +99,12 @@ struct StatusLineConfigLayoutEditor: View {
                                     }
                                 }
                                 Spacer()
-                                switch item.availability {
-                                case .claudeOnly:
-                                    Text("Claude only")
-                                        .font(.caption2)
-                                        .foregroundStyle(.blue)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 8)
-                                        .background(Capsule().fill(Color.blue.opacity(0.1)))
-                                case .all:
-                                    Text("All tools")
-                                        .font(.caption2)
-                                        .foregroundStyle(.green)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 8)
-                                        .background(Capsule().fill(Color.green.opacity(0.1)))
-                                }
+                                Text(capabilityLabel(for: item))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 8)
+                                    .background(Capsule().fill(Color.secondary.opacity(0.1)))
                                 Button(role: .destructive) {
                                     touch {
                                         $0.rows[rowIndex].items.removeAll { $0.id == item.id }
@@ -142,16 +132,9 @@ struct StatusLineConfigLayoutEditor: View {
                                     } label: {
                                         HStack {
                                             Text(item.label)
-                                            switch item.availability {
-                                            case .claudeOnly:
-                                                Text("Claude only")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.blue)
-                                            case .all:
-                                                Text("All tools")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.green)
-                                            }
+                                            Text(capabilityLabel(for: item))
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
                                         }
                                     }
                                 }
@@ -219,6 +202,17 @@ struct StatusLineConfigLayoutEditor: View {
         update(&next)
         config = next
         onPersist()
+    }
+
+    private func capabilityLabel(for item: StatusLineItem) -> String {
+        let harnesses = item.capability.supportedHarnesses
+        if harnesses == StatusLineConfig.allHarnesses {
+            return "All tools"
+        }
+        return Harness.allCases
+            .filter { harnesses.contains($0) }
+            .map(\.displayName)
+            .joined(separator: ", ")
     }
 }
 

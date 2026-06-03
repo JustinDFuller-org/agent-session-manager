@@ -33,6 +33,9 @@ targets:
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ENABLE_HARDENED_RUNTIME: YES
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-lsqlite3"
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.xcode-debug

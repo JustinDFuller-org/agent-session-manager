@@ -9,7 +9,13 @@ struct StatusLineView: View {
     @State private var showPRPopover = false
 
     private var nonEmptyRows: [StatusLineRow] {
-        config.rows.filter { !$0.items.isEmpty }
+        config.rows.compactMap { row in
+            let supportedItems = row.items.filter { monitor.supportsFact($0) }
+            guard !supportedItems.isEmpty else { return nil }
+            var supportedRow = row
+            supportedRow.items = supportedItems
+            return supportedRow
+        }
     }
 
     private var maxRowItemCount: Int {

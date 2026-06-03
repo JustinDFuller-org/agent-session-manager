@@ -643,7 +643,7 @@ final class Tab: Identifiable {
 
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
-        new.pendingCommand = Tab.injectContinueFlag(into: old.pendingCommand ?? "")
+        new.pendingCommand = old.pendingCommand
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
         new.pendingShell = old.pendingShell
@@ -658,6 +658,11 @@ final class Tab: Identifiable {
             let extra = Tab.extractExtraArgs(from: old.pendingCommand ?? "")
             let continued = Tab.injectContinueFlagIntoArgs(extra)
             new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
+        }
+        if pane.harness == .cursor {
+            new.pendingEnvironment =
+                (new.pendingEnvironment ?? [])
+                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
         }
         pane.installTerminalController(new)
         pane.restartToken = UUID()

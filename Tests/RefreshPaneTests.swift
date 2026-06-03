@@ -79,4 +79,23 @@ final class RefreshPaneTests: XCTestCase {
         XCTAssertTrue(cmd.contains("--settings"))
         XCTAssertTrue(cmd.contains("--model opus"))
     }
+
+    @MainActor
+    func testQuickRefreshPreservesCursorPaneEnvironmentAndCommand() {
+        let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
+        let pane = Pane(name: "cursor-pane", tab: tab, harness: .cursor)
+        let controller = TerminalController()
+        controller.pendingCommand = "agent --model test"
+        controller.pendingDirectory = "/tmp/repo"
+        controller.pendingEnvironment = ["PATH=/usr/bin"]
+        pane.installTerminalController(controller)
+        tab.panes.append(pane)
+
+        tab.refreshPane(pane)
+
+        XCTAssertEqual(pane.terminalController?.pendingCommand, "agent --model test")
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)") == true)
+    }
 }

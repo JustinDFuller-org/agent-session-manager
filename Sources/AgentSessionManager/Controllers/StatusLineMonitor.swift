@@ -32,6 +32,7 @@ final class StatusLineMonitor {
     private let workingDirectory: String?
     private let harness: Harness
     private let isClaude: Bool
+    private let providerContext: StatusProviderContext?
     private var source: DispatchSourceFileSystemObject?
     private var attentionSource: DispatchSourceFileSystemObject?
     private var activitySource: DispatchSourceFileSystemObject?
@@ -73,12 +74,29 @@ final class StatusLineMonitor {
             NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
         activitySignalFilePath =
             NSTemporaryDirectory() + "agent-session-manager-claude-activity-\(paneID.uuidString).json"
+        let resolvedPaneName = self.paneName
+        providerContext = workingDirectory.map { cwd in
+            StatusProviderContext(
+                paneID: paneID,
+                paneName: resolvedPaneName,
+                tabID: tabID,
+                tabName: tabName,
+                workingDirectory: cwd,
+                harness: harness,
+                processStartTime: processStartTime,
+                launchArgs: [],
+                environment: [:],
+                detectedHarnessVersion: nil
+            )
+        }
 
         if !isClaude, let cwd = workingDirectory {
             let provider: any StatusLineDataProvider
             if harness == .cursor {
                 provider = CursorDataProvider(
                     workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
+            } else if harness == .codex, let providerContext {
+                provider = CodexStatusProvider(context: providerContext)
             } else {
                 let toolCmd = harness.commandDescription
                 provider = ToolAgnosticDataProvider(
@@ -87,11 +105,7 @@ final class StatusLineMonitor {
             agnosticProvider = provider
             agnosticProvider?.onUpdate = { [weak self] data in
                 guard let self else { return }
-                var merged = data
-                if let existing = self.currentData?.pr {
-                    merged.pr = existing
-                }
-                self.currentData = merged
+                self.applyProviderSnapshot(data, providerName: self.harness.rawValue)
             }
             agnosticProvider?.onAttention = { [weak self] event in
                 Task { @MainActor in
@@ -107,6 +121,10 @@ final class StatusLineMonitor {
                 }
             }
         }
+    }
+
+    func supportsFact(_ item: StatusLineItem) -> Bool {
+        item.supportedBy(harness)
     }
 
     func start() {
@@ -209,6 +227,9 @@ final class StatusLineMonitor {
                 attentionSource = attentionWatcher
             }
         } else {
+            TracingService.shared.record(
+                "statusline.provider.started",
+                attributes: providerTraceAttributes(providerName: harness.rawValue))
             agnosticProvider?.start()
         }
 
@@ -220,13 +241,7 @@ final class StatusLineMonitor {
             ) { [weak self] pr in
                 guard let self else { return }
                 if self.currentData == nil {
-                    self.currentData = StatusLineData(
-                        model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
-                        worktree: nil, workspace: nil, effort: nil, thinking: nil,
-                        agent: nil, outputStyle: nil, vim: nil,
-                        sessionName: nil, version: nil, exceeds200kTokens: nil,
-                        pr: pr, sessionStatus: nil
-                    )
+                    self.currentData = .empty(pr: pr)
                 } else {
                     self.currentData?.pr = pr
                 }
@@ -252,6 +267,11 @@ final class StatusLineMonitor {
             ])
         stopAttentionWatcher()
         agnosticProvider?.stop()
+        if !isClaude {
+            TracingService.shared.record(
+                "statusline.provider.stopped",
+                attributes: providerTraceAttributes(providerName: harness.rawValue))
+        }
         agnosticProvider = nil
         PRTrackingCoordinator.shared.unsubscribe(paneID: paneID)
         lastKnownPRState = nil
@@ -434,6 +454,27 @@ final class StatusLineMonitor {
         )
     }
 
+    private func applyProviderSnapshot(_ data: StatusLineData, providerName: String) {
+        var merged = data
+        if let existing = currentData?.pr {
+            merged.pr = existing
+        }
+        currentData = merged
+        TracingService.shared.record(
+            "statusline.provider.update_applied",
+            attributes: providerTraceAttributes(providerName: providerName))
+    }
+
+    private func providerTraceAttributes(providerName: String) -> [String: String] {
+        [
+            "provider": providerName,
+            "pane.name": paneName,
+            "pane.id": paneID.uuidString,
+            "tab.id": tabID.uuidString,
+            "tab.name": tabName,
+        ]
+    }
+
     func writeSettingsFile() {
         let prTrackingEnabled = SettingsPersistence.isPRTrackingEnabled()
         let settings = Self.makeClaudeSettingsDictionaryForTesting(
@@ -516,13 +557,7 @@ final class StatusLineMonitor {
         guard !data.isEmpty else { return }
         guard let pr = try? JSONDecoder().decode(PullRequest.self, from: data) else { return }
         if currentData == nil {
-            currentData = StatusLineData(
-                model: nil, cost: nil, contextWindow: nil, rateLimits: nil,
-                worktree: nil, workspace: nil, effort: nil, thinking: nil,
-                agent: nil, outputStyle: nil, vim: nil,
-                sessionName: nil, version: nil, exceeds200kTokens: nil,
-                pr: pr, sessionStatus: nil
-            )
+            currentData = .empty(pr: pr)
         } else {
             currentData?.pr = pr
         }
