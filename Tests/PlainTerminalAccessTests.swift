@@ -181,10 +181,60 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertEqual(tab.panes.count, initialCount + 1)
     }
 
+    func testOpenShellPaneNamesShellAfterSourcePane() {
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+        let sourcePane = Pane(name: "reader", tab: tab, harness: .claude)
+        tab.panes.append(sourcePane)
+
+        tab.openShellPane(activePane: sourcePane)
+
+        XCTAssertEqual(tab.panes.last?.name, "shell:reader")
+    }
+
+    func testShellPaneNameHelperUsesSourcePaneName() {
+        let name = Tab.shellPaneName(sourcePaneName: "reader", existingPaneNames: [])
+
+        XCTAssertEqual(name, "shell:reader")
+    }
+
+    func testOpenShellPaneDeduplicatesShellNamesFromSameSource() {
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+        let sourcePane = Pane(name: "reader", tab: tab, harness: .claude)
+        tab.panes.append(sourcePane)
+        tab.panes.append(Pane(name: "shell:reader", tab: tab, harness: .shell))
+
+        tab.openShellPane(activePane: sourcePane)
+
+        XCTAssertEqual(tab.panes.last?.name, "shell:reader-2")
+    }
+
+    func testShellPaneNameHelperDeduplicatesRepeatedNames() {
+        let name = Tab.shellPaneName(
+            sourcePaneName: "reader",
+            existingPaneNames: ["shell:reader", "shell:reader-2"]
+        )
+
+        XCTAssertEqual(name, "shell:reader-3")
+    }
+
     func testOpenShellPaneAddedPaneHasShellHarness() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         tab.openShellPane(activePane: nil)
         XCTAssertEqual(tab.panes.last?.harness, .shell)
+    }
+
+    func testShellPaneNameHelperFallsBackToPlainShellName() {
+        let name = Tab.shellPaneName(sourcePaneName: nil, existingPaneNames: [])
+
+        XCTAssertEqual(name, "shell")
+    }
+
+    func testOpenShellPaneFallsBackToPlainShellNameWithoutSourcePane() {
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+
+        tab.openShellPane(activePane: nil)
+
+        XCTAssertEqual(tab.panes.last?.name, "shell")
     }
 
     // MARK: - ExitBehavior

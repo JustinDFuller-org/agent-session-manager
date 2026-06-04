@@ -690,18 +690,6 @@ final class Tab: Identifiable {
         pane.restartToken = UUID()
     }
 
-    /// Opens a new plain shell pane in this tab, in the same working directory as the active pane.
-    func openShellPane(activePane: Pane?, appSettings: AppSettings? = nil) {
-        setFocusedPane(id: nil, reason: "shell_pane_opened")
-        let cwd = activePane?.terminalController?.pendingDirectory
-        addPane(
-            name: "shell",
-            harness: .shell,
-            worktreeDirectory: cwd.map { URL(filePath: $0) },
-            appSettings: appSettings
-        )
-    }
-
     func closePane(_ pane: Pane) {
         if focusedPaneID == pane.id {
             setFocusedPane(id: nil, reason: "focused_pane_closed")
@@ -720,6 +708,35 @@ final class Tab: Identifiable {
 
     func movePane(from source: IndexSet, to destination: Int) {
         panes.move(fromOffsets: source, toOffset: destination)
+    }
+}
+
+extension Tab {
+    /// Opens a new plain shell pane in this tab, in the same working directory as the active pane.
+    func openShellPane(activePane: Pane?, appSettings: AppSettings? = nil) {
+        setFocusedPane(id: nil, reason: "shell_pane_opened")
+        let cwd = activePane?.terminalController?.pendingDirectory
+        let paneName = Self.shellPaneName(
+            sourcePaneName: activePane?.name,
+            existingPaneNames: panes.map(\.name)
+        )
+        addPane(
+            name: paneName,
+            harness: .shell,
+            worktreeDirectory: cwd.map { URL(filePath: $0) },
+            appSettings: appSettings
+        )
+    }
+
+    nonisolated static func shellPaneName(sourcePaneName: String?, existingPaneNames: [String]) -> String {
+        let baseName = sourcePaneName.map { "shell:\($0)" } ?? "shell"
+        var paneName = baseName
+        var suffix = 2
+        while existingPaneNames.contains(paneName) {
+            paneName = "\(baseName)-\(suffix)"
+            suffix += 1
+        }
+        return paneName
     }
 }
 
