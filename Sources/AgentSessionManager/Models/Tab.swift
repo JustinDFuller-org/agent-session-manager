@@ -694,8 +694,15 @@ final class Tab: Identifiable {
     func openShellPane(activePane: Pane?, appSettings: AppSettings? = nil) {
         setFocusedPane(id: nil, reason: "shell_pane_opened")
         let cwd = activePane?.terminalController?.pendingDirectory
+        let baseName = activePane.map { "shell:\($0.name)" } ?? "shell"
+        var paneName = baseName
+        var suffix = 2
+        while panes.contains(where: { $0.name == paneName }) {
+            paneName = "\(baseName)-\(suffix)"
+            suffix += 1
+        }
         addPane(
-            name: "shell",
+            name: paneName,
             harness: .shell,
             worktreeDirectory: cwd.map { URL(filePath: $0) },
             appSettings: appSettings

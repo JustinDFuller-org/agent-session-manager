@@ -51,6 +51,30 @@ final class TabPaneFlowTests: BaseTestCase {
         waitForDisappear(app.staticTexts["pane-name-reader"].firstMatch)
     }
 
+    func testOpenShellHereNamesShellPaneAfterSourcePane() {
+        createTab(named: "ShellTab")
+        createPane(named: "reader")
+
+        let readerHeader = app.descendants(matching: .any).matching(identifier: "pane-header-reader").firstMatch
+        waitFor(readerHeader)
+        readerHeader.rightClick()
+
+        let openShellHere = app.windows.firstMatch.menuItems["Open Shell Here"]
+        waitFor(openShellHere)
+        openShellHere.click()
+
+        let shellPane = app.staticTexts["pane-name-shell:reader"].firstMatch
+        waitFor(shellPane, timeout: 10)
+
+        readerHeader.rightClick()
+        let openShellHereAgain = app.windows.firstMatch.menuItems["Open Shell Here"]
+        waitFor(openShellHereAgain)
+        openShellHereAgain.click()
+
+        let secondShellPane = app.staticTexts["pane-name-shell:reader-2"].firstMatch
+        waitFor(secondShellPane, timeout: 10)
+    }
+
     func testTabPaneFlow() {
         // Create first tab and assert initial state
         createTab(named: "WorkTab")
