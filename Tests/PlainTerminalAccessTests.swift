@@ -191,6 +191,12 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertEqual(tab.panes.last?.name, "shell:reader")
     }
 
+    func testShellPaneNameHelperUsesSourcePaneName() {
+        let name = Tab.shellPaneName(sourcePaneName: "reader", existingPaneNames: [])
+
+        XCTAssertEqual(name, "shell:reader")
+    }
+
     func testOpenShellPaneDeduplicatesShellNamesFromSameSource() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         let sourcePane = Pane(name: "reader", tab: tab, harness: .claude)
@@ -202,10 +208,25 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertEqual(tab.panes.last?.name, "shell:reader-2")
     }
 
+    func testShellPaneNameHelperDeduplicatesRepeatedNames() {
+        let name = Tab.shellPaneName(
+            sourcePaneName: "reader",
+            existingPaneNames: ["shell:reader", "shell:reader-2"]
+        )
+
+        XCTAssertEqual(name, "shell:reader-3")
+    }
+
     func testOpenShellPaneAddedPaneHasShellHarness() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         tab.openShellPane(activePane: nil)
         XCTAssertEqual(tab.panes.last?.harness, .shell)
+    }
+
+    func testShellPaneNameHelperFallsBackToPlainShellName() {
+        let name = Tab.shellPaneName(sourcePaneName: nil, existingPaneNames: [])
+
+        XCTAssertEqual(name, "shell")
     }
 
     func testOpenShellPaneFallsBackToPlainShellNameWithoutSourcePane() {

@@ -694,19 +694,8 @@ final class Tab: Identifiable {
     func openShellPane(activePane: Pane?, appSettings: AppSettings? = nil) {
         setFocusedPane(id: nil, reason: "shell_pane_opened")
         let cwd = activePane?.terminalController?.pendingDirectory
-        let baseName = activePane.map { "shell:\($0.name)" } ?? "shell"
-        var paneName = baseName
-        var suffix = 2
-        while panes.contains(where: { $0.name == paneName }) {
-            paneName = "\(baseName)-\(suffix)"
-            suffix += 1
-        }
-        addPane(
-            name: paneName,
-            harness: .shell,
-            worktreeDirectory: cwd.map { URL(filePath: $0) },
-            appSettings: appSettings
-        )
+        let paneName = Self.shellPaneName(sourcePaneName: activePane?.name, existingPaneNames: panes.map(\.name))
+        addPane(name: paneName, harness: .shell, worktreeDirectory: cwd.map { URL(filePath: $0) }, appSettings: appSettings)
     }
 
     func closePane(_ pane: Pane) {
@@ -727,6 +716,19 @@ final class Tab: Identifiable {
 
     func movePane(from source: IndexSet, to destination: Int) {
         panes.move(fromOffsets: source, toOffset: destination)
+    }
+}
+
+extension Tab {
+    nonisolated static func shellPaneName(sourcePaneName: String?, existingPaneNames: [String]) -> String {
+        let baseName = sourcePaneName.map { "shell:\($0)" } ?? "shell"
+        var paneName = baseName
+        var suffix = 2
+        while existingPaneNames.contains(paneName) {
+            paneName = "\(baseName)-\(suffix)"
+            suffix += 1
+        }
+        return paneName
     }
 }
 
