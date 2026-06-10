@@ -105,12 +105,13 @@ struct StatusLineConfig: Codable, Equatable {
     var rows: [StatusLineRow]
     var factLabelStyle: FactLabelStyle
     var rowAlignment: RowAlignment
+    var showPercentagesAsText: Bool
 
     static let itemMetadata: [String: (label: String, symbol: String)] = [
         "model": ("Model", "cpu"),
         "worktree": ("Worktree", "folder.badge.gearshape"),
         "cost": ("Cost", "dollarsign.circle"),
-        "context": ("Context %", "gauge.with.needle"),
+        "context": ("Context Used", "gauge.with.needle"),
         "effort": ("Effort", "dial.high"),
         "thinking": ("Thinking", "brain"),
         "vimMode": ("Vim Mode", "keyboard"),
@@ -205,6 +206,7 @@ struct StatusLineConfig: Codable, Equatable {
         rows = [StatusLineRow(items: defaultItems)]
         factLabelStyle = .labelOnly
         rowAlignment = .spaceBetween
+        showPercentagesAsText = false
     }
 
     static func wizardDefault() -> StatusLineConfig {
@@ -228,6 +230,7 @@ struct StatusLineConfig: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         factLabelStyle = try container.decodeIfPresent(FactLabelStyle.self, forKey: .factLabelStyle) ?? .labelOnly
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
+        showPercentagesAsText = try container.decodeIfPresent(Bool.self, forKey: .showPercentagesAsText) ?? false
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows.enumerated().map { rowIndex, row in
@@ -254,6 +257,9 @@ struct StatusLineConfig: Codable, Equatable {
                             return StatusLineItem(id: "worktree", label: meta.label, sfSymbol: meta.symbol)
                         }
                         return nil
+                    }
+                    if let meta = StatusLineConfig.itemMetadata[item.id] {
+                        return StatusLineItem(id: item.id, label: meta.label, sfSymbol: meta.symbol)
                     }
                     return item
                 }
@@ -283,10 +289,11 @@ struct StatusLineConfig: Codable, Equatable {
         try container.encode(rows, forKey: .rows)
         try container.encode(factLabelStyle, forKey: .factLabelStyle)
         try container.encode(rowAlignment, forKey: .rowAlignment)
+        try container.encode(showPercentagesAsText, forKey: .showPercentagesAsText)
     }
 
     enum CodingKeys: String, CodingKey {
-        case rows, factLabelStyle, rowAlignment
+        case rows, factLabelStyle, rowAlignment, showPercentagesAsText
         case items
     }
 }

@@ -36,4 +36,24 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
         XCTAssertEqual(config.rowAlignment, .leading)
     }
+
+    func testDefaultInitShowPercentagesAsTextIsFalse() {
+        let config = StatusLineConfig()
+        XCTAssertFalse(config.showPercentagesAsText)
+    }
+
+    func testDecodingMissingFieldsFallsBackToShowPercentagesAsTextFalse() throws {
+        let json = Data("{}".utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertFalse(config.showPercentagesAsText)
+    }
+
+    func testDecodingExplicitShowPercentagesAsTextTrueRoundTrips() throws {
+        let json = Data(#"{"showPercentagesAsText":true}"#.utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertTrue(config.showPercentagesAsText)
+        let encoded = try JSONEncoder().encode(config)
+        let decoded = try JSONDecoder().decode(StatusLineConfig.self, from: encoded)
+        XCTAssertTrue(decoded.showPercentagesAsText)
+    }
 }
