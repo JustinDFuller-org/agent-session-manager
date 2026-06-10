@@ -298,7 +298,7 @@ final class CodexStatusProviderTests: XCTestCase {
     func testCapabilityFilteringSupportsCodexTokensButNotCost() {
         let cost = StatusLineItem(id: "cost", label: "Cost", sfSymbol: "dollarsign.circle")
         let input = StatusLineItem(id: "inputTokens", label: "Input Tokens", sfSymbol: "arrow.down.circle")
-        let context = StatusLineItem(id: "context", label: "Context %", sfSymbol: "gauge.with.needle")
+        let context = StatusLineItem(id: "context", label: "Context Used", sfSymbol: "gauge.with.needle")
 
         XCTAssertFalse(cost.supportedBy(.codex))
         XCTAssertTrue(input.supportedBy(.codex))

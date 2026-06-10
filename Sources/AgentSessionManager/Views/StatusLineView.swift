@@ -112,27 +112,42 @@ struct StatusLineView: View {
     }
 
     @ViewBuilder
+    private func percentageValue(value: Double, label: String, tint: Color, barWidth: CGFloat) -> some View {
+        if config.showPercentagesAsText {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        } else {
+            RateProgressView(value: value, barWidth: barWidth, label: label, tint: tint)
+        }
+    }
+
+    @ViewBuilder
     private func factValueView(item: StatusLineItem, data: StatusLineData?) -> some View {
         switch item.id {
         case "context":
             if let pct = data?.contextWindow?.usedPercentage {
-                RateProgressView(value: Double(pct), barWidth: 44, label: "\(pct)%", tint: progressTint(pct))
+                percentageValue(value: Double(pct), label: "\(pct)%", tint: progressTint(pct), barWidth: 44)
+            } else {
+                Text("—").font(.caption).foregroundStyle(.secondary)
+            }
+        case "contextRemaining":
+            if let pct = data?.contextWindow?.remainingPercentage {
+                percentageValue(value: Double(pct), label: "\(pct)%", tint: progressTint(100 - pct), barWidth: 44)
             } else {
                 Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "rate5h":
             if let pct = data?.rateLimits?.fiveHour?.usedPercentage {
-                RateProgressView(
-                    value: pct, barWidth: 32,
-                    label: String(format: "%.0f%%", pct), tint: progressTint(Int(pct)))
+                percentageValue(
+                    value: pct, label: String(format: "%.0f%%", pct),
+                    tint: progressTint(Int(pct)), barWidth: 32)
             } else {
                 Text("—").font(.caption).foregroundStyle(.secondary)
             }
         case "rate7d":
             if let pct = data?.rateLimits?.sevenDay?.usedPercentage {
-                RateProgressView(
-                    value: pct, barWidth: 32,
-                    label: String(format: "%.0f%%", pct), tint: progressTint(Int(pct)))
+                percentageValue(
+                    value: pct, label: String(format: "%.0f%%", pct),
+                    tint: progressTint(Int(pct)), barWidth: 32)
             } else {
                 Text("—").font(.caption).foregroundStyle(.secondary)
             }
@@ -177,7 +192,6 @@ struct StatusLineView: View {
         case "linesAdded": return data?.cost?.totalLinesAdded.map { "+\($0)" } ?? "—"
         case "linesRemoved": return data?.cost?.totalLinesRemoved.map { "-\($0)" } ?? "—"
         case "duration": return data?.cost?.totalDurationMs.map(formatDuration) ?? "—"
-        case "contextRemaining": return data?.contextWindow?.remainingPercentage.map { "\($0)%" } ?? "—"
         case "inputTokens": return data?.contextWindow?.totalInputTokens.map { "\($0)" } ?? "—"
         case "outputTokens": return data?.contextWindow?.totalOutputTokens.map { "\($0)" } ?? "—"
         case "rate5hReset": return data?.rateLimits?.fiveHour?.resetsAt.map(formatResetTime) ?? "—"

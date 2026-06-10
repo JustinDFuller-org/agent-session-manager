@@ -48,6 +48,15 @@ struct StatusLineConfigLayoutEditor: View {
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
                     }
+                    LabeledContent {
+                        Toggle("", isOn: showPercentagesAsTextBinding)
+                            .labelsHidden()
+                            .accessibilityIdentifier("settings-statusline-percentages-text-toggle")
+                    } label: {
+                        Text("Show percentages as text")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                    }
                 }
             }
             if phases.contains(.rows) {
@@ -70,7 +79,7 @@ struct StatusLineConfigLayoutEditor: View {
                                         "model": "Claude model name",
                                         "worktree": "Git worktree name and current branch",
                                         "cost": "Total session cost in USD (Claude only)",
-                                        "context": "Context window usage with progress bar",
+                                        "context": "Context window used (progress bar or text)",
                                         "effort": "Effort level (Claude only)",
                                         "thinking": "Whether extended thinking is on or off (Claude only)",
                                         "vimMode": "Vim editor mode (Claude only)",
@@ -79,7 +88,7 @@ struct StatusLineConfigLayoutEditor: View {
                                         "linesAdded": "Lines added vs HEAD (git diff --shortstat HEAD)",
                                         "linesRemoved": "Lines removed vs HEAD (git diff --shortstat HEAD)",
                                         "duration": "Total session duration",
-                                        "contextRemaining": "Context window remaining percentage",
+                                        "contextRemaining": "Context window remaining (progress bar or text)",
                                         "inputTokens": "Total input tokens used",
                                         "outputTokens": "Total output tokens used",
                                         "rate5h": "5-hour rate limit usage with progress bar",
@@ -195,6 +204,12 @@ struct StatusLineConfigLayoutEditor: View {
         Binding(
             get: { config.rowAlignment },
             set: { newVal in touch { $0.rowAlignment = newVal } })
+    }
+
+    private var showPercentagesAsTextBinding: Binding<Bool> {
+        Binding(
+            get: { config.showPercentagesAsText },
+            set: { newVal in touch { $0.showPercentagesAsText = newVal } })
     }
 
     private func touch(_ update: (inout StatusLineConfig) -> Void) {
