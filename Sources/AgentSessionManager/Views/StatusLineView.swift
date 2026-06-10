@@ -209,8 +209,8 @@ struct StatusLineView: View {
         }
     }
 
-    private func formatTokenCount(_ n: Int) -> String {
-        n >= 1000 ? "\(n / 1000)k" : "\(n)"
+    private func formatTokenCount(_ count: Int) -> String {
+        count >= 1000 ? "\(count / 1000)k" : "\(count)"
     }
 
     private func formatDuration(_ ms: Double) -> String {

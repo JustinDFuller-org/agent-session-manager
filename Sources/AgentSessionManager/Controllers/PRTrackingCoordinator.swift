@@ -529,7 +529,7 @@ final class PRTrackingCoordinator {
 
     // MARK: - Parsing helpers (internal for testing)
 
-    nonisolated static func parseRepoIdentity(from remoteURL: String) -> (host: String, owner: String, name: String)? {
+    nonisolated static func parseRepoIdentity(from remoteURL: String) -> StatusLineData.Repo? {
         var cleaned = remoteURL
         if cleaned.hasSuffix(".git") { cleaned = String(cleaned.dropLast(4)) }
 
@@ -537,7 +537,7 @@ final class PRTrackingCoordinator {
             guard let url = URL(string: cleaned), let host = url.host else { return nil }
             let parts = url.pathComponents.filter { $0 != "/" }
             guard parts.count >= 2 else { return nil }
-            return (host, parts[parts.count - 2], parts[parts.count - 1])
+            return StatusLineData.Repo(host: host, owner: parts[parts.count - 2], name: parts[parts.count - 1])
         }
 
         if cleaned.contains("@"), cleaned.contains(":") {
@@ -547,7 +547,11 @@ final class PRTrackingCoordinator {
             let host = String(userHost.last ?? Substring(parts[0]))
             let pathParts = parts[1].split(separator: "/")
             guard pathParts.count >= 2 else { return nil }
-            return (host, String(pathParts[pathParts.count - 2]), String(pathParts[pathParts.count - 1]))
+            return StatusLineData.Repo(
+                host: host,
+                owner: String(pathParts[pathParts.count - 2]),
+                name: String(pathParts[pathParts.count - 1])
+            )
         }
 
         return nil

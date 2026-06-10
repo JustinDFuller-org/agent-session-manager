@@ -182,12 +182,7 @@ final class StatusLineMonitor {
                         await MainActor.run { self.cachedGitStats = stats }
                     }
                 }
-                Task { [weak self] in
-                    guard let self else { return }
-                    if let identity = await Self.fetchRepoIdentity(workingDirectory: cwd) {
-                        await MainActor.run { self.cachedRepoIdentity = identity }
-                    }
-                }
+                startRepoIdentityFetch(cwd: cwd)
                 gitDiffTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
                     guard let self else { return }
                     Task { [weak self] in
@@ -622,6 +617,15 @@ final class StatusLineMonitor {
         cachedRepoIdentity = identity
     }
 
+    private func startRepoIdentityFetch(cwd: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            if let identity = await Self.fetchRepoIdentity(workingDirectory: cwd) {
+                await MainActor.run { self.cachedRepoIdentity = identity }
+            }
+        }
+    }
+
     static func fetchRepoIdentity(workingDirectory: String) async -> StatusLineData.Repo? {
         await withCheckedContinuation { continuation in
             let task = Process()
@@ -632,19 +636,16 @@ final class StatusLineMonitor {
             task.standardError = FileHandle.nullDevice
             task.terminationHandler = { _ in
                 let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-                guard let remote = String(data: data, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                guard
+                    let remote = String(data: data, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
                     !remote.isEmpty,
                     let identity = PRTrackingCoordinator.parseRepoIdentity(from: remote)
                 else {
                     continuation.resume(returning: nil)
                     return
                 }
-                continuation.resume(returning: StatusLineData.Repo(
-                    host: identity.host,
-                    owner: identity.owner,
-                    name: identity.name
-                ))
+                continuation.resume(returning: identity)
             }
             do {
                 try task.run()
