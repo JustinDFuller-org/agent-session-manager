@@ -424,4 +424,64 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let events = TracingService.shared.recordedEventsForTesting
         XCTAssertFalse(events.contains { $0.name == "statusline.lines.source_mismatch" })
     }
+
+    // MARK: - I3: totalApiDurationMs preserved through enforcement
+
+    func testI3PreservesTotalApiDurationMs() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+        monitor.testSetCachedGitStats((added: 0, removed: 0))
+
+        let json = Data(
+            """
+            {"cost": {"total_cost_usd": 0.05, "total_duration_ms": 2000, "total_api_duration_ms": 1234.5}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+        var enforced = parsed
+
+        monitor.testApplyI3Enforcement(to: &enforced)
+
+        XCTAssertEqual(enforced.cost?.totalApiDurationMs, 1234.5, "totalApiDurationMs must survive I3 enforcement")
+        XCTAssertEqual(enforced.cost?.totalCostUsd, 0.05)
+    }
+
+    // MARK: - Repo identity injection
+
+    func testRepoIdentityInjectedOnPayloadApply() throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+        let repo = StatusLineData.Repo(host: "github.com", owner: "acme", name: "widget")
+        monitor.testSetCachedRepoIdentity(repo)
+
+        let payload = Data(#"{"cost": {"total_cost_usd": 0.0}}"#.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        XCTAssertEqual(monitor.currentData?.repo?.owner, "acme")
+        XCTAssertEqual(monitor.currentData?.repo?.name, "widget")
+        XCTAssertEqual(monitor.currentData?.repo?.host, "github.com")
+    }
+
+    func testRepoIdentityNilWhenNotCached() throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+
+        let payload = Data(#"{"cost": {"total_cost_usd": 0.0}}"#.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        XCTAssertNil(monitor.currentData?.repo)
+    }
 }

@@ -19,7 +19,7 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testAllItemsCount() {
-        XCTAssertEqual(StatusLineConfig.allItems.count, 24)
+        XCTAssertEqual(StatusLineConfig.allItems.count, 29)
     }
 
     func testUsedItemIDsSpansAllRows() {
@@ -207,7 +207,7 @@ final class StatusLineConfigTests: XCTestCase {
     func testHarnessSpecificItemsAreCorrect() {
         let agnosticIds: Set<String> = [
             "worktree", "duration", "version", "pr", "model",
-            "profileName", "linesAdded", "linesRemoved",
+            "profileName", "linesAdded", "linesRemoved", "repo",
         ]
         let codexSupportedIds: Set<String> = [
             "inputTokens", "outputTokens", "context", "contextRemaining",
@@ -236,7 +236,7 @@ final class StatusLineConfigTests: XCTestCase {
     func testSupportedByNonClaudeUsesCapabilities() {
         let cursorIds: Set<String> = [
             "worktree", "duration", "version", "pr", "model",
-            "profileName", "linesAdded", "linesRemoved",
+            "profileName", "linesAdded", "linesRemoved", "repo",
         ]
         let codexIds = cursorIds.union([
             "inputTokens", "outputTokens", "context", "contextRemaining",

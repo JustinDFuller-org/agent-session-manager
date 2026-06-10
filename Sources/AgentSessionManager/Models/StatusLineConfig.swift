@@ -132,6 +132,11 @@ struct StatusLineConfig: Codable, Equatable {
         "exceeds200k": ("Exceeds 200k", "exclamationmark.triangle"),
         "pr": ("PR", "arrow.triangle.pull"),
         "profileName": ("Profile", "person.crop.rectangle"),
+        "repo": ("Repository", "chevron.left.forwardslash.chevron.right"),
+        "contextSize": ("Context Size", "ruler"),
+        "cacheRead": ("Cache Read", "arrow.down.doc"),
+        "cacheCreation": ("Cache Write", "arrow.up.doc"),
+        "apiDuration": ("API Duration", "clock.arrow.2.circlepath"),
     ]
 
     static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor]
@@ -171,6 +176,11 @@ struct StatusLineConfig: Codable, Equatable {
         "sessionName": claudeCapability,
         "outputStyle": claudeCapability,
         "exceeds200k": claudeCapability,
+        "repo": appCapability,
+        "contextSize": claudeCapability,
+        "cacheRead": claudeCapability,
+        "cacheCreation": claudeCapability,
+        "apiDuration": claudeCapability,
     ]
 
     static let itemAvailability: [String: StatusFactCapability] = itemCapabilities
@@ -181,6 +191,7 @@ struct StatusLineConfig: Codable, Equatable {
         "linesRemoved", "duration", "contextRemaining", "inputTokens", "outputTokens",
         "rate5h", "rate7d", "rate5hReset", "rate7dReset", "version", "outputStyle", "exceeds200k",
         "pr", "profileName",
+        "repo", "contextSize", "cacheRead", "cacheCreation", "apiDuration",
     ]
 
     private static let defaultVisible: Set<String> = ["model", "worktree", "cost", "context"]
@@ -337,6 +348,18 @@ struct PullRequest: Codable, Identifiable {
     var unresolvedCommentCount: Int?
     var commitStatusState: String?
     var mergeable: String?
+    var reviewDecision: String?
+
+    var reviewStateLabel: String? {
+        if isDraft == true { return "draft" }
+        guard let decision = reviewDecision else { return nil }
+        switch decision {
+        case "APPROVED": return "approved"
+        case "CHANGES_REQUESTED": return "changes requested"
+        case "REVIEW_REQUIRED": return "pending"
+        default: return nil
+        }
+    }
 
     var id: Int { number }
 
@@ -407,6 +430,12 @@ struct PullRequest: Codable, Identifiable {
 }
 
 struct StatusLineData: Codable {
+    struct Repo: Codable {
+        let host: String
+        let owner: String
+        let name: String
+    }
+
     struct Model: Codable {
         let id: String?
         let displayName: String?
@@ -421,32 +450,74 @@ struct StatusLineData: Codable {
         let totalDurationMs: Double?
         let totalLinesAdded: Int?
         let totalLinesRemoved: Int?
+        let totalApiDurationMs: Double?
         enum CodingKeys: String, CodingKey {
             case totalCostUsd = "total_cost_usd"
             case totalDurationMs = "total_duration_ms"
             case totalLinesAdded = "total_lines_added"
             case totalLinesRemoved = "total_lines_removed"
+            case totalApiDurationMs = "total_api_duration_ms"
+        }
+
+        init(
+            totalCostUsd: Double?,
+            totalDurationMs: Double?,
+            totalLinesAdded: Int?,
+            totalLinesRemoved: Int?,
+            totalApiDurationMs: Double? = nil
+        ) {
+            self.totalCostUsd = totalCostUsd
+            self.totalDurationMs = totalDurationMs
+            self.totalLinesAdded = totalLinesAdded
+            self.totalLinesRemoved = totalLinesRemoved
+            self.totalApiDurationMs = totalApiDurationMs
         }
     }
 
     struct ContextWindow: Codable {
+        struct CurrentUsage: Codable {
+            let inputTokens: Int?
+            let outputTokens: Int?
+            let cacheCreationInputTokens: Int?
+            let cacheReadInputTokens: Int?
+            enum CodingKeys: String, CodingKey {
+                case inputTokens = "input_tokens"
+                case outputTokens = "output_tokens"
+                case cacheCreationInputTokens = "cache_creation_input_tokens"
+                case cacheReadInputTokens = "cache_read_input_tokens"
+            }
+        }
+
         let usedPercentage: Int?
         let remainingPercentage: Int?
         let totalInputTokens: Int?
         let totalOutputTokens: Int?
+        let contextWindowSize: Int?
+        let currentUsage: CurrentUsage?
 
         enum CodingKeys: String, CodingKey {
             case usedPercentage = "used_percentage"
             case remainingPercentage = "remaining_percentage"
             case totalInputTokens = "total_input_tokens"
             case totalOutputTokens = "total_output_tokens"
+            case contextWindowSize = "context_window_size"
+            case currentUsage = "current_usage"
         }
 
-        init(usedPercentage: Int?, remainingPercentage: Int?, totalInputTokens: Int?, totalOutputTokens: Int?) {
+        init(
+            usedPercentage: Int?,
+            remainingPercentage: Int?,
+            totalInputTokens: Int?,
+            totalOutputTokens: Int?,
+            contextWindowSize: Int? = nil,
+            currentUsage: CurrentUsage? = nil
+        ) {
             self.usedPercentage = usedPercentage
             self.remainingPercentage = remainingPercentage
             self.totalInputTokens = totalInputTokens
             self.totalOutputTokens = totalOutputTokens
+            self.contextWindowSize = contextWindowSize
+            self.currentUsage = currentUsage
         }
 
         init(from decoder: Decoder) throws {
@@ -455,6 +526,8 @@ struct StatusLineData: Codable {
             remainingPercentage = Self.flexInt(container, key: .remainingPercentage)
             totalInputTokens = Self.flexInt(container, key: .totalInputTokens)
             totalOutputTokens = Self.flexInt(container, key: .totalOutputTokens)
+            contextWindowSize = Self.flexInt(container, key: .contextWindowSize)
+            currentUsage = try? container.decodeIfPresent(CurrentUsage.self, forKey: .currentUsage)
         }
 
         private static func flexInt(_ container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Int? {
@@ -541,6 +614,7 @@ struct StatusLineData: Codable {
     var exceeds200kTokens: Bool?
     var pr: PullRequest?
     var sessionStatus: SessionStatus?
+    var repo: Repo?
 
     enum CodingKeys: String, CodingKey {
         case model
@@ -559,6 +633,7 @@ struct StatusLineData: Codable {
         case exceeds200kTokens = "exceeds_200k_tokens"
         case pr
         case sessionStatus = "session_status"
+        case repo
     }
 
     static func empty(pr: PullRequest? = nil) -> StatusLineData {
@@ -567,7 +642,7 @@ struct StatusLineData: Codable {
             worktree: nil, workspace: nil, effort: nil, thinking: nil,
             agent: nil, outputStyle: nil, vim: nil,
             sessionName: nil, version: nil, exceeds200kTokens: nil,
-            pr: pr, sessionStatus: nil
+            pr: pr, sessionStatus: nil, repo: nil
         )
     }
 }
