@@ -599,24 +599,9 @@ final class StatusLineMonitor {
         cachedGitStats = stats
     }
 
-    /// For testing only: invokes `applyLatestPayload` directly (reads from `filePath`).
-    @MainActor
-    func testApplyLatestPayload(reason: String) {
-        applyLatestPayload(reason: reason)
-    }
+}
 
-    /// For testing only: invokes `checkPayloadFreshness` directly.
-    @MainActor
-    func testCheckPayloadFreshness() {
-        checkPayloadFreshness()
-    }
-
-    /// For testing only: injects a cached repo identity directly.
-    @MainActor
-    func testSetCachedRepoIdentity(_ identity: StatusLineData.Repo?) {
-        cachedRepoIdentity = identity
-    }
-
+extension StatusLineMonitor {
     private func startRepoIdentityFetch(cwd: String) {
         Task { [weak self] in
             guard let self else { return }
@@ -653,6 +638,24 @@ final class StatusLineMonitor {
                 continuation.resume(returning: nil)
             }
         }
+    }
+
+    /// For testing only: invokes `applyLatestPayload` directly (reads from `filePath`).
+    @MainActor
+    func testApplyLatestPayload(reason: String) {
+        applyLatestPayload(reason: reason)
+    }
+
+    /// For testing only: invokes `checkPayloadFreshness` directly.
+    @MainActor
+    func testCheckPayloadFreshness() {
+        checkPayloadFreshness()
+    }
+
+    /// For testing only: injects a cached repo identity directly.
+    @MainActor
+    func testSetCachedRepoIdentity(_ identity: StatusLineData.Repo?) {
+        cachedRepoIdentity = identity
     }
 
     /// For testing only: applies Claude lifecycle hook stdin.
