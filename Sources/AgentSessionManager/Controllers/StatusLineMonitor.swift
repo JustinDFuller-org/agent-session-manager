@@ -598,7 +598,6 @@ final class StatusLineMonitor {
     func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
         cachedGitStats = stats
     }
-
 }
 
 extension StatusLineMonitor {
