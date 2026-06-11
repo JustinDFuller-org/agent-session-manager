@@ -53,7 +53,10 @@ final class TerminalRepresentableTests: XCTestCase {
         let coordinator = TerminalRepresentable.Coordinator()
         coordinator.focusWhenReady(view: view, attempt: 0)
 
-        XCTAssertTrue(window.firstResponder === view, "terminal view must be first responder after focusWhenReady when in window")
+        XCTAssertTrue(
+            window.firstResponder === view,
+            "terminal view must be first responder after focusWhenReady when in window"
+        )
     }
 
     func testFocusWhenReadyRespectsAttemptLimit() {
