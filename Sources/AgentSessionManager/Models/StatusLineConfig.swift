@@ -612,7 +612,9 @@ struct StatusLineData: Codable {
     var sessionName: String?
     var version: String?
     var exceeds200kTokens: Bool?
-    var pr: PullRequest?
+    // Owned by PRTrackingCoordinator (gh GraphQL). Not decoded from Claude's statusLine payload,
+    // which carries only number/url/review_state — never title/state (non-optional on PullRequest).
+    var pr: PullRequest? = nil
     var sessionStatus: SessionStatus?
     var repo: Repo?
 
@@ -631,7 +633,6 @@ struct StatusLineData: Codable {
         case sessionName = "session_name"
         case version
         case exceeds200kTokens = "exceeds_200k_tokens"
-        case pr
         case sessionStatus = "session_status"
         case repo
     }

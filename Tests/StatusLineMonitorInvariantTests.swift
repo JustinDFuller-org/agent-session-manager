@@ -355,7 +355,81 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let failed = events.first { $0.name == "statusline.payload.decode_failed" }
         XCTAssertNotNil(failed, "Expected payload.decode_failed trace event")
         XCTAssertEqual(failed?.attributes["reason"], "test")
+        XCTAssertEqual(failed?.attributes["decoding_error_kind"], "data_corrupted")
         XCTAssertFalse(events.contains { $0.name == "statusline.payload.applied" })
+    }
+
+    func testI7DecodingErrorNamesField() async throws {
+        // A payload with a present but incomplete `repo` object causes keyNotFound on a required field.
+        // Verifies that coding_path and missing_key are recorded in the trace.
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+
+        let payload = Data(#"{"repo": {"host": "github.com"}}"#.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let failed = events.first { $0.name == "statusline.payload.decode_failed" }
+        XCTAssertNotNil(failed, "Expected decode_failed event")
+        XCTAssertEqual(failed?.attributes["decoding_error_kind"], "key_not_found")
+        XCTAssertNotNil(failed?.attributes["coding_path"])
+        XCTAssertNotNil(failed?.attributes["missing_key"])
+    }
+
+    func testI7PayloadWithClaudePrBlockAppliesSuccessfully() async throws {
+        // Claude sends pr:{number,url,review_state} — never title/state. Before the fix, this
+        // caused keyNotFound on title/state and dropped the entire payload, freezing the status line.
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+
+        let payload = Data(
+            """
+            {"model": {"id": "claude-sonnet-4-6"}, "pr": {"number": 42, "url": "https://github.com/org/repo/pull/42", "review_state": "draft"}}
+            """.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        XCTAssertEqual(monitor.currentData?.model?.id, "claude-sonnet-4-6")
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(events.contains { $0.name == "statusline.payload.applied" })
+        XCTAssertFalse(events.contains { $0.name == "statusline.payload.decode_failed" })
+    }
+
+    func testI7GhPrDataPreservedWhenClaudeSendsPrBlock() async throws {
+        // After PRTrackingCoordinator (gh) seeds pr data, a Claude payload with a pr block
+        // must not overwrite it — pr is owned by gh and set post-apply.
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+
+        let ghPR = Data(
+            """
+            {"number": 7, "title": "My feature", "state": "open", "url": "https://github.com/org/repo/pull/7"}
+            """.utf8)
+        monitor.simulatePRUpdateForTesting(ghPR)
+
+        let claudePayload = Data(
+            """
+            {"model": {"id": "claude-sonnet-4-6"}, "pr": {"number": 7, "url": "https://github.com/org/repo/pull/7", "review_state": "approved"}}
+            """.utf8)
+        try claudePayload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        XCTAssertEqual(monitor.currentData?.pr?.title, "My feature")
+        XCTAssertEqual(monitor.currentData?.pr?.state, "open")
+        XCTAssertEqual(monitor.currentData?.model?.id, "claude-sonnet-4-6")
     }
 
     func testI7EmptyFileSkippedWithoutClobbering() async throws {
