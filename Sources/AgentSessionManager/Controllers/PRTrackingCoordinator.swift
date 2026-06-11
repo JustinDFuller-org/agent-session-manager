@@ -365,7 +365,7 @@ final class PRTrackingCoordinator {
                 \(alias): repository(owner: "\(owner)", name: "\(repo)") {
                   pullRequests(headRefName: "\(branch)", first: 1, states: [OPEN, MERGED, CLOSED]) {
                     nodes {
-                      number title state url isDraft mergeable
+                      number title state url isDraft mergeable reviewDecision
                       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
                       reviewThreads(first: 1) { totalCount }
                     }
@@ -467,7 +467,7 @@ final class PRTrackingCoordinator {
                 \(alias): repository(owner: "\(info.owner)", name: "\(info.repo)") {
                   pullRequests(headRefName: "\(info.branch)", first: 1, states: [OPEN, MERGED, CLOSED]) {
                     nodes {
-                      number title state url isDraft mergeable
+                      number title state url isDraft mergeable reviewDecision
                       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
                       reviewThreads(first: 1) { totalCount }
                     }
@@ -529,26 +529,37 @@ final class PRTrackingCoordinator {
 
     // MARK: - Parsing helpers (internal for testing)
 
-    nonisolated static func parseOwnerRepo(from remoteURL: String) -> (owner: String, repo: String)? {
+    nonisolated static func parseRepoIdentity(from remoteURL: String) -> StatusLineData.Repo? {
         var cleaned = remoteURL
         if cleaned.hasSuffix(".git") { cleaned = String(cleaned.dropLast(4)) }
 
         if cleaned.hasPrefix("https://") || cleaned.hasPrefix("http://") {
-            guard let url = URL(string: cleaned) else { return nil }
+            guard let url = URL(string: cleaned), let host = url.host else { return nil }
             let parts = url.pathComponents.filter { $0 != "/" }
             guard parts.count >= 2 else { return nil }
-            return (parts[parts.count - 2], parts[parts.count - 1])
+            return StatusLineData.Repo(host: host, owner: parts[parts.count - 2], name: parts[parts.count - 1])
         }
 
         if cleaned.contains("@"), cleaned.contains(":") {
             let parts = cleaned.split(separator: ":", maxSplits: 1)
             guard parts.count == 2 else { return nil }
+            let userHost = parts[0].split(separator: "@")
+            let host = String(userHost.last ?? Substring(parts[0]))
             let pathParts = parts[1].split(separator: "/")
             guard pathParts.count >= 2 else { return nil }
-            return (String(pathParts[pathParts.count - 2]), String(pathParts[pathParts.count - 1]))
+            return StatusLineData.Repo(
+                host: host,
+                owner: String(pathParts[pathParts.count - 2]),
+                name: String(pathParts[pathParts.count - 1])
+            )
         }
 
         return nil
+    }
+
+    nonisolated static func parseOwnerRepo(from remoteURL: String) -> (owner: String, repo: String)? {
+        guard let identity = parseRepoIdentity(from: remoteURL) else { return nil }
+        return (identity.owner, identity.name)
     }
 
     nonisolated static func parsePRFromGraphQLNode(_ node: [String: Any]) -> PullRequest? {
@@ -561,6 +572,7 @@ final class PRTrackingCoordinator {
         var pr = PullRequest(number: number, title: title, state: state.lowercased(), url: url)
         pr.isDraft = node["isDraft"] as? Bool
         pr.mergeable = node["mergeable"] as? String
+        pr.reviewDecision = node["reviewDecision"] as? String
 
         if let commits = node["commits"] as? [String: Any],
             let commitNodes = commits["nodes"] as? [[String: Any]],

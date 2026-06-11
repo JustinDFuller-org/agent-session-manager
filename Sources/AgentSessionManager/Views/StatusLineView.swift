@@ -199,8 +199,18 @@ struct StatusLineView: View {
         case "version": return data?.version ?? "—"
         case "outputStyle": return data?.outputStyle?.name ?? "—"
         case "profileName": return profileName ?? "—"
+        case "repo": return data?.repo.map { "\($0.owner)/\($0.name)" } ?? "—"
+        case "contextSize": return data?.contextWindow?.contextWindowSize.map(formatTokenCount) ?? "—"
+        case "cacheRead": return data?.contextWindow?.currentUsage?.cacheReadInputTokens.map { "\($0)" } ?? "—"
+        case "cacheCreation":
+            return data?.contextWindow?.currentUsage?.cacheCreationInputTokens.map { "\($0)" } ?? "—"
+        case "apiDuration": return data?.cost?.totalApiDurationMs.map(formatDuration) ?? "—"
         default: return "—"
         }
+    }
+
+    private func formatTokenCount(_ count: Int) -> String {
+        count >= 1000 ? "\(count / 1000)k" : "\(count)"
     }
 
     private func formatDuration(_ ms: Double) -> String {
@@ -271,6 +281,19 @@ private struct PRPopoverContent: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+
+            if let reviewLabel = pr.reviewStateLabel {
+                Divider()
+
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.seal")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    Text(reviewLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             if pr.hasMergeConflicts {
                 Divider()

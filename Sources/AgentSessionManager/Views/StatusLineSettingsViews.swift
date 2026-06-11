@@ -100,6 +100,11 @@ struct StatusLineConfigLayoutEditor: View {
                                         "exceeds200k": "Warning when context exceeds 200k tokens (Claude only)",
                                         "pr": "GitHub pull request status for the current branch",
                                         "profileName": "Selected profile name when the pane uses one",
+                                        "repo": "Git repository host, owner, and name (e.g. owner/repo)",
+                                        "contextSize": "Total context window size in tokens (Claude only)",
+                                        "cacheRead": "Cache read input tokens this session (Claude only)",
+                                        "cacheCreation": "Cache creation input tokens this session (Claude only)",
+                                        "apiDuration": "Total API request time in milliseconds (Claude only)",
                                     ]
                                     if let description = descriptions[item.id] {
                                         Text(description)

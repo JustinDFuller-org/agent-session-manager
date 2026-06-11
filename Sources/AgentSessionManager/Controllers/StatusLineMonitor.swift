@@ -46,6 +46,7 @@ final class StatusLineMonitor {
     private var agnosticProvider: (any StatusLineDataProvider)?
     private var gitDiffTimer: Timer?
     private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
+    private var cachedRepoIdentity: StatusLineData.Repo?
     private var lastAppliedModificationDate: Date?
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
@@ -181,6 +182,7 @@ final class StatusLineMonitor {
                         await MainActor.run { self.cachedGitStats = stats }
                     }
                 }
+                startRepoIdentityFetch(cwd: cwd)
                 gitDiffTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
                     guard let self else { return }
                     Task { [weak self] in
@@ -369,6 +371,7 @@ final class StatusLineMonitor {
         if let existing = currentData?.pr {
             enforced.pr = existing
         }
+        enforced.repo = cachedRepoIdentity
         applyI1Enforcement(to: &enforced)
         applyI3Enforcement(to: &enforced)
         currentData = enforced
@@ -462,7 +465,8 @@ final class StatusLineMonitor {
             totalCostUsd: data.cost?.totalCostUsd,
             totalDurationMs: data.cost?.totalDurationMs,
             totalLinesAdded: computedAdded,
-            totalLinesRemoved: computedRemoved
+            totalLinesRemoved: computedRemoved,
+            totalApiDurationMs: data.cost?.totalApiDurationMs
         )
     }
 
@@ -471,6 +475,7 @@ final class StatusLineMonitor {
         if let existing = currentData?.pr {
             merged.pr = existing
         }
+        merged.repo = cachedRepoIdentity
         currentData = merged
         TracingService.shared.record(
             "statusline.provider.update_applied",
@@ -593,6 +598,46 @@ final class StatusLineMonitor {
     func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
         cachedGitStats = stats
     }
+}
+
+extension StatusLineMonitor {
+    private func startRepoIdentityFetch(cwd: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            if let identity = await Self.fetchRepoIdentity(workingDirectory: cwd) {
+                await MainActor.run { self.cachedRepoIdentity = identity }
+            }
+        }
+    }
+
+    static func fetchRepoIdentity(workingDirectory: String) async -> StatusLineData.Repo? {
+        await withCheckedContinuation { continuation in
+            let task = Process()
+            let outPipe = Pipe()
+            task.executableURL = URL(filePath: "/usr/bin/git")
+            task.arguments = ["-C", workingDirectory, "remote", "get-url", "origin"]
+            task.standardOutput = outPipe
+            task.standardError = FileHandle.nullDevice
+            task.terminationHandler = { _ in
+                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                guard
+                    let remote = String(data: data, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                    !remote.isEmpty,
+                    let identity = PRTrackingCoordinator.parseRepoIdentity(from: remote)
+                else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: identity)
+            }
+            do {
+                try task.run()
+            } catch {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
 
     /// For testing only: invokes `applyLatestPayload` directly (reads from `filePath`).
     @MainActor
@@ -604,6 +649,12 @@ final class StatusLineMonitor {
     @MainActor
     func testCheckPayloadFreshness() {
         checkPayloadFreshness()
+    }
+
+    /// For testing only: injects a cached repo identity directly.
+    @MainActor
+    func testSetCachedRepoIdentity(_ identity: StatusLineData.Repo?) {
+        cachedRepoIdentity = identity
     }
 
     /// For testing only: applies Claude lifecycle hook stdin.

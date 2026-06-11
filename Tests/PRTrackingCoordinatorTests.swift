@@ -318,6 +318,110 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.isBackgrounded)
     }
 
+    // MARK: - parseRepoIdentity
+
+    func testParseRepoIdentityHTTPS() {
+        let result = PRTrackingCoordinator.parseRepoIdentity(from: "https://github.com/owner/repo.git")
+        XCTAssertEqual(result?.host, "github.com")
+        XCTAssertEqual(result?.owner, "owner")
+        XCTAssertEqual(result?.name, "repo")
+    }
+
+    func testParseRepoIdentityHTTPSNoGitSuffix() {
+        let result = PRTrackingCoordinator.parseRepoIdentity(from: "https://github.com/owner/repo")
+        XCTAssertEqual(result?.host, "github.com")
+        XCTAssertEqual(result?.owner, "owner")
+        XCTAssertEqual(result?.name, "repo")
+    }
+
+    func testParseRepoIdentitySSH() {
+        let result = PRTrackingCoordinator.parseRepoIdentity(from: "git@github.com:owner/repo.git")
+        XCTAssertEqual(result?.host, "github.com")
+        XCTAssertEqual(result?.owner, "owner")
+        XCTAssertEqual(result?.name, "repo")
+    }
+
+    func testParseRepoIdentitySSHNoGitSuffix() {
+        let result = PRTrackingCoordinator.parseRepoIdentity(from: "git@github.com:owner/repo")
+        XCTAssertEqual(result?.host, "github.com")
+        XCTAssertEqual(result?.owner, "owner")
+        XCTAssertEqual(result?.name, "repo")
+    }
+
+    func testParseRepoIdentityGitHubEnterprise() {
+        let result = PRTrackingCoordinator.parseRepoIdentity(
+            from: "https://github.example.com/org/myrepo.git")
+        XCTAssertEqual(result?.host, "github.example.com")
+        XCTAssertEqual(result?.owner, "org")
+        XCTAssertEqual(result?.name, "myrepo")
+    }
+
+    func testParseRepoIdentityInvalidReturnsNil() {
+        XCTAssertNil(PRTrackingCoordinator.parseRepoIdentity(from: "not-a-url"))
+    }
+
+    func testParseOwnerRepoStillWorksThroughIdentity() {
+        let result = PRTrackingCoordinator.parseOwnerRepo(from: "git@github.com:owner/repo.git")
+        XCTAssertEqual(result?.owner, "owner")
+        XCTAssertEqual(result?.repo, "repo")
+    }
+
+    // MARK: - reviewDecision parsing
+
+    func testParsePRReviewDecisionApproved() {
+        let node: [String: Any] = [
+            "number": 1, "title": "T", "state": "OPEN", "url": "u",
+            "reviewDecision": "APPROVED",
+        ]
+        let pr = PRTrackingCoordinator.parsePRFromGraphQLNode(node)
+        XCTAssertEqual(pr?.reviewDecision, "APPROVED")
+        XCTAssertEqual(pr?.reviewStateLabel, "approved")
+    }
+
+    func testParsePRReviewDecisionChangesRequested() {
+        let node: [String: Any] = [
+            "number": 1, "title": "T", "state": "OPEN", "url": "u",
+            "reviewDecision": "CHANGES_REQUESTED",
+        ]
+        let pr = PRTrackingCoordinator.parsePRFromGraphQLNode(node)
+        XCTAssertEqual(pr?.reviewDecision, "CHANGES_REQUESTED")
+        XCTAssertEqual(pr?.reviewStateLabel, "changes requested")
+    }
+
+    func testParsePRReviewDecisionReviewRequired() {
+        let node: [String: Any] = [
+            "number": 1, "title": "T", "state": "OPEN", "url": "u",
+            "reviewDecision": "REVIEW_REQUIRED",
+        ]
+        let pr = PRTrackingCoordinator.parsePRFromGraphQLNode(node)
+        XCTAssertEqual(pr?.reviewDecision, "REVIEW_REQUIRED")
+        XCTAssertEqual(pr?.reviewStateLabel, "pending")
+    }
+
+    func testParsePRReviewDecisionNullIsNil() {
+        let node: [String: Any] = ["number": 1, "title": "T", "state": "OPEN", "url": "u"]
+        let pr = PRTrackingCoordinator.parsePRFromGraphQLNode(node)
+        XCTAssertNil(pr?.reviewDecision)
+        XCTAssertNil(pr?.reviewStateLabel)
+    }
+
+    func testPRDraftOverridesReviewStateLabel() {
+        var pr = PullRequest(number: 1, title: "T", state: "open", url: "u")
+        pr.isDraft = true
+        pr.reviewDecision = "APPROVED"
+        XCTAssertEqual(pr.reviewStateLabel, "draft")
+    }
+
+    // MARK: - buildBatchQuery includes reviewDecision
+
+    func testBatchQueryIncludesReviewDecision() {
+        let coordinator = PRTrackingCoordinator()
+        let paneID = UUID()
+        coordinator.subscribers[paneID] = makeRecord(owner: "owner", repo: "repo", branch: "main")
+        let query = coordinator.buildBatchQuery()
+        XCTAssertTrue(query.contains("reviewDecision"), "Batch query must include reviewDecision field")
+    }
+
     // MARK: - Helpers
 
     private func makeRecord(owner: String?, repo: String?, branch: String?) -> PRTrackingCoordinator.SubscriberRecord {
