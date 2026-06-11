@@ -147,6 +147,18 @@ final class AppState {
         SessionPersistence.save(appState: self)
     }
 
+    func clearPRMergedNotification(paneID: UUID) {
+        let pane = tabs.flatMap(\.panes).first { $0.id == paneID }
+        let hasMergedRow = notifications.contains { $0.paneID == paneID && $0.kind == .prMerged }
+        guard hasMergedRow || pane?.isMerged == true else { return }
+        notifications.removeAll { $0.paneID == paneID && $0.kind == .prMerged }
+        pane?.isMerged = false
+        TracingService.shared.record(
+            "pane.pr_merged.cleared",
+            attributes: ["pane.id": paneID.uuidString])
+        SessionPersistence.save(appState: self)
+    }
+
     func clearNotification(paneID: UUID) {
         if let notification = notifications.first(where: { $0.paneID == paneID }) {
             TracingService.shared.record(
