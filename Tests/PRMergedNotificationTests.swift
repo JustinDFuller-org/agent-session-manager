@@ -383,7 +383,7 @@ final class PRMergedNotificationTests: XCTestCase {
         state.clearPRMergedNotification(paneID: pane.id)
 
         XCTAssertFalse(pane.isMerged)
-        XCTAssertTrue(state.notifications.filter { $0.kind == .prMerged }.isEmpty)
+        XCTAssertFalse(state.notifications.contains { $0.kind == .prMerged })
     }
 
     func testClearPRMergedNotificationIsNoOpWhenNothingStale() {
