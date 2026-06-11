@@ -359,7 +359,8 @@ final class StatusLineMonitor {
             var missingKey = ""
             if let de = error as? DecodingError {
                 switch de {
-                case let .keyNotFound(key, ctx):
+                // swiftlint:disable:next pattern_matching_keywords
+                case .keyNotFound(let key, let ctx):
                     kind = "key_not_found"
                     missingKey = key.stringValue
                     codingPath = (ctx.codingPath + [key]).map(\.stringValue).joined(separator: ".")
