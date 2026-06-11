@@ -20,6 +20,8 @@ struct NotificationConfig: Codable {
     var isCursorHookAttentionEnabled: Bool
     var isPRMergedNotificationsEnabled: Bool
     var alwaysShowNotificationsSidebar: Bool
+    /// When true, fire a notification when Claude finishes a turn.
+    var isClaudeStopNotificationEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case sidebarSide
@@ -28,6 +30,7 @@ struct NotificationConfig: Codable {
         case isCursorHookAttentionEnabled
         case isPRMergedNotificationsEnabled
         case alwaysShowNotificationsSidebar
+        case isClaudeStopNotificationEnabled
     }
 
     init(
@@ -36,7 +39,8 @@ struct NotificationConfig: Codable {
         isMacOSBannerEnabled: Bool,
         isCursorHookAttentionEnabled: Bool,
         isPRMergedNotificationsEnabled: Bool,
-        alwaysShowNotificationsSidebar: Bool
+        alwaysShowNotificationsSidebar: Bool,
+        isClaudeStopNotificationEnabled: Bool
     ) {
         self.sidebarSide = sidebarSide
         self.isPriorityEnabled = isPriorityEnabled
@@ -44,6 +48,7 @@ struct NotificationConfig: Codable {
         self.isCursorHookAttentionEnabled = isCursorHookAttentionEnabled
         self.isPRMergedNotificationsEnabled = isPRMergedNotificationsEnabled
         self.alwaysShowNotificationsSidebar = alwaysShowNotificationsSidebar
+        self.isClaudeStopNotificationEnabled = isClaudeStopNotificationEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -57,6 +62,8 @@ struct NotificationConfig: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .isPRMergedNotificationsEnabled) ?? true
         alwaysShowNotificationsSidebar =
             try container.decodeIfPresent(Bool.self, forKey: .alwaysShowNotificationsSidebar) ?? true
+        isClaudeStopNotificationEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isClaudeStopNotificationEnabled) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -67,6 +74,7 @@ struct NotificationConfig: Codable {
         try container.encode(isCursorHookAttentionEnabled, forKey: .isCursorHookAttentionEnabled)
         try container.encode(isPRMergedNotificationsEnabled, forKey: .isPRMergedNotificationsEnabled)
         try container.encode(alwaysShowNotificationsSidebar, forKey: .alwaysShowNotificationsSidebar)
+        try container.encode(isClaudeStopNotificationEnabled, forKey: .isClaudeStopNotificationEnabled)
     }
 }
 
@@ -182,10 +190,19 @@ struct SettingsPersistence {
             isMacOSBannerEnabled: appSettings.isMacOSBannerNotificationsEnabled,
             isCursorHookAttentionEnabled: appSettings.isCursorNotificationHookAttentionEnabled,
             isPRMergedNotificationsEnabled: appSettings.isPRMergedNotificationsEnabled,
-            alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar
+            alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar,
+            isClaudeStopNotificationEnabled: appSettings.isClaudeStopNotificationEnabled
         )
         guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: notificationSettingsURL)
+    }
+
+    static func isClaudeStopNotificationEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: notificationSettingsURL),
+            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return true }
+        return config.isClaudeStopNotificationEnabled
     }
 
     static func isPRMergedNotificationsEnabled() -> Bool {

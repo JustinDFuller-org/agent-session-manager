@@ -78,6 +78,39 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(state, .idle)
     }
 
+    func testStoppedWhenRunningAndStopped() {
+        let state = paneActivityState(
+            processState: .running(pid: 1),
+            isWorking: false,
+            isStopped: true,
+            sessionState: nil,
+            hasNotification: false
+        )
+        XCTAssertEqual(state, .stopped)
+    }
+
+    func testWaitingBeatsStoppedWhenHasNotification() {
+        let state = paneActivityState(
+            processState: .running(pid: 1),
+            isWorking: false,
+            isStopped: true,
+            sessionState: nil,
+            hasNotification: true
+        )
+        XCTAssertEqual(state, .waiting)
+    }
+
+    func testStoppedIsIdleWhenProcessExited() {
+        let state = paneActivityState(
+            processState: .exited(code: 0),
+            isWorking: false,
+            isStopped: true,
+            sessionState: nil,
+            hasNotification: false
+        )
+        XCTAssertEqual(state, .idle)
+    }
+
     func testIdleWhenExited() {
         let state = paneActivityState(
             processState: .exited(code: 0),
@@ -187,6 +220,18 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(tabActivityState([.working, .waiting]), .waiting)
     }
 
+    func testTabStoppedIfAnyPaneStopped() {
+        XCTAssertEqual(tabActivityState([.idle, .stopped]), .stopped)
+    }
+
+    func testTabWorkingBeatsStoped() {
+        XCTAssertEqual(tabActivityState([.working, .stopped]), .working)
+    }
+
+    func testTabWaitingBeatsStopped() {
+        XCTAssertEqual(tabActivityState([.waiting, .stopped]), .waiting)
+    }
+
     // MARK: - visual appearance separation
 
     func testWorkingAndWaitingUseDistinctCircularAppearances() {
@@ -228,6 +273,14 @@ final class PaneActivityInvariantTests: XCTestCase {
         )
     }
 
+    func testStoppedAppearanceUsesOctagonGeometry() {
+        let stopped = activityIndicatorAppearance(for: .stopped)
+        XCTAssertEqual(stopped.geometry, .octagon)
+        XCTAssertEqual(stopped.palette, .secondary)
+        XCTAssertEqual(stopped.blurRadius, 0)
+        XCTAssertEqual(stopped.opacityRange, 0.5...0.5)
+    }
+
     // MARK: - Claude lifecycle parsing and edge-once tracing
 
     func testClaudeLifecyclePayloadTransitionsWorkingAndIdle() {
@@ -254,9 +307,47 @@ final class PaneActivityInvariantTests: XCTestCase {
 
         let changed = TracingService.shared.recordedEventsForTesting.filter { $0.name == "pane.activity.changed" }
         XCTAssertEqual(changed.count, 2)
-        XCTAssertEqual(changed.map { $0.attributes["state"] }, ["working", "idle"])
+        XCTAssertEqual(changed.map { $0.attributes["state"] }, ["working", "stopped"])
         XCTAssertEqual(changed.map { $0.attributes["source"] }, ["claude_hook", "claude_hook"])
         XCTAssertEqual(changed.map { $0.attributes["hook_event"] }, ["UserPromptSubmit", "Stop"])
+    }
+
+    func testClaudeLifecycleIsStoppedAfterStop() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertTrue(monitor.isClaudeStopped)
+        XCTAssertFalse(monitor.isClaudeWorking)
+    }
+
+    func testClaudeStopWithNoPriorWorkingIsIgnored() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertFalse(monitor.isClaudeWorking)
+        XCTAssertFalse(monitor.isClaudeStopped)
+        XCTAssertTrue(TracingService.shared.recordedEventsForTesting.isEmpty)
+    }
+
+    func testOnClaudeStoppedCallbackFiresOncePerEdge() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        var callCount = 0
+        monitor.onClaudeStopped = { callCount += 1 }
+
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertEqual(callCount, 1)
+
+        // Duplicate Stop — already stopped, no second fire.
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertEqual(callCount, 1)
+    }
+
+    func testOnClaudeStoppedCallbackNotFiredForLoneStop() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        var callCount = 0
+        monitor.onClaudeStopped = { callCount += 1 }
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertEqual(callCount, 0)
     }
 
     func testClaudeActivityIgnoresMalformedAndUnrelatedPayloads() {

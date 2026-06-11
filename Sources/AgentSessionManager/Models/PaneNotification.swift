@@ -3,6 +3,7 @@ import Foundation
 enum NotificationKind: String, Codable {
     case terminalBell
     case prMerged
+    case claudeStop
 }
 
 struct PaneAttentionEvent: Equatable {
@@ -11,6 +12,7 @@ struct PaneAttentionEvent: Equatable {
         case osc777
         case claudeNotification = "claude_notification"
         case claudePermissionRequest = "claude_permission_request"
+        case claudeStop = "claude_stop"
         case cursorStop = "cursor_stop"
     }
 
@@ -26,6 +28,10 @@ struct PaneAttentionEvent: Equatable {
 
     static var rawBell: PaneAttentionEvent {
         PaneAttentionEvent(source: .rawBell, reason: nil)
+    }
+
+    static var claudeStop: PaneAttentionEvent {
+        PaneAttentionEvent(source: .claudeStop, reason: "Claude finished responding")
     }
 
     static var cursorStop: PaneAttentionEvent {

@@ -157,7 +157,7 @@ struct PaneView: View {
 
     @ViewBuilder
     private var paneHeaderLabel: some View {
-        let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
+        let pendingNotification = appState.notifications.first { $0.paneID == pane.id && $0.kind != .claudeStop }
         let label = HStack(spacing: 6) {
             let hasNotification = pendingNotification != nil
             let activityState =
@@ -165,6 +165,7 @@ struct PaneView: View {
                 ?? paneActivityState(
                     processState: pane.terminalController?.processState,
                     isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                    isStopped: pane.statusLineMonitor?.isClaudeStopped ?? false,
                     sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
                     hasNotification: hasNotification
                 )

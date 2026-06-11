@@ -79,6 +79,7 @@ final class AppState {
         if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prMerged }) {
             return
         }
+        let kind: NotificationKind = event.source == .claudeStop ? .claudeStop : .terminalBell
         let notification =
             PaneNotification(
                 paneID: paneID,
@@ -86,6 +87,7 @@ final class AppState {
                 tabID: tabID,
                 tabName: tabName,
                 isPriority: isPriority,
+                kind: kind,
                 reason: event.reason
             )
         if let index = notifications.firstIndex(where: { $0.paneID == paneID }) {
@@ -98,7 +100,7 @@ final class AppState {
             attributes: [
                 "pane.name": paneName,
                 "tab.name": tabName,
-                "notification.kind": "attention",
+                "notification.kind": kind.rawValue,
                 "notification.source": event.source.rawValue,
                 "notification.reason": event.reason,
             ])

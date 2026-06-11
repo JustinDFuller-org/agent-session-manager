@@ -122,6 +122,8 @@ final class AppSettings {
     var isMacOSBannerNotificationsEnabled: Bool = true
     /// Installs a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
     var isCursorNotificationHookAttentionEnabled: Bool = true
+    /// When true, fire a notification when Claude finishes a turn.
+    var isClaudeStopNotificationEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask
