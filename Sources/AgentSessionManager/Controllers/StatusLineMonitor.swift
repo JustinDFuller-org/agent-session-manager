@@ -354,16 +354,41 @@ final class StatusLineMonitor {
             parsed = try JSONDecoder().decode(StatusLineData.self, from: rawData)
         } catch {
             let prefix = String(decoding: rawData.prefix(120), as: UTF8.self)
-            TracingService.shared.record(
-                "statusline.payload.decode_failed",
-                attributes: [
-                    "pane.name": paneName, "pane.id": paneID.uuidString,
-                    "tab.id": tabID.uuidString, "tab.name": tabName,
-                    "reason": reason,
-                    "error": error.localizedDescription,
-                    "byte_count": "\(rawData.count)",
-                    "payload_prefix": prefix,
-                ])
+            var kind = "unknown"
+            var codingPath = ""
+            var missingKey = ""
+            if let de = error as? DecodingError {
+                switch de {
+                // swiftlint:disable:next pattern_matching_keywords
+                case .keyNotFound(let key, let ctx):
+                    kind = "key_not_found"
+                    missingKey = key.stringValue
+                    codingPath = (ctx.codingPath + [key]).map(\.stringValue).joined(separator: ".")
+                case .typeMismatch(_, let ctx):
+                    kind = "type_mismatch"
+                    codingPath = ctx.codingPath.map(\.stringValue).joined(separator: ".")
+                case .valueNotFound(_, let ctx):
+                    kind = "value_not_found"
+                    codingPath = ctx.codingPath.map(\.stringValue).joined(separator: ".")
+                case .dataCorrupted(let ctx):
+                    kind = "data_corrupted"
+                    codingPath = ctx.codingPath.map(\.stringValue).joined(separator: ".")
+                @unknown default:
+                    kind = "decoding_error"
+                }
+            }
+            var attrs: [String: String] = [
+                "pane.name": paneName, "pane.id": paneID.uuidString,
+                "tab.id": tabID.uuidString, "tab.name": tabName,
+                "reason": reason,
+                "error": error.localizedDescription,
+                "byte_count": "\(rawData.count)",
+                "payload_prefix": prefix,
+                "decoding_error_kind": kind,
+            ]
+            if !codingPath.isEmpty { attrs["coding_path"] = codingPath }
+            if !missingKey.isEmpty { attrs["missing_key"] = missingKey }
+            TracingService.shared.record("statusline.payload.decode_failed", attributes: attrs)
             return
         }
 

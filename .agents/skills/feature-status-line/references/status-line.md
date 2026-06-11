@@ -78,6 +78,50 @@ Errors during payload processing are never silently dropped. `applyLatestPayload
 
 The `worktree` fact renders as `name • branch` when both values are available, or just `name` when branch is absent (computed by `StatusLineData.Worktree.factText`). The old `worktreeBranch` item has been removed from the catalog. Saved configurations containing `worktreeBranch` rows are migrated on first decode: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped. The migration emits `statusline.migration.worktreebranch_merged`.
 
+## Claude statusLine Schema & Field Ownership
+
+Claude writes a JSON file at a well-known path; the app reads it via `StatusLineMonitor`. The [official schema](https://code.claude.com/docs/en/statusline) defines which keys Claude guarantees and their types.
+
+### Decoding strategy
+
+`StatusLineData.CodingKeys` lists only the fields the app decodes. Fields outside that list are silently ignored. Rules for adding a field:
+
+- **Model only what Claude guarantees.** Make a field optional (`?`) only when Claude documents it as potentially absent. Non-optional fields in nested structs must be present whenever the parent key appears.
+- **Use `decodeIfPresent` for optional top-level keys.** Swift's synthesized decoder does this automatically for `T?` properties.
+- **If the app owns the fact, omit `case <field>` from `CodingKeys`.** The property still exists for app-side assignment; Swift requires a default (`= nil`) so the synthesized decoder can skip it.
+
+### Field ownership table
+
+| Field on `StatusLineData` | Owned by | Source | Notes |
+|---------------------------|----------|--------|-------|
+| `model` | Claude | `model.id`, `model.display_name` | — |
+| `cost` | Claude | `cost.*` | — |
+| `contextWindow` | Claude | `context_window.*` | Integer fields via `flexInt` (tolerates `Double`) |
+| `rateLimits` | Claude | `rate_limits.*` | — |
+| `worktree` | Claude | `worktree.*` | I1 enforces the name post-decode |
+| `workspace` | Claude | `workspace.*` | — |
+| `effort`, `thinking`, `agent`, `outputStyle`, `vim`, `sessionName`, `version`, `exceeds200kTokens`, `sessionStatus` | Claude | Respective JSON keys | — |
+| `repo` | App (`git remote get-url origin`) | `cachedRepoIdentity`, set post-decode | Claude provides repo under `workspace.repo`, not top-level; top-level `repo` is app-derived |
+| `pr` | App (`PRTrackingCoordinator` via `gh`) | gh GraphQL `reviewDecision` + `PullRequest` fields | Claude's `pr` block (`number/url/review_state`) is ignored; `case pr` is absent from `CodingKeys` |
+
+### Why `pr` is excluded from CodingKeys
+
+Claude's documented `pr` block carries `{number, url, review_state}`. The app's `PullRequest` type (used for the `pr` status line fact) requires non-optional `title` and `state` — fields gh provides but Claude never does. Decoding Claude's `pr` into `PullRequest` threw `keyNotFound` on `title`/`state`, causing the **entire payload to fail** and the status line to freeze on any branch with an open PR.
+
+The fix: remove `case pr` from `StatusLineData.CodingKeys` and add `= nil` as the default. Swift's synthesized decoder skips the property entirely. The gh-sourced `PullRequest` set by `PRTrackingCoordinator` is preserved across payloads by the `if let existing = currentData?.pr { enforced.pr = existing }` overwrite in `applyLatestPayload`.
+
+Claude's `pr.review_state` (`approved|pending|changes_requested|draft`) is also intentionally unused — the app derives review state from gh's `reviewDecision` field set in `parsePRFromGraphQLNode`.
+
+### Schema-difference strategy
+
+Three categories of schema differences; each has a different response:
+
+1. **Version-dependent fields** — present only on certain Claude versions. Parse `version` first; gate optional decode on it.
+2. **Legitimately absent fields** — Claude documents them as optional (`pr`, `pr.review_state`, `rate_limits`, `context_window.current_usage`). Use `T?` with `decodeIfPresent`.
+3. **Wrong source** — the app owns the fact and has a better source than Claude (e.g. `pr` from gh, `repo` from git, line counts from `git diff --shortstat HEAD`). Exclude from `CodingKeys` and set post-decode.
+
+Catch-all "lenient" decoders (decode whatever arrives without validation) are not used. Each added field is an explicit decision about source and nullability.
+
 ## Defaults
 
 `StatusLineConfig()` (catalog default): single row — `model`, `worktree`, `cost`, `context`. Used when no saved config exists and when the onboarding wizard is skipped from the welcome step.
@@ -107,7 +151,7 @@ The `worktree` fact renders as `name • branch` when both values are available,
 | `statusline.migration.gitworktree_dropped` | `row_index`, `position` | I2 migration |
 | `statusline.migration.worktreebranch_merged` | `row_index`, `position`, `substituted` | I5 migration |
 | `statusline.payload.applied` | `pane.name`, `reason`, `cost_usd`, `used_pct`, `inode` | I7: every successful payload apply |
-| `statusline.payload.decode_failed` | `pane.name`, `reason`, `error`, `byte_count`, `payload_prefix` | I7: read or JSON decode failure |
+| `statusline.payload.decode_failed` | `pane.name`, `reason`, `error`, `byte_count`, `payload_prefix`, `decoding_error_kind`, `coding_path`†, `missing_key`† | I7: read or JSON decode failure. `decoding_error_kind`: `key_not_found`, `type_mismatch`, `value_not_found`, `data_corrupted`, or `decoding_error`. †Present only for `key_not_found` and `type_mismatch`. |
 | `statusline.payload.stale_recovered` | `pane.name`, `file_mtime`, `stale_age_seconds` | I6: vnode watcher missed a write; timer recovered |
 | `statusline.codex.hook_waiting` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `retry_attempt`, `late_bound`, `hook_record_available` | Codex provider is still waiting for a hook record |
 | `statusline.codex.hook_bound` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `hook_record_available`, `hook_event_name`, `retry_attempt`, `late_bound`, `session_id_prefix`, `transcript_available` | Codex hook record bound the pane to a session |

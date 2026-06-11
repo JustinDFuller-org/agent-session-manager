@@ -124,4 +124,26 @@ final class StatusLineDataDecodingTests: XCTestCase {
         XCTAssertFalse(cap?.supportedHarnesses.contains(.codex) ?? true)
         XCTAssertFalse(cap?.supportedHarnesses.contains(.cursor) ?? true)
     }
+
+    // MARK: - PR block from Claude's statusLine payload
+
+    func testDecodePrBlockSucceeds() throws {
+        // Claude sends pr:{number,url,review_state} — never title/state.
+        // Removing case pr from CodingKeys means the key is silently ignored, not a decode error.
+        let json = Data(
+            """
+            {"model": {"id": "claude-sonnet-4-6"}, "pr": {"number": 42, "url": "https://github.com/org/repo/pull/42", "review_state": "draft"}}
+            """.utf8)
+        let data = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertEqual(data.model?.id, "claude-sonnet-4-6")
+    }
+
+    func testDecodePrBlockYieldsNilPr() throws {
+        let json = Data(
+            """
+            {"pr": {"number": 42, "url": "https://github.com/org/repo/pull/42", "review_state": "approved"}}
+            """.utf8)
+        let data = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertNil(data.pr)
+    }
 }
