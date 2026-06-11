@@ -55,5 +55,11 @@ extension Pane {
                 )
             }
         }
+        statusLineMonitor?.onPRNotMerged = { [weak appState, weak self] in
+            Task { @MainActor in
+                guard let appState, let pane = self else { return }
+                appState.clearPRMergedNotification(paneID: pane.id)
+            }
+        }
     }
 }

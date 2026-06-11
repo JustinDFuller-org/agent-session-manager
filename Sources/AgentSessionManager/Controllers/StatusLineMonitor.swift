@@ -53,6 +53,8 @@ final class StatusLineMonitor {
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
+    /// Fires on the main actor when a live poll reports a non-merged state after a merged state was observed.
+    var onPRNotMerged: (() -> Void)?
 
     private var lastKnownPRState: String?
     private var hasFiredMergedNotification = false
@@ -557,6 +559,10 @@ final class StatusLineMonitor {
                     "old_state": lastKnownPRState ?? "nil",
                     "new_state": newState,
                 ])
+        }
+        if newState != "merged", lastKnownPRState == "merged" {
+            hasFiredMergedNotification = false
+            onPRNotMerged?()
         }
         defer { lastKnownPRState = newState }
         guard !hasFiredMergedNotification else { return }

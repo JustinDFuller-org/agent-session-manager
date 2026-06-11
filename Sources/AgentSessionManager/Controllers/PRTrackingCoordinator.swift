@@ -363,7 +363,7 @@ final class PRTrackingCoordinator {
             fragments.append(
                 """
                 \(alias): repository(owner: "\(owner)", name: "\(repo)") {
-                  pullRequests(headRefName: "\(branch)", first: 1, states: [OPEN, MERGED, CLOSED]) {
+                  pullRequests(headRefName: "\(branch)", first: 1, states: [OPEN, MERGED, CLOSED], orderBy: {field: CREATED_AT, direction: DESC}) {
                     nodes {
                       number title state url isDraft mergeable reviewDecision
                       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
@@ -465,7 +465,7 @@ final class PRTrackingCoordinator {
             fragments.append(
                 """
                 \(alias): repository(owner: "\(info.owner)", name: "\(info.repo)") {
-                  pullRequests(headRefName: "\(info.branch)", first: 1, states: [OPEN, MERGED, CLOSED]) {
+                  pullRequests(headRefName: "\(info.branch)", first: 1, states: [OPEN, MERGED, CLOSED], orderBy: {field: CREATED_AT, direction: DESC}) {
                     nodes {
                       number title state url isDraft mergeable reviewDecision
                       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }

@@ -28,6 +28,9 @@ final class StartupMergedPRCheckTests: XCTestCase {
         XCTAssertTrue(query.contains("repo"))
         XCTAssertTrue(query.contains("feature-1"))
         XCTAssertTrue(query.hasPrefix("query BatchedPRStatus"))
+        XCTAssertTrue(query.contains("orderBy"), "Query should order results")
+        XCTAssertTrue(query.contains("CREATED_AT"), "Query should order by creation date")
+        XCTAssertTrue(query.contains("DESC"), "Query should order newest first")
     }
 
     func testStaticBatchQueryMultipleBranches() {

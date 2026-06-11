@@ -367,6 +367,72 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertTrue(pane.isMerged)
     }
 
+    func testClearPRMergedNotificationRemovesRowAndResetsFlag() {
+        let state = AppState()
+        let tab = Tab(name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = tab.addPane(name: "feature")
+        state.tabs.append(tab)
+
+        state.addPRMergedNotification(
+            paneID: pane.id, paneName: "feature", tabID: tab.id, tabName: "T",
+            prNumber: 7, prTitle: "Fix"
+        )
+        XCTAssertTrue(pane.isMerged)
+        XCTAssertEqual(state.notifications.filter { $0.kind == .prMerged }.count, 1)
+
+        state.clearPRMergedNotification(paneID: pane.id)
+
+        XCTAssertFalse(pane.isMerged)
+        XCTAssertTrue(state.notifications.filter { $0.kind == .prMerged }.isEmpty)
+    }
+
+    func testClearPRMergedNotificationIsNoOpWhenNothingStale() {
+        let state = AppState()
+        let tab = Tab(name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = tab.addPane(name: "feature")
+        state.tabs.append(tab)
+
+        // No merged notification or isMerged flag — should be a no-op with no crash
+        XCTAssertFalse(pane.isMerged)
+        let before = state.notifications.count
+        state.clearPRMergedNotification(paneID: pane.id)
+        XCTAssertEqual(state.notifications.count, before)
+        XCTAssertFalse(pane.isMerged)
+    }
+
+    func testOnPRNotMergedFiresOnMergedToOpenTransition() {
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
+        var notMergedCount = 0
+        monitor.onPRNotMerged = { notMergedCount += 1 }
+
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
+        XCTAssertEqual(notMergedCount, 0, "Should not fire while merged")
+
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        XCTAssertEqual(notMergedCount, 1, "Should fire once on merged→open transition")
+
+        // Stays open — no further fires
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        XCTAssertEqual(notMergedCount, 1)
+    }
+
+    func testOnPRNotMergedRearmsMergedNotification() {
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
+        var mergedCount = 0
+        monitor.onPRMerged = { _, _ in mergedCount += 1 }
+        monitor.onPRNotMerged = {}
+
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
+        XCTAssertEqual(mergedCount, 1)
+
+        // Reused branch: new PR opened on same branch
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
+        monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
+        XCTAssertEqual(mergedCount, 2, "Merged notification should re-arm after a non-merged poll")
+    }
+
     func testPaneStaysMergedAfterClearNotification() {
         let state = AppState()
         let tab = Tab(name: "T", directory: URL(fileURLWithPath: "/tmp"))

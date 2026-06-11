@@ -98,6 +98,7 @@ final class Pane: Identifiable {
         statusLineMonitor?.stop()
         statusLineMonitor?.onClaudeHookAttention = nil
         statusLineMonitor?.onPRMerged = nil
+        statusLineMonitor?.onPRNotMerged = nil
         statusLineMonitor = nil
     }
 }
