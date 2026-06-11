@@ -614,7 +614,7 @@ struct StatusLineData: Codable {
     var exceeds200kTokens: Bool?
     // Owned by PRTrackingCoordinator (gh GraphQL). Not decoded from Claude's statusLine payload,
     // which carries only number/url/review_state — never title/state (non-optional on PullRequest).
-    var pr: PullRequest? = nil
+    var pr: PullRequest?
     var sessionStatus: SessionStatus?
     var repo: Repo?
 

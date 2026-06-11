@@ -359,7 +359,7 @@ final class StatusLineMonitor {
             var missingKey = ""
             if let de = error as? DecodingError {
                 switch de {
-                case .keyNotFound(let key, let ctx):
+                case let .keyNotFound(key, ctx):
                     kind = "key_not_found"
                     missingKey = key.stringValue
                     codingPath = (ctx.codingPath + [key]).map(\.stringValue).joined(separator: ".")
