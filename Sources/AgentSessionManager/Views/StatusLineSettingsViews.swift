@@ -676,6 +676,23 @@ struct NotificationsContent: View {
                     }
                 }
             }
+            Section("Claude") {
+                SettingRow(
+                    title: "Notify when Claude stops",
+                    description: "Show a banner and sidebar row when Claude finishes a turn."
+                ) {
+                    Toggle(
+                        "Notify when Claude stops",
+                        isOn: $appSettings.isClaudeStopNotificationEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-claude-stop-notification-toggle")
+                    .onChange(of: appSettings.isClaudeStopNotificationEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+            }
             Section("Cursor") {
                 SettingRow(
                     title: "Stop hook for attention",

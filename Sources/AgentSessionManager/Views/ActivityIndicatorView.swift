@@ -3,6 +3,7 @@ import SwiftUI
 enum ActivityIndicatorGeometry: Equatable {
     case ring
     case circle
+    case octagon
 }
 
 enum ActivityIndicatorPalette: Equatable {
@@ -38,6 +39,13 @@ func activityIndicatorAppearance(for state: PaneActivityState) -> ActivityIndica
             opacityRange: 0.55...0.85,
             blurRadius: 1
         )
+    case .stopped:
+        ActivityIndicatorAppearance(
+            geometry: .octagon,
+            palette: .secondary,
+            opacityRange: 0.5...0.5,
+            blurRadius: 0
+        )
     case .waiting:
         ActivityIndicatorAppearance(
             geometry: .circle,
@@ -72,6 +80,7 @@ struct ActivityIndicatorView: View {
         switch state {
         case .idle: "idle"
         case .working: "working"
+        case .stopped: "stopped"
         case .waiting: "waiting"
         }
     }
@@ -84,6 +93,8 @@ struct ActivityIndicatorView: View {
                 .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
         case .working:
             WorkingDot()
+        case .stopped:
+            StoppedOctagon()
         case .waiting:
             WaitingDot(isPriority: isPriority)
         }
@@ -117,5 +128,14 @@ private struct WaitingDot: View {
     var body: some View {
         Circle()
             .fill(waitingIndicatorColor(isPriority: isPriority))
+    }
+}
+
+private struct StoppedOctagon: View {
+    var body: some View {
+        Image(systemName: "octagon")
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(Color.secondary.opacity(0.5))
     }
 }

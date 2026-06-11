@@ -16,8 +16,12 @@ enum SidebarSide: String, Codable, CaseIterable {
 @Observable
 @MainActor
 final class StatusLineMonitor {
+    enum ClaudeLifecycle { case unknown, working, stopped }
+
     private(set) var currentData: StatusLineData?
-    private(set) var isClaudeWorking = false
+    private(set) var claudeLifecycle: ClaudeLifecycle = .unknown
+    var isClaudeWorking: Bool { claudeLifecycle == .working }
+    var isClaudeStopped: Bool { claudeLifecycle == .stopped }
 
     private let paneID: UUID
     private let paneName: String
@@ -51,6 +55,8 @@ final class StatusLineMonitor {
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
+    /// Fires on the main actor when Claude transitions from working to stopped (one fire per working→stopped edge).
+    var onClaudeStopped: (() -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
 
@@ -512,26 +518,33 @@ final class StatusLineMonitor {
 
     private func applyClaudeActivityPayload(_ data: Data) {
         guard let payload = try? JSONDecoder().decode(ClaudeActivityPayload.self, from: data) else { return }
-        let nextState: Bool
         switch payload.hookEventName {
         case "UserPromptSubmit":
-            nextState = true
+            guard claudeLifecycle != .working else { return }
+            claudeLifecycle = .working
+            TracingService.shared.record(
+                "pane.activity.changed",
+                attributes: [
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
+                    "state": "working", "source": "claude_hook",
+                    "hook_event": payload.hookEventName,
+                ])
         case "Stop", "StopFailure":
-            nextState = false
+            guard claudeLifecycle == .working else { return }
+            claudeLifecycle = .stopped
+            TracingService.shared.record(
+                "pane.activity.changed",
+                attributes: [
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
+                    "state": "stopped", "source": "claude_hook",
+                    "hook_event": payload.hookEventName,
+                ])
+            onClaudeStopped?()
         default:
             return
         }
-        guard nextState != isClaudeWorking else { return }
-        isClaudeWorking = nextState
-        TracingService.shared.record(
-            "pane.activity.changed",
-            attributes: [
-                "pane.name": paneName, "pane.id": paneID.uuidString,
-                "tab.id": tabID.uuidString, "tab.name": tabName,
-                "state": nextState ? "working" : "idle",
-                "source": "claude_hook",
-                "hook_event": payload.hookEventName,
-            ])
     }
 
     private func stopAttentionWatcher() {

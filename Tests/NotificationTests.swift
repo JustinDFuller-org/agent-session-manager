@@ -13,6 +13,7 @@ private func restoreNotificationSettings(into settings: AppSettings) {
     settings.isCursorNotificationHookAttentionEnabled = config.isCursorHookAttentionEnabled
     settings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
     settings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
+    settings.isClaudeStopNotificationEnabled = config.isClaudeStopNotificationEnabled
 }
 
 @MainActor
@@ -149,6 +150,36 @@ final class NotificationTests: XCTestCase {
         XCTAssertFalse(restored.isPriorityNotificationsEnabled)
         XCTAssertFalse(restored.isMacOSBannerNotificationsEnabled)
         XCTAssertFalse(restored.alwaysShowNotificationsSidebar)
+    }
+
+    func testClaudeStopNotificationEnabledRoundTrip() {
+        let notificationURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager/notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: notificationURL) }
+
+        let settings = AppSettings()
+        settings.isClaudeStopNotificationEnabled = false
+        SettingsPersistence.saveNotificationSettings(appSettings: settings)
+
+        let restored = AppSettings()
+        restoreNotificationSettings(into: restored)
+        XCTAssertFalse(restored.isClaudeStopNotificationEnabled)
+    }
+
+    func testClaudeStopNotificationEnabledLegacyDefaultsTrue() throws {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appending(path: "notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try Data(#"{"sidebarSide":"right","isPriorityEnabled":true}"#.utf8).write(to: url)
+        let restored = AppSettings()
+        restored.isClaudeStopNotificationEnabled = false
+        restoreNotificationSettings(into: restored)
+        XCTAssertTrue(restored.isClaudeStopNotificationEnabled)
     }
 
     func testAlwaysShowNotificationsSidebarRoundTrip() {
@@ -330,6 +361,31 @@ final class NotificationTests: XCTestCase {
 
     func testCursorStopReason() {
         XCTAssertEqual(PaneAttentionEvent.cursorStop.reason, "Agent turn completed")
+    }
+
+    func testClaudeStopReason() {
+        XCTAssertEqual(PaneAttentionEvent.claudeStop.reason, "Claude finished responding")
+    }
+
+    func testAddNotificationClaudeStopCreatesClaudeStopKind() {
+        let state = AppState()
+        let paneID = UUID()
+        state.addNotification(
+            paneID: paneID, paneName: "pane", tabID: UUID(), tabName: "tab",
+            isPriority: false, event: .claudeStop
+        )
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications[0].kind, .claudeStop)
+        XCTAssertEqual(state.notifications[0].reason, "Claude finished responding")
+    }
+
+    func testAddNotificationTerminalBellCreatesTerminalBellKind() {
+        let state = AppState()
+        state.addNotification(
+            paneID: UUID(), paneName: "pane", tabID: UUID(), tabName: "tab",
+            isPriority: false, event: .rawBell
+        )
+        XCTAssertEqual(state.notifications[0].kind, .terminalBell)
     }
 
     private func claudeEvent(_ json: String) -> PaneAttentionEvent? {

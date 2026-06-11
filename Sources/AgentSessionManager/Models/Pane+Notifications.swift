@@ -42,6 +42,20 @@ extension Pane {
                 self?.terminalController?.onAttention?(event)
             }
         }
+        statusLineMonitor?.onClaudeStopped = { [weak appState, weak tab, weak self] in
+            Task { @MainActor in
+                guard let appState, let tab, let pane = self else { return }
+                guard SettingsPersistence.isClaudeStopNotificationEnabled() else { return }
+                appState.addNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    isPriority: pane.isPriority,
+                    event: .claudeStop
+                )
+            }
+        }
         statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in
             Task { @MainActor in
                 guard let appState, let tab, let pane = self else { return }

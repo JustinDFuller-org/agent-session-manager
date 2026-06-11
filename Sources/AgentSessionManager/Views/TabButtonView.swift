@@ -23,9 +23,12 @@ struct TabButtonView: View {
                                     ?? paneActivityState(
                                         processState: pane.terminalController?.processState,
                                         isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                                        isStopped: pane.statusLineMonitor?.isClaudeStopped ?? false,
                                         sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
                                         hasNotification: tabPaneIDs.contains(pane.id)
-                                            && appState.notifications.contains { $0.paneID == pane.id }
+                                            && appState.notifications.contains {
+                                                $0.paneID == pane.id && $0.kind != .claudeStop
+                                            }
                                     )
                             })
                         ActivityIndicatorView(
