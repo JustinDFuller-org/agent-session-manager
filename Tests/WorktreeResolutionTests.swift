@@ -172,7 +172,9 @@ final class WorktreeResolutionRemoteBranchTests: XCTestCase {
         proc.waitUntilExit()
         if proc.terminationStatus != 0 {
             let msg = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            throw NSError(domain: "tests", code: Int(proc.terminationStatus), userInfo: [NSLocalizedDescriptionKey: msg])
+            throw NSError(
+                domain: "tests", code: Int(proc.terminationStatus),
+                userInfo: [NSLocalizedDescriptionKey: msg])
         }
         return String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
