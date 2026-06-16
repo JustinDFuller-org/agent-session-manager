@@ -770,6 +770,13 @@ extension Tab {
         "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 
+    /// Single-quoting suppresses the shell's tilde expansion, so paths like `~/.claude/...`
+    /// must be expanded here before quoting.
+    nonisolated static func expandingLeadingTilde(_ value: String) -> String {
+        guard value.hasPrefix("~") else { return value }
+        return (value as NSString).expandingTildeInPath
+    }
+
     /// Returns `extraArgs` prepended with `--name '<tabName>/<paneName>'` when auto-naming is
     /// enabled and neither `--name` nor `-n` is already present in `extraArgs`.
     nonisolated static func applyAutoSessionName(
