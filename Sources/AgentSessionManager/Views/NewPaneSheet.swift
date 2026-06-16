@@ -630,10 +630,11 @@ extension NewPaneSheet {
             case .boolean:
                 args.append(option.id)
             case .string:
-                let value = state.value.trimmingCharacters(in: .whitespaces)
-                if value.isEmpty {
+                let raw = state.value.trimmingCharacters(in: .whitespaces)
+                if raw.isEmpty {
                     args.append(option.id)
                 } else {
+                    let value = Tab.expandingLeadingTilde(raw)
                     let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
                     args.append(contentsOf: [option.id, "'\(escaped)'"])
                 }
