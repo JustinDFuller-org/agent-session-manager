@@ -180,6 +180,16 @@ final class Tab: Identifiable {
         return out.isEmpty ? "worktree" : out
     }
 
+    nonisolated static func canonicalBranchName(fromRef ref: String) -> String {
+        var name = ref.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in ["refs/heads/", "refs/remotes/origin/", "refs/remotes/", "origin/"]
+        where name.hasPrefix(prefix) {
+            name = String(name.dropFirst(prefix.count))
+            break
+        }
+        return name
+    }
+
     /// Picks a `git worktree list --porcelain` entry for user input: **directory name** under the repo wins first,
     /// then branch/ref match. Avoids opening the wrong tree when several listings share similar branch names
     /// (e.g. `.claude/worktrees/foo` on branch `worktree-foo` vs `.claude/worktrees/worktree-foo`).
@@ -248,26 +258,22 @@ final class Tab: Identifiable {
             try await runGit(["fetch", "origin", ref])
         } catch {}
 
-        let remoteRefExists = await refExists("refs/remotes/origin/\(ref)")
-        let remoteTargetExists = await refExists("refs/remotes/origin/\(targetName)")
-        let localRefExists = await refExists(ref)
-        let refIsRemoteOnly = remoteRefExists || remoteTargetExists
+        let branchName = Tab.canonicalBranchName(fromRef: ref)
+        let hasLocalBranch = await refExists("refs/heads/\(branchName)")
+        let hasRemoteBranch = await refExists("refs/remotes/origin/\(branchName)")
 
-        if localRefExists || refIsRemoteOnly {
-            let resolvedRef: String
-            if await refExists(ref) {
-                resolvedRef = ref
-            } else if await refExists("refs/remotes/origin/\(ref)") {
-                resolvedRef = "refs/remotes/origin/\(ref)"
-            } else {
-                resolvedRef = "refs/remotes/origin/\(targetName)"
-            }
-
+        if hasLocalBranch || hasRemoteBranch {
             let appConfigRoot = directory.appending(path: ".agent-session-manager", directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: appConfigRoot, withIntermediateDirectories: true)
             let rel = Tab.gitWorktreeAddPath(name: targetName)
+            let args: [String]
+            if hasLocalBranch {
+                args = ["worktree", "add", rel, branchName]
+            } else {
+                args = ["worktree", "add", "--track", "-b", branchName, rel, "origin/\(branchName)"]
+            }
             do {
-                try await runGit(["worktree", "add", rel, resolvedRef])
+                try await runGit(args)
             } catch {
                 let listAgain = try await runGitOutput(["worktree", "list", "--porcelain"])
                 let again = Tab.parseWorktreeListPorcelain(listAgain)
