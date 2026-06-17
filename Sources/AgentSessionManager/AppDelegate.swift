@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.setContentSize(NSSize(width: 1200, height: 800))
         window.center()
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.appearance = NSAppearance(named: .darkAqua)
         let controller = NSWindowController(window: window)
         controller.showWindow(nil)
         mainWindow = window

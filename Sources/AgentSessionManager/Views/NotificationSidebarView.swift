@@ -40,7 +40,7 @@ struct NotificationSidebarView: View {
             clearAllButton
         }
         .frame(width: 240)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
         .accessibilityIdentifier("notification-sidebar")
     }
 
@@ -52,7 +52,7 @@ struct NotificationSidebarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.windowBackground)
     }
 
     private var clearAllButton: some View {

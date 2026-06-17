@@ -48,6 +48,8 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(Theme.sidebarBackground)
             .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -87,7 +89,7 @@ struct SettingsView: View {
                 .padding(.top, 28)
                 .padding(.bottom, 8)
                 .padding(.horizontal, 20)
-                .background(.bar)
+                .background(Theme.barBackground)
             }
         }
         .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)

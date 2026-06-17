@@ -38,7 +38,7 @@ struct InvariantDashboardView: View {
                 .accessibilityIdentifier("invariant-dashboard-refresh-button")
             }
             .padding(12)
-            .background(Color(nsColor: .controlBackgroundColor))
+            .background(Theme.controlBackground)
 
             if let writerError = repository.writerError {
                 Text("Invariant log write failed: \(writerError)")
@@ -69,7 +69,7 @@ struct InvariantDashboardView: View {
             contextPanel
         }
         .frame(minWidth: 760, minHeight: 440)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.windowBackground)
         .task { repository.start() }
         .onReceive(NotificationCenter.default.publisher(for: .invariantReporterDidChange)) { _ in
             repository.start()

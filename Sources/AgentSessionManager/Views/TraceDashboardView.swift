@@ -112,7 +112,7 @@ struct TraceDashboardView: View {
             }
         }
         .frame(minWidth: 700, minHeight: 400)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.windowBackground)
         .task {
             repository.refresh()
         }
@@ -204,6 +204,8 @@ struct TracePaneSidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(Theme.sidebarBackground)
         .accessibilityIdentifier("trace-dashboard-sidebar-list")
     }
 }
@@ -278,7 +280,7 @@ struct TraceListView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
     }
 
     private var emptyState: some View {
@@ -308,7 +310,7 @@ struct TraceListView: View {
                 }
             }
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Theme.paneBackground)
         .accessibilityIdentifier("trace-dashboard-list")
     }
 
@@ -327,7 +329,7 @@ struct TraceListView: View {
         .foregroundStyle(.tertiary)
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
     }
 }
 
@@ -368,7 +370,7 @@ struct TraceListRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(rowIndex % 2 == 1 ? Color(nsColor: .controlBackgroundColor).opacity(0.5) : Color.clear)
+        .background(rowIndex % 2 == 1 ? Theme.controlBackground.opacity(0.5) : Color.clear)
     }
 
     private func durationLabel(_ ms: Int64) -> String {
@@ -435,7 +437,7 @@ struct TraceDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
     }
 
     private func durationLabel(_ ms: Int64) -> String {
@@ -497,7 +499,7 @@ struct TraceWaterfallView: View {
                             if isSelected {
                                 Color.accentColor.opacity(0.1)
                             } else if index % 2 == 1 {
-                                Color(nsColor: .controlBackgroundColor).opacity(0.5)
+                                Theme.controlBackground.opacity(0.5)
                             }
 
                             HStack(spacing: 0) {
@@ -543,7 +545,7 @@ struct TraceWaterfallView: View {
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Theme.paneBackground)
         .accessibilityIdentifier("trace-dashboard-waterfall")
     }
 
@@ -618,7 +620,7 @@ struct SpanDetailView: View {
             }
             .padding(12)
         }
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
         .accessibilityIdentifier("trace-dashboard-detail-panel")
     }
 

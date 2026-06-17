@@ -65,7 +65,8 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
+        .preferredColorScheme(.dark)
         .task {
             if let config = SettingsPersistence.load(DefaultBranchConfig.self, from: "default-branch.json") {
                 appSettings.isDefaultBranchEnabled = config.isEnabled

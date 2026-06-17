@@ -51,7 +51,7 @@ struct StatusLineView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(Theme.windowBackground)
             .accessibilityIdentifier("status-line-row")
         }
     }

@@ -106,7 +106,7 @@ struct TabButtonView: View {
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                .background(Theme.overlayMaterial, in: RoundedRectangle(cornerRadius: 6))
         }
         .dropDestination(for: String.self) { items, _ in
             guard

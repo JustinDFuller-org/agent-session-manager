@@ -14,7 +14,7 @@ struct TabBarView: View {
             .padding(.vertical, 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background.opacity(0.95))
+        .background(Theme.windowBackground)
         .contextMenu {
             Button("Create Tab") {
                 NotificationCenter.default.post(name: .newTab, object: nil)
