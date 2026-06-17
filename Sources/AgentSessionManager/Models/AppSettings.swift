@@ -116,7 +116,7 @@ final class AppSettings {
     var activeTools: Set<String> = [Harness.claude.rawValue]
     var defaultBranch: String = "main"
     var isDefaultBranchEnabled: Bool = true
-    var notificationSidebarSide: SidebarSide = .right
+    var notificationSidebarSide: SidebarSide = .left
     var alwaysShowNotificationsSidebar: Bool = true
     var isPriorityNotificationsEnabled: Bool = true
     var isMacOSBannerNotificationsEnabled: Bool = true
