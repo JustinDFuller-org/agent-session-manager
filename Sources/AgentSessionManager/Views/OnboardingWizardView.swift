@@ -81,7 +81,7 @@ struct OnboardingWizardView: View {
             VStack(spacing: 12) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 48))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
                 Text("Welcome to Agent Session Manager")
                     .font(.title2.bold())
                     .multilineTextAlignment(.center)

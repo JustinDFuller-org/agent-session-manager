@@ -4,7 +4,9 @@ import SwiftUI
 // in code prevents the macOS 27 SDK design system from remapping semantic colors
 // to lighter values when building against a newer SDK.
 enum Theme {
-    static let windowBackground = Color(.sRGB, red: 0.118, green: 0.118, blue: 0.118, opacity: 1.0)
+    // rgb(0, 90, 209) — matches the xcode 26 dark system accent
+    static let accent = Color(.sRGB, red: 0.0, green: 0.353, blue: 0.820, opacity: 1.0)
+    static let windowBackground = Color(.sRGB, red: 0.106, green: 0.106, blue: 0.106, opacity: 1.0)
     static let controlBackground = Color(.sRGB, red: 0.102, green: 0.102, blue: 0.102, opacity: 1.0)
     static let paneBackground = Color(.sRGB, red: 0.0, green: 0.0, blue: 0.0, opacity: 1.0)
     static let barBackground = Color(.sRGB, red: 0.157, green: 0.157, blue: 0.157, opacity: 1.0)

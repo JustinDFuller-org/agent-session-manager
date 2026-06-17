@@ -97,7 +97,7 @@ struct PaneGridView: View {
                         .overlay(
                             dragTargetPaneID == pane.id
                                 ? RoundedRectangle(cornerRadius: 8).strokeBorder(
-                                    Color.accentColor.opacity(0.6), lineWidth: 2)
+                                    Theme.accent.opacity(0.6), lineWidth: 2)
                                 : nil
                         )
                         .dropDestination(for: String.self) { items, _ in

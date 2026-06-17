@@ -47,7 +47,7 @@ struct PaneView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(
-                    isActive ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.1),
+                    isActive ? Theme.accent.opacity(0.6) : Color.primary.opacity(0.1),
                     lineWidth: isActive ? 1.5 : 1
                 )
         )

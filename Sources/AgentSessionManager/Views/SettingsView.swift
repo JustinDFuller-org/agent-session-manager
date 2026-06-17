@@ -128,6 +128,7 @@ struct SettingRow<Control: View>: View {
                 }
             }
         }
+        .pinnedListRowBackground()
     }
 }
 

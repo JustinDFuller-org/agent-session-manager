@@ -34,6 +34,7 @@ struct StatusLineConfigLayoutEditor: View {
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
                     }
+                    .pinnedListRowBackground()
                     LabeledContent {
                         Picker("Item alignment", selection: rowAlignmentPickerBinding) {
                             ForEach(RowAlignment.allCases, id: \.self) { alignment in
@@ -48,6 +49,7 @@ struct StatusLineConfigLayoutEditor: View {
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
                     }
+                    .pinnedListRowBackground()
                     LabeledContent {
                         Toggle("", isOn: showPercentagesAsTextBinding)
                             .labelsHidden()
@@ -57,6 +59,7 @@ struct StatusLineConfigLayoutEditor: View {
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
                     }
+                    .pinnedListRowBackground()
                 }
             }
             if phases.contains(.rows) {

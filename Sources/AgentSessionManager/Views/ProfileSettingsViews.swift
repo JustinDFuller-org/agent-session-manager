@@ -659,7 +659,7 @@ private struct ProfileEditorHiddenOptionRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }
@@ -687,7 +687,7 @@ private struct ProfileEditorHiddenEnvVarRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }

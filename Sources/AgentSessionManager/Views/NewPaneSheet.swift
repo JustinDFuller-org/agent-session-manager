@@ -267,7 +267,7 @@ struct NewPaneSheet: View {
                     (Text("No tools are active. Enable a tool in ")
                         .foregroundStyle(.secondary)
                         + Text("Settings \u{2192} Tools")
-                        .foregroundColor(.accentColor))
+                        .foregroundColor(Theme.accent))
                 }
                 .font(.subheadline)
             } else {
@@ -835,7 +835,7 @@ private struct HiddenCLIOptionToggleRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }
@@ -863,7 +863,7 @@ private struct HiddenEnvVarToggleRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }

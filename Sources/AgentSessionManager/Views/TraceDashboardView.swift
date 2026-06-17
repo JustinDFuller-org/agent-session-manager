@@ -413,7 +413,7 @@ struct TraceDetailView: View {
                 }
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Theme.accent)
             .accessibilityIdentifier("trace-detail-back-button")
 
             Divider().frame(height: 14)
@@ -497,7 +497,7 @@ struct TraceWaterfallView: View {
                         let barW = max(4, CGFloat(endRatio - startRatio) * barAreaWidth)
                         ZStack(alignment: .leading) {
                             if isSelected {
-                                Color.accentColor.opacity(0.1)
+                                Theme.accent.opacity(0.1)
                             } else if index % 2 == 1 {
                                 Theme.controlBackground.opacity(0.5)
                             }
@@ -535,7 +535,7 @@ struct TraceWaterfallView: View {
                         .overlay(
                             isSelected
                                 ? RoundedRectangle(cornerRadius: 0)
-                                    .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
+                                    .stroke(Theme.accent.opacity(0.4), lineWidth: 1)
                                 : nil
                         )
                     }
@@ -556,7 +556,7 @@ struct TraceWaterfallView: View {
     private func spanColor(for name: String) -> Color {
         let prefix = name.components(separatedBy: ".").first ?? name
         switch prefix {
-        case "terminal": return .accentColor
+        case "terminal": return Theme.accent
         case "pane": return .blue
         case "tab": return .green
         case "pr": return .orange

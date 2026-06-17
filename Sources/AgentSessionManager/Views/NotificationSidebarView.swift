@@ -94,7 +94,7 @@ struct NotificationSidebarView: View {
                         .alignmentGuide(.firstTextBaseline) { dims in dims[.top] }
                 } else {
                     Circle()
-                        .fill(notification.isPriority ? Color.orange : Color.accentColor)
+                        .fill(notification.isPriority ? Color.orange : Theme.accent)
                         .frame(width: 7, height: 7)
                         .padding(.top, 2)
                         .alignmentGuide(.firstTextBaseline) { dims in dims[.top] }

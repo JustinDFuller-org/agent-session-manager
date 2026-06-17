@@ -11,6 +11,7 @@ struct AgentSessionManagerApp: App {
             SettingsView()
                 .environment(appDelegate.appSettings)
                 .preferredColorScheme(.dark)
+                .tint(Theme.accent)
         }
         .windowResizability(.contentSize)
         .commands { AppCommands(appState: appDelegate.appState) }
@@ -20,6 +21,7 @@ struct AgentSessionManagerApp: App {
                 tracesDirectory: appDelegate.appSettings.resolvedTracingDirectoryURL
             )
             .preferredColorScheme(.dark)
+            .tint(Theme.accent)
         }
         .defaultSize(width: 900, height: 600)
 
@@ -28,6 +30,7 @@ struct AgentSessionManagerApp: App {
                 directory: appDelegate.appSettings.resolvedInvariantDirectoryURL
             )
             .preferredColorScheme(.dark)
+            .tint(Theme.accent)
         }
         .defaultSize(width: 900, height: 600)
     }
