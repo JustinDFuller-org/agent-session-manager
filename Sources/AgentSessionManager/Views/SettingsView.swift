@@ -44,22 +44,20 @@ struct SettingsOverlay: View {
         ZStack {
             Color.black.opacity(0.35)
                 .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { appState.isSettingsPresented = false }
 
             SettingsView()
                 .environment(appSettings)
                 .background(.windowBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(alignment: .topTrailing) {
-                    Button {
+                    Button("Done") {
                         appState.isSettingsPresented = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.cancelAction)
-                    .accessibilityIdentifier("settings-close-button")
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                    .accessibilityIdentifier("settings-done-button")
                     .padding(12)
                 }
                 .overlay {
