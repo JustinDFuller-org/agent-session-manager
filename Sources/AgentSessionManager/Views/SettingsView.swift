@@ -391,6 +391,7 @@ private struct PanesContent: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
         .onAppear {
             let preferred = appSettings.preferredShell
             if preferred.isEmpty {
@@ -497,6 +498,7 @@ private struct ToolsContent: View {
                 }
             }
             .formStyle(.grouped)
+            .pinnedFormBackground()
         }
     }
 }
@@ -711,6 +713,7 @@ private struct KeyboardShortcutsContent: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
     }
 }
 

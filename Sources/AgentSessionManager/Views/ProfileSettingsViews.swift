@@ -136,6 +136,7 @@ struct ProfilesContent: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
         .sheet(item: $editorMode) { mode in
             ProfileEditorSheet(
                 profile: mode.profile,
@@ -427,6 +428,7 @@ private struct ProfileEditorSheet: View {
                                     onPersist: {})
                             }
                             .formStyle(.grouped)
+                            .pinnedFormBackground()
                         }
                     }
                 }

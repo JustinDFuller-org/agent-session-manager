@@ -65,5 +65,6 @@ struct RefreshPaneSheet: View {
         }
         .padding(24)
         .frame(width: 320)
+        .pinnedSheetBackground()
     }
 }

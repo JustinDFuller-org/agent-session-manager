@@ -160,6 +160,7 @@ struct NewPaneSheet: View {
         }
         .padding(24)
         .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
+        .pinnedSheetBackground()
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
                 suggestedName: selectedProfile?.name ?? "",
@@ -739,6 +740,7 @@ private struct SaveProfileSheet: View {
         }
         .padding(24)
         .frame(width: 320)
+        .pinnedSheetBackground()
         .onAppear {
             profileName = suggestedName
             isFocused = true

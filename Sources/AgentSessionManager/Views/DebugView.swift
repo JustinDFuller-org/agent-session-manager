@@ -44,5 +44,6 @@ struct DebugView: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
     }
 }

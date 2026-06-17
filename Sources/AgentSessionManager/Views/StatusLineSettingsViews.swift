@@ -378,6 +378,7 @@ struct StatusLineContent: View {
                 })
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
     }
 }
 
@@ -775,5 +776,6 @@ struct NotificationsContent: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
     }
 }
