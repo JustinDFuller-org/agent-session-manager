@@ -36,39 +36,6 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-struct SettingsOverlay: View {
-    @Environment(AppState.self) private var appState
-    @Environment(AppSettings.self) private var appSettings
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture { appState.isSettingsPresented = false }
-
-            SettingsView()
-                .environment(appSettings)
-                .background(.windowBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(alignment: .topTrailing) {
-                    Button("Done") {
-                        appState.isSettingsPresented = false
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.regular)
-                    .accessibilityIdentifier("settings-done-button")
-                    .padding(12)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(.separator, lineWidth: 1)
-                }
-                .padding(20)
-        }
-    }
-}
-
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var selection: SettingsSection = .panes
@@ -83,9 +50,6 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: 28)
-            }
         } detail: {
             Group {
                 switch selection {
@@ -117,7 +81,7 @@ struct SettingsView: View {
                         .font(.title.bold())
                     Spacer()
                 }
-                .padding(.top, 28)
+                .padding(.top, 8)
                 .padding(.bottom, 8)
                 .padding(.horizontal, 20)
                 .background(.bar)

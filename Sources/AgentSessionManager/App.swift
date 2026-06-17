@@ -65,11 +65,6 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if appState.isSettingsPresented {
-                    SettingsOverlay()
-                        .environment(appState)
-                        .environment(appSettings)
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -252,9 +247,6 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
             closeActiveTab()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .toggleSettings)) { _ in
-            appState.isSettingsPresented.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: .prMergedActionRequested)) { notif in
             guard
@@ -455,6 +447,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         guard coordinator.keyMonitor == nil else { return }
 
         coordinator.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if coordinator.appState?.isSettingsPresented == true { return event }
             // Intercept Shift+Return so Claude CLI receives the Kitty keyboard protocol
             // Shift+Enter sequence (ESC [ 13 ; 2 u) instead of plain carriage return.
             // SwiftTerm's doCommand(by:) discards the shift modifier for insertNewline,
@@ -466,17 +459,6 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             {
                 termView.send([0x1b, 0x5b, 0x31, 0x33, 0x3b, 0x32, 0x75])
                 return nil
-            }
-            if coordinator.appState?.isSettingsPresented == true {
-                if event.keyCode == 53 {
-                    coordinator.appState?.isSettingsPresented = false
-                    return nil
-                }
-                if event.modifierFlags.contains(.command) {
-                    if event.characters == "," { return event }
-                    return nil
-                }
-                return event
             }
             guard event.modifierFlags.contains(.command) else { return event }
             let closePaneKey = UserDefaults.standard.string(forKey: "keyBinding.closePaneKey") ?? "w"
