@@ -125,7 +125,7 @@ final class NotificationTests: XCTestCase {
 
     func testNotificationSettingsDefaults() {
         let settings = AppSettings()
-        XCTAssertEqual(settings.notificationSidebarSide, .right)
+        XCTAssertEqual(settings.notificationSidebarSide, .left)
         XCTAssertTrue(settings.isPriorityNotificationsEnabled)
         XCTAssertTrue(settings.isMacOSBannerNotificationsEnabled)
         XCTAssertTrue(settings.alwaysShowNotificationsSidebar)
