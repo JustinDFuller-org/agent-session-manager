@@ -29,35 +29,44 @@ struct ContentView: View {
 
             Divider()
 
-            HStack(spacing: 0) {
-                if appSettings.notificationSidebarSide == .left
-                    && (hasNotifications
-                        || appSettings.alwaysShowNotificationsSidebar)
-                    && !hideNotificationSidebar
-                {
-                    NotificationSidebarView()
-                        .environment(appState)
-                        .environment(appSettings)
-                    Divider()
-                }
+            ZStack {
+                HStack(spacing: 0) {
+                    if appSettings.notificationSidebarSide == .left
+                        && (hasNotifications
+                            || appSettings.alwaysShowNotificationsSidebar)
+                        && !hideNotificationSidebar
+                    {
+                        NotificationSidebarView()
+                            .environment(appState)
+                            .environment(appSettings)
+                        Divider()
+                    }
 
-                Group {
-                    if appState.tabs.isEmpty {
-                        EmptyStateView()
-                    } else if let tab = appState.activeTab {
-                        PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Group {
+                        if appState.tabs.isEmpty {
+                            EmptyStateView()
+                        } else if let tab = appState.activeTab {
+                            PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    if appSettings.notificationSidebarSide == .right
+                        && (hasNotifications
+                            || appSettings.alwaysShowNotificationsSidebar)
+                        && !hideNotificationSidebar
+                    {
+                        Divider()
+                        NotificationSidebarView()
+                            .environment(appState)
+                            .environment(appSettings)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if appSettings.notificationSidebarSide == .right
-                    && (hasNotifications
-                        || appSettings.alwaysShowNotificationsSidebar)
-                    && !hideNotificationSidebar
-                {
-                    Divider()
-                    NotificationSidebarView()
+                if appState.isSettingsPresented {
+                    SettingsOverlay()
                         .environment(appState)
                         .environment(appSettings)
                 }
@@ -243,6 +252,9 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
             closeActiveTab()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleSettings)) { _ in
+            appState.isSettingsPresented.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: .prMergedActionRequested)) { notif in
             guard
@@ -454,6 +466,17 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             {
                 termView.send([0x1b, 0x5b, 0x31, 0x33, 0x3b, 0x32, 0x75])
                 return nil
+            }
+            if coordinator.appState?.isSettingsPresented == true {
+                if event.keyCode == 53 {
+                    coordinator.appState?.isSettingsPresented = false
+                    return nil
+                }
+                if event.modifierFlags.contains(.command) {
+                    if event.characters == "," { return event }
+                    return nil
+                }
+                return event
             }
             guard event.modifierFlags.contains(.command) else { return event }
             let closePaneKey = UserDefaults.standard.string(forKey: "keyBinding.closePaneKey") ?? "w"

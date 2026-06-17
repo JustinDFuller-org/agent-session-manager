@@ -36,6 +36,41 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+struct SettingsOverlay: View {
+    @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+
+            SettingsView()
+                .environment(appSettings)
+                .background(.windowBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        appState.isSettingsPresented = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("settings-close-button")
+                    .padding(12)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(.separator, lineWidth: 1)
+                }
+                .padding(20)
+        }
+    }
+}
+
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var selection: SettingsSection = .panes
