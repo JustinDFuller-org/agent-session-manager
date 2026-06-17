@@ -34,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.appearance = NSAppearance(named: .darkAqua)
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(Theme.windowBackground)
         let controller = NSWindowController(window: window)
         controller.showWindow(nil)
         mainWindow = window

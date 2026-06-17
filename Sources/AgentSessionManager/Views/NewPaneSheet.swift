@@ -123,7 +123,7 @@ struct NewPaneSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(isRefreshing ? "Refresh Pane" : "New Pane")
                 .font(.headline)
 
@@ -244,6 +244,8 @@ struct NewPaneSheet: View {
                         .tag(profile.id as UUID?)
                     }
                 }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .labelsHidden()
                 .accessibilityIdentifier("new-pane-profile-picker")
                 .onChange(of: selectedProfileID) { _, _ in

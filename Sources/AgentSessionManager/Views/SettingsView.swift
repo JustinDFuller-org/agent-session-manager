@@ -89,10 +89,11 @@ struct SettingsView: View {
                 .padding(.top, 28)
                 .padding(.bottom, 8)
                 .padding(.horizontal, 20)
-                .background(Theme.barBackground)
+                .background(Theme.sidebarBackground)
             }
         }
         .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
+        .pinnedWindowChrome(Theme.sidebarBackground)
     }
 }
 
@@ -501,6 +502,7 @@ private struct ToolsContent: View {
             .formStyle(.grouped)
             .pinnedFormBackground()
         }
+        .background(Theme.windowBackground)
     }
 }
 

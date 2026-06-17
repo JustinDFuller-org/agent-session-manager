@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // Explicit sRGB values matching the macOS 26.4 dark appearance. Pinning these
@@ -15,6 +16,35 @@ enum Theme {
     static let cardBackground = Color(.sRGB, red: 0.133, green: 0.133, blue: 0.133, opacity: 1.0)
 }
 
+private final class WindowChromeView: NSView {
+    var color: NSColor { didSet { applyToWindow() } }
+
+    init(color: NSColor) {
+        self.color = color
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyToWindow()
+    }
+
+    private func applyToWindow() {
+        guard let window else { return }
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = color
+    }
+}
+
+private struct WindowChromeAccessor: NSViewRepresentable {
+    let color: NSColor
+
+    func makeNSView(context: Context) -> WindowChromeView { WindowChromeView(color: color) }
+    func updateNSView(_ view: WindowChromeView, context: Context) { view.color = color }
+}
+
 extension View {
     func pinnedFormBackground() -> some View {
         self
@@ -28,5 +58,9 @@ extension View {
 
     func pinnedSheetBackground() -> some View {
         self.presentationBackground(Theme.windowBackground)
+    }
+
+    func pinnedWindowChrome(_ color: Color) -> some View {
+        background(WindowChromeAccessor(color: NSColor(color)))
     }
 }
