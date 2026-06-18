@@ -27,6 +27,8 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 
 `BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui-dev` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
 
+For the macOS 26 visual baseline, `ScreenshotTests` overrides the default branch fixture to `main` before capture so the New Tab sheet matches the canonical screenshots instead of the general UITest `ui-root` default.
+
 ## Generating screenshots
 
 ```bash
@@ -54,6 +56,6 @@ Screenshots must show real app state produced through real flows — the same se
 - `pr-merged-alert` — injected PR-merged notification payload
 - `activity-indicator-states` — blocked by the `--uitesting` terminal bypass (root fake)
 
-`invariant-dashboard` is real-flow coverage: `ScreenshotTests` enables Debug mode, creates a Claude pane, writes a mismatching payload to that pane monitor's existing status-line input file, and waits for the production invariant reporter and dashboard refresh path to show `statusline.worktree.name`.
+`trace-dashboard` and `invariant-dashboard` are real-flow coverage. `ScreenshotTests` enables Debug mode, creates a real pane, refreshes until the trace sidebar shows rows, and for invariants writes a mismatching payload to that pane monitor's existing status-line input file and waits for the production invariant reporter and dashboard refresh path to show visible rows including `statusline.worktree.name`.
 
 Do not add new entries to `ScreenshotInjectedTests.swift`. New screenshots belong in `ScreenshotTests.swift`, which drives the app through real UI flows.

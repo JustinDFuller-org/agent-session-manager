@@ -13,7 +13,7 @@ struct AgentSessionManagerApp: App {
             )
             .preferredColorScheme(.dark)
             .tint(Theme.accent)
-            .pinnedWindowChrome(Theme.windowBackground)
+            .pinnedWindowChrome(Theme.dashboardWindowChrome)
         }
         .defaultSize(width: 900, height: 600)
         .commands { AppCommands(appState: appDelegate.appState) }
@@ -24,7 +24,7 @@ struct AgentSessionManagerApp: App {
             )
             .preferredColorScheme(.dark)
             .tint(Theme.accent)
-            .pinnedWindowChrome(Theme.windowBackground)
+            .pinnedWindowChrome(Theme.dashboardWindowChrome)
         }
         .defaultSize(width: 900, height: 600)
     }

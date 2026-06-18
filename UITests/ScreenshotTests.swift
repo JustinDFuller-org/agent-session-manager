@@ -3,6 +3,8 @@ import XCTest
 final class ScreenshotTests: BaseTestCase {
     override func setUp() {
         super.setUp()
+        try? Data("{\"isEnabled\":true,\"branchName\":\"main\"}".utf8)
+            .write(to: UITestAppSupport.directory.appending(path: "default-branch.json"))
         try? Data("\"head\"".utf8).write(to: UITestAppSupport.directory.appending(path: "worktree-base-ref.json"))
     }
 
@@ -45,9 +47,14 @@ final class ScreenshotTests: BaseTestCase {
 
         // 6. Settings — Panes tab
         app.typeKey(",", modifierFlags: .command)
+        let settingsWindow = app.windows["AgentSessionManager Settings"]
+        waitFor(settingsWindow)
+        XCTAssertEqual(round(settingsWindow.frame.width), 900)
+        XCTAssertEqual(round(settingsWindow.frame.height), 552)
         let panesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
         waitFor(panesTab)
         panesTab.click()
+        XCTAssertTrue(panesTab.isSelected)
         screenshot("settings-panes")
 
         // 7. Settings — Notifications tab
@@ -83,6 +90,7 @@ final class ScreenshotTests: BaseTestCase {
         let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
         waitFor(debugTab)
         debugTab.click()
+        XCTAssertTrue(debugTab.isSelected)
         screenshot("settings-debug")
 
         app.typeKey("w", modifierFlags: .command)
@@ -137,6 +145,8 @@ final class ScreenshotTests: BaseTestCase {
         app.typeKey("d", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Trace Dashboard"]
         waitFor(dashboard)
+        XCTAssertEqual(round(dashboard.frame.width), 900)
+        XCTAssertEqual(round(dashboard.frame.height), 600)
 
         // 4. Refresh so the dashboard reads the per-pane files written during step 2
         let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
@@ -148,6 +158,7 @@ final class ScreenshotTests: BaseTestCase {
             .matching(identifier: "trace-dashboard-pane-row").firstMatch
         waitFor(paneRow, timeout: 10)
         paneRow.click()
+        XCTAssertTrue(paneRow.isSelected)
 
         // 6. Wait for the per-pane trace list to appear
         let filterField = dashboard.textFields["trace-dashboard-filter-field"]
@@ -226,6 +237,8 @@ final class ScreenshotTests: BaseTestCase {
         app.typeKey("i", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Invariant Dashboard"]
         waitFor(dashboard)
+        XCTAssertEqual(round(dashboard.frame.width), 900)
+        XCTAssertEqual(round(dashboard.frame.height), 600)
         let refreshButton = dashboard.buttons["invariant-dashboard-refresh-button"]
         waitFor(refreshButton)
 
@@ -237,6 +250,9 @@ final class ScreenshotTests: BaseTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         } while Date() < violationDeadline
         XCTAssertTrue(violation.exists, "Expected the real worktree-name violation to appear")
+        let violationRow = dashboard.descendants(matching: .any)
+            .matching(identifier: "invariant-dashboard-row").firstMatch
+        waitFor(violationRow, timeout: 10)
 
         screenshot("invariant-dashboard")
     }

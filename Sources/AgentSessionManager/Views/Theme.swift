@@ -4,23 +4,98 @@ import SwiftUI
 // Explicit sRGB values matching the macOS 26.4 dark appearance. Pinning these
 // in code prevents the macOS 27 SDK design system from remapping semantic colors
 // to lighter values when building against a newer SDK.
+enum WindowChromeButton: CaseIterable, Hashable {
+    case close
+    case minimize
+    case zoom
+
+    var nsButton: NSWindow.ButtonType {
+        switch self {
+        case .close: .closeButton
+        case .minimize: .miniaturizeButton
+        case .zoom: .zoomButton
+        }
+    }
+}
+
+struct WindowChromeConfiguration {
+    let backgroundColor: NSColor
+    let appearanceName: NSAppearance.Name
+    let titleVisibility: NSWindow.TitleVisibility
+    let titlebarAppearsTransparent: Bool
+    let fullSizeContentView: Bool
+    let disabledButtons: Set<WindowChromeButton>
+}
+
 enum Theme {
     // rgb(0, 90, 209) — matches the xcode 26 dark system accent
     static let accent = Color(.sRGB, red: 0.0, green: 0.353, blue: 0.820, opacity: 1.0)
-    static let windowBackground = Color(.sRGB, red: 0.106, green: 0.106, blue: 0.106, opacity: 1.0)
-    static let controlBackground = Color(.sRGB, red: 0.102, green: 0.102, blue: 0.102, opacity: 1.0)
-    static let paneBackground = Color(.sRGB, red: 0.0, green: 0.0, blue: 0.0, opacity: 1.0)
-    static let barBackground = Color(.sRGB, red: 0.157, green: 0.157, blue: 0.157, opacity: 1.0)
-    static let sidebarBackground = Color(.sRGB, red: 0.118, green: 0.118, blue: 0.118, opacity: 1.0)
+    static let mac26WindowChrome = Color(.sRGB, red: 0.106, green: 0.106, blue: 0.106, opacity: 1.0)
+    static let mac26Content = Color(.sRGB, red: 0.118, green: 0.118, blue: 0.118, opacity: 1.0)
+    static let mac26Sidebar = Color(.sRGB, red: 0.106, green: 0.106, blue: 0.106, opacity: 1.0)
+    static let mac26Card = Color(.sRGB, red: 0.125, green: 0.125, blue: 0.125, opacity: 1.0)
+    static let mac26Field = Color(.sRGB, red: 0.235, green: 0.235, blue: 0.235, opacity: 1.0)
+    static let mac26AltRow = Color(.sRGB, red: 0.149, green: 0.149, blue: 0.149, opacity: 1.0)
+    static let mac26SelectedBlue = Color(.sRGB, red: 0.141, green: 0.341, blue: 0.788, opacity: 1.0)
+
+    static let windowBackground = mac26Content
+    static let controlBackground = mac26WindowChrome
+    static let paneBackground = mac26Content
+    static let barBackground = mac26WindowChrome
+    static let sidebarBackground = mac26Sidebar
     static let overlayMaterial = Color(.sRGB, red: 0.059, green: 0.059, blue: 0.059, opacity: 0.9)
-    static let cardBackground = Color(.sRGB, red: 0.133, green: 0.133, blue: 0.133, opacity: 1.0)
+    static let cardBackground = mac26Card
+
+    static let mainWindowChrome = WindowChromeConfiguration(
+        backgroundColor: NSColor(mac26WindowChrome),
+        appearanceName: .darkAqua,
+        titleVisibility: .hidden,
+        titlebarAppearsTransparent: true,
+        fullSizeContentView: true,
+        disabledButtons: []
+    )
+
+    static let settingsWindowChrome = WindowChromeConfiguration(
+        backgroundColor: NSColor(mac26WindowChrome),
+        appearanceName: .darkAqua,
+        titleVisibility: .visible,
+        titlebarAppearsTransparent: true,
+        fullSizeContentView: true,
+        disabledButtons: [.minimize, .zoom]
+    )
+
+    static let dashboardWindowChrome = WindowChromeConfiguration(
+        backgroundColor: NSColor(mac26WindowChrome),
+        appearanceName: .darkAqua,
+        titleVisibility: .hidden,
+        titlebarAppearsTransparent: true,
+        fullSizeContentView: true,
+        disabledButtons: []
+    )
+
+    @MainActor
+    static func configure(window: NSWindow, using configuration: WindowChromeConfiguration) {
+        window.appearance = NSAppearance(named: configuration.appearanceName)
+        window.backgroundColor = configuration.backgroundColor
+        window.titleVisibility = configuration.titleVisibility
+        window.titlebarAppearsTransparent = configuration.titlebarAppearsTransparent
+        if configuration.fullSizeContentView {
+            window.styleMask.insert(.fullSizeContentView)
+        } else {
+            window.styleMask.remove(.fullSizeContentView)
+        }
+        for button in WindowChromeButton.allCases {
+            window.standardWindowButton(button.nsButton)?.isEnabled =
+                !configuration.disabledButtons.contains(button)
+        }
+    }
 }
 
 private final class WindowChromeView: NSView {
-    var color: NSColor { didSet { applyToWindow() } }
+    var configuration: WindowChromeConfiguration { didSet { applyToWindow() } }
 
-    init(color: NSColor) {
-        self.color = color
+    init(configuration: WindowChromeConfiguration) {
+        self.configuration = configuration
         super.init(frame: .zero)
     }
 
@@ -36,16 +111,15 @@ private final class WindowChromeView: NSView {
 
     private func applyToWindow() {
         guard let window else { return }
-        window.titlebarAppearsTransparent = true
-        window.backgroundColor = color
+        Theme.configure(window: window, using: configuration)
     }
 }
 
 private struct WindowChromeAccessor: NSViewRepresentable {
-    let color: NSColor
+    let configuration: WindowChromeConfiguration
 
-    func makeNSView(context: Context) -> WindowChromeView { WindowChromeView(color: color) }
-    func updateNSView(_ view: WindowChromeView, context: Context) { view.color = color }
+    func makeNSView(context: Context) -> WindowChromeView { WindowChromeView(configuration: configuration) }
+    func updateNSView(_ view: WindowChromeView, context: Context) { view.configuration = configuration }
 }
 
 extension View {
@@ -63,7 +137,7 @@ extension View {
         self.presentationBackground(Theme.windowBackground)
     }
 
-    func pinnedWindowChrome(_ color: Color) -> some View {
-        background(WindowChromeAccessor(color: NSColor(color)))
+    func pinnedWindowChrome(_ configuration: WindowChromeConfiguration) -> some View {
+        background(WindowChromeAccessor(configuration: configuration))
     }
 }

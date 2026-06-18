@@ -30,6 +30,6 @@ The file starts with versioned metadata and is trimmed to 10 MB with an invarian
 
 ## Dashboard
 
-Open **Invariant Dashboard** from **Settings → Debug**, the Window menu, or `⌘⇧I`. The dashboard shows newest violations first, supports filtering, and displays the selected occurrence context.
+Open **Invariant Dashboard** from **Settings → Debug**, the Window menu, or `⌘⇧I`. The dashboard uses a custom header plus scrollable rows instead of SwiftUI `Table`, pins the macOS 26 dark row colors used by the screenshot baseline, shows newest violations first, supports filtering, and displays the selected occurrence context.
 
 For read-only incident diagnosis, use `agent-data-access`; its collector filters invariant occurrences by candidate `context["pane.id"]`.

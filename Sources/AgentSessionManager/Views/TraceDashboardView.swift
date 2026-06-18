@@ -92,7 +92,7 @@ struct TraceDashboardView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             TracePaneSidebarView(
                 repository: repository,
                 selectedPaneID: $selectedPaneID,
@@ -101,18 +101,34 @@ struct TraceDashboardView: View {
                     repository.selectPane(pane.fileURL)
                 }
             )
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
-        } detail: {
-            if repository.selectedPaneURL != nil {
-                TracePaneDetailView(
-                    spans: repository.selectedPaneSpans
-                )
-            } else {
-                traceEmptyDetail
+            .frame(width: 220)
+            .padding(12)
+            .background(Theme.mac26WindowChrome)
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Trace Dashboard")
+                        .font(.system(size: 20, weight: .bold))
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 14)
+                .padding(.bottom, 12)
+                .background(Theme.mac26WindowChrome)
+
+                Divider()
+
+                if repository.selectedPaneURL != nil {
+                    TracePaneDetailView(
+                        spans: repository.selectedPaneSpans
+                    )
+                } else {
+                    traceEmptyDetail
+                }
             }
         }
-        .frame(minWidth: 700, minHeight: 400)
-        .background(Theme.windowBackground)
+        .frame(minWidth: 900, minHeight: 600)
+        .background(Theme.mac26Content)
         .task {
             repository.refresh()
         }
@@ -149,6 +165,14 @@ struct TracePaneSidebarView: View {
                 sidebarList
             }
         }
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Theme.mac26Sidebar)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private var sidebarToolbar: some View {
@@ -169,6 +193,7 @@ struct TracePaneSidebarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(Theme.mac26Sidebar)
     }
 
     private var sidebarEmptyState: some View {
@@ -190,22 +215,43 @@ struct TracePaneSidebarView: View {
     }
 
     private var sidebarList: some View {
-        List(selection: $selectedPaneID) {
-            ForEach(repository.tabs) { tab in
-                Section(tab.name) {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(repository.tabs) { tab in
+                    Text(tab.name)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 10)
+                        .padding(.bottom, 4)
                     ForEach(tab.panes) { pane in
-                        Text(pane.name)
-                            .font(.system(size: 12, design: .monospaced))
-                            .tag(pane.id)
-                            .accessibilityIdentifier("trace-dashboard-pane-row")
-                            .onTapGesture { onSelectPane(pane) }
+                        Button {
+                            onSelectPane(pane)
+                        } label: {
+                            HStack {
+                                Text(pane.name)
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(selectedPaneID == pane.id ? Color.white : Color.primary)
+                            .padding(.horizontal, 12)
+                            .frame(height: 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(selectedPaneID == pane.id ? Theme.mac26SelectedBlue : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 8)
+                        .accessibilityIdentifier("trace-dashboard-pane-row")
+                        .accessibilityAddTraits(selectedPaneID == pane.id ? .isSelected : [])
                     }
                 }
             }
         }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(Theme.sidebarBackground)
+        .background(Theme.mac26Sidebar)
         .accessibilityIdentifier("trace-dashboard-sidebar-list")
     }
 }

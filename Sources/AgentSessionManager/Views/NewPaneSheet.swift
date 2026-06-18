@@ -159,7 +159,8 @@ struct NewPaneSheet: View {
             actionButtons
         }
         .padding(24)
-        .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
+        .frame(width: 620, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
         .pinnedSheetBackground()
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
@@ -245,7 +246,7 @@ struct NewPaneSheet: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: 180, alignment: .leading)
                 .labelsHidden()
                 .accessibilityIdentifier("new-pane-profile-picker")
                 .onChange(of: selectedProfileID) { _, _ in

@@ -41,9 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setContentSize(NSSize(width: 1200, height: 800))
         window.center()
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.titlebarAppearsTransparent = true
-        window.backgroundColor = NSColor(Theme.windowBackground)
+        Theme.configure(window: window, using: Theme.mainWindowChrome)
         let controller = NSWindowController(window: window)
         controller.showWindow(nil)
         mainWindow = window
@@ -105,16 +103,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     .tint(Theme.accent)
             )
             let window = SettingsWindow(contentViewController: hosting)
-            window.appearance = NSAppearance(named: .darkAqua)
-            window.titlebarAppearsTransparent = true
-            window.backgroundColor = NSColor(Theme.sidebarBackground)
-            window.title = "Settings"
-            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.title = "AgentSessionManager Settings"
+            window.styleMask = [.titled, .closable]
             window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
             window.isReleasedWhenClosed = false
-            window.setContentSize(NSSize(width: 820, height: 600))
+            window.setContentSize(NSSize(width: 900, height: 552))
             window.center()
             window.delegate = self
+            Theme.configure(window: window, using: Theme.settingsWindowChrome)
             settingsWindow = window
             settingsWindowController = NSWindowController(window: window)
         }

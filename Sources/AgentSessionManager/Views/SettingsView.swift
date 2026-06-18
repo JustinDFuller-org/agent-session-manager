@@ -41,56 +41,98 @@ struct SettingsView: View {
     @State private var selection: SettingsSection = .panes
 
     var body: some View {
-        NavigationSplitView {
-            List(SettingsSection.allCases, selection: $selection) { section in
-                Label(section.title, systemImage: section.icon)
-                    .tag(section)
-                    .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
-            }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .background(Theme.sidebarBackground)
-            .toolbar(removing: .sidebarToggle)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-        } detail: {
-            Group {
-                switch selection {
-                case .panes:
-                    PanesContent()
-                        .environment(appSettings)
-                case .profiles:
-                    ProfilesContent()
-                        .environment(appSettings)
-                case .tools:
-                    ToolsContent()
-                        .environment(appSettings)
-                case .shortcuts:
-                    KeyboardShortcutsContent()
-                case .statusLine:
-                    StatusLineContent()
-                        .environment(appSettings)
-                case .notifications:
-                    NotificationsContent()
-                        .environment(appSettings)
-                case .debug:
-                    DebugView()
-                        .environment(appSettings)
+        HStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(SettingsSection.allCases) { section in
+                        SettingsSidebarRow(
+                            section: section,
+                            isSelected: selection == section,
+                            onSelect: { selection = section }
+                        )
+                    }
                 }
+                .padding(8)
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
+            .frame(width: 200)
+            .padding(12)
+            .background(Theme.mac26WindowChrome)
+
+            VStack(spacing: 0) {
                 HStack {
                     Text(selection.title)
-                        .font(.title.bold())
+                        .font(.largeTitle.weight(.bold))
                     Spacer()
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 8)
                 .padding(.horizontal, 20)
-                .background(Theme.sidebarBackground)
+                .padding(.top, 14)
+                .padding(.bottom, 12)
+                .background(Theme.mac26WindowChrome)
+
+                Group {
+                    switch selection {
+                    case .panes:
+                        PanesContent()
+                            .environment(appSettings)
+                    case .profiles:
+                        ProfilesContent()
+                            .environment(appSettings)
+                    case .tools:
+                        ToolsContent()
+                            .environment(appSettings)
+                    case .shortcuts:
+                        KeyboardShortcutsContent()
+                    case .statusLine:
+                        StatusLineContent()
+                            .environment(appSettings)
+                    case .notifications:
+                        NotificationsContent()
+                            .environment(appSettings)
+                    case .debug:
+                        DebugView()
+                            .environment(appSettings)
+                    }
+                }
             }
         }
-        .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
-        .pinnedWindowChrome(Theme.sidebarBackground)
+        .background(Theme.mac26Content)
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .padding(12)
+                .frame(width: 200)
+        }
+        .frame(minWidth: 900, idealWidth: 900, minHeight: 552, idealHeight: 552)
+        .pinnedWindowChrome(Theme.settingsWindowChrome)
+    }
+}
+
+private struct SettingsSidebarRow: View {
+    let section: SettingsSection
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                Image(systemName: section.icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 22)
+                Text(section.title)
+                    .font(.system(size: 12, weight: .medium))
+                Spacer()
+            }
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Theme.mac26SelectedBlue : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
