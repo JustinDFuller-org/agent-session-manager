@@ -13,6 +13,19 @@ final class SettingsFlowTests: BaseTestCase {
         super.tearDown()
     }
 
+    func testSettingsDoesNotAutoOpen() {
+        let sidebar = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-panes").firstMatch
+        XCTAssertFalse(sidebar.waitForExistence(timeout: 2), "Settings must not appear at launch")
+
+        app.typeKey(",", modifierFlags: .command)
+        waitFor(sidebar)
+        XCTAssertTrue(sidebar.exists, "Settings should appear after ⌘,")
+
+        app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+        XCTAssertFalse(sidebar.waitForExistence(timeout: 1), "Settings should dismiss after Escape")
+    }
+
     func testSettingsFlow() {
         verifyPanesTab()
         verifyNotificationsTab()
@@ -124,7 +137,6 @@ final class SettingsFlowTests: BaseTestCase {
     }
 
     private func verifyNotificationsTab() {
-        app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
             .firstMatch
         waitFor(notificationsTab)
@@ -170,7 +182,7 @@ final class SettingsFlowTests: BaseTestCase {
         }
         waitFor(app.buttons["settings-open-trace-dashboard-button"])
         waitFor(app.buttons["settings-open-invariant-dashboard-button"])
-        app.typeKey("w", modifierFlags: .command)
+        app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
         app.typeKey("d", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Trace Dashboard"]
         waitFor(dashboard)

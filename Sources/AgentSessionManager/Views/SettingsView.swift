@@ -52,9 +52,6 @@ struct SettingsView: View {
             .background(Theme.sidebarBackground)
             .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Color.clear.frame(height: 28)
-            }
         } detail: {
             Group {
                 switch selection {
@@ -86,7 +83,7 @@ struct SettingsView: View {
                         .font(.title.bold())
                     Spacer()
                 }
-                .padding(.top, 28)
+                .padding(.top, 8)
                 .padding(.bottom, 8)
                 .padding(.horizontal, 20)
                 .background(Theme.sidebarBackground)

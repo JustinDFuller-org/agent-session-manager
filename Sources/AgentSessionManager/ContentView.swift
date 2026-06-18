@@ -7,23 +7,16 @@ struct AgentSessionManagerApp: App {
     @State private var cleanupService: TraceCleanupService?
 
     var body: some Scene {
-        Settings {
-            SettingsView()
-                .environment(appDelegate.appSettings)
-                .preferredColorScheme(.dark)
-                .tint(Theme.accent)
-        }
-        .windowResizability(.contentSize)
-        .commands { AppCommands(appState: appDelegate.appState) }
-
         Window("Trace Dashboard", id: "trace-dashboard") {
             TraceDashboardView(
                 tracesDirectory: appDelegate.appSettings.resolvedTracingDirectoryURL
             )
             .preferredColorScheme(.dark)
             .tint(Theme.accent)
+            .pinnedWindowChrome(Theme.windowBackground)
         }
         .defaultSize(width: 900, height: 600)
+        .commands { AppCommands(appState: appDelegate.appState) }
 
         Window("Invariant Dashboard", id: "invariant-dashboard") {
             InvariantDashboardView(
@@ -31,6 +24,7 @@ struct AgentSessionManagerApp: App {
             )
             .preferredColorScheme(.dark)
             .tint(Theme.accent)
+            .pinnedWindowChrome(Theme.windowBackground)
         }
         .defaultSize(width: 900, height: 600)
     }
@@ -45,6 +39,13 @@ private struct AppCommands: Commands {
     @Environment(\.openWindow) var openWindow
 
     var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings\u{2026}") {
+                NotificationCenter.default.post(name: .toggleSettings, object: nil)
+            }
+            .keyboardShortcut(",", modifiers: .command)
+        }
+
         CommandGroup(after: .windowSize) {
             Button("Open Trace Dashboard") {
                 openWindow(id: "trace-dashboard")
@@ -87,6 +88,7 @@ private struct AppCommands: Commands {
 }
 
 extension Notification.Name {
+    static let toggleSettings = Notification.Name("toggleSettings")
     static let newTab = Notification.Name("newTab")
     static let newPane = Notification.Name("newPane")
     static let closeTab = Notification.Name("closeTab")

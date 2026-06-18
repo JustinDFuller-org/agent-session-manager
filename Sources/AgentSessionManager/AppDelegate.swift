@@ -2,12 +2,20 @@ import AppKit
 import SwiftUI
 import UserNotifications
 
+private final class SettingsWindow: NSWindow {
+    override func cancelOperation(_ sender: Any?) {
+        close()
+    }
+}
+
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let appState = AppState()
     let appSettings = AppSettings()
     private var mainWindow: NSWindow?
     private var mainWindowController: NSWindowController?
+    private var settingsWindow: NSWindow?
+    private var settingsWindowController: NSWindowController?
 
     #if DEV_BUILD
     private var windowLifecycleObservers: [NSObjectProtocol] = []
@@ -41,6 +49,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainWindow = window
         mainWindowController = controller
 
+        NotificationCenter.default.addObserver(
+            forName: .toggleSettings, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.toggleSettings()
+            }
+        }
+
         #if DEV_BUILD
         let center = NotificationCenter.default
         let notificationsToObserve: [(Notification.Name, String)] = [
@@ -73,6 +89,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let window = mainWindow else { return }
         if window.isMiniaturized { window.deminiaturize(nil) }
         window.makeKeyAndOrderFront(nil)
+    }
+
+    func toggleSettings() {
+        if settingsWindow?.isVisible == true {
+            settingsWindow?.close()
+            return
+        }
+        if settingsWindow == nil {
+            let hosting = NSHostingController(
+                rootView: SettingsView()
+                    .environment(appState)
+                    .environment(appSettings)
+                    .preferredColorScheme(.dark)
+                    .tint(Theme.accent)
+            )
+            let window = SettingsWindow(contentViewController: hosting)
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.titlebarAppearsTransparent = true
+            window.backgroundColor = NSColor(Theme.sidebarBackground)
+            window.title = "Settings"
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
+            window.isReleasedWhenClosed = false
+            window.setContentSize(NSSize(width: 820, height: 600))
+            window.center()
+            window.delegate = self
+            settingsWindow = window
+            settingsWindowController = NSWindowController(window: window)
+        }
+        appState.isSettingsPresented = true
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === settingsWindow else { return }
+        appState.isSettingsPresented = false
     }
 
     func applicationWillBecomeActive(_ notification: Notification) {

@@ -8,6 +8,7 @@ final class AppState {
     var activeTabID: UUID?
     var activePaneID: UUID?
     var notifications: [PaneNotification] = []
+    var isSettingsPresented = false
 
     var activeTab: Tab? {
         tabs.first { $0.id == activeTabID }

@@ -29,38 +29,41 @@ struct ContentView: View {
 
             Divider()
 
-            HStack(spacing: 0) {
-                if appSettings.notificationSidebarSide == .left
-                    && (hasNotifications
-                        || appSettings.alwaysShowNotificationsSidebar)
-                    && !hideNotificationSidebar
-                {
-                    NotificationSidebarView()
-                        .environment(appState)
-                        .environment(appSettings)
-                    Divider()
-                }
+            ZStack {
+                HStack(spacing: 0) {
+                    if appSettings.notificationSidebarSide == .left
+                        && (hasNotifications
+                            || appSettings.alwaysShowNotificationsSidebar)
+                        && !hideNotificationSidebar
+                    {
+                        NotificationSidebarView()
+                            .environment(appState)
+                            .environment(appSettings)
+                        Divider()
+                    }
 
-                Group {
-                    if appState.tabs.isEmpty {
-                        EmptyStateView()
-                    } else if let tab = appState.activeTab {
-                        PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Group {
+                        if appState.tabs.isEmpty {
+                            EmptyStateView()
+                        } else if let tab = appState.activeTab {
+                            PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    if appSettings.notificationSidebarSide == .right
+                        && (hasNotifications
+                            || appSettings.alwaysShowNotificationsSidebar)
+                        && !hideNotificationSidebar
+                    {
+                        Divider()
+                        NotificationSidebarView()
+                            .environment(appState)
+                            .environment(appSettings)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                if appSettings.notificationSidebarSide == .right
-                    && (hasNotifications
-                        || appSettings.alwaysShowNotificationsSidebar)
-                    && !hideNotificationSidebar
-                {
-                    Divider()
-                    NotificationSidebarView()
-                        .environment(appState)
-                        .environment(appSettings)
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -445,6 +448,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         guard coordinator.keyMonitor == nil else { return }
 
         coordinator.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if coordinator.appState?.isSettingsPresented == true { return event }
             // Intercept Shift+Return so Claude CLI receives the Kitty keyboard protocol
             // Shift+Enter sequence (ESC [ 13 ; 2 u) instead of plain carriage return.
             // SwiftTerm's doCommand(by:) discards the shift modifier for insertNewline,

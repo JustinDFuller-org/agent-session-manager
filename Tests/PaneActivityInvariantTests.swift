@@ -258,7 +258,7 @@ final class PaneActivityInvariantTests: XCTestCase {
 
     func testWaitingIndicatorColorReflectsPriority() {
         XCTAssertEqual(waitingIndicatorColor(isPriority: true), .orange)
-        XCTAssertEqual(waitingIndicatorColor(isPriority: false), .accentColor)
+        XCTAssertEqual(waitingIndicatorColor(isPriority: false), Theme.accent)
     }
 
     func testReduceMotionKeepsWorkingAndWaitingStaticallyDistinct() {
