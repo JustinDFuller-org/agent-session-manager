@@ -148,6 +148,31 @@ final class SettingsFlowTests: BaseTestCase {
         verifyDebugTab()
     }
 
+    func testSettingsSidebarTrailingSpaceIsClickable() {
+        app.typeKey(",", modifierFlags: .command)
+
+        let sidebar = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-container").firstMatch
+        waitFor(sidebar)
+
+        let profilesTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        XCTAssertFalse(profilesTab.isSelected)
+
+        let sidebarOrigin = sidebar.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        let trailingClick = sidebarOrigin.withOffset(
+            CGVector(
+                dx: sidebar.frame.width - 24,
+                dy: 12 + 8 + 22 + 48
+            )
+        )
+        trailingClick.click()
+
+        XCTAssertTrue(profilesTab.isSelected)
+        waitFor(app.buttons["New Profile"])
+    }
+
     private func verifyPanesTab() {
         app.typeKey(",", modifierFlags: .command)
         let generalTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch

@@ -36,6 +36,16 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+enum SettingsSidebarMetrics {
+    static let contentWidth: CGFloat = 200
+    static let outerPadding: CGFloat = 12
+    static let innerPadding: CGFloat = 8
+    static let rowSpacing: CGFloat = 4
+    static let rowHeight: CGFloat = 44
+    static let rowCornerRadius: CGFloat = 8
+    static let rowHorizontalPadding: CGFloat = 14
+}
+
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var selection: SettingsSection = .panes
@@ -43,7 +53,7 @@ struct SettingsView: View {
     var body: some View {
         HStack(spacing: 0) {
             ScrollView {
-                VStack(spacing: 4) {
+                VStack(spacing: SettingsSidebarMetrics.rowSpacing) {
                     ForEach(SettingsSection.allCases) { section in
                         SettingsSidebarRow(
                             section: section,
@@ -52,11 +62,17 @@ struct SettingsView: View {
                         )
                     }
                 }
-                .padding(8)
+                .padding(SettingsSidebarMetrics.innerPadding)
             }
-            .frame(width: 200)
-            .padding(12)
+            .frame(width: SettingsSidebarMetrics.contentWidth)
+            .padding(SettingsSidebarMetrics.outerPadding)
             .background(Theme.mac26WindowChrome)
+            .overlay {
+                RoundedRectangle(cornerRadius: SettingsSidebarMetrics.rowCornerRadius)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    .padding(SettingsSidebarMetrics.outerPadding)
+            }
+            .accessibilityIdentifier("settings-sidebar-container")
 
             VStack(spacing: 0) {
                 HStack {
@@ -96,12 +112,6 @@ struct SettingsView: View {
             }
         }
         .background(Theme.mac26Content)
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                .padding(12)
-                .frame(width: 200)
-        }
         .frame(minWidth: 900, idealWidth: 900, minHeight: 552, idealHeight: 552)
         .pinnedWindowChrome(Theme.settingsWindowChrome)
     }
@@ -122,15 +132,23 @@ private struct SettingsSidebarRow: View {
                     .font(.system(size: 12, weight: .medium))
                 Spacer()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(isSelected ? Color.white : Color.primary)
-            .padding(.horizontal, 14)
-            .frame(height: 44)
+            .padding(.horizontal, SettingsSidebarMetrics.rowHorizontalPadding)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: SettingsSidebarMetrics.rowHeight,
+                maxHeight: SettingsSidebarMetrics.rowHeight,
+                alignment: .leading
+            )
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: SettingsSidebarMetrics.rowCornerRadius)
                     .fill(isSelected ? Theme.mac26SelectedBlue : Color.clear)
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
