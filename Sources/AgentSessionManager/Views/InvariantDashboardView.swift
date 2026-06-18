@@ -30,8 +30,8 @@ struct InvariantDashboardView: View {
                 Spacer()
             }
             .padding(.horizontal, 24)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
             .background(Theme.mac26WindowChrome)
 
             HStack(spacing: 8) {

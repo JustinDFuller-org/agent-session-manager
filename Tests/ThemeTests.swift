@@ -32,8 +32,28 @@ final class ThemeTests: XCTestCase {
         Theme.configure(window: window, using: Theme.settingsWindowChrome)
 
         XCTAssertEqual(window.titleVisibility, .visible)
-        XCTAssertTrue(window.styleMask.contains(.fullSizeContentView))
+        XCTAssertFalse(window.titlebarAppearsTransparent)
+        XCTAssertFalse(window.styleMask.contains(.fullSizeContentView))
+        XCTAssertFalse(window.standardWindowButton(.closeButton)?.isHidden ?? true)
         XCTAssertFalse(window.standardWindowButton(.miniaturizeButton)?.isEnabled ?? true)
         XCTAssertFalse(window.standardWindowButton(.zoomButton)?.isEnabled ?? true)
+    }
+
+    func testDashboardWindowChromeKeepsNativeTitlebarAndButtons() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+
+        Theme.configure(window: window, using: Theme.dashboardWindowChrome)
+
+        XCTAssertEqual(window.titleVisibility, .hidden)
+        XCTAssertFalse(window.titlebarAppearsTransparent)
+        XCTAssertFalse(window.styleMask.contains(.fullSizeContentView))
+        XCTAssertFalse(window.standardWindowButton(.closeButton)?.isHidden ?? true)
+        XCTAssertFalse(window.standardWindowButton(.miniaturizeButton)?.isHidden ?? true)
+        XCTAssertFalse(window.standardWindowButton(.zoomButton)?.isHidden ?? true)
     }
 }

@@ -13,6 +13,8 @@ Spans are written to per-pane JSONL files under `traces/` immediately. No output
 
 Press **⌘⇧D** or use the menu **Window → Open Trace Dashboard**.
 
+The Trace Dashboard opens as a separate auxiliary macOS window with the standard traffic-light controls. Close it with the window close button or **⌘W**; that dismissal does not target the active pane in the main window.
+
 ## Layout
 
 The dashboard uses a fixed-width custom sidebar plus a detail column so the screenshot baseline does not drift with SDK sidebar materials.

@@ -102,7 +102,8 @@ struct TraceDashboardView: View {
                 }
             )
             .frame(width: 220)
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .background(Theme.mac26WindowChrome)
 
             VStack(spacing: 0) {
@@ -112,8 +113,8 @@ struct TraceDashboardView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 10)
                 .background(Theme.mac26WindowChrome)
 
                 Divider()

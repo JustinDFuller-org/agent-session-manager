@@ -22,4 +22,4 @@ Each sidebar row carries the accessibility identifier `settings-sidebar-<rawValu
 
 ## Window shell
 
-The Settings window title is `AgentSessionManager Settings`. Its content size is pinned to `900×552`, and the style mask is limited to titled + closable so the minimize and zoom buttons render disabled.
+The Settings window is a separate auxiliary macOS window titled `AgentSessionManager Settings`. Its content size is pinned to `900×552`, the style mask is limited to titled + closable so the minimize and zoom buttons render disabled, and the standard close button plus `⌘W` dismiss it without affecting the main pane grid.

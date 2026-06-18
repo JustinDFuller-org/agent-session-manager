@@ -65,8 +65,8 @@ struct SettingsView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 10)
                 .background(Theme.mac26WindowChrome)
 
                 Group {

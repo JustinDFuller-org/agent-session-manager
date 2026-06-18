@@ -59,8 +59,8 @@ enum Theme {
         backgroundColor: NSColor(mac26WindowChrome),
         appearanceName: .darkAqua,
         titleVisibility: .visible,
-        titlebarAppearsTransparent: true,
-        fullSizeContentView: true,
+        titlebarAppearsTransparent: false,
+        fullSizeContentView: false,
         disabledButtons: [.minimize, .zoom]
     )
 
@@ -68,8 +68,8 @@ enum Theme {
         backgroundColor: NSColor(mac26WindowChrome),
         appearanceName: .darkAqua,
         titleVisibility: .hidden,
-        titlebarAppearsTransparent: true,
-        fullSizeContentView: true,
+        titlebarAppearsTransparent: false,
+        fullSizeContentView: false,
         disabledButtons: []
     )
 
@@ -85,8 +85,9 @@ enum Theme {
             window.styleMask.remove(.fullSizeContentView)
         }
         for button in WindowChromeButton.allCases {
-            window.standardWindowButton(button.nsButton)?.isEnabled =
-                !configuration.disabledButtons.contains(button)
+            guard let standardButton = window.standardWindowButton(button.nsButton) else { continue }
+            standardButton.isHidden = false
+            standardButton.isEnabled = !configuration.disabledButtons.contains(button)
         }
     }
 }

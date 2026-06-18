@@ -50,7 +50,7 @@ final class ScreenshotTests: BaseTestCase {
         let settingsWindow = app.windows["AgentSessionManager Settings"]
         waitFor(settingsWindow)
         XCTAssertEqual(round(settingsWindow.frame.width), 900)
-        XCTAssertEqual(round(settingsWindow.frame.height), 552)
+        XCTAssertEqual(round(settingsWindow.frame.height), 584)
         let panesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
         waitFor(panesTab)
         panesTab.click()
@@ -146,7 +146,7 @@ final class ScreenshotTests: BaseTestCase {
         let dashboard = app.windows["Trace Dashboard"]
         waitFor(dashboard)
         XCTAssertEqual(round(dashboard.frame.width), 900)
-        XCTAssertEqual(round(dashboard.frame.height), 600)
+        XCTAssertEqual(round(dashboard.frame.height), 664)
 
         // 4. Refresh so the dashboard reads the per-pane files written during step 2
         let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
@@ -238,7 +238,7 @@ final class ScreenshotTests: BaseTestCase {
         let dashboard = app.windows["Invariant Dashboard"]
         waitFor(dashboard)
         XCTAssertEqual(round(dashboard.frame.width), 900)
-        XCTAssertEqual(round(dashboard.frame.height), 600)
+        XCTAssertEqual(round(dashboard.frame.height), 664)
         let refreshButton = dashboard.buttons["invariant-dashboard-refresh-button"]
         waitFor(refreshButton)
 

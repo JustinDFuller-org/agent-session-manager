@@ -26,6 +26,62 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertFalse(sidebar.waitForExistence(timeout: 1), "Settings should dismiss after Escape")
     }
 
+    func testAuxiliaryWindowsCloseWithCommandWWithoutAffectingMainWindowState() {
+        createTab(named: "Alpha")
+        createPane(named: "alpha-pane")
+        createTab(named: "Beta")
+        createPane(named: "beta-pane")
+
+        let betaTab = app.buttons["tab-button-Beta"].firstMatch
+        waitFor(betaTab)
+        betaTab.click()
+        waitFor(app.staticTexts["pane-name-beta-pane"].firstMatch)
+        XCTAssertFalse(app.staticTexts["pane-name-alpha-pane"].firstMatch.exists)
+
+        closeAuxiliaryWindowAndAssertMainState(
+            open: {
+                self.app.typeKey(",", modifierFlags: .command)
+                let settings = self.app.windows["AgentSessionManager Settings"]
+                self.waitFor(settings)
+                self.waitFor(
+                    settings.descendants(matching: .any)
+                        .matching(identifier: "settings-sidebar-panes").firstMatch
+                )
+                return settings
+            },
+            focus: { window in
+                window.descendants(matching: .any)
+                    .matching(identifier: "settings-sidebar-panes").firstMatch.click()
+            }
+        )
+
+        closeAuxiliaryWindowAndAssertMainState(
+            open: {
+                self.app.typeKey("d", modifierFlags: [.command, .shift])
+                let dashboard = self.app.windows["Trace Dashboard"]
+                self.waitFor(dashboard)
+                self.waitFor(dashboard.buttons["trace-dashboard-refresh-button"])
+                return dashboard
+            },
+            focus: { window in
+                window.buttons["trace-dashboard-refresh-button"].click()
+            }
+        )
+
+        closeAuxiliaryWindowAndAssertMainState(
+            open: {
+                self.app.typeKey("i", modifierFlags: [.command, .shift])
+                let dashboard = self.app.windows["Invariant Dashboard"]
+                self.waitFor(dashboard)
+                self.waitFor(dashboard.buttons["invariant-dashboard-refresh-button"])
+                return dashboard
+            },
+            focus: { window in
+                window.buttons["invariant-dashboard-refresh-button"].click()
+            }
+        )
+    }
+
     func testSettingsFlow() {
         verifyPanesTab()
         verifyNotificationsTab()
@@ -195,6 +251,23 @@ final class SettingsFlowTests: BaseTestCase {
         )
         app.typeKey("i", modifierFlags: [.command, .shift])
         waitFor(app.windows["Invariant Dashboard"])
+    }
+
+    private func closeAuxiliaryWindowAndAssertMainState(
+        open: () -> XCUIElement,
+        focus: (XCUIElement) -> Void
+    ) {
+        let window = open()
+        focus(window)
+        app.typeKey("w", modifierFlags: .command)
+        waitForDisappear(window)
+
+        let mainWindow = app.windows["Agent Session Manager (Dev)"]
+        waitFor(mainWindow)
+        XCTAssertTrue(mainWindow.exists)
+        XCTAssertTrue(app.buttons["tab-button-Beta"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-beta-pane"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["pane-name-alpha-pane"].firstMatch.exists)
     }
 
     func testCLIToolsEnableRevealsOptions() {
