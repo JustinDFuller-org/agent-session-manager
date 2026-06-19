@@ -2,6 +2,8 @@
 
 On true first launch the app shows a six-step wizard that configures the shell, detects installed CLI tools, pre-populates the status line, sets recommended CLI flags, and introduces profiles. It runs exactly once, gated by `hasCompletedOnboarding` in `AppSettings`.
 
+The wizard uses two presentation sizes. `welcome`, `shell`, and `tools` stay compact (`520pt` wide, `320pt` minimum height, `360pt` ideal height). `statusLine`, `cliFlags`, and `profiles` switch to a larger editor-sized sheet (`760pt` minimum and ideal width, `620pt` minimum and ideal height) so the embedded settings forms render with usable viewports during onboarding.
+
 ## Steps
 
 ### 1. Welcome / Consent
@@ -26,6 +28,8 @@ Pre-fills the three-row wizard default layout (see `StatusLineConfig.wizardDefau
 
 The user can edit inline via `StatusLineConfigLayoutEditor`. When the draft equals `wizardDefault()`, a **Clear** button empties all rows so the user can start from scratch; once the layout diverges from the default, the button becomes **Reset to Default** and restores the three-row spec. **Save** persists the draft to `statusline-settings.json` and advances to CLI Flags. **Skip** clears all rows (empty `rows` array = no status bar rendered), persists, and advances to CLI Flags.
 
+During onboarding this step gets a `420pt` minimum editor viewport inside the expanded sheet so the grouped status-line controls are visible without hunting through a cramped inner scroll area.
+
 The wizard default layout is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default remains the fallback for code paths that skip the wizard.
 
 ### 5. CLI Flags
@@ -40,10 +44,14 @@ Claude also recommends three env vars: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `
 
 A **Clear** button (shown when draft equals recommended) sets all flags unavailable. Once the draft diverges, it becomes **Reset to Recommended**. A segmented tool picker appears when multiple tools are enabled.
 
+During onboarding this step gets a `440pt` minimum editor viewport inside the expanded sheet so the recommended flag rows and Claude environment variable controls render at their intended width.
+
 **Save** writes each enabled tool's options plus env vars to their respective persistence files and advances to Profiles. **Skip** advances without persisting.
 
 ### 6. Profiles (final)
 Embeds `ProfilesContent` (the full profile manager) so new users can create named flag/env-var bundles. Creating a profile is optional. **Finish** sets `hasCompletedOnboarding = true`, persists it, and dismisses the wizard.
+
+During onboarding this step gets a `420pt` minimum editor viewport inside the expanded sheet so the profile list and New Profile action are immediately usable.
 
 ## Per-step persistence
 

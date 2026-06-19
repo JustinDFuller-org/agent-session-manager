@@ -852,6 +852,7 @@ private struct CLIOptionRow: View {
                         Toggle("Show", isOn: $option.isAvailable)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
+                            .accessibilityIdentifier("settings-cli-option-show-\(option.id)")
                             .onChange(of: option.isAvailable) {
                                 if !option.isAvailable {
                                     option.isDefaultEnabled = false
@@ -905,6 +906,7 @@ private struct CustomCLIOptionRow: View {
                         Toggle("Show", isOn: $option.isAvailable)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
+                            .accessibilityIdentifier("settings-cli-option-show-\(option.id)")
                             .onChange(of: option.isAvailable) {
                                 if !option.isAvailable {
                                     option.isDefaultEnabled = false

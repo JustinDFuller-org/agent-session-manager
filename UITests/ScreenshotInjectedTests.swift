@@ -207,22 +207,44 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         doneButton.click()
 
+        let onboardingSheet = app.sheets.firstMatch
+        XCTAssertTrue(onboardingSheet.waitForExistence(timeout: 5))
+
         let statusLineSkipButton = app.buttons["onboarding-statusline-skip-button"]
         XCTAssertTrue(statusLineSkipButton.waitForExistence(timeout: 10))
+        let statusLineToggle = app.descendants(matching: .any)
+            .matching(identifier: "settings-statusline-percentages-text-toggle").firstMatch
+        XCTAssertTrue(statusLineToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         screenshot("onboarding-status-line", app: app)
 
         // Use Save (not Skip) so the wizard-default rows are persisted to disk.
         let statusLineSaveButton = app.buttons["onboarding-statusline-save-button"]
+        let statusLineSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: statusLineSaveButton)
+        wait(for: [statusLineSaveHittable], timeout: 5)
         statusLineSaveButton.click()
 
         let cliFlagsSaveButton = app.buttons["onboarding-cliflags-save-button"]
         XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+        let cliOptionToggle = app.descendants(matching: .any)
+            .matching(identifier: "settings-cli-option-show---continue").firstMatch
+        XCTAssertTrue(cliOptionToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         screenshot("onboarding-cli-flags", app: app)
 
-        cliFlagsSaveButton.click()
+        app.typeKey(.return, modifierFlags: [])
 
         let finishButton = app.buttons["onboarding-profiles-finish-button"]
         XCTAssertTrue(finishButton.waitForExistence(timeout: 5))
+        let newProfileButton = app.descendants(matching: .any)
+            .matching(identifier: "profile-new-button").firstMatch
+        XCTAssertTrue(newProfileButton.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         screenshot("onboarding-profiles", app: app)
 
         finishButton.click()

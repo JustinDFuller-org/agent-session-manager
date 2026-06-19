@@ -297,10 +297,74 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
         XCTAssertTrue(statusLineSaveButton.waitForExistence(timeout: 5))
+        let statusLineSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: statusLineSaveButton)
+        wait(for: [statusLineSaveHittable], timeout: 5)
         statusLineSaveButton.click()
 
         let cliFlagsSaveButton = forcedApp.buttons["onboarding-cliflags-save-button"]
         XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+
+        forcedApp.terminate()
+    }
+
+    func testHeavyStepsResizeAndExposeControlsWithoutScrolling() {
+        app.terminate()
+        clearPersistedState()
+
+        let forcedApp = XCUIApplication()
+        forcedApp.launchArguments = [
+            "--uitesting", "--uitesting-skip-restore", "--uitesting-show-onboarding",
+        ]
+        forcedApp.launch()
+        forcedApp.activate()
+
+        let setupButton = forcedApp.buttons["onboarding-setup-button"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        setupButton.click()
+
+        let continueButton = forcedApp.buttons["onboarding-shell-continue-button"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 5))
+        continueButton.click()
+
+        let doneButton = forcedApp.buttons["onboarding-done-button"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: doneButton)
+        wait(for: [enabled], timeout: 15)
+        doneButton.click()
+
+        let onboardingSheet = forcedApp.sheets.firstMatch
+        XCTAssertTrue(onboardingSheet.waitForExistence(timeout: 5))
+
+        let statusLineToggle = forcedApp.descendants(matching: .any)
+            .matching(identifier: "settings-statusline-percentages-text-toggle").firstMatch
+        XCTAssertTrue(statusLineToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
+        XCTAssertTrue(statusLineToggle.isHittable)
+
+        let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
+        XCTAssertTrue(statusLineSaveButton.waitForExistence(timeout: 5))
+        statusLineSaveButton.click()
+
+        let cliOptionToggle = forcedApp.descendants(matching: .any)
+            .matching(identifier: "settings-cli-option-show---continue").firstMatch
+        XCTAssertTrue(cliOptionToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
+        XCTAssertTrue(cliOptionToggle.isHittable)
+
+        let cliFlagsSaveButton = forcedApp.buttons["onboarding-cliflags-save-button"]
+        XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+        forcedApp.typeKey(.return, modifierFlags: [])
+
+        let newProfileButton = forcedApp.descendants(matching: .any)
+            .matching(identifier: "profile-new-button").firstMatch
+        XCTAssertTrue(newProfileButton.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
+        XCTAssertTrue(newProfileButton.isHittable)
 
         forcedApp.terminate()
     }
