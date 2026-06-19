@@ -355,9 +355,18 @@ final class OnboardingWizardTests: BaseTestCase {
         XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         XCTAssertTrue(cliOptionToggle.isHittable)
 
+        let cliFlagsSkipButton = forcedApp.buttons["onboarding-cliflags-skip-button"]
         let cliFlagsSaveButton = forcedApp.buttons["onboarding-cliflags-save-button"]
+        XCTAssertTrue(cliFlagsSkipButton.waitForExistence(timeout: 5))
         XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
-        forcedApp.typeKey(.return, modifierFlags: [])
+        let cliFlagsSkipHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: cliFlagsSkipButton)
+        let cliFlagsSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: cliFlagsSaveButton)
+        wait(for: [cliFlagsSkipHittable, cliFlagsSaveHittable], timeout: 5)
+        cliFlagsSaveButton.click()
 
         let newProfileButton = forcedApp.descendants(matching: .any)
             .matching(identifier: "profile-new-button").firstMatch
@@ -365,6 +374,12 @@ final class OnboardingWizardTests: BaseTestCase {
         XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
         XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         XCTAssertTrue(newProfileButton.isHittable)
+        let finishButton = forcedApp.buttons["onboarding-profiles-finish-button"]
+        XCTAssertTrue(finishButton.waitForExistence(timeout: 5))
+        let finishHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: finishButton)
+        wait(for: [finishHittable], timeout: 5)
 
         forcedApp.terminate()
     }

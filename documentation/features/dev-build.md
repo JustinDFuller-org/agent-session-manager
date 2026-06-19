@@ -51,3 +51,14 @@ The project includes three build configurations. Their products use `.xcode-*` b
 - **Dev** — `com.justinfuller.agent-session-manager.xcode-dev` with the `DEV_BUILD` compilation condition
 
 Use the `Dev` configuration in Xcode to build the dev variant.
+
+## UI Test Safety
+
+UITests must run against the Dev configuration, never production. The approved default command is `make test-ui-dev`. If you need a focused `xcodebuild test` invocation, it must still pass `-configuration Dev` so `DEV_BUILD` is compiled in and `UITestAppSupport.directory` resolves to `~/Library/Application Support/agent-session-manager.dev/`.
+
+Treat any of these as a blocking misconfiguration and stop before running the suite:
+- The command omits `-configuration Dev`.
+- The resolved bundle identifier is `com.justinfuller.agent-session-manager` or `com.justinfuller.agent-session-manager.xcode-release`.
+- The test run would read or write `~/Library/Application Support/agent-session-manager/`.
+
+If a dev UITest run is interrupted before teardown, clean up with `make reset-app-state-dev` before the next run.

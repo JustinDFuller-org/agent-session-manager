@@ -26,17 +26,37 @@ final class ScreenshotInjectedTests: XCTestCase {
         UITestAppSupport.directory.appending(path: "activity-indicator-settings.json")
     }
 
+    private func clearPersistedState() {
+        let support = UITestAppSupport.directory
+        for file in [
+            "sessions.json", "settings.json", "codex-settings.json",
+            "cursor-settings.json", "statusline-settings.json",
+            "active-tools-settings.json", "default-branch.json",
+            "notification-settings.json", "restart-settings.json",
+            "worktree-cleanup.json", "existing-worktree-management.json",
+            "debug-settings.json", "pr-tracking-settings.json",
+            "tracing-settings.json", "pr-polling-settings.json",
+            "terminal-settings.json", "worktree-base-ref.json", "exit-behavior.json",
+            "env-var-settings.json", "profiles.json", "session-name-settings.json",
+            "shell-settings.json", "onboarding-settings.json",
+            "activity-indicator-settings.json", "focus-mode-settings.json",
+        ] {
+            try? FileManager.default.removeItem(at: support.appending(path: file))
+        }
+        try? FileManager.default.removeItem(at: support.appending(path: "traces"))
+        try? FileManager.default.removeItem(at: support.appending(path: "invariants"))
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        clearPersistedState()
         GitUITestWorkspace.prepareCleanRepo()
     }
 
     override func tearDown() {
         app?.terminate()
-        try? FileManager.default.removeItem(at: sessionURL)
-        try? FileManager.default.removeItem(at: worktreeBaseRefURL)
-        try? FileManager.default.removeItem(at: activityIndicatorSettingsURL)
+        clearPersistedState()
         super.tearDown()
     }
 
@@ -229,6 +249,10 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         let cliFlagsSaveButton = app.buttons["onboarding-cliflags-save-button"]
         XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+        let cliFlagsSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: cliFlagsSaveButton)
+        wait(for: [cliFlagsSaveHittable], timeout: 5)
         let cliOptionToggle = app.descendants(matching: .any)
             .matching(identifier: "settings-cli-option-show---continue").firstMatch
         XCTAssertTrue(cliOptionToggle.waitForExistence(timeout: 5))
@@ -236,7 +260,7 @@ final class ScreenshotInjectedTests: XCTestCase {
         XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         screenshot("onboarding-cli-flags", app: app)
 
-        app.typeKey(.return, modifierFlags: [])
+        cliFlagsSaveButton.click()
 
         let finishButton = app.buttons["onboarding-profiles-finish-button"]
         XCTAssertTrue(finishButton.waitForExistence(timeout: 5))

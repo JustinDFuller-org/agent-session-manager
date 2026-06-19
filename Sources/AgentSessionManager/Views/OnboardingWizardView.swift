@@ -30,13 +30,13 @@ struct OnboardingWizardView: View {
             editorMinHeight: nil
         )
 
-        static func expanded(editorMinHeight: CGFloat) -> StepLayout {
+        static func expanded(editorMinHeight: CGFloat, sheetHeight: CGFloat) -> StepLayout {
             StepLayout(
                 minWidth: 760,
                 idealWidth: 760,
                 maxWidth: nil,
-                minHeight: 620,
-                idealHeight: 620,
+                minHeight: sheetHeight,
+                idealHeight: sheetHeight,
                 editorMinHeight: editorMinHeight
             )
         }
@@ -46,9 +46,9 @@ struct OnboardingWizardView: View {
         .welcome: .compact,
         .shell: .compact,
         .tools: .compact,
-        .statusLine: .expanded(editorMinHeight: 420),
-        .cliFlags: .expanded(editorMinHeight: 440),
-        .profiles: .expanded(editorMinHeight: 420),
+        .statusLine: .expanded(editorMinHeight: 420, sheetHeight: 700),
+        .cliFlags: .expanded(editorMinHeight: 440, sheetHeight: 720),
+        .profiles: .expanded(editorMinHeight: 420, sheetHeight: 700),
     ]
 
     @State private var step: Step = .welcome
@@ -281,9 +281,32 @@ struct OnboardingWizardView: View {
             && draftConfig.rows.map(\.items) == def.rows.map(\.items)
     }
 
+    private func expandedStep<Content: View, Footer: View>(
+        @ViewBuilder content: () -> Content,
+        @ViewBuilder footer: () -> Footer
+    ) -> some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .padding(24)
+
+            Spacer(minLength: 0)
+
+            HStack {
+                Spacer()
+                footer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+            .background(Theme.windowBackground)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
     private var statusLineStep: some View {
-        let layout = Self.stepLayouts[.statusLine] ?? .expanded(editorMinHeight: 420)
-        return VStack(alignment: .leading, spacing: 12) {
+        let layout = Self.stepLayouts[.statusLine] ?? .expanded(editorMinHeight: 420, sheetHeight: 700)
+        return expandedStep {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Status Line")
                     .font(.title2.bold())
@@ -307,7 +330,6 @@ struct OnboardingWizardView: View {
             .frame(
                 maxWidth: .infinity,
                 minHeight: layout.editorMinHeight,
-                maxHeight: layout.editorMinHeight,
                 alignment: .topLeading
             )
 
@@ -324,31 +346,22 @@ struct OnboardingWizardView: View {
                 .buttonStyle(.link)
                 .accessibilityIdentifier("onboarding-statusline-reset-button")
             }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .safeAreaInset(edge: .bottom) {
-            HStack {
-                Spacer()
-                Button("Skip") {
-                    draftConfig.rows = []
-                    appSettings.statusLineConfig = draftConfig
-                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                    step = .cliFlags
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("onboarding-statusline-skip-button")
-                Button("Save") {
-                    appSettings.statusLineConfig = draftConfig
-                    SettingsPersistence.saveStatusLine(appSettings: appSettings)
-                    step = .cliFlags
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("onboarding-statusline-save-button")
+        } footer: {
+            Button("Skip") {
+                draftConfig.rows = []
+                appSettings.statusLineConfig = draftConfig
+                SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                step = .cliFlags
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 24)
-            .background(Theme.windowBackground)
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("onboarding-statusline-skip-button")
+            Button("Save") {
+                appSettings.statusLineConfig = draftConfig
+                SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                step = .cliFlags
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("onboarding-statusline-save-button")
         }
     }
 
@@ -379,8 +392,8 @@ struct OnboardingWizardView: View {
     }
 
     private var cliFlagsStep: some View {
-        let layout = Self.stepLayouts[.cliFlags] ?? .expanded(editorMinHeight: 440)
-        return VStack(alignment: .leading, spacing: 12) {
+        let layout = Self.stepLayouts[.cliFlags] ?? .expanded(editorMinHeight: 440, sheetHeight: 720)
+        return expandedStep {
             VStack(alignment: .leading, spacing: 8) {
                 Text("CLI Flags")
                     .font(.title2.bold())
@@ -419,7 +432,6 @@ struct OnboardingWizardView: View {
             .frame(
                 maxWidth: .infinity,
                 minHeight: layout.editorMinHeight,
-                maxHeight: layout.editorMinHeight,
                 alignment: .topLeading
             )
 
@@ -451,51 +463,42 @@ struct OnboardingWizardView: View {
                 .buttonStyle(.link)
                 .accessibilityIdentifier("onboarding-cliflags-reset-button")
             }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .safeAreaInset(edge: .bottom) {
-            HStack {
-                Spacer()
-                Button("Skip") { step = .profiles }
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("onboarding-cliflags-skip-button")
-                Button("Save") {
-                    let toolsToSave = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
-                    for tool in Harness.allCases where toolsToSave.contains(tool) {
-                        guard let draft = draftCliOptions[tool] else { continue }
-                        switch tool {
-                        case .claude:
-                            appSettings.cliOptions = draft
-                            SettingsPersistence.save(appSettings: appSettings)
-                        case .codex:
-                            appSettings.codexCliOptions = draft
-                            SettingsPersistence.saveCodexOptions(appSettings: appSettings)
-                        case .cursor:
-                            appSettings.cursorCliOptions = draft
-                            SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-                        case .shell:
-                            break
-                        }
+        } footer: {
+            Button("Skip") { step = .profiles }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("onboarding-cliflags-skip-button")
+            Button("Save") {
+                let toolsToSave = checkedTools.isEmpty ? [Harness.claude] : Array(checkedTools)
+                for tool in Harness.allCases where toolsToSave.contains(tool) {
+                    guard let draft = draftCliOptions[tool] else { continue }
+                    switch tool {
+                    case .claude:
+                        appSettings.cliOptions = draft
+                        SettingsPersistence.save(appSettings: appSettings)
+                    case .codex:
+                        appSettings.codexCliOptions = draft
+                        SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+                    case .cursor:
+                        appSettings.cursorCliOptions = draft
+                        SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+                    case .shell:
+                        break
                     }
-                    if toolsToSave.contains(.claude) {
-                        appSettings.envVarOptions = draftEnvVars
-                        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
-                    }
-                    step = .profiles
                 }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("onboarding-cliflags-save-button")
+                if toolsToSave.contains(.claude) {
+                    appSettings.envVarOptions = draftEnvVars
+                    SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+                }
+                step = .profiles
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 24)
-            .background(Theme.windowBackground)
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("onboarding-cliflags-save-button")
         }
     }
 
     private var profilesStep: some View {
-        let layout = Self.stepLayouts[.profiles] ?? .expanded(editorMinHeight: 420)
-        return VStack(alignment: .leading, spacing: 12) {
+        let layout = Self.stepLayouts[.profiles] ?? .expanded(editorMinHeight: 420, sheetHeight: 700)
+        return expandedStep {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Profiles")
                     .font(.title2.bold())
@@ -510,22 +513,12 @@ struct OnboardingWizardView: View {
                 .frame(
                     maxWidth: .infinity,
                     minHeight: layout.editorMinHeight,
-                    maxHeight: layout.editorMinHeight,
                     alignment: .topLeading
                 )
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .safeAreaInset(edge: .bottom) {
-            HStack {
-                Spacer()
-                Button("Finish") { finish() }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("onboarding-profiles-finish-button")
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 24)
-            .background(Theme.windowBackground)
+        } footer: {
+            Button("Finish") { finish() }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("onboarding-profiles-finish-button")
         }
     }
 
