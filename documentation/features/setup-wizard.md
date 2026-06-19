@@ -2,7 +2,7 @@
 
 On true first launch the app shows a six-step wizard that configures the shell, detects installed CLI tools, pre-populates the status line, sets recommended CLI flags, and introduces profiles. It runs exactly once, gated by `hasCompletedOnboarding` in `AppSettings`.
 
-The wizard uses two presentation sizes. `welcome`, `shell`, and `tools` stay compact (`520pt` wide, `320pt` minimum height, `360pt` ideal height). `statusLine` and `profiles` switch to a larger editor-sized sheet (`760pt` minimum and ideal width, `700pt` minimum and ideal height), while `cliFlags` uses the same width with a `720pt` minimum and ideal height so its segmented tool picker, recommended-flag editor, and footer all stay visible. For those expanded steps, the sheet height is measured from the full step layout, including the bottom action row, so `Save`, `Skip`, and `Finish` stay visible and clickable without scrolling or keyboard fallbacks.
+The wizard uses three presentation sizes. `welcome`, `shell`, and `tools` stay compact and content-sized (`520pt` wide, no forced sheet height). `statusLine` and `cliFlags` switch to tall editor sheets (`760pt` minimum and ideal width) with fixed heights of `700pt` and `720pt` respectively so their grouped editors and bottom action rows stay visible without scrolling or keyboard fallbacks. `profiles` keeps the same `760pt` width but returns to content-sized height so the wide profile manager no longer leaves a tall empty viewport when the list is short.
 
 ## Steps
 
@@ -28,7 +28,7 @@ Pre-fills the three-row wizard default layout (see `StatusLineConfig.wizardDefau
 
 The user can edit inline via `StatusLineConfigLayoutEditor`. When the draft equals `wizardDefault()`, a **Clear** button empties all rows so the user can start from scratch; once the layout diverges from the default, the button becomes **Reset to Default** and restores the three-row spec. **Save** persists the draft to `statusline-settings.json` and advances to CLI Flags. **Skip** clears all rows (empty `rows` array = no status bar rendered), persists, and advances to CLI Flags.
 
-During onboarding this step gets a `420pt` minimum editor viewport inside the expanded sheet so the grouped status-line controls are visible without hunting through a cramped inner scroll area, while the `Save` / `Skip` footer remains in the measured sheet body.
+During onboarding this step gets a `420pt` minimum editor viewport inside the tall sheet so the grouped status-line controls are visible without hunting through a cramped inner scroll area, while the `Save` / `Skip` footer remains in the measured sheet body.
 
 The wizard default layout is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default remains the fallback for code paths that skip the wizard.
 
@@ -44,14 +44,14 @@ Claude also recommends three env vars: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `
 
 A **Clear** button (shown when draft equals recommended) sets all flags unavailable. Once the draft diverges, it becomes **Reset to Recommended**. A segmented tool picker appears when multiple tools are enabled.
 
-During onboarding this step gets a `440pt` minimum editor viewport inside the expanded sheet so the recommended flag rows and Claude environment variable controls render at their intended width, with the `Save` / `Skip` footer still visible at the bottom of the sheet.
+During onboarding this step gets a `440pt` minimum editor viewport inside the tall sheet so the recommended flag rows and Claude environment variable controls render at their intended width, with the `Save` / `Skip` footer still visible at the bottom of the sheet.
 
 **Save** writes each enabled tool's options plus env vars to their respective persistence files and advances to Profiles. **Skip** advances without persisting.
 
 ### 6. Profiles (final)
 Embeds `ProfilesContent` (the full profile manager) so new users can create named flag/env-var bundles. Creating a profile is optional. **Finish** sets `hasCompletedOnboarding = true`, persists it, and dismisses the wizard.
 
-During onboarding this step gets a `420pt` minimum editor viewport inside the expanded sheet so the profile list and New Profile action are immediately usable, with the `Finish` button visible in the same measured layout.
+During onboarding this step keeps the wider editor surface but caps the embedded `ProfilesContent` at `380pt` tall with no forced minimum, so the profile list and New Profile action remain immediately usable while the sheet collapses back toward its natural height. `Finish` stays in the normal content flow below the profile manager.
 
 ## Per-step persistence
 

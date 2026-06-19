@@ -17,17 +17,17 @@ struct OnboardingWizardView: View {
         let minWidth: CGFloat
         let idealWidth: CGFloat
         let maxWidth: CGFloat?
-        let minHeight: CGFloat
-        let idealHeight: CGFloat
+        let fixedSheetHeight: CGFloat?
         let editorMinHeight: CGFloat?
+        let editorMaxHeight: CGFloat?
 
         static let compact = StepLayout(
             minWidth: 520,
             idealWidth: 520,
             maxWidth: 520,
-            minHeight: 320,
-            idealHeight: 360,
-            editorMinHeight: nil
+            fixedSheetHeight: nil,
+            editorMinHeight: nil,
+            editorMaxHeight: nil
         )
 
         static func expanded(editorMinHeight: CGFloat, sheetHeight: CGFloat) -> StepLayout {
@@ -35,9 +35,20 @@ struct OnboardingWizardView: View {
                 minWidth: 760,
                 idealWidth: 760,
                 maxWidth: nil,
-                minHeight: sheetHeight,
-                idealHeight: sheetHeight,
-                editorMinHeight: editorMinHeight
+                fixedSheetHeight: sheetHeight,
+                editorMinHeight: editorMinHeight,
+                editorMaxHeight: nil
+            )
+        }
+
+        static func wide(editorMaxHeight: CGFloat) -> StepLayout {
+            StepLayout(
+                minWidth: 760,
+                idealWidth: 760,
+                maxWidth: nil,
+                fixedSheetHeight: nil,
+                editorMinHeight: nil,
+                editorMaxHeight: editorMaxHeight
             )
         }
     }
@@ -48,7 +59,7 @@ struct OnboardingWizardView: View {
         .tools: .compact,
         .statusLine: .expanded(editorMinHeight: 420, sheetHeight: 700),
         .cliFlags: .expanded(editorMinHeight: 440, sheetHeight: 720),
-        .profiles: .expanded(editorMinHeight: 420, sheetHeight: 700),
+        .profiles: .wide(editorMaxHeight: 380),
     ]
 
     @State private var step: Step = .welcome
@@ -84,8 +95,8 @@ struct OnboardingWizardView: View {
             minWidth: layout.minWidth,
             idealWidth: layout.idealWidth,
             maxWidth: layout.maxWidth,
-            minHeight: layout.minHeight,
-            idealHeight: layout.idealHeight,
+            minHeight: layout.fixedSheetHeight,
+            idealHeight: layout.fixedSheetHeight,
             alignment: .topLeading
         )
         .background(Theme.windowBackground)
@@ -204,7 +215,6 @@ struct OnboardingWizardView: View {
             }
         }
         .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var toolsStep: some View {
@@ -271,7 +281,6 @@ struct OnboardingWizardView: View {
             }
         }
         .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var isDraftWizardDefault: Bool {
@@ -497,29 +506,39 @@ struct OnboardingWizardView: View {
     }
 
     private var profilesStep: some View {
-        let layout = Self.stepLayouts[.profiles] ?? .expanded(editorMinHeight: 420, sheetHeight: 700)
-        return expandedStep {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Profiles")
-                    .font(.title2.bold())
-                Text(
-                    "Profiles save a named set of flags and env vars so new panes start preconfigured. Creating a profile is optional."
-                )
-                .font(.body)
-                .foregroundStyle(.secondary)
-            }
+        let layout = Self.stepLayouts[.profiles] ?? .wide(editorMaxHeight: 380)
+        return VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Profiles")
+                        .font(.title2.bold())
+                    Text(
+                        "Profiles save a named set of flags and env vars so new panes start preconfigured. Creating a profile is optional."
+                    )
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                }
 
-            ProfilesContent()
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: layout.editorMinHeight,
-                    alignment: .topLeading
-                )
-        } footer: {
-            Button("Finish") { finish() }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("onboarding-profiles-finish-button")
+                ProfilesContent()
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: layout.editorMaxHeight,
+                        alignment: .topLeading
+                    )
+            }
+            .padding(24)
+
+            HStack {
+                Spacer()
+                Button("Finish") { finish() }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("onboarding-profiles-finish-button")
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+            .background(Theme.windowBackground)
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
     private func finish() {
