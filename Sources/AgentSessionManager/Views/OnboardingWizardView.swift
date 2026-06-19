@@ -303,6 +303,7 @@ struct OnboardingWizardView: View {
                 )
             }
             .formStyle(.grouped)
+            .pinnedFormBackground()
             .frame(
                 maxWidth: .infinity,
                 minHeight: layout.editorMinHeight,
@@ -414,6 +415,7 @@ struct OnboardingWizardView: View {
                 )
             }
             .formStyle(.grouped)
+            .pinnedFormBackground()
             .frame(
                 maxWidth: .infinity,
                 minHeight: layout.editorMinHeight,
