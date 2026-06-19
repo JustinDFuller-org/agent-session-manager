@@ -160,7 +160,7 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(profilesTab)
         XCTAssertFalse(profilesTab.isSelected)
 
-        let sidebarOrigin = sidebar.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        let sidebarOrigin = sidebar.coordinate(withNormalizedOffset: .zero)
         let trailingClick = sidebarOrigin.withOffset(
             CGVector(
                 dx: sidebar.frame.width - 24,
