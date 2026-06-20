@@ -46,6 +46,11 @@ enum SettingsSidebarMetrics {
     static let rowHorizontalPadding: CGFloat = 14
 }
 
+enum SettingsSidebarTheme {
+    static let gutterBackground = Theme.mac26Content
+    static let panelBackground = Theme.mac26WindowChrome
+}
+
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var selection: SettingsSection = .panes
@@ -66,7 +71,15 @@ struct SettingsView: View {
             }
             .frame(width: SettingsSidebarMetrics.contentWidth)
             .padding(SettingsSidebarMetrics.outerPadding)
-            .background(Theme.mac26WindowChrome)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background {
+                ZStack {
+                    SettingsSidebarTheme.gutterBackground
+                    RoundedRectangle(cornerRadius: SettingsSidebarMetrics.rowCornerRadius)
+                        .fill(SettingsSidebarTheme.panelBackground)
+                        .padding(SettingsSidebarMetrics.outerPadding)
+                }
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: SettingsSidebarMetrics.rowCornerRadius)
                     .stroke(Color.white.opacity(0.12), lineWidth: 1)
@@ -74,42 +87,31 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("settings-sidebar-container")
 
-            VStack(spacing: 0) {
-                HStack {
-                    Text(selection.title)
-                        .font(.largeTitle.weight(.bold))
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 10)
-                .background(Theme.mac26WindowChrome)
-
-                Group {
-                    switch selection {
-                    case .panes:
-                        PanesContent()
-                            .environment(appSettings)
-                    case .profiles:
-                        ProfilesContent()
-                            .environment(appSettings)
-                    case .tools:
-                        ToolsContent()
-                            .environment(appSettings)
-                    case .shortcuts:
-                        KeyboardShortcutsContent()
-                    case .statusLine:
-                        StatusLineContent()
-                            .environment(appSettings)
-                    case .notifications:
-                        NotificationsContent()
-                            .environment(appSettings)
-                    case .debug:
-                        DebugView()
-                            .environment(appSettings)
-                    }
+            ZStack(alignment: .topLeading) {
+                switch selection {
+                case .panes:
+                    PanesContent()
+                        .environment(appSettings)
+                case .profiles:
+                    ProfilesContent()
+                        .environment(appSettings)
+                case .tools:
+                    ToolsContent()
+                        .environment(appSettings)
+                case .shortcuts:
+                    KeyboardShortcutsContent()
+                case .statusLine:
+                    StatusLineContent()
+                        .environment(appSettings)
+                case .notifications:
+                    NotificationsContent()
+                        .environment(appSettings)
+                case .debug:
+                    DebugView()
+                        .environment(appSettings)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .background(Theme.mac26Content)
         .frame(minWidth: 900, idealWidth: 900, minHeight: 552, idealHeight: 552)

@@ -1,6 +1,6 @@
 # Settings Navigation
 
-The Settings window uses a fixed `HStack` layout rather than `NavigationSplitView` so the sidebar shell, selected-row styling, and window sizing stay visually stable across SDK changes. The left column is a 200-point custom sidebar with an inset rounded border; the selected section's content fills the fixed-size detail pane on the right.
+The Settings window uses a fixed `HStack` layout rather than `NavigationSplitView` so the sidebar shell, selected-row styling, and window sizing stay visually stable across SDK changes. The left column is a 200-point custom sidebar with an inset rounded border; the surrounding gutter matches the detail pane background while the inset panel keeps the darker pinned chrome color. The selected section's content fills the fixed-size detail pane on the right. The sidebar is the only top-level section label source, so the detail pane does not repeat the selected section title in a separate header band.
 
 ## Sections
 
@@ -10,7 +10,7 @@ All seven sections are enumerated in `SettingsSection` (`SettingsView.swift`). E
 |------|-------|------|
 | `.panes` | Panes | `square.split.2x1` |
 | `.profiles` | Profiles | `person.crop.rectangle.stack` |
-| `.tools` | CLI Tools | `wrench.and.screwdriver` |
+| `.tools` | Harnesses | `wrench.and.screwdriver` |
 | `.shortcuts` | Shortcuts | `keyboard` |
 | `.statusLine` | Status Line | `chart.bar` |
 | `.notifications` | Notifications | `bell` |

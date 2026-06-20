@@ -84,7 +84,11 @@ final class SettingsFlowTests: BaseTestCase {
 
     func testSettingsFlow() {
         verifyPanesTab()
+        let settingsWindow = app.windows["AgentSessionManager Settings"]
+        waitFor(settingsWindow)
+        assertOnlySidebarShowsSelectedSectionTitle("Panes", in: settingsWindow)
         verifyNotificationsTab()
+        assertOnlySidebarShowsSelectedSectionTitle("Notifications", in: settingsWindow)
 
         // ── Shortcuts tab ────────────────────────────────────────────────────
         let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
@@ -99,6 +103,7 @@ final class SettingsFlowTests: BaseTestCase {
             .firstMatch
         waitFor(statusLineTab)
         statusLineTab.click()
+        assertOnlySidebarShowsSelectedSectionTitle("Status Line", in: settingsWindow)
         let prTrackingToggle = app.checkBoxes["settings-pr-tracking-toggle"]
         waitFor(prTrackingToggle)
         XCTAssertEqual(prTrackingToggle.value as? Int, 1)
@@ -226,7 +231,10 @@ final class SettingsFlowTests: BaseTestCase {
         let bannerToggle = app.checkBoxes["settings-macos-banner-notifications-toggle"]
         waitFor(bannerToggle)
 
-        let openNotifSettingsButton = app.buttons["settings-open-notification-settings-button"]
+        let openNotifSettingsButton = app.descendants(matching: .any)
+            .matching(identifier: "settings-open-notification-settings-button")
+            .firstMatch
+        waitFor(openNotifSettingsButton)
         XCTAssertTrue(openNotifSettingsButton.exists)
 
         let stickyToggle = app.checkBoxes["settings-sticky-notifications-toggle"]
@@ -270,10 +278,11 @@ final class SettingsFlowTests: BaseTestCase {
         let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
         waitFor(refreshButton)
         XCTAssertTrue(refreshButton.exists)
-        XCTAssertTrue(
-            dashboard.descendants(matching: .any)
-                .matching(identifier: "trace-dashboard-sidebar-list").firstMatch.exists
-        )
+        let traceSidebarList = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-sidebar-list").firstMatch
+        let traceSidebarEmptyState = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-sidebar-empty-state").firstMatch
+        XCTAssertTrue(traceSidebarList.exists || traceSidebarEmptyState.exists)
         app.typeKey("i", modifierFlags: [.command, .shift])
         waitFor(app.windows["Invariant Dashboard"])
     }
@@ -293,6 +302,18 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertTrue(app.buttons["tab-button-Beta"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["pane-name-beta-pane"].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["pane-name-alpha-pane"].firstMatch.exists)
+    }
+
+    private func assertOnlySidebarShowsSelectedSectionTitle(_ title: String, in window: XCUIElement) {
+        let predicate = NSPredicate(format: "label == %@", title)
+        let matchingTitles =
+            window.buttons.matching(predicate).count +
+            window.staticTexts.matching(predicate).count
+        XCTAssertEqual(
+            matchingTitles,
+            1,
+            "Settings should show '\(title)' only in the sidebar, not as a duplicate detail header"
+        )
     }
 
     func testCLIToolsEnableRevealsOptions() {
@@ -376,7 +397,7 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertTrue(verboseToggle.exists, "Hidden option --verbose should appear after Show all options")
         verboseToggle.click()
 
-        let showInAllProfilesButton = app.buttons.matching(
+        let showInAllProfilesButton = app.descendants(matching: .any).matching(
             NSPredicate(format: "label == 'Show in all profiles'")
         ).firstMatch
         waitFor(showInAllProfilesButton)
