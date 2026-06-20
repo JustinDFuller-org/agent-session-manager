@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum NotificationSidebarTheme {
+    static let surfaceBackground = Theme.sidebarBackground
+    static let containerBackground = surfaceBackground
+    static let headerBackground = surfaceBackground
+}
+
 struct NotificationSidebarView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
@@ -40,7 +46,7 @@ struct NotificationSidebarView: View {
             clearAllButton
         }
         .frame(width: 240)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(NotificationSidebarTheme.containerBackground)
         .accessibilityIdentifier("notification-sidebar")
     }
 
@@ -52,7 +58,7 @@ struct NotificationSidebarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(NotificationSidebarTheme.headerBackground)
     }
 
     private var clearAllButton: some View {
@@ -94,7 +100,7 @@ struct NotificationSidebarView: View {
                         .alignmentGuide(.firstTextBaseline) { dims in dims[.top] }
                 } else {
                     Circle()
-                        .fill(notification.isPriority ? Color.orange : Color.accentColor)
+                        .fill(notification.isPriority ? Color.orange : Theme.accent)
                         .frame(width: 7, height: 7)
                         .padding(.top, 2)
                         .alignmentGuide(.firstTextBaseline) { dims in dims[.top] }

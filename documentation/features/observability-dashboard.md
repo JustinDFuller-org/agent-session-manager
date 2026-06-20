@@ -13,17 +13,19 @@ Spans are written to per-pane JSONL files under `traces/` immediately. No output
 
 Press **⌘⇧D** or use the menu **Window → Open Trace Dashboard**.
 
+The Trace Dashboard opens as a separate auxiliary macOS window with the standard traffic-light controls. Close it with the window close button or **⌘W**; that dismissal does not target the active pane in the main window.
+
 ## Layout
 
-The dashboard is a `NavigationSplitView` with three areas:
+The dashboard uses a fixed-width custom sidebar plus a detail column so the screenshot baseline does not drift with SDK sidebar materials.
 
 ### Sidebar: Tab → Pane tree
 
-The left column lists discovered pane files, grouped by tab. Each entry represents one per-pane JSONL file written under `traces/`. Click **↺** (refresh button) to re-scan the `traces/` directory for new files.
+The left column is 220 points wide, uses the pinned macOS 26 dark sidebar color, and lists discovered pane files grouped by tab. Each entry represents one per-pane JSONL file written under `traces/`. Click **↺** (refresh button) to re-scan the `traces/` directory for new files. The selected pane row is highlighted in the pinned blue selection color.
 
 ### Trace list
 
-Selecting a pane loads its spans and shows a list of traces (grouped by trace ID). Each row shows:
+Selecting a pane loads its spans and shows a list of traces (grouped by trace ID). The visible dashboard title is rendered in the detail column header rather than using the centered macOS window title. Each row shows:
 
 | Column | Description |
 |--------|-------------|

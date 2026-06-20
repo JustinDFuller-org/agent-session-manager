@@ -57,7 +57,7 @@ func activityIndicatorAppearance(for state: PaneActivityState) -> ActivityIndica
 }
 
 func waitingIndicatorColor(isPriority: Bool) -> Color {
-    isPriority ? .orange : .accentColor
+    isPriority ? .orange : Theme.accent
 }
 
 struct ActivityIndicatorView: View {

@@ -92,7 +92,7 @@ struct TraceDashboardView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             TracePaneSidebarView(
                 repository: repository,
                 selectedPaneID: $selectedPaneID,
@@ -101,18 +101,35 @@ struct TraceDashboardView: View {
                     repository.selectPane(pane.fileURL)
                 }
             )
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
-        } detail: {
-            if repository.selectedPaneURL != nil {
-                TracePaneDetailView(
-                    spans: repository.selectedPaneSpans
-                )
-            } else {
-                traceEmptyDetail
+            .frame(width: 220)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Theme.mac26WindowChrome)
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Trace Dashboard")
+                        .font(.system(size: 20, weight: .bold))
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 10)
+                .background(Theme.mac26WindowChrome)
+
+                Divider()
+
+                if repository.selectedPaneURL != nil {
+                    TracePaneDetailView(
+                        spans: repository.selectedPaneSpans
+                    )
+                } else {
+                    traceEmptyDetail
+                }
             }
         }
-        .frame(minWidth: 700, minHeight: 400)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(minWidth: 900, minHeight: 600)
+        .background(Theme.mac26Content)
         .task {
             repository.refresh()
         }
@@ -149,6 +166,14 @@ struct TracePaneSidebarView: View {
                 sidebarList
             }
         }
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Theme.mac26Sidebar)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private var sidebarToolbar: some View {
@@ -169,6 +194,7 @@ struct TracePaneSidebarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(Theme.mac26Sidebar)
     }
 
     private var sidebarEmptyState: some View {
@@ -190,20 +216,43 @@ struct TracePaneSidebarView: View {
     }
 
     private var sidebarList: some View {
-        List(selection: $selectedPaneID) {
-            ForEach(repository.tabs) { tab in
-                Section(tab.name) {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(repository.tabs) { tab in
+                    Text(tab.name)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 10)
+                        .padding(.bottom, 4)
                     ForEach(tab.panes) { pane in
-                        Text(pane.name)
-                            .font(.system(size: 12, design: .monospaced))
-                            .tag(pane.id)
-                            .accessibilityIdentifier("trace-dashboard-pane-row")
-                            .onTapGesture { onSelectPane(pane) }
+                        Button {
+                            onSelectPane(pane)
+                        } label: {
+                            HStack {
+                                Text(pane.name)
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(selectedPaneID == pane.id ? Color.white : Color.primary)
+                            .padding(.horizontal, 12)
+                            .frame(height: 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(selectedPaneID == pane.id ? Theme.mac26SelectedBlue : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 8)
+                        .accessibilityIdentifier("trace-dashboard-pane-row")
+                        .accessibilityAddTraits(selectedPaneID == pane.id ? .isSelected : [])
                     }
                 }
             }
         }
-        .listStyle(.sidebar)
+        .background(Theme.mac26Sidebar)
         .accessibilityIdentifier("trace-dashboard-sidebar-list")
     }
 }
@@ -278,7 +327,7 @@ struct TraceListView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
     }
 
     private var emptyState: some View {
@@ -308,7 +357,7 @@ struct TraceListView: View {
                 }
             }
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Theme.paneBackground)
         .accessibilityIdentifier("trace-dashboard-list")
     }
 
@@ -327,7 +376,7 @@ struct TraceListView: View {
         .foregroundStyle(.tertiary)
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
     }
 }
 
@@ -368,7 +417,7 @@ struct TraceListRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(rowIndex % 2 == 1 ? Color(nsColor: .controlBackgroundColor).opacity(0.5) : Color.clear)
+        .background(rowIndex % 2 == 1 ? Theme.controlBackground.opacity(0.5) : Color.clear)
     }
 
     private func durationLabel(_ ms: Int64) -> String {
@@ -411,7 +460,7 @@ struct TraceDetailView: View {
                 }
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Theme.accent)
             .accessibilityIdentifier("trace-detail-back-button")
 
             Divider().frame(height: 14)
@@ -435,7 +484,7 @@ struct TraceDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
     }
 
     private func durationLabel(_ ms: Int64) -> String {
@@ -495,9 +544,9 @@ struct TraceWaterfallView: View {
                         let barW = max(4, CGFloat(endRatio - startRatio) * barAreaWidth)
                         ZStack(alignment: .leading) {
                             if isSelected {
-                                Color.accentColor.opacity(0.1)
+                                Theme.accent.opacity(0.1)
                             } else if index % 2 == 1 {
-                                Color(nsColor: .controlBackgroundColor).opacity(0.5)
+                                Theme.controlBackground.opacity(0.5)
                             }
 
                             HStack(spacing: 0) {
@@ -533,7 +582,7 @@ struct TraceWaterfallView: View {
                         .overlay(
                             isSelected
                                 ? RoundedRectangle(cornerRadius: 0)
-                                    .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
+                                    .stroke(Theme.accent.opacity(0.4), lineWidth: 1)
                                 : nil
                         )
                     }
@@ -543,7 +592,7 @@ struct TraceWaterfallView: View {
             }
             .contentMargins(.horizontal, 16, for: .scrollContent)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Theme.paneBackground)
         .accessibilityIdentifier("trace-dashboard-waterfall")
     }
 
@@ -554,7 +603,7 @@ struct TraceWaterfallView: View {
     private func spanColor(for name: String) -> Color {
         let prefix = name.components(separatedBy: ".").first ?? name
         switch prefix {
-        case "terminal": return .accentColor
+        case "terminal": return Theme.accent
         case "pane": return .blue
         case "tab": return .green
         case "pr": return .orange
@@ -618,7 +667,7 @@ struct SpanDetailView: View {
             }
             .padding(12)
         }
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
         .accessibilityIdentifier("trace-dashboard-detail-panel")
     }
 

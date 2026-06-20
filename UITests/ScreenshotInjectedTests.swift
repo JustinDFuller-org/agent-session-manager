@@ -26,17 +26,37 @@ final class ScreenshotInjectedTests: XCTestCase {
         UITestAppSupport.directory.appending(path: "activity-indicator-settings.json")
     }
 
+    private func clearPersistedState() {
+        let support = UITestAppSupport.directory
+        for file in [
+            "sessions.json", "settings.json", "codex-settings.json",
+            "cursor-settings.json", "statusline-settings.json",
+            "active-tools-settings.json", "default-branch.json",
+            "notification-settings.json", "restart-settings.json",
+            "worktree-cleanup.json", "existing-worktree-management.json",
+            "debug-settings.json", "pr-tracking-settings.json",
+            "tracing-settings.json", "pr-polling-settings.json",
+            "terminal-settings.json", "worktree-base-ref.json", "exit-behavior.json",
+            "env-var-settings.json", "profiles.json", "session-name-settings.json",
+            "shell-settings.json", "onboarding-settings.json",
+            "activity-indicator-settings.json", "focus-mode-settings.json",
+        ] {
+            try? FileManager.default.removeItem(at: support.appending(path: file))
+        }
+        try? FileManager.default.removeItem(at: support.appending(path: "traces"))
+        try? FileManager.default.removeItem(at: support.appending(path: "invariants"))
+    }
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        clearPersistedState()
         GitUITestWorkspace.prepareCleanRepo()
     }
 
     override func tearDown() {
         app?.terminate()
-        try? FileManager.default.removeItem(at: sessionURL)
-        try? FileManager.default.removeItem(at: worktreeBaseRefURL)
-        try? FileManager.default.removeItem(at: activityIndicatorSettingsURL)
+        clearPersistedState()
         super.tearDown()
     }
 
@@ -207,22 +227,48 @@ final class ScreenshotInjectedTests: XCTestCase {
 
         doneButton.click()
 
+        let onboardingSheet = app.sheets.firstMatch
+        XCTAssertTrue(onboardingSheet.waitForExistence(timeout: 5))
+
         let statusLineSkipButton = app.buttons["onboarding-statusline-skip-button"]
         XCTAssertTrue(statusLineSkipButton.waitForExistence(timeout: 10))
+        let statusLineToggle = app.descendants(matching: .any)
+            .matching(identifier: "settings-statusline-percentages-text-toggle").firstMatch
+        XCTAssertTrue(statusLineToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         screenshot("onboarding-status-line", app: app)
 
         // Use Save (not Skip) so the wizard-default rows are persisted to disk.
         let statusLineSaveButton = app.buttons["onboarding-statusline-save-button"]
+        let statusLineSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: statusLineSaveButton)
+        wait(for: [statusLineSaveHittable], timeout: 5)
         statusLineSaveButton.click()
 
         let cliFlagsSaveButton = app.buttons["onboarding-cliflags-save-button"]
         XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+        let cliFlagsSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: cliFlagsSaveButton)
+        wait(for: [cliFlagsSaveHittable], timeout: 5)
+        let cliOptionToggle = app.descendants(matching: .any)
+            .matching(identifier: "settings-cli-option-show---continue").firstMatch
+        XCTAssertTrue(cliOptionToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         screenshot("onboarding-cli-flags", app: app)
 
         cliFlagsSaveButton.click()
 
         let finishButton = app.buttons["onboarding-profiles-finish-button"]
         XCTAssertTrue(finishButton.waitForExistence(timeout: 5))
+        let newProfileButton = app.descendants(matching: .any)
+            .matching(identifier: "profile-new-button").firstMatch
+        XCTAssertTrue(newProfileButton.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
         screenshot("onboarding-profiles", app: app)
 
         finishButton.click()

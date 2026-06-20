@@ -1046,15 +1046,13 @@ final class PRTrackingTests: XCTestCase {
         XCTAssertTrue(check.isFailing)
     }
 
-    func testStatusLineDataDecodeWithPR() throws {
+    func testStatusLineDataIgnoresPRPayload() throws {
         let json = Data(
             """
             {"pr": {"number": 7, "title": "Add feature X", "state": "OPEN", "url": "https://github.com/o/r/pull/7"}}
             """.utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
-        XCTAssertEqual(data.pr?.number, 7)
-        XCTAssertEqual(data.pr?.title, "Add feature X")
-        XCTAssertEqual(data.pr?.state, "OPEN")
+        XCTAssertNil(data.pr)
     }
 
     func testStatusLineDataDecodeWithoutPR() throws {

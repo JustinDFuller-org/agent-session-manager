@@ -91,13 +91,13 @@ struct TabButtonView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isActive ? Color.accentColor.opacity(0.15) : Color.clear)
+                .fill(isActive ? Theme.accent.opacity(0.15) : Color.clear)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(
                     isDragTarget
-                        ? Color.accentColor.opacity(0.6) : (isActive ? Color.accentColor.opacity(0.4) : Color.clear),
+                        ? Theme.accent.opacity(0.6) : (isActive ? Theme.accent.opacity(0.4) : Color.clear),
                     lineWidth: isDragTarget ? 2 : 1
                 )
         )
@@ -106,7 +106,7 @@ struct TabButtonView: View {
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                .background(Theme.overlayMaterial, in: RoundedRectangle(cornerRadius: 6))
         }
         .dropDestination(for: String.self) { items, _ in
             guard

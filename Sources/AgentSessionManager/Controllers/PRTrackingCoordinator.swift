@@ -89,7 +89,7 @@ final class PRTrackingCoordinator {
         task.arguments = ["-C", workingDirectory, "remote", "get-url", "origin"]
         task.standardOutput = outPipe
         task.standardError = FileHandle.nullDevice
-        task.terminationHandler = { _ in
+        task.terminationHandler = { [weak self] _ in
             let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
             guard
                 let raw = String(data: outData, encoding: .utf8)?

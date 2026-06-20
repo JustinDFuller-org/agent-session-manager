@@ -36,22 +36,58 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+enum SettingsSidebarMetrics {
+    static let contentWidth: CGFloat = 200
+    static let outerPadding: CGFloat = 12
+    static let innerPadding: CGFloat = 8
+    static let rowSpacing: CGFloat = 4
+    static let rowHeight: CGFloat = 44
+    static let rowCornerRadius: CGFloat = 8
+    static let rowHorizontalPadding: CGFloat = 14
+}
+
+enum SettingsSidebarTheme {
+    static let gutterBackground = Theme.mac26Content
+    static let panelBackground = Theme.mac26WindowChrome
+}
+
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var selection: SettingsSection = .panes
 
     var body: some View {
-        NavigationSplitView {
-            List(SettingsSection.allCases, selection: $selection) { section in
-                Label(section.title, systemImage: section.icon)
-                    .tag(section)
-                    .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
+        HStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: SettingsSidebarMetrics.rowSpacing) {
+                    ForEach(SettingsSection.allCases) { section in
+                        SettingsSidebarRow(
+                            section: section,
+                            isSelected: selection == section,
+                            onSelect: { selection = section }
+                        )
+                    }
+                }
+                .padding(SettingsSidebarMetrics.innerPadding)
             }
-            .listStyle(.sidebar)
-            .toolbar(removing: .sidebarToggle)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-        } detail: {
-            Group {
+            .frame(width: SettingsSidebarMetrics.contentWidth)
+            .padding(SettingsSidebarMetrics.outerPadding)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background {
+                ZStack {
+                    SettingsSidebarTheme.gutterBackground
+                    RoundedRectangle(cornerRadius: SettingsSidebarMetrics.rowCornerRadius)
+                        .fill(SettingsSidebarTheme.panelBackground)
+                        .padding(SettingsSidebarMetrics.outerPadding)
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: SettingsSidebarMetrics.rowCornerRadius)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    .padding(SettingsSidebarMetrics.outerPadding)
+            }
+            .accessibilityIdentifier("settings-sidebar-container")
+
+            ZStack(alignment: .topLeading) {
                 switch selection {
                 case .panes:
                     PanesContent()
@@ -75,19 +111,48 @@ struct SettingsView: View {
                         .environment(appSettings)
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                HStack {
-                    Text(selection.title)
-                        .font(.title.bold())
-                    Spacer()
-                }
-                .padding(.top, 8)
-                .padding(.bottom, 8)
-                .padding(.horizontal, 20)
-                .background(.bar)
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(minWidth: 720, idealWidth: 820, minHeight: 520, idealHeight: 600)
+        .background(Theme.mac26Content)
+        .frame(minWidth: 900, idealWidth: 900, minHeight: 552, idealHeight: 552)
+        .pinnedWindowChrome(Theme.settingsWindowChrome)
+    }
+}
+
+private struct SettingsSidebarRow: View {
+    let section: SettingsSection
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                Image(systemName: section.icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 22)
+                Text(section.title)
+                    .font(.system(size: 12, weight: .medium))
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .padding(.horizontal, SettingsSidebarMetrics.rowHorizontalPadding)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: SettingsSidebarMetrics.rowHeight,
+                maxHeight: SettingsSidebarMetrics.rowHeight,
+                alignment: .leading
+            )
+            .background(
+                RoundedRectangle(cornerRadius: SettingsSidebarMetrics.rowCornerRadius)
+                    .fill(isSelected ? Theme.mac26SelectedBlue : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("settings-sidebar-\(section.rawValue)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -123,6 +188,7 @@ struct SettingRow<Control: View>: View {
                 }
             }
         }
+        .pinnedListRowBackground()
     }
 }
 
@@ -386,6 +452,7 @@ private struct PanesContent: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
         .onAppear {
             let preferred = appSettings.preferredShell
             if preferred.isEmpty {
@@ -492,7 +559,9 @@ private struct ToolsContent: View {
                 }
             }
             .formStyle(.grouped)
+            .pinnedFormBackground()
         }
+        .background(Theme.windowBackground)
     }
 }
 
@@ -706,6 +775,7 @@ private struct KeyboardShortcutsContent: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
     }
 }
 
@@ -784,6 +854,7 @@ private struct CLIOptionRow: View {
                         Toggle("Show", isOn: $option.isAvailable)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
+                            .accessibilityIdentifier("settings-cli-option-show-\(option.id)")
                             .onChange(of: option.isAvailable) {
                                 if !option.isAvailable {
                                     option.isDefaultEnabled = false
@@ -837,6 +908,7 @@ private struct CustomCLIOptionRow: View {
                         Toggle("Show", isOn: $option.isAvailable)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
+                            .accessibilityIdentifier("settings-cli-option-show-\(option.id)")
                             .onChange(of: option.isAvailable) {
                                 if !option.isAvailable {
                                     option.isDefaultEnabled = false

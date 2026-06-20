@@ -26,9 +26,69 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertFalse(sidebar.waitForExistence(timeout: 1), "Settings should dismiss after Escape")
     }
 
+    func testAuxiliaryWindowsCloseWithCommandWWithoutAffectingMainWindowState() {
+        createTab(named: "Alpha")
+        createPane(named: "alpha-pane")
+        createTab(named: "Beta")
+        createPane(named: "beta-pane")
+
+        let betaTab = app.buttons["tab-button-Beta"].firstMatch
+        waitFor(betaTab)
+        betaTab.click()
+        waitFor(app.staticTexts["pane-name-beta-pane"].firstMatch)
+        XCTAssertFalse(app.staticTexts["pane-name-alpha-pane"].firstMatch.exists)
+
+        closeAuxiliaryWindowAndAssertMainState(
+            open: {
+                self.app.typeKey(",", modifierFlags: .command)
+                let settings = self.app.windows["AgentSessionManager Settings"]
+                self.waitFor(settings)
+                self.waitFor(
+                    settings.descendants(matching: .any)
+                        .matching(identifier: "settings-sidebar-panes").firstMatch
+                )
+                return settings
+            },
+            focus: { window in
+                window.descendants(matching: .any)
+                    .matching(identifier: "settings-sidebar-panes").firstMatch.click()
+            }
+        )
+
+        closeAuxiliaryWindowAndAssertMainState(
+            open: {
+                self.app.typeKey("d", modifierFlags: [.command, .shift])
+                let dashboard = self.app.windows["Trace Dashboard"]
+                self.waitFor(dashboard)
+                self.waitFor(dashboard.buttons["trace-dashboard-refresh-button"])
+                return dashboard
+            },
+            focus: { window in
+                window.buttons["trace-dashboard-refresh-button"].click()
+            }
+        )
+
+        closeAuxiliaryWindowAndAssertMainState(
+            open: {
+                self.app.typeKey("i", modifierFlags: [.command, .shift])
+                let dashboard = self.app.windows["Invariant Dashboard"]
+                self.waitFor(dashboard)
+                self.waitFor(dashboard.buttons["invariant-dashboard-refresh-button"])
+                return dashboard
+            },
+            focus: { window in
+                window.buttons["invariant-dashboard-refresh-button"].click()
+            }
+        )
+    }
+
     func testSettingsFlow() {
         verifyPanesTab()
+        let settingsWindow = app.windows["AgentSessionManager Settings"]
+        waitFor(settingsWindow)
+        assertOnlySidebarShowsSelectedSectionTitle("Panes", in: settingsWindow)
         verifyNotificationsTab()
+        assertOnlySidebarShowsSelectedSectionTitle("Notifications", in: settingsWindow)
 
         // ── Shortcuts tab ────────────────────────────────────────────────────
         let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
@@ -43,6 +103,7 @@ final class SettingsFlowTests: BaseTestCase {
             .firstMatch
         waitFor(statusLineTab)
         statusLineTab.click()
+        assertOnlySidebarShowsSelectedSectionTitle("Status Line", in: settingsWindow)
         let prTrackingToggle = app.checkBoxes["settings-pr-tracking-toggle"]
         waitFor(prTrackingToggle)
         XCTAssertEqual(prTrackingToggle.value as? Int, 1)
@@ -90,6 +151,31 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertNotEqual(nameBefore, nameAfter, "Profile order should swap after move-down")
 
         verifyDebugTab()
+    }
+
+    func testSettingsSidebarTrailingSpaceIsClickable() {
+        app.typeKey(",", modifierFlags: .command)
+
+        let sidebar = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-container").firstMatch
+        waitFor(sidebar)
+
+        let profilesTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        XCTAssertFalse(profilesTab.isSelected)
+
+        let sidebarOrigin = sidebar.coordinate(withNormalizedOffset: .zero)
+        let trailingClick = sidebarOrigin.withOffset(
+            CGVector(
+                dx: sidebar.frame.width - 24,
+                dy: 12 + 8 + 22 + 48
+            )
+        )
+        trailingClick.click()
+
+        XCTAssertTrue(profilesTab.isSelected)
+        waitFor(app.buttons["New Profile"])
     }
 
     private func verifyPanesTab() {
@@ -145,7 +231,10 @@ final class SettingsFlowTests: BaseTestCase {
         let bannerToggle = app.checkBoxes["settings-macos-banner-notifications-toggle"]
         waitFor(bannerToggle)
 
-        let openNotifSettingsButton = app.buttons["settings-open-notification-settings-button"]
+        let openNotifSettingsButton = app.descendants(matching: .any)
+            .matching(identifier: "settings-open-notification-settings-button")
+            .firstMatch
+        waitFor(openNotifSettingsButton)
         XCTAssertTrue(openNotifSettingsButton.exists)
 
         let stickyToggle = app.checkBoxes["settings-sticky-notifications-toggle"]
@@ -189,12 +278,41 @@ final class SettingsFlowTests: BaseTestCase {
         let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
         waitFor(refreshButton)
         XCTAssertTrue(refreshButton.exists)
-        XCTAssertTrue(
-            dashboard.descendants(matching: .any)
-                .matching(identifier: "trace-dashboard-sidebar-list").firstMatch.exists
-        )
+        let traceSidebarList = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-sidebar-list").firstMatch
+        let traceSidebarEmptyState = dashboard.descendants(matching: .any)
+            .matching(identifier: "trace-dashboard-sidebar-empty-state").firstMatch
+        XCTAssertTrue(traceSidebarList.exists || traceSidebarEmptyState.exists)
         app.typeKey("i", modifierFlags: [.command, .shift])
         waitFor(app.windows["Invariant Dashboard"])
+    }
+
+    private func closeAuxiliaryWindowAndAssertMainState(
+        open: () -> XCUIElement,
+        focus: (XCUIElement) -> Void
+    ) {
+        let window = open()
+        focus(window)
+        app.typeKey("w", modifierFlags: .command)
+        waitForDisappear(window)
+
+        let mainWindow = app.windows["Agent Session Manager (Dev)"]
+        waitFor(mainWindow)
+        XCTAssertTrue(mainWindow.exists)
+        XCTAssertTrue(app.buttons["tab-button-Beta"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["pane-name-beta-pane"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["pane-name-alpha-pane"].firstMatch.exists)
+    }
+
+    private func assertOnlySidebarShowsSelectedSectionTitle(_ title: String, in window: XCUIElement) {
+        let predicate = NSPredicate(format: "label == %@", title)
+        let matchingTitles =
+            window.buttons.matching(predicate).count + window.staticTexts.matching(predicate).count
+        XCTAssertEqual(
+            matchingTitles,
+            1,
+            "Settings should show '\(title)' only in the sidebar, not as a duplicate detail header"
+        )
     }
 
     func testCLIToolsEnableRevealsOptions() {
@@ -278,7 +396,7 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertTrue(verboseToggle.exists, "Hidden option --verbose should appear after Show all options")
         verboseToggle.click()
 
-        let showInAllProfilesButton = app.buttons.matching(
+        let showInAllProfilesButton = app.descendants(matching: .any).matching(
             NSPredicate(format: "label == 'Show in all profiles'")
         ).firstMatch
         waitFor(showInAllProfilesButton)

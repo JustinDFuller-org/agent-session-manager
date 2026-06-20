@@ -118,6 +118,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let saveButton = forcedApp.buttons["onboarding-statusline-save-button"]
@@ -158,6 +159,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let skipButton = forcedApp.buttons["onboarding-statusline-skip-button"]
@@ -187,6 +189,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let statusLineSkipButton = forcedApp.buttons["onboarding-statusline-skip-button"]
@@ -227,6 +230,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let clearButton = forcedApp.buttons["onboarding-statusline-clear-button"]
@@ -257,6 +261,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let clearButton = forcedApp.buttons["onboarding-statusline-clear-button"]
@@ -293,14 +298,106 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
         XCTAssertTrue(statusLineSaveButton.waitForExistence(timeout: 5))
+        let statusLineSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: statusLineSaveButton)
+        wait(for: [statusLineSaveHittable], timeout: 5)
         statusLineSaveButton.click()
 
         let cliFlagsSaveButton = forcedApp.buttons["onboarding-cliflags-save-button"]
         XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+
+        forcedApp.terminate()
+    }
+
+    func testOnboardingStepsUseExpectedSheetSizing() {
+        app.terminate()
+        clearPersistedState()
+
+        let forcedApp = XCUIApplication()
+        forcedApp.launchArguments = [
+            "--uitesting", "--uitesting-skip-restore", "--uitesting-show-onboarding",
+        ]
+        forcedApp.launch()
+        forcedApp.activate()
+
+        let setupButton = forcedApp.buttons["onboarding-setup-button"]
+        XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
+        let onboardingSheet = forcedApp.sheets.firstMatch
+        XCTAssertTrue(onboardingSheet.waitForExistence(timeout: 5))
+        XCTAssertLessThan(onboardingSheet.frame.height, 420)
+        XCTAssertTrue(setupButton.isHittable)
+        setupButton.click()
+
+        let continueButton = forcedApp.buttons["onboarding-shell-continue-button"]
+        XCTAssertTrue(continueButton.waitForExistence(timeout: 5))
+        XCTAssertLessThan(onboardingSheet.frame.height, 420)
+        XCTAssertTrue(continueButton.isHittable)
+        continueButton.click()
+
+        let doneButton = forcedApp.buttons["onboarding-done-button"]
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: doneButton)
+        wait(for: [enabled], timeout: 15)
+        XCTAssertLessThan(onboardingSheet.frame.height, 420)
+        XCTAssertTrue(doneButton.isHittable)
+        doneButton.click()
+
+        let statusLineToggle = forcedApp.descendants(matching: .any)
+            .matching(identifier: "settings-statusline-percentages-text-toggle").firstMatch
+        XCTAssertTrue(statusLineToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(onboardingSheet.frame.height, 680)
+        XCTAssertTrue(statusLineToggle.isHittable)
+
+        let statusLineSkipButton = forcedApp.buttons["onboarding-statusline-skip-button"]
+        let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
+        XCTAssertTrue(statusLineSkipButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(statusLineSaveButton.waitForExistence(timeout: 5))
+        let statusLineSkipHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: statusLineSkipButton)
+        let statusLineSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: statusLineSaveButton)
+        wait(for: [statusLineSkipHittable, statusLineSaveHittable], timeout: 5)
+        statusLineSaveButton.click()
+
+        let cliOptionToggle = forcedApp.descendants(matching: .any)
+            .matching(identifier: "settings-cli-option-show---continue").firstMatch
+        XCTAssertTrue(cliOptionToggle.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(onboardingSheet.frame.height, 700)
+        XCTAssertTrue(cliOptionToggle.isHittable)
+
+        let cliFlagsSkipButton = forcedApp.buttons["onboarding-cliflags-skip-button"]
+        let cliFlagsSaveButton = forcedApp.buttons["onboarding-cliflags-save-button"]
+        XCTAssertTrue(cliFlagsSkipButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(cliFlagsSaveButton.waitForExistence(timeout: 5))
+        let cliFlagsSkipHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: cliFlagsSkipButton)
+        let cliFlagsSaveHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: cliFlagsSaveButton)
+        wait(for: [cliFlagsSkipHittable, cliFlagsSaveHittable], timeout: 5)
+        cliFlagsSaveButton.click()
+
+        let newProfileButton = forcedApp.descendants(matching: .any)
+            .matching(identifier: "profile-new-button").firstMatch
+        XCTAssertTrue(newProfileButton.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(onboardingSheet.frame.width, 740)
+        XCTAssertLessThan(onboardingSheet.frame.height, 560)
+        XCTAssertTrue(newProfileButton.isHittable)
+        let finishButton = forcedApp.buttons["onboarding-profiles-finish-button"]
+        XCTAssertTrue(finishButton.waitForExistence(timeout: 5))
+        let finishHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: finishButton)
+        wait(for: [finishHittable], timeout: 5)
 
         forcedApp.terminate()
     }
@@ -326,6 +423,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
@@ -363,6 +461,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
@@ -397,6 +496,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
@@ -437,6 +537,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
@@ -474,6 +575,7 @@ final class OnboardingWizardTests: BaseTestCase {
 
         let doneButton = forcedApp.buttons["onboarding-done-button"]
         XCTAssertTrue(doneButton.waitForExistence(timeout: 10))
+        waitForToolsContinueButtonToEnable(doneButton)
         doneButton.click()
 
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
@@ -491,5 +593,9 @@ final class OnboardingWizardTests: BaseTestCase {
         XCTAssertFalse(forcedApp.buttons["onboarding-profiles-finish-button"].waitForExistence(timeout: 2))
 
         forcedApp.terminate()
+    }
+    private func waitForToolsContinueButtonToEnable(_ doneButton: XCUIElement) {
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: doneButton)
+        wait(for: [enabled], timeout: 15)
     }
 }

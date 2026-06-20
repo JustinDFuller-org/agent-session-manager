@@ -136,6 +136,7 @@ struct ProfilesContent: View {
             }
         }
         .formStyle(.grouped)
+        .pinnedFormBackground()
         .sheet(item: $editorMode) { mode in
             ProfileEditorSheet(
                 profile: mode.profile,
@@ -427,6 +428,7 @@ private struct ProfileEditorSheet: View {
                                     onPersist: {})
                             }
                             .formStyle(.grouped)
+                            .pinnedFormBackground()
                         }
                     }
                 }
@@ -447,6 +449,8 @@ private struct ProfileEditorSheet: View {
             .padding(24)
         }
         .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
+        .background(Theme.windowBackground)
+        .pinnedSheetBackground()
         .onAppear {
             if let existing = profile {
                 name = existing.name
@@ -657,7 +661,7 @@ private struct ProfileEditorHiddenOptionRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }
@@ -685,7 +689,7 @@ private struct ProfileEditorHiddenEnvVarRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }

@@ -36,6 +36,8 @@ Screenshots must depict real app state produced through real flows; screenshots 
 
 Use `make test-ui-dev` (not `make test-ui`) so tests run against the dev build and write to `agent-session-manager.dev` instead of the production app support directory. If a test run is interrupted before tearDown completes, the settings will be left dirty — run `make reset-app-state-dev` to clean them up (`make reset-app-state` for the prod directory).
 
+Treat any prod-targeted UITest invocation as a workflow failure, not a harmless variation. Do not run `make test-ui`, do not run `xcodebuild test` unless it explicitly preserves the Dev configuration, and do not proceed if the command would touch `~/Library/Application Support/agent-session-manager/` instead of `~/Library/Application Support/agent-session-manager.dev/`.
+
 **5. Commit & PR** — After all CI checks pass, automatically:
 
 1. Stage and commit all changes with a message that includes the issue number and explains *why* the change was made.
@@ -81,7 +83,7 @@ swift test                                                        # unit tests (
 make lint                                                         # swift-format check (matches CI)
 swiftlint lint --strict --config .swiftlint.yml                   # swiftlint check (matches CI)
 make xcodeproj                                                    # regenerate after project.yml changes
-make test-ui-dev                                                  # UI tests against dev build (isolated from prod settings)
+make test-ui-dev                                                  # ONLY approved default UI test command; isolated from prod settings
 make reset-app-state-dev                                          # clear dev settings if a test run was interrupted mid-tearDown
 make reset-app-state                                              # same for prod settings
 ```
@@ -89,6 +91,13 @@ make reset-app-state                                              # same for pro
 ## UI test maintenance
 
 `UITestAppSupport.directory` (`UITests/Helpers/UITestAppSupport.swift`) is the single source of truth for which app support directory UITests read and write. It returns `agent-session-manager.dev` when compiled with `DEV_BUILD` (`-configuration Dev`), and `agent-session-manager` otherwise.
+
+Before any ad hoc or focused UITest run, verify all three conditions:
+- The command includes `-configuration Dev` or delegates to `make test-ui-dev`.
+- The derived bundle identifier will contain `.dev` or `.xcode-dev`, never the production bundle identifier.
+- The persisted-state directory is `~/Library/Application Support/agent-session-manager.dev/`.
+
+If any of those checks fail or are unknown, stop and fix the command before launching the test runner. Do not "just try it" against production.
 
 When a new settings file is added to the app, update it in **two places**:
 1. `UITests/Helpers/BaseTestCase.swift` — `clearPersistedState()` file list

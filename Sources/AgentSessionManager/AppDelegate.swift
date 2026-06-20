@@ -9,7 +9,7 @@ private final class SettingsWindow: NSWindow {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
     let appSettings = AppSettings()
     private var mainWindow: NSWindow?
@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setContentSize(NSSize(width: 1200, height: 800))
         window.center()
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        Theme.configure(window: window, using: Theme.mainWindowChrome)
         let controller = NSWindowController(window: window)
         controller.showWindow(nil)
         mainWindow = window
@@ -98,26 +99,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 rootView: SettingsView()
                     .environment(appState)
                     .environment(appSettings)
+                    .preferredColorScheme(.dark)
+                    .tint(Theme.accent)
             )
             let window = SettingsWindow(contentViewController: hosting)
-            window.title = "Settings"
-            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.title = "AgentSessionManager Settings"
+            window.styleMask = [.titled, .closable]
             window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
             window.isReleasedWhenClosed = false
-            window.setContentSize(NSSize(width: 820, height: 600))
+            window.setContentSize(NSSize(width: 900, height: 552))
             window.center()
-            window.delegate = self
+            Theme.configure(window: window, using: Theme.settingsWindowChrome)
             settingsWindow = window
             settingsWindowController = NSWindowController(window: window)
         }
-        appState.isSettingsPresented = true
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        guard (notification.object as? NSWindow) === settingsWindow else { return }
-        appState.isSettingsPresented = false
     }
 
     func applicationWillBecomeActive(_ notification: Notification) {

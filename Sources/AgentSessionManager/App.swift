@@ -68,7 +68,9 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(Theme.controlBackground)
+        .preferredColorScheme(.dark)
+        .tint(Theme.accent)
         .task {
             if let config = SettingsPersistence.load(DefaultBranchConfig.self, from: "default-branch.json") {
                 appSettings.isDefaultBranchEnabled = config.isEnabled
@@ -426,6 +428,23 @@ struct EmptyStateView: View {
     }
 }
 
+enum WindowEventRouting {
+    @MainActor
+    static func shouldHandleMainWindowEvent(hostWindow: NSWindow?, eventWindow: NSWindow?) -> Bool {
+        guard let hostWindow, let eventWindow else { return false }
+        return hostWindow === eventWindow
+    }
+}
+
+private final class WindowTrackingView: NSView {
+    var onWindowChanged: ((NSWindow?) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        onWindowChanged?(window)
+    }
+}
+
 // Captures ⌘W / ⌘1-9 via local event monitor, and tracks active pane via mouse-down.
 private struct KeyboardShortcutView: NSViewRepresentable {
     let appState: AppState
@@ -434,19 +453,27 @@ private struct KeyboardShortcutView: NSViewRepresentable {
     let onSwitchTab: (Int) -> Void
     let onRefreshPane: () -> Void
 
-    func makeNSView(context: Context) -> NSView { NSView() }
+    func makeNSView(context: Context) -> WindowTrackingView { WindowTrackingView() }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
+    func updateNSView(_ nsView: WindowTrackingView, context: Context) {
         let coordinator = context.coordinator
         coordinator.onClosePane = onClosePane
         coordinator.onCloseTab = onCloseTab
         coordinator.onSwitchTab = onSwitchTab
         coordinator.onRefreshPane = onRefreshPane
         coordinator.appState = appState
+        nsView.onWindowChanged = { [weak coordinator] window in
+            coordinator?.hostWindow = window
+        }
+        coordinator.hostWindow = nsView.window
         guard coordinator.keyMonitor == nil else { return }
 
         coordinator.keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if coordinator.appState?.isSettingsPresented == true { return event }
+            let shouldHandleEvent = WindowEventRouting.shouldHandleMainWindowEvent(
+                hostWindow: coordinator.hostWindow,
+                eventWindow: event.window
+            )
+            guard shouldHandleEvent else { return event }
             // Intercept Shift+Return so Claude CLI receives the Kitty keyboard protocol
             // Shift+Enter sequence (ESC [ 13 ; 2 u) instead of plain carriage return.
             // SwiftTerm's doCommand(by:) discards the shift modifier for insertNewline,
@@ -483,7 +510,12 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         }
 
         coordinator.mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
-            if event.window != nil, let appState = coordinator.appState, let tab = appState.activeTab {
+            let shouldHandleEvent = WindowEventRouting.shouldHandleMainWindowEvent(
+                hostWindow: coordinator.hostWindow,
+                eventWindow: event.window
+            )
+            guard shouldHandleEvent else { return event }
+            if let appState = coordinator.appState, let tab = appState.activeTab {
                 let loc = event.locationInWindow
                 for pane in tab.panes {
                     guard let termView = pane.terminalController?.terminalView else { continue }
@@ -498,6 +530,11 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         }
 
         coordinator.scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            let shouldHandleEvent = WindowEventRouting.shouldHandleMainWindowEvent(
+                hostWindow: coordinator.hostWindow,
+                eventWindow: event.window
+            )
+            guard shouldHandleEvent else { return event }
             guard let window = event.window else { return event }
             guard abs(event.deltaY) >= 0.5 else { return event }
             let point = event.locationInWindow
@@ -541,6 +578,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         var onSwitchTab: (Int) -> Void = { _ in }
         var onRefreshPane: () -> Void = {}
         var appState: AppState?
+        weak var hostWindow: NSWindow?
         var keyMonitor: Any?
         var mouseMonitor: Any?
         var scrollWheelMonitor: Any?

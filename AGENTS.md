@@ -76,9 +76,13 @@ swift test --filter CLIOptionConfigTests/testSpecificTest  # run a single test
 **UI tests** (requires Xcode + xcodegen):
 ```bash
 make xcodeproj    # regenerate if project.yml changed
-make test-ui-dev  # xcodebuild test with UITests scheme (Dev build)
+make test-ui-dev  # ONLY approved default UI test command; runs the UITests scheme in the Dev build
 make open-results # open .xcresult bundle to inspect failures
 ```
+
+**WARNING**: Never run UI tests against production. `make test-ui`, `xcodebuild test` without `-configuration Dev`, or any run that targets `com.justinfuller.agent-session-manager`, `com.justinfuller.agent-session-manager.xcode-release`, or `~/Library/Application Support/agent-session-manager/` is a blocking mistake because it can read or dirty real app state. Stop and fix the invocation before running the tests.
+
+If you must run a focused `xcodebuild test` command, keep the same isolation guarantees as `make test-ui-dev`: pass `-configuration Dev`, confirm the app support path resolves under `~/Library/Application Support/agent-session-manager.dev/`, and treat any missing `.dev` / `.xcode-dev` marker as a failure in the command itself. If a dev UITest run is interrupted before tearDown completes, clean up with `make reset-app-state-dev`.
 
 **IMPORTANT**: Update the test suite with every change. Unit tests live in `Tests/` (e.g. `CLIOptionConfigTests.swift`, `WorktreeListParserTests.swift`). UI tests live in `UITests/`. The app passes `--uitesting-skip-restore` during UI test runs to bypass session restoration.
 

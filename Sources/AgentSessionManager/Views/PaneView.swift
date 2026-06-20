@@ -36,18 +36,18 @@ struct PaneView: View {
                     .buttonStyle(.bordered)
                 }
                 .padding(16)
-                .background(.regularMaterial)
+                .background(Theme.overlayMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
                 .accessibilityIdentifier("pane-exit-prompt-\(pane.name)")
             }
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Theme.paneBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(
-                    isActive ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.1),
+                    isActive ? Theme.accent.opacity(0.6) : Color.primary.opacity(0.1),
                     lineWidth: isActive ? 1.5 : 1
                 )
         )
@@ -150,7 +150,7 @@ struct PaneView: View {
             .accessibilityIdentifier("pane-close-\(pane.name)")
             .accessibilityLabel("close-\(pane.name)")
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.windowBackground)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pane-header-\(pane.name)")
     }
@@ -210,7 +210,7 @@ struct PaneView: View {
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                        .background(Theme.overlayMaterial, in: RoundedRectangle(cornerRadius: 6))
                 }
         }
     }
@@ -270,7 +270,7 @@ struct PaneView: View {
                     .buttonStyle(.bordered)
             }
             .padding(16)
-            .background(.regularMaterial)
+            .background(Theme.overlayMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -278,7 +278,7 @@ struct PaneView: View {
         } else if case .loading = pane.setupState {
             paneLoadingView
         } else {
-            Color(nsColor: .textBackgroundColor)
+            Theme.paneBackground
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
         }
@@ -293,7 +293,7 @@ struct PaneView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(16)
-        .background(.regularMaterial)
+        .background(Theme.overlayMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
         .frame(maxWidth: .infinity, maxHeight: .infinity)

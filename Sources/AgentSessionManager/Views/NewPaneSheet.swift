@@ -123,7 +123,7 @@ struct NewPaneSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(isRefreshing ? "Refresh Pane" : "New Pane")
                 .font(.headline)
 
@@ -159,7 +159,9 @@ struct NewPaneSheet: View {
             actionButtons
         }
         .padding(24)
-        .frame(minWidth: 620, idealWidth: 620, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
+        .frame(width: 620, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
+        .pinnedSheetBackground()
         .sheet(isPresented: $showSaveProfileSheet) {
             SaveProfileSheet(
                 suggestedName: selectedProfile?.name ?? "",
@@ -243,6 +245,8 @@ struct NewPaneSheet: View {
                         .tag(profile.id as UUID?)
                     }
                 }
+                .pickerStyle(.menu)
+                .frame(width: 180, alignment: .leading)
                 .labelsHidden()
                 .accessibilityIdentifier("new-pane-profile-picker")
                 .onChange(of: selectedProfileID) { _, _ in
@@ -266,7 +270,7 @@ struct NewPaneSheet: View {
                     (Text("No tools are active. Enable a tool in ")
                         .foregroundStyle(.secondary)
                         + Text("Settings \u{2192} Tools")
-                        .foregroundColor(.accentColor))
+                        .foregroundColor(Theme.accent))
                 }
                 .font(.subheadline)
             } else {
@@ -739,6 +743,7 @@ private struct SaveProfileSheet: View {
         }
         .padding(24)
         .frame(width: 320)
+        .pinnedSheetBackground()
         .onAppear {
             profileName = suggestedName
             isFocused = true
@@ -833,7 +838,7 @@ private struct HiddenCLIOptionToggleRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }
@@ -861,7 +866,7 @@ private struct HiddenEnvVarToggleRow: View {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
         }
     }

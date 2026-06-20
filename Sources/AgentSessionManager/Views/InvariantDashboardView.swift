@@ -24,6 +24,16 @@ struct InvariantDashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack {
+                Text("Invariant Dashboard")
+                    .font(.system(size: 20, weight: .bold))
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+            .background(Theme.mac26WindowChrome)
+
             HStack(spacing: 8) {
                 TextField("Filter violations...", text: $filter)
                     .textFieldStyle(.roundedBorder)
@@ -38,7 +48,7 @@ struct InvariantDashboardView: View {
                 .accessibilityIdentifier("invariant-dashboard-refresh-button")
             }
             .padding(12)
-            .background(Color(nsColor: .controlBackgroundColor))
+            .background(Theme.mac26WindowChrome)
 
             if let writerError = repository.writerError {
                 Text("Invariant log write failed: \(writerError)")
@@ -48,32 +58,72 @@ struct InvariantDashboardView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            Table(filteredViolations, selection: $selectedID) {
-                TableColumn("Time") { violation in
-                    Text(violation.timestamp, style: .time)
-                }
-                .width(min: 80, ideal: 100)
-                TableColumn("Integration", value: \.integration)
-                    .width(min: 100, ideal: 120)
-                TableColumn("Severity") { violation in
-                    Text(violation.severity.rawValue.capitalized)
-                }
-                .width(min: 70, ideal: 80)
-                TableColumn("ID", value: \.invariantID)
-                    .width(min: 160, ideal: 200)
-                TableColumn("Description", value: \.description)
-            }
-            .accessibilityIdentifier("invariant-dashboard-table")
+            invariantTable
 
             Divider()
             contextPanel
         }
-        .frame(minWidth: 760, minHeight: 440)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(minWidth: 900, minHeight: 600)
+        .background(Theme.mac26Content)
         .task { repository.start() }
         .onReceive(NotificationCenter.default.publisher(for: .invariantReporterDidChange)) { _ in
             repository.start()
         }
+    }
+
+    private var invariantTable: some View {
+        GeometryReader { geometry in
+            let width = max(geometry.size.width, 900)
+            let fixedWidth: CGFloat = 120 + 180 + 140 + 300
+            let descriptionWidth = max(200, width - fixedWidth - 48)
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    headerCell("Time", width: 120)
+                    headerCell("Integration", width: 180)
+                    headerCell("Severity", width: 140)
+                    headerCell("ID", width: 300)
+                    headerCell("Description", width: descriptionWidth)
+                }
+                .background(Theme.mac26Sidebar)
+
+                Divider()
+
+                if filteredViolations.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.quaternary)
+                        Text("No invariant violations recorded.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(filteredViolations.enumerated()), id: \.element.id) { index, violation in
+                                InvariantRow(
+                                    violation: violation,
+                                    descriptionWidth: descriptionWidth,
+                                    isSelected: selectedID == violation.id,
+                                    rowIndex: index,
+                                    onSelect: { selectedID = violation.id }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            .accessibilityIdentifier("invariant-dashboard-table")
+        }
+    }
+
+    private func headerCell(_ title: String, width: CGFloat) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .frame(width: width, height: 40, alignment: .leading)
+            .padding(.leading, 16)
     }
 
     @ViewBuilder
@@ -99,6 +149,56 @@ struct InvariantDashboardView: View {
                 .frame(height: 60)
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("invariant-dashboard-empty-detail")
+        }
+    }
+}
+
+private struct InvariantRow: View {
+    let violation: InvariantViolation
+    let descriptionWidth: CGFloat
+    let isSelected: Bool
+    let rowIndex: Int
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 0) {
+                Text(violation.timestamp, style: .time)
+                    .frame(width: 120, alignment: .leading)
+                    .padding(.leading, 16)
+                Text(violation.integration)
+                    .frame(width: 180, alignment: .leading)
+                    .padding(.leading, 16)
+                Text(violation.severity.rawValue.capitalized)
+                    .frame(width: 140, alignment: .leading)
+                    .padding(.leading, 16)
+                Text(violation.invariantID)
+                    .frame(width: 300, alignment: .leading)
+                    .padding(.leading, 16)
+                Text(violation.description)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(width: descriptionWidth, alignment: .leading)
+                    .padding(.leading, 16)
+            }
+            .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36, alignment: .leading)
+            .background(rowBackground)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("invariant-dashboard-row")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var rowBackground: some View {
+        Group {
+            if isSelected {
+                Theme.mac26SelectedBlue.opacity(0.2)
+            } else if rowIndex.isMultiple(of: 2) {
+                Theme.mac26Sidebar
+            } else {
+                Theme.mac26AltRow
+            }
         }
     }
 }
