@@ -307,8 +307,7 @@ final class SettingsFlowTests: BaseTestCase {
     private func assertOnlySidebarShowsSelectedSectionTitle(_ title: String, in window: XCUIElement) {
         let predicate = NSPredicate(format: "label == %@", title)
         let matchingTitles =
-            window.buttons.matching(predicate).count +
-            window.staticTexts.matching(predicate).count
+            window.buttons.matching(predicate).count + window.staticTexts.matching(predicate).count
         XCTAssertEqual(
             matchingTitles,
             1,
