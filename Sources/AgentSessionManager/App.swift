@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+enum MainWindowChromeMetrics {
+    static let barHeight: CGFloat = 44
+}
+
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
@@ -23,49 +27,43 @@ struct ContentView: View {
         let hideNotificationSidebar =
             appSettings.hideNotificationSidebarWhileFocused
             && appState.activeTab?.focusedPaneID != nil
-        VStack(spacing: 0) {
-            TabBarView()
-                .frame(height: 44)
+        let showNotificationSidebar =
+            (hasNotifications || appSettings.alwaysShowNotificationsSidebar)
+            && !hideNotificationSidebar
+        HStack(spacing: 0) {
+            if appSettings.notificationSidebarSide == .left && showNotificationSidebar {
+                NotificationSidebarView()
+                    .environment(appState)
+                    .environment(appSettings)
+                Divider()
+            }
 
-            Divider()
+            VStack(spacing: 0) {
+                TabBarView()
+                    .frame(height: MainWindowChromeMetrics.barHeight)
+                    .accessibilityIdentifier("tab-bar")
 
-            ZStack {
-                HStack(spacing: 0) {
-                    if appSettings.notificationSidebarSide == .left
-                        && (hasNotifications
-                            || appSettings.alwaysShowNotificationsSidebar)
-                        && !hideNotificationSidebar
-                    {
-                        NotificationSidebarView()
-                            .environment(appState)
-                            .environment(appSettings)
-                        Divider()
-                    }
+                Divider()
 
-                    Group {
-                        if appState.tabs.isEmpty {
-                            EmptyStateView()
-                        } else if let tab = appState.activeTab {
-                            PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    if appSettings.notificationSidebarSide == .right
-                        && (hasNotifications
-                            || appSettings.alwaysShowNotificationsSidebar)
-                        && !hideNotificationSidebar
-                    {
-                        Divider()
-                        NotificationSidebarView()
-                            .environment(appState)
-                            .environment(appSettings)
+                Group {
+                    if appState.tabs.isEmpty {
+                        EmptyStateView()
+                    } else if let tab = appState.activeTab {
+                        PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityIdentifier("workspace-column")
+
+            if appSettings.notificationSidebarSide == .right && showNotificationSidebar {
+                Divider()
+                NotificationSidebarView()
+                    .environment(appState)
+                    .environment(appSettings)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.controlBackground)

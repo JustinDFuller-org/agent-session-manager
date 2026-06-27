@@ -10,5 +10,13 @@ final class NotificationSidebarThemeTests: XCTestCase {
 
         XCTAssertEqual(NSColor(NotificationSidebarTheme.containerBackground), expected)
         XCTAssertEqual(NSColor(NotificationSidebarTheme.headerBackground), expected)
+        XCTAssertEqual(NSColor(NotificationSidebarTheme.footerBackground), expected)
+    }
+
+    func testNotificationSidebarChromeMetricsMatchMainWindowChrome() {
+        XCTAssertEqual(NotificationSidebarMetrics.width, 240)
+        XCTAssertEqual(MainWindowChromeMetrics.barHeight, 44)
+        XCTAssertEqual(NotificationSidebarMetrics.headerHeight, MainWindowChromeMetrics.barHeight)
+        XCTAssertEqual(NotificationSidebarMetrics.footerHeight, MainWindowChromeMetrics.barHeight)
     }
 }

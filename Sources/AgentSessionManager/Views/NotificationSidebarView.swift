@@ -4,6 +4,13 @@ enum NotificationSidebarTheme {
     static let surfaceBackground = Theme.sidebarBackground
     static let containerBackground = surfaceBackground
     static let headerBackground = surfaceBackground
+    static let footerBackground = surfaceBackground
+}
+
+enum NotificationSidebarMetrics {
+    static let width: CGFloat = 240
+    static let headerHeight = MainWindowChromeMetrics.barHeight
+    static let footerHeight = MainWindowChromeMetrics.barHeight
 }
 
 struct NotificationSidebarView: View {
@@ -43,9 +50,10 @@ struct NotificationSidebarView: View {
                 .padding(.vertical, 4)
             }
             Divider()
-            clearAllButton
+            footer
         }
-        .frame(width: 240)
+        .frame(width: NotificationSidebarMetrics.width)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(NotificationSidebarTheme.containerBackground)
         .accessibilityIdentifier("notification-sidebar")
     }
@@ -57,8 +65,25 @@ struct NotificationSidebarView: View {
                 .foregroundStyle(.primary)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: NotificationSidebarMetrics.headerHeight,
+            maxHeight: NotificationSidebarMetrics.headerHeight,
+            alignment: .leading
+        )
         .background(NotificationSidebarTheme.headerBackground)
+        .accessibilityIdentifier("notification-sidebar-header")
+    }
+
+    private var footer: some View {
+        clearAllButton
+            .frame(
+                maxWidth: .infinity,
+                minHeight: NotificationSidebarMetrics.footerHeight,
+                maxHeight: NotificationSidebarMetrics.footerHeight
+            )
+            .contentShape(Rectangle())
+            .background(NotificationSidebarTheme.footerBackground)
     }
 
     private var clearAllButton: some View {
@@ -68,12 +93,10 @@ struct NotificationSidebarView: View {
         } label: {
             Text("Clear All")
                 .font(.system(size: 11))
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
         .accessibilityIdentifier("notification-clear-all")
     }
 

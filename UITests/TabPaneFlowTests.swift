@@ -51,6 +51,66 @@ final class TabPaneFlowTests: BaseTestCase {
         waitForDisappear(app.staticTexts["pane-name-reader"].firstMatch)
     }
 
+    func testNotificationSidebarUsesFullHeightLayout() {
+        createTab(named: "LayoutTab")
+        createPane(named: "layout-pane")
+
+        assertNotificationSidebarGeometry(expectedSidebarOnRight: false)
+
+        app.typeKey(",", modifierFlags: .command)
+        let settingsWindow = app.windows["AgentSessionManager Settings"]
+        waitFor(settingsWindow)
+
+        let notificationsTab = settingsWindow.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-notifications").firstMatch
+        waitFor(notificationsTab)
+        notificationsTab.click()
+
+        let sidebarSide = settingsWindow.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-side").firstMatch
+        waitFor(sidebarSide)
+        let rightSideButton = sidebarSide.buttons["Right"].firstMatch
+        if rightSideButton.waitForExistence(timeout: 2) {
+            rightSideButton.click()
+        } else {
+            sidebarSide.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5)).click()
+        }
+
+        app.typeKey("w", modifierFlags: .command)
+        waitForDisappear(settingsWindow)
+        assertNotificationSidebarGeometry(expectedSidebarOnRight: true)
+    }
+
+    private func assertNotificationSidebarGeometry(expectedSidebarOnRight: Bool) {
+        let sidebar = app.descendants(matching: .any).matching(identifier: "notification-sidebar").firstMatch
+        let sidebarHeader = app.descendants(matching: .any)
+            .matching(identifier: "notification-sidebar-header").firstMatch
+        let workspaceColumn = app.descendants(matching: .any).matching(identifier: "workspace-column").firstMatch
+        let tabBar = app.descendants(matching: .any).matching(identifier: "tab-bar").firstMatch
+
+        waitFor(sidebar)
+        waitFor(sidebarHeader)
+        waitFor(workspaceColumn)
+        waitFor(tabBar)
+
+        let sidebarFrame = sidebar.frame
+        let sidebarHeaderFrame = sidebarHeader.frame
+        let workspaceFrame = workspaceColumn.frame
+        let tabBarFrame = tabBar.frame
+        let tolerance = 2.0
+
+        XCTAssertLessThanOrEqual(abs(sidebarFrame.minY - workspaceFrame.minY), tolerance)
+        XCTAssertLessThanOrEqual(abs(sidebarFrame.maxY - workspaceFrame.maxY), tolerance)
+        XCTAssertLessThanOrEqual(abs(sidebarHeaderFrame.maxY - tabBarFrame.maxY), tolerance)
+        XCTAssertFalse(tabBarFrame.intersects(sidebarFrame))
+
+        if expectedSidebarOnRight {
+            XCTAssertGreaterThanOrEqual(sidebarFrame.minX, workspaceFrame.maxX - tolerance)
+        } else {
+            XCTAssertLessThanOrEqual(sidebarFrame.maxX, workspaceFrame.minX + tolerance)
+        }
+    }
+
     func testOpenShellHereNamesShellPaneAfterSourcePane() {
         createTab(named: "ShellTab")
         createPane(named: "reader")
