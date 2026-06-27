@@ -94,9 +94,44 @@ final class SettingsFlowTests: BaseTestCase {
         let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
         waitFor(shortcutsTab)
         shortcutsTab.click()
-        let closeTabShortcut = app.staticTexts["Close Active Tab"]
-        waitFor(closeTabShortcut)
-        XCTAssertTrue(closeTabShortcut.exists)
+        assertOnlySidebarShowsSelectedSectionTitle("Shortcuts", in: settingsWindow)
+        let closeTabTitle = app.staticTexts["settings-shortcut-title-close-tab"]
+        waitFor(closeTabTitle)
+        XCTAssertEqual(closeTabTitle.value as? String, "Close Active Tab")
+        let closeTabDescription = app.staticTexts["settings-shortcut-description-close-tab"]
+        waitFor(closeTabDescription)
+        XCTAssertEqual(closeTabDescription.value as? String, "Close the current tab")
+        let closeTabKeyField = app.textFields["settings-shortcut-key-close-tab"]
+        waitFor(closeTabKeyField)
+
+        XCTAssertGreaterThan(
+            closeTabDescription.frame.minY,
+            closeTabTitle.frame.maxY - 1,
+            "Shortcut description should sit below the title"
+        )
+        XCTAssertLessThan(
+            closeTabDescription.frame.minY - closeTabTitle.frame.maxY,
+            20,
+            "Shortcut description should stay close to the title"
+        )
+
+        let keyToTitleDistance = abs(closeTabKeyField.frame.midY - closeTabTitle.frame.midY)
+        let keyToDescriptionDistance = abs(closeTabKeyField.frame.midY - closeTabDescription.frame.midY)
+        XCTAssertLessThan(
+            keyToTitleDistance,
+            12,
+            "Shortcut key editor should stay on the title baseline"
+        )
+        XCTAssertLessThan(
+            keyToTitleDistance,
+            keyToDescriptionDistance,
+            "Shortcut key editor should align with the title row, not the description row"
+        )
+        XCTAssertGreaterThan(
+            keyToDescriptionDistance - keyToTitleDistance,
+            8,
+            "Shortcut key editor should be visibly farther from the description than the title"
+        )
 
         // ── Status Line tab ──────────────────────────────────────────────────
         let statusLineTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-status-line")

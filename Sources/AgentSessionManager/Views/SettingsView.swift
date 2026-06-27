@@ -733,24 +733,30 @@ private struct KeyboardShortcutsContent: View {
 
     var body: some View {
         Form {
-            Section("Shortcuts") {
+            Section {
                 KeyBindingRow(
+                    id: "new-tab",
                     label: "New Tab", description: "Open the New Tab sheet", modifier: "⌘",
                     key: $newTabKey)
                 KeyBindingRow(
+                    id: "new-pane",
                     label: "New Pane in Current Tab", description: "Open the New Pane sheet",
                     modifier: "⌘", key: $newPaneKey)
                 KeyBindingRow(
+                    id: "close-pane",
                     label: "Close Active Pane", description: "Close the focused pane", modifier: "⌘",
                     key: $closePaneKey)
                 KeyBindingRow(
+                    id: "close-tab",
                     label: "Close Active Tab", description: "Close the current tab", modifier: "⌘",
                     key: $closeTabKey)
                 KeyBindingRow(
+                    id: "open-shell-here",
                     label: "Open Shell Here",
                     description: "Open a new plain shell pane in the same working directory",
                     modifier: "⌘⇧", key: $openShellHereKey)
                 KeyBindingRow(
+                    id: "refresh-pane",
                     label: "Refresh Active Pane",
                     description: "Restart pane with fresh environment",
                     modifier: "⌘", key: $refreshPaneKey)
@@ -780,6 +786,7 @@ private struct KeyboardShortcutsContent: View {
 }
 
 private struct KeyBindingRow: View {
+    let id: String
     let label: String
     let description: String
     let modifier: String
@@ -790,21 +797,26 @@ private struct KeyBindingRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .top) {
+            HStack(alignment: .center, spacing: 16) {
                 Text(label)
                     .font(.system(.body, design: .monospaced))
                     .fontWeight(.medium)
-                Spacer()
-                HStack(alignment: .center, spacing: 4) {
+                    .accessibilityIdentifier("settings-shortcut-title-\(id)")
+
+                Spacer(minLength: 16)
+
+                HStack(spacing: 4) {
                     Text(modifier)
                         .font(.system(.body, design: .monospaced))
                         .foregroundStyle(.secondary)
                     TextField("", text: $draft)
                         .textFieldStyle(.roundedBorder)
+                        .controlSize(.small)
                         .font(.system(.body, design: .monospaced))
                         .frame(width: 36)
                         .multilineTextAlignment(.center)
                         .focused($isFocused)
+                        .accessibilityIdentifier("settings-shortcut-key-\(id)")
                         .onChange(of: draft) {
                             let trimmed = String(draft.prefix(1)).lowercased()
                             if draft != trimmed {
@@ -823,11 +835,15 @@ private struct KeyBindingRow: View {
                         .onAppear { draft = key }
                 }
             }
+
             Text(description)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityIdentifier("settings-shortcut-description-\(id)")
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("settings-shortcut-row-\(id)")
     }
 }
 
