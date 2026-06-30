@@ -48,8 +48,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         -> UNMutableNotificationContent
     {
         let content = UNMutableNotificationContent()
-        content.title = "Agent Session Manager"
-        content.subtitle = "\(tabName) / \(paneName)"
+        content.title = tabName
+        content.subtitle = paneName
         content.body = escapedBannerBody(reason)
         return content
     }
@@ -60,8 +60,8 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         -> UNMutableNotificationContent
     {
         let content = UNMutableNotificationContent()
-        content.title = "PR Merged"
-        content.subtitle = "\(tabName) / \(paneName)"
+        content.title = tabName
+        content.subtitle = paneName
         content.body = escapedBannerBody("PR #\(prNumber) merged: \(prTitle)")
         return content
     }
@@ -118,7 +118,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 TracingService.shared.record(
                     "notification.pane_attention.posted",
                     attributes: paneAttributes.merging([
-                        "title": "Agent Session Manager",
                         "reason": reason,
                         "source": source.rawValue,
                         "result": "posted",
