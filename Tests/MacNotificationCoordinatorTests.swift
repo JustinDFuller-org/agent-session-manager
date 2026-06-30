@@ -118,8 +118,8 @@ final class MacNotificationCoordinatorTests: XCTestCase {
     func testPaneAttentionContentIncludesContextReasonAndEscapedPercent() {
         let content = MacNotificationCoordinator.makePaneAttentionContent(
             tabName: "Tab", paneName: "Pane", reason: "Build is 50% complete")
-        XCTAssertEqual(content.title, "Agent Session Manager")
-        XCTAssertEqual(content.subtitle, "Tab / Pane")
+        XCTAssertEqual(content.title, "Tab")
+        XCTAssertEqual(content.subtitle, "Pane")
         XCTAssertEqual(content.body, "Build is 50%% complete")
         XCTAssertTrue(content.attachments.isEmpty)
     }
@@ -127,8 +127,8 @@ final class MacNotificationCoordinatorTests: XCTestCase {
     func testPRMergedContentIncludesContextTitleAndEscapedPercent() {
         let content = MacNotificationCoordinator.makePRMergedContent(
             tabName: "Tab", paneName: "Pane", prNumber: 42, prTitle: "Reach 100%")
-        XCTAssertEqual(content.title, "PR Merged")
-        XCTAssertEqual(content.subtitle, "Tab / Pane")
+        XCTAssertEqual(content.title, "Tab")
+        XCTAssertEqual(content.subtitle, "Pane")
         XCTAssertEqual(content.body, "PR #42 merged: Reach 100%%")
         XCTAssertTrue(content.attachments.isEmpty)
     }
