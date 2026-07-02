@@ -47,6 +47,11 @@ final class StatusLineMonitor {
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
+    private var pendingStopWork: DispatchWorkItem?
+    /// A forced-continue flow re-enters `.working` via `UserPromptSubmit` shortly after a `Stop` —
+    /// deferring the callback lets that resume cancel the spurious first chime. Tunable if real-world
+    /// continuation timing needs adjustment.
+    var stopNotificationGracePeriod: TimeInterval = 1.8
     private var agnosticProvider: (any StatusLineDataProvider)?
     private var gitDiffTimer: Timer?
     private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
@@ -286,6 +291,8 @@ final class StatusLineMonitor {
                 "tab.name": tabName,
             ])
         stopAttentionWatcher()
+        pendingStopWork?.cancel()
+        pendingStopWork = nil
         agnosticProvider?.stop()
         if !isClaude {
             TracingService.shared.record(
@@ -547,6 +554,8 @@ final class StatusLineMonitor {
         guard let payload = try? JSONDecoder().decode(ClaudeActivityPayload.self, from: data) else { return }
         switch payload.hookEventName {
         case "UserPromptSubmit":
+            pendingStopWork?.cancel()
+            pendingStopWork = nil
             guard claudeLifecycle != .working else { return }
             claudeLifecycle = .working
             TracingService.shared.record(
@@ -568,10 +577,23 @@ final class StatusLineMonitor {
                     "state": "stopped", "source": "claude_hook",
                     "hook_event": payload.hookEventName,
                 ])
-            onClaudeStopped?()
+            scheduleClaudeStoppedNotification()
         default:
             return
         }
+    }
+
+    private func scheduleClaudeStoppedNotification() {
+        pendingStopWork?.cancel()
+        guard stopNotificationGracePeriod > 0 else {
+            onClaudeStopped?()
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            self?.onClaudeStopped?()
+        }
+        pendingStopWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + stopNotificationGracePeriod, execute: work)
     }
 
     private func stopAttentionWatcher() {

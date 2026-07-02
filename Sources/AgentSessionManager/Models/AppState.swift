@@ -58,6 +58,7 @@ final class AppState {
             pane.terminalController?.terminate()
             pane.installTerminalController(nil)
             pane.removeStatusLineMonitor()
+            MacNotificationCoordinator.shared.forgetPane(paneID: pane.id)
         }
         notifications.removeAll { paneIDs.contains($0.paneID) }
         tabs.removeAll { $0.id == tab.id }
@@ -162,6 +163,7 @@ final class AppState {
     }
 
     func clearNotification(paneID: UUID) {
+        MacNotificationCoordinator.shared.markPaneAcknowledged(paneID: paneID)
         if let notification = notifications.first(where: { $0.paneID == paneID }) {
             TracingService.shared.record(
                 "pane.notification.cleared",

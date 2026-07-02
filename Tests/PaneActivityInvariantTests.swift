@@ -330,6 +330,7 @@ final class PaneActivityInvariantTests: XCTestCase {
 
     func testOnClaudeStoppedCallbackFiresOncePerEdge() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.stopNotificationGracePeriod = 0
         var callCount = 0
         monitor.onClaudeStopped = { callCount += 1 }
 
@@ -344,10 +345,51 @@ final class PaneActivityInvariantTests: XCTestCase {
 
     func testOnClaudeStoppedCallbackNotFiredForLoneStop() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.stopNotificationGracePeriod = 0
         var callCount = 0
         monitor.onClaudeStopped = { callCount += 1 }
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertEqual(callCount, 0)
+    }
+
+    // MARK: - Stop notification grace-delay
+
+    func testGracePeriodZeroFiresImmediatelyOnStop() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.stopNotificationGracePeriod = 0
+        var callCount = 0
+        monitor.onClaudeStopped = { callCount += 1 }
+
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertEqual(callCount, 1)
+    }
+
+    func testForcedContinueWithinGraceCancelsSpuriousChime() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.stopNotificationGracePeriod = 0.05
+        var callCount = 0
+        monitor.onClaudeStopped = { callCount += 1 }
+
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertTrue(monitor.isClaudeStopped, "lifecycle flips to stopped immediately regardless of grace")
+
+        // Forced continuation resumes before the grace period elapses — cancels the false first chime.
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        XCTAssertEqual(callCount, 0)
+
+        let expectation = XCTestExpectation(description: "grace period elapses without firing")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { expectation.fulfill() }
+        wait(for: [expectation], timeout: 1)
+        XCTAssertEqual(callCount, 0)
+
+        // The real stop still fires exactly once.
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        let realStopExpectation = XCTestExpectation(description: "real stop fires after grace period")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { realStopExpectation.fulfill() }
+        wait(for: [realStopExpectation], timeout: 1)
+        XCTAssertEqual(callCount, 1)
     }
 
     func testClaudeActivityIgnoresMalformedAndUnrelatedPayloads() {
