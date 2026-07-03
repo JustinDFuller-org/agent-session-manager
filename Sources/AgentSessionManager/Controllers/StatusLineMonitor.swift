@@ -31,8 +31,10 @@ final class StatusLineMonitor {
     let settingsFilePath: String
     /// Written by Claude Code attention hooks so user-blocking interactions use the notification path.
     let attentionSignalFilePath: String
-    /// Written by Claude Code lifecycle hooks so activity does not depend on noisy PTY reads.
-    let activitySignalFilePath: String
+    /// Append-only log of Claude lifecycle/agent hook events, tailed for observability spans and background-agent counting.
+    let hookLogFilePath: String
+    /// App-owned Claude hook-log script invoked by lifecycle/agent hooks for this pane.
+    let hookLogScriptFilePath: String
     /// Written by Codex lifecycle hooks to bind this pane to the exact Codex session.
     let codexHookRecordFilePath: String
     /// App-owned Codex hook script invoked by lifecycle hooks for this pane.
@@ -43,7 +45,10 @@ final class StatusLineMonitor {
     private let providerContext: StatusProviderContext?
     private var source: DispatchSourceFileSystemObject?
     private var attentionSource: DispatchSourceFileSystemObject?
-    private var activitySource: DispatchSourceFileSystemObject?
+    private var hookLogSource: DispatchSourceFileSystemObject?
+    private var hookLogOffset: UInt64 = 0
+    private var hookLogLineBuffer = Data()
+    private var outstandingBackgroundAgents = 0
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
@@ -85,8 +90,10 @@ final class StatusLineMonitor {
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
         attentionSignalFilePath =
             NSTemporaryDirectory() + "agent-session-manager-claude-attention-\(paneID.uuidString).json"
-        activitySignalFilePath =
-            NSTemporaryDirectory() + "agent-session-manager-claude-activity-\(paneID.uuidString).json"
+        hookLogFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-claude-hooklog-\(paneID.uuidString).jsonl"
+        hookLogScriptFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-claude-hooklog-script-\(paneID.uuidString).py"
         codexHookRecordFilePath =
             NSTemporaryDirectory() + "agent-session-manager-codex-session-\(paneID.uuidString).json"
         codexHookScriptFilePath =
@@ -158,30 +165,11 @@ final class StatusLineMonitor {
                     "tab.name": tabName,
                 ])
             FileManager.default.createFile(atPath: filePath, contents: nil)
-            FileManager.default.createFile(atPath: activitySignalFilePath, contents: nil)
+            FileManager.default.createFile(atPath: hookLogFilePath, contents: nil)
+            writeHookLogScript()
 
             startStatusWatcher()
-            activitySource?.cancel()
-            activitySource = nil
-            let activityFD = open(activitySignalFilePath, O_EVTONLY)
-            if activityFD >= 0 {
-                let activityWatcher = DispatchSource.makeFileSystemObjectSource(
-                    fileDescriptor: activityFD,
-                    eventMask: [.write, .extend],
-                    queue: .global(qos: .utility)
-                )
-                activityWatcher.setEventHandler { [weak self] in
-                    guard let self,
-                        let data = try? Data(contentsOf: URL(filePath: self.activitySignalFilePath))
-                    else { return }
-                    Task { @MainActor in
-                        self.applyClaudeActivityPayload(data)
-                    }
-                }
-                activityWatcher.setCancelHandler { close(activityFD) }
-                activityWatcher.resume()
-                activitySource = activityWatcher
-            }
+            startHookLogWatcher()
 
             if let cwd = workingDirectory {
                 Task { [weak self] in
@@ -273,8 +261,8 @@ final class StatusLineMonitor {
     func stop() {
         source?.cancel()
         source = nil
-        activitySource?.cancel()
-        activitySource = nil
+        hookLogSource?.cancel()
+        hookLogSource = nil
         gitDiffTimer?.invalidate()
         gitDiffTimer = nil
         TracingService.shared.record(
@@ -299,7 +287,8 @@ final class StatusLineMonitor {
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
-        try? FileManager.default.removeItem(atPath: activitySignalFilePath)
+        try? FileManager.default.removeItem(atPath: hookLogFilePath)
+        try? FileManager.default.removeItem(atPath: hookLogScriptFilePath)
         try? FileManager.default.removeItem(atPath: codexHookRecordFilePath)
         try? FileManager.default.removeItem(atPath: codexHookScriptFilePath)
     }
@@ -530,7 +519,7 @@ final class StatusLineMonitor {
         let settings = Self.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: filePath,
             attentionOutputPath: attentionSignalFilePath,
-            activityOutputPath: activitySignalFilePath,
+            hookLogScriptPath: hookLogScriptFilePath,
             hidePRStatus: prTrackingEnabled
         )
         guard let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted) else { return }
@@ -547,6 +536,7 @@ final class StatusLineMonitor {
         guard let payload = try? JSONDecoder().decode(ClaudeActivityPayload.self, from: data) else { return }
         switch payload.hookEventName {
         case "UserPromptSubmit":
+            recordHookEventSpan(payload, decision: nil)
             guard claudeLifecycle != .working else { return }
             claudeLifecycle = .working
             TracingService.shared.record(
@@ -558,7 +548,14 @@ final class StatusLineMonitor {
                     "hook_event": payload.hookEventName,
                 ])
         case "Stop", "StopFailure":
-            guard claudeLifecycle == .working else { return }
+            guard claudeLifecycle == .working else {
+                recordHookEventSpan(payload, decision: "ignored_not_working")
+                return
+            }
+            guard outstandingBackgroundAgents == 0 else {
+                recordHookEventSpan(payload, decision: "suppressed_background_agents")
+                return
+            }
             claudeLifecycle = .stopped
             TracingService.shared.record(
                 "pane.activity.changed",
@@ -568,7 +565,16 @@ final class StatusLineMonitor {
                     "state": "stopped", "source": "claude_hook",
                     "hook_event": payload.hookEventName,
                 ])
+            recordHookEventSpan(payload, decision: "fired")
             onClaudeStopped?()
+        case "SubagentStop":
+            outstandingBackgroundAgents = max(0, outstandingBackgroundAgents - 1)
+            recordHookEventSpan(payload, decision: nil)
+        case "PreToolUse":
+            outstandingBackgroundAgents += 1
+            recordHookEventSpan(payload, decision: nil)
+        case "Notification":
+            recordHookEventSpan(payload, decision: nil)
         default:
             return
         }
@@ -711,7 +717,7 @@ extension StatusLineMonitor {
     nonisolated static func makeClaudeSettingsDictionaryForTesting(
         statusOutputPath: String,
         attentionOutputPath: String,
-        activityOutputPath: String,
+        hookLogScriptPath: String,
         hidePRStatus: Bool = false
     ) -> [String: Any] {
         var settings: [String: Any] = [
@@ -724,15 +730,25 @@ extension StatusLineMonitor {
             settings["showPRStatus"] = false
             settings["prStatusFooterEnabled"] = false
         }
-        let activityHook: [[String: Any]] = [["type": "command", "command": "cat > '\(activityOutputPath)'"]]
+        let hookLogHook: [[String: Any]] = [["type": "command", "command": "'\(hookLogScriptPath)'"]]
         let attentionHook: [[String: Any]] = [["type": "command", "command": "cat > '\(attentionOutputPath)'"]]
         settings["hooks"] = [
-            "UserPromptSubmit": [["hooks": activityHook]],
-            "Stop": [["hooks": activityHook]],
-            "StopFailure": [["hooks": activityHook]],
-            "PreToolUse": [["matcher": "AskUserQuestion|ExitPlanMode", "hooks": attentionHook]],
+            "UserPromptSubmit": [["hooks": hookLogHook]],
+            "Stop": [["hooks": hookLogHook]],
+            "StopFailure": [["hooks": hookLogHook]],
+            "SubagentStop": [["hooks": hookLogHook]],
+            "PreToolUse": [
+                ["matcher": "AskUserQuestion|ExitPlanMode", "hooks": attentionHook],
+                ["matcher": "Task|Agent", "hooks": hookLogHook],
+            ],
             "PermissionRequest": [["hooks": attentionHook]],
-            "Notification": [["matcher": "permission_prompt|elicitation_dialog", "hooks": attentionHook]],
+            "Notification": [
+                [
+                    "matcher": "permission_prompt|elicitation_dialog|idle_prompt|agent_needs_input",
+                    "hooks": attentionHook,
+                ],
+                ["hooks": hookLogHook],
+            ],
             "Elicitation": [["hooks": attentionHook]],
         ]
         return settings
@@ -771,12 +787,136 @@ extension StatusLineMonitor {
             ofItemAtPath: codexHookScriptFilePath)
         FileManager.default.createFile(atPath: codexHookRecordFilePath, contents: nil)
     }
+
+    /// Writes the per-pane script that appends one compact JSON line per Claude lifecycle/agent hook
+    /// invocation to ``hookLogFilePath``. A single `O_APPEND` write keeps concurrent hook invocations
+    /// (e.g. overlapping background-agent completions) from interleaving or clobbering each other.
+    func writeHookLogScript() {
+        let script = """
+            #!/usr/bin/env python3
+            import json
+            import os
+            import sys
+            import time
+
+            payload = json.load(sys.stdin)
+            tool_input = payload.get("tool_input")
+            if not isinstance(tool_input, dict):
+                tool_input = {}
+            record = {
+                "hook_event_name": payload.get("hook_event_name", ""),
+                "type": payload.get("type"),
+                "message": payload.get("message"),
+                "agent_id": payload.get("agent_id"),
+                "agent_type": payload.get("agent_type"),
+                "tool_name": payload.get("tool_name"),
+                "subagent_type": tool_input.get("subagent_type"),
+                "transcript_path": payload.get("transcript_path"),
+                "session_id": payload.get("session_id"),
+                "timestamp": time.time()
+            }
+            line = json.dumps(record, separators=(",", ":")) + "\\n"
+            path = '\(hookLogFilePath)'
+            fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+            try:
+                os.write(fd, line.encode("utf-8"))
+            finally:
+                os.close(fd)
+            """
+        try? script.write(to: URL(filePath: hookLogScriptFilePath), atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: hookLogScriptFilePath)
+    }
+}
+
+extension StatusLineMonitor {
+    // MARK: - Claude hook-event log
+
+    private func startHookLogWatcher() {
+        hookLogSource?.cancel()
+        hookLogSource = nil
+        hookLogOffset = 0
+        hookLogLineBuffer = Data()
+        let fd = open(hookLogFilePath, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let watcher = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        watcher.setEventHandler { [weak self] in
+            self?.readNewHookLogLines()
+        }
+        watcher.setCancelHandler { close(fd) }
+        watcher.resume()
+        hookLogSource = watcher
+    }
+
+    /// Runs on the hook-log watcher's dispatch queue; `hookLogOffset`/`hookLogLineBuffer` are only touched here.
+    private func readNewHookLogLines() {
+        guard let handle = FileHandle(forReadingAtPath: hookLogFilePath) else { return }
+        defer { try? handle.close() }
+        do {
+            try handle.seek(toOffset: hookLogOffset)
+            let data = try handle.readToEnd() ?? Data()
+            guard !data.isEmpty else { return }
+            hookLogOffset += UInt64(data.count)
+            hookLogLineBuffer.append(data)
+            while let newlineIndex = hookLogLineBuffer.firstIndex(of: UInt8(ascii: "\n")) {
+                let lineData = Data(hookLogLineBuffer[..<newlineIndex])
+                let afterNewline = hookLogLineBuffer.index(after: newlineIndex)
+                hookLogLineBuffer = Data(hookLogLineBuffer[afterNewline...])
+                guard !lineData.isEmpty else { continue }
+                Task { @MainActor [weak self] in
+                    self?.applyClaudeActivityPayload(lineData)
+                }
+            }
+        } catch {}
+    }
+
+    private func recordHookEventSpan(_ payload: ClaudeActivityPayload, decision: String?) {
+        TracingService.shared.record(
+            "statusline.hook.event",
+            attributes: [
+                "pane.name": paneName, "pane.id": paneID.uuidString,
+                "tab.id": tabID.uuidString, "tab.name": tabName,
+                "hook_event": payload.hookEventName,
+                "notification_type": payload.notificationType ?? "nil",
+                "agent_type": payload.agentType ?? "nil",
+                "outstanding_count": "\(outstandingBackgroundAgents)",
+                "decision": decision ?? "n/a",
+            ])
+    }
 }
 
 private struct ClaudeActivityPayload: Decodable {
+    struct ToolInput: Decodable {
+        let subagentType: String?
+        enum CodingKeys: String, CodingKey {
+            case subagentType = "subagent_type"
+        }
+    }
+
     let hookEventName: String
+    let notificationType: String?
+    let message: String?
+    let agentID: String?
+    let agentType: String?
+    let toolName: String?
+    let toolInput: ToolInput?
+    let transcriptPath: String?
+    let sessionID: String?
 
     enum CodingKeys: String, CodingKey {
         case hookEventName = "hook_event_name"
+        case notificationType = "type"
+        case message
+        case agentID = "agent_id"
+        case agentType = "agent_type"
+        case toolName = "tool_name"
+        case toolInput = "tool_input"
+        case transcriptPath = "transcript_path"
+        case sessionID = "session_id"
     }
 }

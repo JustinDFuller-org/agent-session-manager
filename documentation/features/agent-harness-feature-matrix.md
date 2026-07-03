@@ -1,6 +1,6 @@
 # Agent Harness Feature Matrix
 
-This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, and Codex as of **June 2, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
+This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, and Codex as of **July 3, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
 
 ## Legend
 
@@ -34,7 +34,7 @@ This is the canonical, code-observed audit of Agent Session Manager integration 
 | Refresh with new settings | Implemented | Implemented | Implemented | Monitor/controller replacement goes through pane install methods that rewire callbacks. |
 | Rich status provider | Implemented | Partial | Partial | Claude uses `statusLine`; Cursor adds hook model data; Codex adds version-gated SQLite/rollout data for 0.136.x. |
 | Shared baseline status | Implemented | Implemented | Implemented | Worktree, branch, duration, lines changed, PR, and profile chips are app-owned where data is available. Cursor and Codex fetch versions. |
-| Native attention integration | Implemented | Partial | Missing | Claude uses `Notification`; Cursor uses `stop`, but setting changes do not refresh existing panes. |
+| Native attention integration | Implemented | Partial | Missing | Claude uses `Notification` (broadened to `permission_prompt\|elicitation_dialog\|idle_prompt\|agent_needs_input`) plus `SubagentStop`/`PreToolUse` background-agent gating to suppress false "finished" `Stop` notifications; Cursor uses `stop`, but setting changes do not refresh existing panes. |
 | Shared terminal attention | Implemented | Implemented | Implemented | BEL and OSC 777 flow through `TerminalController`. |
 | Notification sidebar and banners | Partial | Partial | Partial | Delivery exists, but new-pane and controller-replacement lifecycle gaps can prevent callbacks from being attached. |
 | Notification persistence | Implemented | Implemented | Implemented | Pending in-app notifications are stored in `sessions.json`. |
@@ -79,7 +79,8 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 |---|---|---|---|---|
 | BEL handling | Implemented | Implemented | Implemented | Shared terminal parser path. |
 | OSC 777 handling | Implemented | Implemented | Implemented | Shared `ESC]777;notify;title;body BEL` handler. |
-| Native hook attention | Implemented | Partial | Missing | Claude `Notification` hook is refreshed for existing panes when toggled. Cursor `stop` hook is installed, but toggling attention does not refresh existing Cursor providers. |
+| Native hook attention | Implemented | Partial | Missing | Claude `Notification` hook (`permission_prompt`, `elicitation_dialog`, `idle_prompt`, `agent_needs_input`) is refreshed for existing panes when toggled. Cursor `stop` hook is installed, but toggling attention does not refresh existing Cursor providers. |
+| Background-agent completion gating (`SubagentStop`) | Implemented | N/A | N/A | Claude registers `SubagentStop` and a `PreToolUse` matcher for `Task\|Agent`; the outstanding-agent count derived from those hooks suppresses the false "Claude finished" `Stop` notification while background agents (e.g. plan-mode Explore agents) are still running. |
 | Sidebar and pane/tab indicators | Partial | Partial | Partial | Delivery exists once callbacks are wired; see lifecycle gaps below. |
 | macOS banners | Partial | Partial | Partial | Uses the same callback path as sidebar delivery. |
 | Pending-notification persistence | Implemented | Implemented | Implemented | In-app entries survive restart through `sessions.json`; banners are not replayed. |
