@@ -293,48 +293,6 @@ final class StatusLineMonitor {
         try? FileManager.default.removeItem(atPath: codexHookScriptFilePath)
     }
 
-    private func startHookLogWatcher() {
-        hookLogSource?.cancel()
-        hookLogSource = nil
-        hookLogOffset = 0
-        hookLogLineBuffer = Data()
-        let fd = open(hookLogFilePath, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let watcher = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        watcher.setEventHandler { [weak self] in
-            self?.readNewHookLogLines()
-        }
-        watcher.setCancelHandler { close(fd) }
-        watcher.resume()
-        hookLogSource = watcher
-    }
-
-    /// Runs on the hook-log watcher's dispatch queue; `hookLogOffset`/`hookLogLineBuffer` are only touched here.
-    private func readNewHookLogLines() {
-        guard let handle = FileHandle(forReadingAtPath: hookLogFilePath) else { return }
-        defer { try? handle.close() }
-        do {
-            try handle.seek(toOffset: hookLogOffset)
-            let data = try handle.readToEnd() ?? Data()
-            guard !data.isEmpty else { return }
-            hookLogOffset += UInt64(data.count)
-            hookLogLineBuffer.append(data)
-            while let newlineIndex = hookLogLineBuffer.firstIndex(of: UInt8(ascii: "\n")) {
-                let lineData = Data(hookLogLineBuffer[..<newlineIndex])
-                let afterNewline = hookLogLineBuffer.index(after: newlineIndex)
-                hookLogLineBuffer = Data(hookLogLineBuffer[afterNewline...])
-                guard !lineData.isEmpty else { continue }
-                Task { @MainActor [weak self] in
-                    self?.applyClaudeActivityPayload(lineData)
-                }
-            }
-        } catch {}
-    }
-
     private func startStatusWatcher() {
         source?.cancel()
         source = nil
@@ -622,20 +580,6 @@ final class StatusLineMonitor {
         }
     }
 
-    private func recordHookEventSpan(_ payload: ClaudeActivityPayload, decision: String?) {
-        TracingService.shared.record(
-            "statusline.hook.event",
-            attributes: [
-                "pane.name": paneName, "pane.id": paneID.uuidString,
-                "tab.id": tabID.uuidString, "tab.name": tabName,
-                "hook_event": payload.hookEventName,
-                "notification_type": payload.notificationType ?? "nil",
-                "agent_type": payload.agentType ?? "nil",
-                "outstanding_count": "\(outstandingBackgroundAgents)",
-                "decision": decision ?? "n/a",
-            ])
-    }
-
     private func stopAttentionWatcher() {
         attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
@@ -883,6 +827,66 @@ extension StatusLineMonitor {
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o700],
             ofItemAtPath: hookLogScriptFilePath)
+    }
+}
+
+extension StatusLineMonitor {
+    // MARK: - Claude hook-event log
+
+    private func startHookLogWatcher() {
+        hookLogSource?.cancel()
+        hookLogSource = nil
+        hookLogOffset = 0
+        hookLogLineBuffer = Data()
+        let fd = open(hookLogFilePath, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let watcher = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        watcher.setEventHandler { [weak self] in
+            self?.readNewHookLogLines()
+        }
+        watcher.setCancelHandler { close(fd) }
+        watcher.resume()
+        hookLogSource = watcher
+    }
+
+    /// Runs on the hook-log watcher's dispatch queue; `hookLogOffset`/`hookLogLineBuffer` are only touched here.
+    private func readNewHookLogLines() {
+        guard let handle = FileHandle(forReadingAtPath: hookLogFilePath) else { return }
+        defer { try? handle.close() }
+        do {
+            try handle.seek(toOffset: hookLogOffset)
+            let data = try handle.readToEnd() ?? Data()
+            guard !data.isEmpty else { return }
+            hookLogOffset += UInt64(data.count)
+            hookLogLineBuffer.append(data)
+            while let newlineIndex = hookLogLineBuffer.firstIndex(of: UInt8(ascii: "\n")) {
+                let lineData = Data(hookLogLineBuffer[..<newlineIndex])
+                let afterNewline = hookLogLineBuffer.index(after: newlineIndex)
+                hookLogLineBuffer = Data(hookLogLineBuffer[afterNewline...])
+                guard !lineData.isEmpty else { continue }
+                Task { @MainActor [weak self] in
+                    self?.applyClaudeActivityPayload(lineData)
+                }
+            }
+        } catch {}
+    }
+
+    private func recordHookEventSpan(_ payload: ClaudeActivityPayload, decision: String?) {
+        TracingService.shared.record(
+            "statusline.hook.event",
+            attributes: [
+                "pane.name": paneName, "pane.id": paneID.uuidString,
+                "tab.id": tabID.uuidString, "tab.name": tabName,
+                "hook_event": payload.hookEventName,
+                "notification_type": payload.notificationType ?? "nil",
+                "agent_type": payload.agentType ?? "nil",
+                "outstanding_count": "\(outstandingBackgroundAgents)",
+                "decision": decision ?? "n/a",
+            ])
     }
 }
 
