@@ -34,11 +34,13 @@ Every harness can signal attention through the shared terminal paths:
 
 2. **OSC 777** — the sequence `ESC]777;notify;title;body` terminated with BEL (0x07). The reason uses the body, then title, then `Attention needed`; semicolons in the body are preserved. Many tools use this so the BEL byte acts as an OSC string terminator; SwiftTerm delivers that through `notify` rather than `bell()`. Both paths trigger the same in-app notification and optional macOS banner.
 
-3. **Claude attention hooks** — Agent Session Manager always merges focused hooks into each Claude pane’s `--settings` file. `PreToolUse` catches `AskUserQuestion` and `ExitPlanMode`, `PermissionRequest` catches permission dialogs, `Notification` catches `permission_prompt` and `elicitation_dialog`, and `Elicitation` catches MCP-driven input. Each writes to a temp file and raises the same attention path as a bell.
+3. **Claude attention hooks** — Agent Session Manager always merges focused hooks into each Claude pane’s `--settings` file. `PreToolUse` catches `AskUserQuestion` and `ExitPlanMode`, `PermissionRequest` catches permission dialogs, `Notification` catches `permission_prompt`, `elicitation_dialog`, `idle_prompt`, and `agent_needs_input`, and `Elicitation` catches MCP-driven input. Each writes to a temp file and raises the same attention path as a bell.
 
 4. **Cursor `stop` hook** (optional, Settings → Notifications → Cursor → **Stop hook for attention**) — Agent Session Manager installs a user-level Cursor hook that writes stdin to a per-pane temp file keyed by `AGENT_SESSION_MANAGER_PANE_ID`. The Cursor provider watches that file and raises `Agent turn completed` when a turn stops. Existing Cursor panes do not currently refresh when this setting changes.
 
 Attention events are surfaced even when the pane is the active (focused) pane, to keep testing and signals consistent.
+
+**Suppressing false "Claude finished" notifications during background agents:** Claude's `Stop` hook fires whenever the main agent's turn ends, including while background agents (launched via the `Task`/`Agent` tool, e.g. during plan mode) are still running — the main agent gets re-woken as each child completes, producing another `Stop`. Agent Session Manager also registers `SubagentStop` and a `PreToolUse` matcher for `Task|Agent`, and appends every one of these hook invocations to a per-pane hook-event log (tailed for the `statusline.hook.event` trace spans described in [tracing.md](tracing.md)). It counts outstanding background agents from that log (`PreToolUse` launches minus `SubagentStop` completions) and only fires the "Claude finished responding" notification on the `Stop` where the count is back to zero — earlier `Stop`s are suppressed and the pane keeps reading as working.
 
 **Note:** A raw BEL that appears only as the terminator of another OSC sequence does not ring the bell; that is normal terminal behavior.
 

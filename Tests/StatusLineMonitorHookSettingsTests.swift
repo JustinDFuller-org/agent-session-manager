@@ -7,23 +7,30 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
         StatusLineMonitor.makeClaudeSettingsDictionaryForTesting(
             statusOutputPath: "/tmp/status.json",
             attentionOutputPath: "/tmp/attention.json",
-            activityOutputPath: "/tmp/activity.json",
+            hookLogScriptPath: "/tmp/hooklog.py",
             hidePRStatus: hidePRStatus
         )
+    }
+
+    private func entries(for event: String, in hooks: [String: Any]) throws -> [[String: Any]] {
+        try XCTUnwrap(hooks[event] as? [[String: Any]])
     }
 
     private func firstEntry(for event: String, in hooks: [String: Any]) throws -> [String: Any] {
         try XCTUnwrap((hooks[event] as? [[String: Any]])?.first)
     }
 
+    private func command(in entry: [String: Any]) throws -> String {
+        try XCTUnwrap((entry["hooks"] as? [[String: Any]])?.first?["command"] as? String)
+    }
+
     func testMakeClaudeSettingsAlwaysIncludesLifecycleHooks() throws {
         let settings = makeSettings()
         let hooks = try XCTUnwrap(settings["hooks"] as? [String: Any])
 
-        for event in ["UserPromptSubmit", "Stop", "StopFailure"] {
+        for event in ["UserPromptSubmit", "Stop", "StopFailure", "SubagentStop"] {
             let entry = try firstEntry(for: event, in: hooks)
-            let command = try XCTUnwrap((entry["hooks"] as? [[String: Any]])?.first?["command"] as? String)
-            XCTAssertEqual(command, "cat > '/tmp/activity.json'")
+            XCTAssertEqual(try command(in: entry), "'/tmp/hooklog.py'")
         }
     }
 
@@ -36,13 +43,28 @@ final class StatusLineMonitorHookSettingsTests: XCTestCase {
         )
         XCTAssertEqual(
             try firstEntry(for: "Notification", in: hooks)["matcher"] as? String,
-            "permission_prompt|elicitation_dialog"
+            "permission_prompt|elicitation_dialog|idle_prompt|agent_needs_input"
         )
         for event in ["PreToolUse", "PermissionRequest", "Notification", "Elicitation"] {
             let entry = try firstEntry(for: event, in: hooks)
-            let command = try XCTUnwrap((entry["hooks"] as? [[String: Any]])?.first?["command"] as? String)
-            XCTAssertEqual(command, "cat > '/tmp/attention.json'")
+            XCTAssertEqual(try command(in: entry), "cat > '/tmp/attention.json'")
         }
+    }
+
+    func testMakeClaudeSettingsRoutesBackgroundAgentLaunchesToHookLog() throws {
+        let hooks = try XCTUnwrap(makeSettings()["hooks"] as? [String: Any])
+        let preToolUseEntries = try entries(for: "PreToolUse", in: hooks)
+        XCTAssertEqual(preToolUseEntries.count, 2)
+        let agentLaunchEntry = try XCTUnwrap(preToolUseEntries.first { ($0["matcher"] as? String) == "Task|Agent" })
+        XCTAssertEqual(try command(in: agentLaunchEntry), "'/tmp/hooklog.py'")
+    }
+
+    func testMakeClaudeSettingsLogsAllNotificationTypesForObservability() throws {
+        let hooks = try XCTUnwrap(makeSettings()["hooks"] as? [String: Any])
+        let notificationEntries = try entries(for: "Notification", in: hooks)
+        XCTAssertEqual(notificationEntries.count, 2)
+        let unmatched = try XCTUnwrap(notificationEntries.first { $0["matcher"] == nil })
+        XCTAssertEqual(try command(in: unmatched), "'/tmp/hooklog.py'")
     }
 
     func testMakeClaudeSettingsOmitsPRStatusFooterByDefault() {
