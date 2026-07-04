@@ -12,6 +12,7 @@ import OpenTelemetrySdk
 final class PerPaneSpanExporter: SpanExporter {
     let tracesDirectory: URL
     private let maxBytesPerFile: Int
+    private let resourceAttributes: [String: String]
     private let queue = DispatchQueue(
         label: "com.justinfuller.agent-session-manager.per-pane-exporter",
         qos: .utility
@@ -19,9 +20,70 @@ final class PerPaneSpanExporter: SpanExporter {
     // paneId (or "_global") → (fileURL, metadataWritten)
     private var writers: [String: (fileURL: URL, metadataWritten: Bool)] = [:]
 
-    init(tracesDirectory: URL, maxBytesPerFile: Int) {
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return encoder
+    }()
+
+    init(tracesDirectory: URL, maxBytesPerFile: Int, resourceAttributes: [String: String] = [:]) {
         self.tracesDirectory = tracesDirectory
         self.maxBytesPerFile = max(1_048_576, maxBytesPerFile)
+        self.resourceAttributes = resourceAttributes
+    }
+
+    /// Metadata header written once per file, identifying the pane/tab and (for observability)
+    /// the process-wide OTel resource attributes (service name/version, os/device info, ...).
+    private struct MetadataLine: Encodable {
+        let paneId: String
+        let paneName: String
+        let tabId: String
+        let tabName: String
+        let createdAt: String
+        let resource: [String: String]
+
+        enum CodingKeys: String, CodingKey {
+            case type = "_type"
+            case paneId, paneName, tabId, tabName, createdAt, resource
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode("metadata", forKey: .type)
+            try container.encode(paneId, forKey: .paneId)
+            try container.encode(paneName, forKey: .paneName)
+            try container.encode(tabId, forKey: .tabId)
+            try container.encode(tabName, forKey: .tabName)
+            try container.encode(createdAt, forKey: .createdAt)
+            try container.encode(resource, forKey: .resource)
+        }
+    }
+
+    private struct SpanLine: Encodable {
+        let name: String
+        let traceId: String
+        let spanId: String
+        let parentSpanId: String?
+        let startEpochMs: Int64
+        let endEpochMs: Int64
+        let durationMs: Int64
+        let attributes: [String: String]
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(name, forKey: .name)
+            try container.encode(traceId, forKey: .traceId)
+            try container.encode(spanId, forKey: .spanId)
+            try container.encodeIfPresent(parentSpanId, forKey: .parentSpanId)
+            try container.encode(startEpochMs, forKey: .startEpochMs)
+            try container.encode(endEpochMs, forKey: .endEpochMs)
+            try container.encode(durationMs, forKey: .durationMs)
+            try container.encode(attributes, forKey: .attributes)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case name, traceId, spanId, parentSpanId, startEpochMs, endEpochMs, durationMs, attributes
+        }
     }
 
     @discardableResult
@@ -64,25 +126,26 @@ final class PerPaneSpanExporter: SpanExporter {
             }
 
             let needsMetadata = writers[key] == nil || !writers[key]!.metadataWritten
-            let metadataLine: String?
+            var lines: [Data] = []
             if needsMetadata {
                 let now = ISO8601DateFormatter().string(from: Date())
-                if key == "_global" {
-                    metadataLine =
-                        """
-                        {"_type":"metadata","paneId":"_global","paneName":"global","tabId":"_global","tabName":"_global","createdAt":"\(now)"}
-                        """
-                } else {
-                    let tabId = attributeString(representative, "tab.id") ?? ""
-                    let tabName = attributeString(representative, "tab.name") ?? ""
-                    let paneName = attributeString(representative, "pane.name") ?? ""
-                    metadataLine =
-                        """
-                        {"_type":"metadata","paneId":"\(jsonEscape(key))","paneName":"\(jsonEscape(paneName))","tabId":"\(jsonEscape(tabId))","tabName":"\(jsonEscape(tabName))","createdAt":"\(now)"}
-                        """
+                let metadata: MetadataLine =
+                    key == "_global"
+                    ? MetadataLine(
+                        paneId: "_global", paneName: "global", tabId: "_global", tabName: "_global",
+                        createdAt: now, resource: resourceAttributes
+                    )
+                    : MetadataLine(
+                        paneId: key,
+                        paneName: attributeString(representative, "pane.name") ?? "",
+                        tabId: attributeString(representative, "tab.id") ?? "",
+                        tabName: attributeString(representative, "tab.name") ?? "",
+                        createdAt: now,
+                        resource: resourceAttributes
+                    )
+                if let data = try? Self.encoder.encode(metadata) {
+                    lines.append(data)
                 }
-            } else {
-                metadataLine = nil
             }
 
             if writers[key] == nil {
@@ -90,39 +153,45 @@ final class PerPaneSpanExporter: SpanExporter {
             }
             writers[key]!.metadataWritten = true
 
-            let spanLines = groupSpans.map { span in
+            for span in groupSpans {
                 let startMs = span.startTime.timeIntervalSince1970 * 1000
                 let endMs = span.endTime.timeIntervalSince1970 * 1000
                 let durationMs = endMs - startMs
                 var attrs: [String: String] = [:]
-                for (key, value) in span.attributes {
+                for (attrKey, value) in span.attributes {
                     switch value {
-                    case .string(let str): attrs[key] = str
-                    case .bool(let bool): attrs[key] = String(bool)
-                    case .int(let int): attrs[key] = String(int)
-                    case .double(let double): attrs[key] = String(double)
-                    default: attrs[key] = value.description
+                    case .string(let str): attrs[attrKey] = str
+                    case .bool(let bool): attrs[attrKey] = String(bool)
+                    case .int(let int): attrs[attrKey] = String(int)
+                    case .double(let double): attrs[attrKey] = String(double)
+                    default: attrs[attrKey] = value.description
                     }
                 }
-                let attrsJSON =
-                    attrs.isEmpty
-                    ? "{}"
-                    : "{\(attrs.sorted { $0.key < $1.key }.map { "\"\(jsonEscape($0.key))\":\"\(jsonEscape($0.value))\"" }.joined(separator: ","))}"
-                let parentSpanId = span.parentSpanId?.hexString ?? ""
-                let parentField = parentSpanId.isEmpty ? "" : ",\"parentSpanId\":\"\(parentSpanId)\""
-                return """
-                    {"name":"\(jsonEscape(span.name))","traceId":"\(span.traceId.hexString)","spanId":"\(span.spanId.hexString)"\(parentField),"startEpochMs":\(Int64(startMs)),"endEpochMs":\(Int64(endMs)),"durationMs":\(Int64(durationMs)),"attributes":\(attrsJSON)}
-                    """
+                let parentSpanId = span.parentSpanId?.hexString
+                let line = SpanLine(
+                    name: span.name,
+                    traceId: span.traceId.hexString,
+                    spanId: span.spanId.hexString,
+                    parentSpanId: (parentSpanId?.isEmpty ?? true) ? nil : parentSpanId,
+                    startEpochMs: Int64(startMs),
+                    endEpochMs: Int64(endMs),
+                    durationMs: Int64(durationMs),
+                    attributes: attrs
+                )
+                if let data = try? Self.encoder.encode(line) {
+                    lines.append(data)
+                }
             }
-            guard !spanLines.isEmpty || metadataLine != nil else { continue }
 
-            var payload = ""
-            if let meta = metadataLine { payload += meta + "\n" }
-            if !spanLines.isEmpty { payload += spanLines.joined(separator: "\n") + "\n" }
-            let data = Data(payload.utf8)
+            guard !lines.isEmpty else { continue }
+            let newline = Data([UInt8(ascii: "\n")])
+            let payload = lines.reduce(into: Data()) { result, line in
+                result.append(line)
+                result.append(newline)
+            }
             let maxBytes = maxBytesPerFile
 
-            queue.async { [fileURL] in
+            queue.async { [fileURL, payload] in
                 let dir = fileURL.deletingLastPathComponent()
                 try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
                 if !FileManager.default.fileExists(atPath: fileURL.path) {
@@ -132,7 +201,7 @@ final class PerPaneSpanExporter: SpanExporter {
                 defer { try? handle.close() }
                 do {
                     try handle.seekToEnd()
-                    try handle.write(contentsOf: data)
+                    try handle.write(contentsOf: payload)
                 } catch {
                     return
                 }
@@ -156,14 +225,6 @@ final class PerPaneSpanExporter: SpanExporter {
     private func attributeString(_ span: SpanData, _ key: String) -> String? {
         guard case .string(let str) = span.attributes[key] else { return nil }
         return str
-    }
-
-    private func jsonEscape(_ str: String) -> String {
-        str.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
-            .replacingOccurrences(of: "\r", with: "\\r")
-            .replacingOccurrences(of: "\t", with: "\\t")
     }
 
     static func trimIfNeeded(at url: URL, maxBytes: Int) {
