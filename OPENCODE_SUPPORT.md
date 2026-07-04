@@ -2,6 +2,37 @@
 
 This document is a working plan for adding [OpenCode](https://opencode.ai) as a fourth agent harness in Agent Session Manager, alongside Claude Code, Codex, and Cursor. It captures what has been researched so far, the architectural decisions already made, the remaining open questions, and a proposed implementation order. It is intentionally not polished end-user documentation; the user-facing feature doc will be created later at `documentation/features/opencode-cli.md`.
 
+## Progress
+
+Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
+
+### Implementation phases
+
+| # | Phase | Status | Notes |
+|---|---|---|---|
+| 1 | [Enum + detection](#1-harness-enum-and-detection) | [ ] | |
+| 2 | [CLI flag catalog + persistence](#3-cli-flags) | [ ] | |
+| 3 | [Command builder + launch](#3-cli-flags) | [ ] | |
+| 4 | [Config injection (`OPENCODE_CONFIG_CONTENT`)](#6-modifying-opencode-inputs-to-work-well-with-agent-session-manager) | [ ] | |
+| 5 | [Status provider](#7-status-line-support) | [ ] | |
+| 6 | [Notifications](#8-notifications-and-attention) | [ ] | |
+| 7 | [Restore + continue](#9-session-persistence-restore-and-continue-on-restart) | [ ] | |
+| 8 | [Telemetry + invariants](#10-additional-cross-cutting-concerns) | [ ] | |
+| 9 | [Docs + skill](#10-additional-cross-cutting-concerns) | [ ] | |
+
+### Open questions
+
+| # | Question | Status | Resolution |
+|---|---|---|---|
+| 1 | Random-port discovery | [ ] | |
+| 2 | SSE vs polling | [ ] | |
+| 3 | Background subagent idle behavior | [ ] | |
+| 4 | Auto session names | [ ] | |
+| 5 | Env-var catalog scope | [ ] | |
+| 6 | `OPENCODE_CONFIG_CONTENT` limits | [ ] | |
+| 7 | Cost data availability | [ ] | |
+| 8 | Rate limits | [ ] | |
+
 ## Decisions already made
 
 | Area | Decision | Rationale |
