@@ -55,6 +55,10 @@ final class InvariantReporter: @unchecked Sendable {
         ]
         let traceAttributes = context.merging(reserved) { _, reservedValue in reservedValue }
         TracingService.shared.record(invariant.traceEventName ?? "invariant.violated", attributes: traceAttributes)
+        AppLog.invariant.log(
+            level: AppLog.osLogType(for: invariant.severity),
+            "\(invariant.id, privacy: .public) \(invariant.description, privacy: .public) \(traceAttributes, privacy: .private)"
+        )
 
         let (writer, captureEnabled) = lock.withLock { (self.writer, testCaptureEnabled) }
         if captureEnabled {

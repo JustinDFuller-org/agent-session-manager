@@ -38,4 +38,6 @@ Canonical glossary of domain terms used across this codebase. One entry per conc
 
 - **Tracing** — OpenTelemetry spans written to per-pane JSONL files under `traces/<tab-id8>/<pane-id8>.jsonl`; retained for one day. See `documentation/features/tracing.md`, `Models/TracingService.swift`.
 
+- **Unified logging / signposts** — always-on companions to tracing: every span forwards to `os.Logger` (`AppLog`, visible in Console.app / `log stream`) and an `os_signpost` interval (Instruments Points of Interest), independent of Debug Mode. See `documentation/features/debug-logging.md`, `Models/AppLog.swift`.
+
 - **Worktree** — a git worktree backing a tab's working directory. A worktree may be managed (created by ASM) or pre-existing. See **Managed worktree**; model: `Models/Tab.swift`.

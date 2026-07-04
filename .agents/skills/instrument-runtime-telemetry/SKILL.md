@@ -13,6 +13,13 @@ Load this skill for every feature, bug fix, or refactor that changes runtime beh
 - Use span attributes for operation context and events for meaningful points during a long-lived operation.
 - Report an invariant when a runtime contract is violated and the occurrence must remain visible as a separate diagnostic record.
 - Use both when an invariant occurrence also belongs in trace correlation.
+- Every `TracingService` span/record call automatically forwards to unified logging (`os.Logger`
+  via `AppLog`) and an Instruments signpost — always on, independent of Debug Mode. Do not add
+  `print`, `NSLog`, or a separate log call alongside a span for the same event; the span is the
+  single instrumentation point.
+- If you need a *direct* `AppLog` call outside a span (rare — most events should just be a span),
+  follow the same privacy split as `AppLog.log`: event name `.public` (a static string), attribute
+  values `.private` (they may carry `cwd`, git args, or error strings).
 
 ## Required Context
 
@@ -40,7 +47,10 @@ Record a bounded `result` or failure attribute for operations with meaningful ou
 Record these as future production instrumentation work; do not fold them into unrelated changes:
 
 1. Add stronger correlation IDs across pane lifecycle, status-line, and PR-tracking paths.
-2. Emit app startup and build metadata.
+2. Emit app startup and build metadata. Partially satisfied: the OTel `Resource` on every trace
+   file's metadata header already carries `service.version`, `os.*`, and `device.*` (see
+   `documentation/features/tracing.md`). Startup-event-level metadata (e.g. a `app.launched` span)
+   is still open.
 3. Complete pane create, restore, close, restart, and shell lifecycle coverage.
 4. Add explicit failure outcomes for worktree, terminal, settings, and notification operations.
 5. Surface exporter write and trim failures.
