@@ -22,3 +22,5 @@ Keeps your agents (Claude, Codex, Cursor, etc.) managed in a window optimized fo
 - ⌘⇧N — new pane
 - ⌘W — close active pane
 - ⌘1–⌘9 — switch to tab by index
+
+**Observability / Debugging** — unified logs (Console.app / `log stream`) and Instruments signposts are always on, no setup needed. Enable **Settings → Debug → Enable Debug Mode** for durable trace/invariant JSONL files and the Trace (`⌘⇧D`) and Invariant (`⌘⇧I`) dashboards.

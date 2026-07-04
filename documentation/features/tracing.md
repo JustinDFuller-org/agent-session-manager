@@ -19,10 +19,42 @@ traces/
 Each file begins with a metadata header:
 
 ```json
-{"_type":"metadata","paneId":"...","paneName":"...","tabId":"...","tabName":"...","createdAt":"..."}
+{
+  "_type": "metadata",
+  "paneId": "...", "paneName": "...", "tabId": "...", "tabName": "...", "createdAt": "...",
+  "resource": {
+    "service.name": "AgentSessionManager",
+    "service.version": "...",
+    "os.type": "darwin",
+    "os.name": "macOS",
+    "os.description": "...",
+    "os.version": "...",
+    "device.model.identifier": "...",
+    "telemetry.sdk.name": "opentelemetry",
+    "telemetry.sdk.language": "swift",
+    "telemetry.sdk.version": "..."
+  }
+}
 ```
 
+`resource` is the process-wide OTel `Resource` (`TracingService.configure`), written once per file
+and identical across every file from the same process. It comes from
+`ResourceExtension`'s `DefaultResources()` merged with an explicit `service.name`/`service.version`
+override; `device.id` may also appear.
+
 The exporter routes every span with `pane.id` to a pane file. Spans without `pane.id` route to `_global/global.jsonl`. Tab and pane names are sanitized only for paths; diagnosis should read metadata rather than derive filenames.
+
+## Auto-forwarding to other signals
+
+Every `TracingService.startSpan`/`record`/`withSpan` call also, unconditionally:
+
+- writes a unified-log line via `AppLog` (see `documentation/features/debug-logging.md`) — always on,
+  independent of Debug Mode
+- emits an `os_signpost` interval (`OSSignposterIntegration`/`SignPostIntegration`) for Instruments'
+  Points of Interest — also always on
+
+Instrumenting a code path is a single `TracingService` call, not three. Do not add separate
+`print`/`NSLog`/log calls alongside a span for the same event.
 
 Each file is trimmed at the fixed 10 MB cap. `TraceCleanupService` removes files older than one day on app launch and emits `trace.cleanup.ran`.
 
