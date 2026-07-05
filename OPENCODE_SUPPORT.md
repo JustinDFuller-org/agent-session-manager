@@ -11,7 +11,7 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | # | Phase | Status | Notes |
 |---|---|---|---|
 | 0 | [API spike](#phase-0-api-spike) | [x] | Findings appended below in [Spike Findings](#spike-findings). Chip matrix and provider strategy are now locked. |
-| 1 | [Enum + detection](#1-harness-enum-and-detection) | [ ] | |
+| 1 | [Enum + detection](#1-harness-enum-and-detection) | [x] | Enum case added; detection, onboarding toggle, persistence stubs, and compiler-required switch arms landed. |
 | 2 | [CLI flag catalog + persistence](#3-cli-flags) | [ ] | Includes env-var catalog expansion. |
 | 3 | [Command builder + launch](#3-cli-flags) | [ ] | |
 | 4 | [Config injection (`OPENCODE_CONFIG_CONTENT`)](#6-modifying-opencode-inputs-to-work-well-with-agent-session-manager) | [ ] | |
@@ -526,7 +526,7 @@ A phased approach keeps each stage compileable and testable.
 
 ---
 
-*Last updated: July 5, 2026. Phase 0 spike complete; findings appended in [Spike Findings](#spike-findings).*
+*Last updated: July 5, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; findings appended in [Spike Findings](#spike-findings).*
 
 ## Spike Findings
 

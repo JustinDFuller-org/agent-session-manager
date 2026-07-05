@@ -111,6 +111,7 @@ final class AppSettings {
     var cliOptions: [CLIOptionConfig] = CLIOptionConfig.all
     var codexCliOptions: [CLIOptionConfig] = CLIOptionConfig.codexAll
     var cursorCliOptions: [CLIOptionConfig] = CLIOptionConfig.cursorAll
+    var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
     var envVarOptions: [EnvVarConfig] = EnvVarConfig.all
     var statusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [Harness.claude.rawValue]

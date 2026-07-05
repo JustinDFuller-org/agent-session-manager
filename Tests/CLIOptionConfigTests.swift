@@ -507,19 +507,35 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(Harness.claude.rawValue, "claude")
         XCTAssertEqual(Harness.codex.rawValue, "codex")
         XCTAssertEqual(Harness.cursor.rawValue, "cursor")
+        XCTAssertEqual(Harness.opencode.rawValue, "opencode")
     }
 
     func testHarnessDisplayNames() {
         XCTAssertEqual(Harness.claude.displayName, "Claude Code")
         XCTAssertEqual(Harness.codex.displayName, "Codex")
         XCTAssertEqual(Harness.cursor.displayName, "Cursor")
+        XCTAssertEqual(Harness.opencode.displayName, "OpenCode")
+    }
+
+    func testHarnessCommandDescriptions() {
+        XCTAssertEqual(Harness.claude.commandDescription, "claude")
+        XCTAssertEqual(Harness.codex.commandDescription, "codex")
+        XCTAssertEqual(Harness.cursor.commandDescription, "agent")
+        XCTAssertEqual(Harness.opencode.commandDescription, "opencode")
     }
 
     func testAllHarnessCases() {
-        XCTAssertEqual(Harness.allCases.count, 3)
+        XCTAssertEqual(Harness.allCases.count, 4)
         XCTAssertTrue(Harness.allCases.contains(.claude))
         XCTAssertTrue(Harness.allCases.contains(.codex))
         XCTAssertTrue(Harness.allCases.contains(.cursor))
+        XCTAssertTrue(Harness.allCases.contains(.opencode))
+        XCTAssertEqual(Harness.allCases, [.claude, .codex, .cursor, .opencode])
+    }
+
+    func testOpenCodeRecommendedDefaultsAreEmptyStub() {
+        let defaults = CLIOptionConfig.recommendedDefaults(for: .opencode)
+        XCTAssertTrue(defaults.isEmpty)
     }
 }
 
@@ -548,12 +564,34 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
         XCTAssertFalse(decoded.worktreeIsManaged)
     }
 
+    func testDecodesOpenCodeHarness() throws {
+        let json = Data(
+            """
+            {"id":"A78E5B1C-0000-0000-0000-000000000003","name":"opencode-pane","harness":"opencode"}
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
+        XCTAssertEqual(decoded.name, "opencode-pane")
+        XCTAssertEqual(decoded.harness, .opencode)
+        XCTAssertNil(decoded.worktreeDirectory)
+        XCTAssertFalse(decoded.worktreeIsManaged)
+    }
+
     func testRoundTrip() throws {
         let pane = PersistedPane(id: UUID(), name: "test", harness: .codex, isPriority: false)
         let encoded = try JSONEncoder().encode(pane)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
         XCTAssertEqual(decoded.name, "test")
         XCTAssertEqual(decoded.harness, .codex)
+        XCTAssertNil(decoded.worktreeDirectory)
+        XCTAssertFalse(decoded.worktreeIsManaged)
+    }
+
+    func testOpenCodeRoundTrip() throws {
+        let pane = PersistedPane(id: UUID(), name: "opencode", harness: .opencode, isPriority: false)
+        let encoded = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
+        XCTAssertEqual(decoded.name, "opencode")
+        XCTAssertEqual(decoded.harness, .opencode)
         XCTAssertNil(decoded.worktreeDirectory)
         XCTAssertFalse(decoded.worktreeIsManaged)
     }

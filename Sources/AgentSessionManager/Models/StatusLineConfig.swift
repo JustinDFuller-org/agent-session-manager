@@ -139,7 +139,7 @@ struct StatusLineConfig: Codable, Equatable {
         "apiDuration": ("API Duration", "clock.arrow.2.circlepath"),
     ]
 
-    static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor]
+    static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor, .opencode]
     static let appCapability = StatusFactCapability(
         owner: .app, supportedHarnesses: allHarnesses, missingBehavior: .pending)
     static let mergedCapability = StatusFactCapability(

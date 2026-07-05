@@ -48,6 +48,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             let id = try container.decode(String.self, forKey: .id)
             let allTemplates =
                 CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll
+                + CLIOptionConfig.opencodeAll
             guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .id, in: container, debugDescription: "Unknown CLI option: \(id)")
@@ -416,6 +417,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             isDefaultEnabled: false),
     ]
 
+    static let opencodeAll: [CLIOptionConfig] = []
+
     static func recommendedDefaults(for cli: Harness) -> [CLIOptionConfig] {
         let catalog: [CLIOptionConfig]
         let recommendedIDs: Set<String>
@@ -430,6 +433,9 @@ struct CLIOptionConfig: Identifiable, Codable {
         case .cursor:
             catalog = cursorAll
             recommendedIDs = ["--model", "--resume", "--mode"]
+        case .opencode:
+            catalog = opencodeAll
+            recommendedIDs = []
         case .shell:
             return []
         }

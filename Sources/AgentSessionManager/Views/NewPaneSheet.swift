@@ -31,6 +31,7 @@ struct NewPaneSheet: View {
         case .claude: return appSettings.cliOptions
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
+        case .opencode: return appSettings.opencodeCliOptions
         case .shell: return []
         }
     }
@@ -395,6 +396,13 @@ struct NewPaneSheet: View {
                                             appSettings.cursorCliOptions[index].isAvailable = true
                                         }
                                         SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+                                    case .opencode:
+                                        if let index = appSettings.opencodeCliOptions.firstIndex(where: {
+                                            $0.id == option.id
+                                        }) {
+                                            appSettings.opencodeCliOptions[index].isAvailable = true
+                                        }
+                                        SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
                                     case .shell:
                                         break
                                     }

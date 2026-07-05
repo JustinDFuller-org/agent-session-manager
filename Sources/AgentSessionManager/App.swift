@@ -89,6 +89,9 @@ struct ContentView: View {
                 appSettings.cursorCliOptions = SettingsPersistence.mergeCLIOptions(
                     SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "cursor-settings.json"),
                     into: CLIOptionConfig.cursorAll)
+                appSettings.opencodeCliOptions = SettingsPersistence.mergeCLIOptions(
+                    SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "opencode-settings.json"),
+                    into: CLIOptionConfig.opencodeAll)
                 if let config = SettingsPersistence.load(StatusLineConfig.self, from: "statusline-settings.json") {
                     appSettings.statusLineConfig = config
                 }

@@ -11,6 +11,17 @@ final class HarnessDetectorTests: XCTestCase {
         XCTAssertTrue(result.contains(.claude))
         XCTAssertTrue(result.contains(.codex))
         XCTAssertFalse(result.contains(.cursor))
+        XCTAssertFalse(result.contains(.opencode))
+    }
+
+    func testDetectsOpenCodeBinary() async {
+        let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, command in
+            command == "opencode"
+        }
+        XCTAssertTrue(result.contains(.opencode))
+        XCTAssertFalse(result.contains(.claude))
+        XCTAssertFalse(result.contains(.codex))
+        XCTAssertFalse(result.contains(.cursor))
     }
 
     func testReturnsEmptySetWhenNothingInstalled() async {
