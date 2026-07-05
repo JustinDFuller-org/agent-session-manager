@@ -145,6 +145,7 @@ final class AppSettings {
     var paneActivityIndicatorsEnabled: Bool = true
     var focusModeTabSwitchBehavior: FocusModeTabSwitchBehavior = .rememberFocus
     var hideNotificationSidebarWhileFocused: Bool = true
+    var updateReminderEnabled: Bool = true
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 

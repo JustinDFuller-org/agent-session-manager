@@ -118,6 +118,7 @@ struct SettingsPersistence {
         appSupportDir.appending(path: "activity-indicator-settings.json")
     }
     private static var focusModeSettingsURL: URL { appSupportDir.appending(path: "focus-mode-settings.json") }
+    private static var updateCheckSettingsURL: URL { appSupportDir.appending(path: "update-check-settings.json") }
 
     static func save<Value: Encodable>(_ value: Value, to filename: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
@@ -324,5 +325,23 @@ struct SettingsPersistence {
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: focusModeSettingsURL)
+    }
+
+    struct UpdateCheckSettings: Codable {
+        var enabled: Bool = true
+    }
+
+    static func saveUpdateCheckSettings(appSettings: AppSettings) {
+        let payload = UpdateCheckSettings(enabled: appSettings.updateReminderEnabled)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: updateCheckSettingsURL)
+    }
+
+    static func isUpdateReminderEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: updateCheckSettingsURL),
+            let settings = try? JSONDecoder().decode(UpdateCheckSettings.self, from: data)
+        else { return true }
+        return settings.enabled
     }
 }
