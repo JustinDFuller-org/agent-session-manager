@@ -188,8 +188,14 @@ struct ContentView: View {
                     appSettings.focusModeTabSwitchBehavior = config.tabSwitchBehavior
                     appSettings.hideNotificationSidebarWhileFocused = config.hideNotificationSidebar
                 }
+                if let config = SettingsPersistence.load(
+                    SettingsPersistence.UpdateCheckSettings.self, from: "update-check-settings.json")
+                {
+                    appSettings.updateReminderEnabled = config.enabled
+                }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
+                UpdateCheckCoordinator.shared.start()
                 if let bundleIdentifier = Bundle.main.bundleIdentifier {
                     BundleIdentityVerifier.checkPreferredURL(
                         runningURL: Bundle.main.bundleURL,

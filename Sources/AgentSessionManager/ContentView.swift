@@ -96,6 +96,7 @@ extension Notification.Name {
     static let openShellHere = Notification.Name("openShellHere")
     static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
         "agentSessionManagerPRTrackingSettingChanged")
+    static let showSettingsSection = Notification.Name("showSettingsSection")
 }
 
 extension AgentSessionManagerApp {
