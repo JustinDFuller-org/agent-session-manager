@@ -26,12 +26,12 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | # | Question | Status | Resolution |
 |---|---|---|---|
 | 1 | Random-port discovery | [x] | Always pin `--port`; stdout URL emission is undocumented and the TUI defaults to a random port. |
-| 2 | SSE vs polling | [~] | SSE `GET /event` preferred; polling `/session/status` as fallback. Final design in Phase 5. |
-| 3 | Background subagent idle behavior | [~] | Investigate during Phase 0 spike; no documented `SubagentStop`-equivalent event. |
-| 4 | Auto session names | [x] | No CLI flag exists; future path is `POST /session {title}` or `PATCH /session/:id {title}`. v1 = Claude-only auto-naming. |
+| 2 | SSE vs polling | [~] | SSE `GET /event` preferred; polling `/session/status` as fallback. **Phase 0 must confirm whether `/event` requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM`.** Final design in Phase 5. |
+| 3 | Background subagent idle behavior | [~] | Investigate during Phase 0 spike; no documented `SubagentStop`-equivalent event. Confirm whether `OPENCODE_EXPERIMENTAL` umbrella flag is required for experimental features. |
+| 4 | Auto session names | [~] | `POST /session {title?}` accepts title at creation per live server docs. Spike must confirm it works through the embedded TUI server; if so, v1 can auto-name via upfront session creation + `--session <id>`. |
 | 5 | Env-var catalog scope | [x] | Add OpenCode env-var editor in v1. |
-| 6 | `OPENCODE_CONFIG_CONTENT` limits | [x] | No documented limit; keep injected JSON minimal. |
-| 7 | Cost data availability | [~] | Phase 0 spike; `opencode stats` CLI only, no documented `/stats` HTTP endpoint. Likely "No" for v1. |
+| 6 | `OPENCODE_CONFIG_CONTENT` limits | [~] | No documented OpenCode-side limit, but the previous close was premature. Spike must stress-test an 8–16 KB inline JSON through macOS `setenv` + OpenCode's loader. |
+| 7 | Cost data availability | [~] | Phase 0 spike; `opencode stats` CLI only, no documented `/stats` HTTP endpoint. Also probe `/global/health` and `/session/:id` for any cost field. Likely "No" for v1. |
 | 8 | Rate limits | [x] | Not documented anywhere; chips → "No". |
 
 ## Decisions already made
@@ -39,11 +39,15 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | Area | Decision | Rationale |
 |---|---|---|
 | Activation | Enabled by default if detected during onboarding | OpenCode should be immediately available when it is on the user's PATH, instead of requiring a manual opt-in toggle like Codex/Cursor. |
-| Config injection for ASM-owned overrides | `OPENCODE_CONFIG_CONTENT` env var | Highest-precedence non-managed config source, terminal-pure (no shell prepending), and scoped per-pane without touching the user's worktree. |
+| Config injection for Agent Session Manager-owned overrides | `OPENCODE_CONFIG_CONTENT` env var | Highest-precedence non-managed config source, terminal-pure (no shell prepending), and scoped per-pane without touching the user's worktree. |
 | Status line strategy | HTTP server API | OpenCode already runs a per-TUI HTTP server with a documented REST/SSE surface. This is more robust than scraping files or installing a global plugin. |
-| Notification kind | Distinct `.opencodeStop` and `.opencodePermission` | Mirrors Claude's distinct `.claudeStop` kind; enables per-harness toggles and clean UI labeling. |
+| Notification kind | Distinct `.opencodeStop`; attention source `.opencodePermissionRequest` | Mirrors Claude's `.claudeStop` `NotificationKind` and `claudePermissionRequest` `PaneAttentionEvent.Source`. `NotificationKind` has no permission analog today. |
 | Port on restart | Re-allocate fresh each launch | Avoids bind collisions; rebuild `--port` and `OPENCODE_CONFIG_CONTENT` on every launch. |
-| Env-var editor | Expand to OpenCode in v1 | Adds `EnvVarConfig.opencodeAll` and plumbs `extraEnvVars` through non-Claude harness arms in `Tab.addPane`/`refreshPane`/`completeSetup`. |
+| Env-var editor | Build harness-keyed env-var stack in v1 | Parameterize `EnvVarConfig.recommendedDefaults(for:)` and plumb `extraEnvVars` through **all** harness arms in `Tab.addPane`/`refreshPane`/`completeSetup` (today only `.claude` injects them). |
+| Network binding | Pin `--hostname 127.0.0.1` and `--mdns=false` per pane | Avoid advertising unauthenticated per-pane HTTP servers on the LAN; ephemeral localhost ports are sufficient. |
+| Server auth | Defer `OPENCODE_SERVER_PASSWORD` to post-v1 | Accepted risk because each pane binds `127.0.0.1` on an OS-allocated ephemeral port. Documented assumption so future sandboxing changes don't widen exposure. |
+| No programmatic TUI driving | Forbid `/tui/submit-prompt`, `/tui/append-prompt`, `/tui/execute-command`, `/tui/show-toast` | Terminal Purity already forbids app-driven setup; extend the rule to OpenCode's HTTP surface. |
+| Env-var namespace | Spike must confirm OpenCode ignores unknown `OPENCODE_*` vars; otherwise use a non-`OPENCODE_` prefix | OpenCode parses `OPENCODE_*` env vars as config; `AGENT_SESSION_MANAGER_OPENCODE_PORT` is a footgun if unknown prefixed keys are treated as config. |
 
 ## Phase 0: API spike
 
@@ -53,9 +57,10 @@ Before finalizing the status-line chip matrix or the notification provider, we n
 
 1. Install or locate the `opencode` binary.
 2. Launch a headless server: `opencode serve --port 4096`.
-3. Fetch `GET http://localhost:4096/doc` (OpenAPI 3.1) and record exact request/response schemas.
+3. **Locate the OpenAPI specification endpoint.** Per the live server docs, `GET /doc` returns an HTML page (Swagger UI), not parseable JSON. Try `Accept: application/json` on `/doc`, or probe `/doc.json` / `/openapi.json`. Fallback: read `packages/sdk/js/src/gen/types.gen.ts` directly from the OpenCode repo for the schema.
 4. Optional: read `packages/sdk/js/src/gen/types.gen.ts` from the OpenCode repository for cross-reference.
-5. Subscribe to `GET /event` (SSE) and observe payload shapes for at least:
+5. **Hit `GET /global/health`** — expect `{healthy: true, version: string}`. Prefer this over `opencode --version` stdout for the `version` status chip and for `detectedHarnessVersion` injected into `StatusProviderContext`.
+6. Subscribe to `GET /event` (SSE) and observe payload shapes for at least:
    - `server.connected`
    - `session.created`
    - `session.updated`
@@ -64,19 +69,24 @@ Before finalizing the status-line chip matrix or the notification provider, we n
    - `permission.asked`
    - `permission.replied`
    - `tool.execute.before` / `tool.execute.after`
-6. Confirm presence/absence of these fields on `Session` / `SessionStatus` / `Message`:
+   - Confirm whether `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` must be set for the stream to work.
+7. **Confirm `POST /session {title?}` works against the embedded TUI server** (the server started by `opencode [project]`, not only `opencode serve`). If it does, v1 can auto-name OpenCode panes at creation.
+8. Confirm presence/absence of these fields on `Session` / `SessionStatus` / `Message`:
    - `model`
    - `title`
    - `inputTokens` / `outputTokens`
    - `context` / `contextRemaining`
    - `cost`
-7. Create a one-page findings note (can live in this doc or a scratch file under `/tmp`) that drives the final chip matrix and provider design.
+9. **Stress-test `OPENCODE_CONFIG_CONTENT` up to 8–16 KB** through macOS `setenv` + OpenCode's loader. Include representative injected keys (`permission`, `share`, `snapshot`, `autoupdate`, and a `model` override).
+10. **Subscribe to `GET /event` for at least 60 seconds** and observe whether the URLSession streaming connection drops under macOS sandbox / quarantine quirks. Document failure modes (silent disconnect, backpressure, partial events).
+11. Create a one-page findings note (can live in this doc or a scratch file under `/tmp`) that drives the final chip matrix and provider design.
 
 ### Outcomes
 
 - Finalize whether `cost`, `inputTokens`, `outputTokens`, `context`, `contextRemaining`, and `sessionName` chips are supported for OpenCode.
-- Determine whether `session.idle` fires while `experimental.background_subagents` tasks are still running and what event (if any) can gate it.
-- Lock the `OpenCodeStatusProvider` polling/SSE strategy.
+- Determine whether `session.idle` fires while `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS` tasks are still running, whether the `OPENCODE_EXPERIMENTAL` umbrella flag is required, and what event (if any) can gate it.
+- Lock the `OpenCodeStatusProvider` polling/SSE strategy and confirm whether SSE requires the experimental event-system flag.
+- Choose the session-binding strategy: `POST /session {title?}` upfront + `--session <id>`, or discover-from-status fallback.
 
 ## OpenCode architecture primer
 
@@ -109,23 +119,24 @@ Sources: [OpenCode Config docs](https://opencode.ai/docs/config/), [CLI docs](ht
 
 - Add `case opencode` to `Harness` in `Sources/AgentSessionManager/Models/Pane.swift`.
   - `displayName`: "OpenCode"
-  - `commandDescription`: "opencode" (the binary name)
-- Add `.opencode` to `Harness.allCases` so it appears everywhere the UI iterates user-facing harnesses.
+  - `commandDescription`: "opencode" (the binary name). `ToolAgnosticDataProvider` already accepts a `toolCommand: String` and will work as-is for OpenCode's baseline facts.
+- Update `Pane.swift:16` (`static var allCases: [Harness] { [.claude, .codex, .cursor] }`) to include `.opencode`. That override is where the `.shell` exclusion lives.
 - `HarnessDetector.detectInstalled(shell:)` already probes `tool.commandDescription` with `which <cmd>`, so OpenCode detection is automatic once the enum case exists.
 - Onboarding `OnboardingWizardView.toolsStep` iterates `Harness.allCases`, so OpenCode will appear in the detection list without extra view work.
 - Update `StatusLineConfig.allHarnesses` and any capability sets that currently read `[.claude, .codex, .cursor]`.
-- Update compiler-enforced `switch` arms that key on `Harness`. Known sites:
-  - `Pane.swift:18-25, 27-34` (`displayName`, `commandDescription`)
-  - `CLIOptionConfig.swift:34-63, 419-442` (decoder template lookup, `recommendedDefaults`)
-  - `Tab.swift:519-549, 591-635, 643-681, 951-981` (`addPane`, `refreshPane` rebuild, bare restart, `completeSetup`)
-  - `OnboardingWizardView.swift:483-495` (CLI flag save)
-  - `SettingsView.swift:523-558` (settings CLI options)
-  - `NewPaneSheet.swift:30-35` (`activeOptions`)
-  - `ProfileSettingsViews.swift:181-186, 287-313` (`activeOptions`, `onAddToGlobal`)
+- Update compiler-enforced `switch` arms that key on `Harness`. **Every switch already includes a `.shell` arm** (`Pane.swift:9-13` declares four cases); `.opencode` must be added alongside it. Known sites:
+  - `Pane.swift:18-25, 27-34` (`displayName`, `commandDescription` — 4 arms)
+  - `CLIOptionConfig.swift:34-63, 419-442` (decoder template lookup, `recommendedDefaults` — 4 arms)
+  - `Tab.swift:519-549, 591-635, 951-981` (`addPane`, `refreshPane`, `completeSetup` — 4-arm switches)
+  - `Tab.swift:656-679` (bare restart path — uses `if pane.harness == .claude/.cursor/.codex` checks, **not** a switch; add a fourth `.opencode` branch)
+  - `OnboardingWizardView.swift:483-495` (CLI flag save — 4-arm switch)
+  - `SettingsView.swift:523-558` (settings CLI options — 4-arm switch)
+  - `NewPaneSheet.swift:30-35` (`activeOptions` — 4-arm switch)
+  - `ProfileSettingsViews.swift:181-186, 287-313` (`activeOptions`, `onAddToGlobal` — 4-arm switches)
   - `StatusLineMonitor.swift:103-117, 119-149` (providerContext build, provider selection)
-- Update tests that assert `Harness.allCases.count == 3`:
-  - `Tests/CLIOptionConfigTests.swift:519-522`
-  - `Tests/PlainTerminalAccessTests.swift:22-24`
+- Update tests that exercise `Harness.allCases`:
+  - `Tests/CLIOptionConfigTests.swift:519` asserts `count == 3` — bump to `4` and add `XCTAssertTrue(Harness.allCases.contains(.opencode))`.
+  - `Tests/PlainTerminalAccessTests.swift:21-25` does **not** assert a count; it only asserts `.contains` for the three user-facing cases. Add `.contains(.opencode)`; no count bump needed.
 
 ### Decision note
 
@@ -137,9 +148,10 @@ OpenCode is enabled by default when detected. This means `appSettings.activeTool
 
 - Ensure the OpenCode toggle in the tools step is checked by default when detected.
 - In `OnboardingWizardView.cliFlagsStep`, seed `draftCliOptions[.opencode]` with `CLIOptionConfig.recommendedDefaults(for: .opencode)` when OpenCode is in `checkedTools`.
-- Seed `draftEnvVarOptions[.opencode]` with `EnvVarConfig.recommendedDefaults(for: .opencode)` if the env-var editor is harness-aware.
+- Seed `draftEnvVarOptions[.opencode]` with `EnvVarConfig.recommendedDefaults(for: .opencode)` once the harness-keyed env-var API from §4 exists.
 - Save OpenCode CLI options during onboarding using a new `SettingsPersistence.saveOpenCodeOptions(appSettings:)` call.
-- Save OpenCode env-var options using a new `SettingsPersistence.saveOpenCodeEnvVars(appSettings:)` call (mirror Claude env-var persistence if it exists).
+- Save OpenCode env-var options using a new `SettingsPersistence.saveOpenCodeEnvVars(appSettings:)` call. **There is no Codex/Cursor env-var persistence to mirror** — today `AppSettings` has only one env-var field (`envVarOptions`, Claude-only). This is the first harness-keyed env-var persistence; the upstream catalog work is described in §4.
+- **Note:** `OnboardingWizardView.swift:497-499` today persists env vars only when `.claude` is in `toolsToSave`. Extending this to OpenCode requires adding an analogous block conditioned on `.opencode in toolsToSave`.
 
 ## 3. CLI flags
 
@@ -169,9 +181,21 @@ OpenCode TUI/global flags that matter for Agent Session Manager (from the CLI do
 - Add `.opencode` cases to `optionType` for boolean vs string mapping.
 - Add `opencodeCliOptions: [CLIOptionConfig]` to `AppSettings`.
 - Add `SettingsPersistence` methods to load/save OpenCode options (mirror `saveCodexOptions` / `saveCursorOptions`).
-- Add `Tab.buildOpenCodeCommand(port:extraArgs:)` that emits only the final invocation, e.g. `opencode --port 12345 --continue`.
+- Add `Tab.buildOpenCodeCommand(port:extraArgs:)` that emits only the final invocation, e.g. `opencode --port 12345 --hostname 127.0.0.1 --mdns=false --continue`.
 - Wire `.opencode` into `Tab.addPane`/`completeSetup`/`refreshPane`/`restartPane`.
-- Respect Terminal Purity: no setup commands in the terminal string; `--port` and other injected flags are computed in Swift and appended to the final command.
+- Respect Terminal Purity: no setup commands in the terminal string; `--port`, `--hostname`, `--mdns`, and other injected flags are computed in Swift and appended to the final command.
+
+### Network binding defaults
+
+Per-pane invocations must default `--hostname 127.0.0.1` and `--mdns=false`. `--mdns` and `--mdns-domain` stay in the flag catalog for advanced users but are disabled in `recommendedDefaults`. Rationale: without a per-pane `OPENCODE_SERVER_PASSWORD`, mDNS would advertise unauthenticated per-pane HTTP servers on the LAN. Defaulting to localhost + ephemeral port + mDNS-off is the safe baseline.
+
+### Server auth threat model
+
+v1 does not auto-set `OPENCODE_SERVER_PASSWORD`. Accepted risk: each pane binds to `127.0.0.1` on an OS-allocated ephemeral port, so only local processes can reach it. If a later change moves the server to a non-loopback bind or a fixed port, re-open this decision — without auth that change would expose the agent to the network.
+
+### Permission precedence note
+
+The `--auto` CLI flag and the `permission` JSON key injected via `OPENCODE_CONFIG_CONTENT` both affect auto-approve behavior. Per the precedence table, `OPENCODE_CONFIG_CONTENT` (tier 6) wins over the `OPENCODE_PERMISSION` env var. The CLI flag's relationship to env-injected config isn't documented. §6's injected `permission` defaults will take effect over user-set `OPENCODE_PERMISSION`; the env-var editor in §4 must surface this so the user doesn't think their `OPENCODE_PERMISSION` value is effective.
 
 ### Important note on `--port`
 
@@ -185,16 +209,45 @@ OpenCode exposes many `OPENCODE_*` env vars. Relevant categories for the setting
 - Server auth: `OPENCODE_SERVER_PASSWORD`, `OPENCODE_SERVER_USERNAME`
 - Behavior: `OPENCODE_AUTO_SHARE`, `OPENCODE_DISABLE_AUTOUPDATE`, `OPENCODE_DISABLE_TERMINAL_TITLE`, `OPENCODE_DISABLE_AUTOCOMPACT`, `OPENCODE_DISABLE_MOUSE`, `OPENCODE_PERMISSION`
 - Claude-code interop: `OPENCODE_DISABLE_CLAUDE_CODE`, `OPENCODE_DISABLE_CLAUDE_CODE_PROMPT`, `OPENCODE_DISABLE_CLAUDE_CODE_SKILLS`
-- Experimental: `OPENCODE_EXPERIMENTAL_*`, `OPENCODE_ENABLE_EXPERIMENTAL_MODELS`, etc.
+- Models / network: `OPENCODE_DISABLE_MODELS_FETCH`, `OPENCODE_MODELS_URL`
+- LSP / tools: `OPENCODE_DISABLE_LSP_DOWNLOAD`
+- Dev/prod isolation: `OPENCODE_DISABLE_DEFAULT_PLUGINS`
+- Restore-related: `OPENCODE_DISABLE_PRUNE`
+- Telemetry: `OPENCODE_CLIENT` (suggest `"agent-session-manager"`)
+- Testing: `OPENCODE_FAKE_VCS`
+- Experimental: `OPENCODE_EXPERIMENTAL`, `OPENCODE_EXPERIMENTAL_*`, `OPENCODE_ENABLE_EXPERIMENTAL_MODELS`, etc.
+
+### Scope clarification
+
+Today `EnvVarConfig` has a single Claude-only catalog (`EnvVarConfig.all`, all entries are `ANTHROPIC_*`/`CLAUDE_CODE_*`) and a `recommendedDefaults()` function that takes **no parameter**. There are no `codexAll`/`cursorAll` env-var catalogs and no harness-keyed `AppSettings` env-var fields besides `envVarOptions` (Claude-only). Standing up OpenCode env-var support is **new harness-keyed infrastructure**, not a port of an existing Codex/Cursor env-var pattern.
+
+### Recommended API shape
+
+Mirror `CLIOptionConfig.recommendedDefaults(for: Harness)`:
+- Parameterize `EnvVarConfig.recommendedDefaults(for cli: Harness)`.
+- Keep `EnvVarConfig.all` as the Claude-only catalog (fed to the `.claude` arm).
+- Add `EnvVarConfig.opencodeAll: [EnvVarConfig]` as the OpenCode catalog (fed to the `.opencode` arm).
+- Keep the parameterless `recommendedDefaults()` as a thin wrapper calling `recommendedDefaults(for: .claude)` to avoid churning existing call sites (or migrate them — pick during implementation).
+- Add `AppSettings.opencodeEnvVarOptions: [EnvVarConfig]` defaulting to `EnvVarConfig.opencodeAll`.
+
+### Conflict resolution
+
+Per the precedence table, `OPENCODE_CONFIG_CONTENT` (tier 6) wins over `OPENCODE_PERMISSION` (env var). Because Agent Session Manager injects `OPENCODE_CONFIG_CONTENT` per-pane (§6), any user-set `OPENCODE_PERMISSION` is silently overridden.
+
+**Recommended editor behavior:**
+- Remove `OPENCODE_PERMISSION` from the user-facing env-var sheet entirely (it's effectively read-only from the user's perspective), OR
+- Surface it with an "overridden by app-injected config" caption and disable the text field.
+
+Never present it as editable — that would silently misrepresent the effective permission policy.
 
 ### Work to do
 
-- Create `EnvVarConfig.opencodeAll` catalog (mirror `EnvVarConfig.all` structure).
-- Add `EnvVarConfig.recommendedDefaults(for: .opencode)`.
-- Add `opencodeEnvVarOptions: [EnvVarConfig]` to `AppSettings`.
+- Create `EnvVarConfig.opencodeAll` catalog populated with the OpenCode env vars listed above.
+- Add `EnvVarConfig.recommendedDefaults(for cli: Harness)` with a `.opencode` arm returning recommended IDs (e.g., `OPENCODE_AUTO_SHARE`, `OPENCODE_DISABLE_AUTOUPDATE`, `OPENCODE_CLIENT`, `OPENCODE_DISABLE_DEFAULT_PLUGINS`).
+- Add `opencodeEnvVarOptions: [EnvVarConfig]` to `AppSettings` (near `cliOptions`/`codexCliOptions`/`cursorCliOptions`).
 - Add `SettingsPersistence` methods to load/save OpenCode env vars.
-- Update `OnboardingWizardView.cliFlagsStep` to show a harness-keyed env-var editor when OpenCode is selected.
-- Update `Tab.addPane`, `Tab.refreshPane`, and `Tab.completeSetup` so `extraEnvVars` are injected for **all** harnesses, not only `.claude` (currently `Tab.swift:523-527` is Claude-only). This is required for profiles and env-var editor parity.
+- Update `OnboardingWizardView.cliFlagsStep` to show a harness-keyed env-var editor when OpenCode is selected, and extend the save condition at `OnboardingWizardView.swift:497-499` to also save when `.opencode` is in `toolsToSave`.
+- Update `Tab.addPane`, `Tab.refreshPane`, and `Tab.completeSetup` so `extraEnvVars` are injected for **all** harnesses, not only `.claude` (today `Tab.swift:523-527`, `601-605`, and `955-958` are Claude-only). This is required for profiles and env-var editor parity.
 - Reserve `OPENCODE_CONFIG_CONTENT` for internal use in §6; it should not be editable in the user-facing env-var sheet, because Agent Session Manager will write it itself.
 
 ## 5. Profile creation
@@ -203,8 +256,10 @@ OpenCode exposes many `OPENCODE_*` env vars. Relevant categories for the setting
 
 - `Profile.harness` is already a `Harness`, so `.opencode` profiles require no model changes.
 - `ProfileCLIOption` IDs will be drawn from `CLIOptionConfig.opencodeAll`.
-- `ProfileEnvVar` IDs will be drawn from `EnvVarConfig.opencodeAll`.
+- `ProfileEnvVar` IDs will be drawn from `EnvVarConfig.opencodeAll` — that catalog must exist first; see §4 for the upstream work and its new-infrastructure note.
 - Ensure `ProfileSettingsViews` and `StatusLineConfig` pickers treat `.opencode` as a first-class harness.
+  - `StatusLineConfig.allHarnesses` (line 142) is `[.claude, .codex, .cursor]` today — OpenCode must be added there too. Adding `.opencode` automatically extends `appCapability`, `mergedCapability`, and `modelCapability` chips to OpenCode; `claudeCapability`/`claudeCodexCapability` chips remain OpenCode-ineligible unless explicitly extended (which §7.5 already accounts for).
+  - `ProfileSettingsViews.swift:193-195` (`hiddenEnvVars`) today reads only `appSettings.envVarOptions` (Claude-only). Extending to OpenCode requires the harness-keyed env-var stack (§4) to be in place; otherwise the hidden-state UI will misreport available env vars.
 - Add OpenCode to the recommended-defaults flow when creating a profile for the first time.
 
 ## 6. Modifying OpenCode inputs to work well with Agent Session Manager
@@ -227,6 +282,7 @@ What `OPENCODE_CONFIG_CONTENT` cannot do:
 
 - It cannot install a plugin or hook script. Plugins require a file on disk in `.opencode/plugins/` or `~/.config/opencode/plugins/` (or a `plugin` array referencing npm packages, which would trigger a `bun install` at startup — a Terminal Purity concern).
 - It cannot reference per-pane temp files inside JSON (unless we use env-var substitution, which OpenCode supports via `{env:VAR}`).
+- It cannot exceed the macOS `setenv` / `ARG_MAX` payload budget. The 8–16 KB stress test in Phase 0 must confirm the size headroom (reopened Q6).
 
 Therefore status-line/attention hooks should use the HTTP server API (§7) rather than a plugin. If the server API proves insufficient for attention notifications, a one-time global plugin install is the fallback, but it is deprioritized because it affects the user's real OpenCode setup and violates the dev/prod isolation goal.
 
@@ -234,7 +290,7 @@ Therefore status-line/attention hooks should use the HTTP server API (§7) rathe
 
 - Create a helper that builds the per-pane inline JSON config.
 - Inject it into `controller.pendingEnvironment` as `OPENCODE_CONFIG_CONTENT=<json>`.
-- Ensure user-provided `OPENCODE_CONFIG_CONTENT` values are respected or merged; document the conflict behavior.
+- **Conflict behavior:** because Agent Session Manager injects `OPENCODE_CONFIG_CONTENT` per-pane, any user-provided `OPENCODE_CONFIG_CONTENT` or `OPENCODE_PERMISSION` value is overridden. The env-var editor (§4) must surface this; the UI must not present these keys as editable.
 
 ## 7. Status line support
 
@@ -245,6 +301,10 @@ This is the largest integration surface. The plan is to connect to each pane's O
 Each `opencode` TUI starts its own server. Agent Session Manager must ensure each pane's server is reachable.
 
 - Allocate a free port in Swift before launching the pane (bind a temporary socket, read the port, close it, pass `--port <port>` to OpenCode). Use `Network.NWListener` on port 0 as the idiomatic approach; no free-port allocator exists in the codebase today.
+- **TOCTOU caveat:** bind-and-release has a race window before OpenCode rebinds the port. Two mitigations:
+  - **Preferred:** keep the `NWListener` socket bound until OpenCode has forked and is listening (idiomatic via `NWListener` + `accept` on a child path).
+  - **Acceptable fallback:** release the port, spawn OpenCode with `--port`, then hit `GET /global/health` with exponential backoff. If the bind fails, reallocate a fresh port and respawn.
+  The Phase 0 spike should pick one and document it.
 - Store the allocated port with the pane controller / `StatusProviderContext` so the status provider can connect.
 - On restore, reallocate a fresh port and relaunch OpenCode on that port; OpenCode session state is preserved via `--session <id>` or `--continue`.
 - Collision risk exists across dev/prod builds because ports are OS-wide; re-allocating a fresh port on every launch mitigates this.
@@ -253,33 +313,43 @@ Each `opencode` TUI starts its own server. Agent Session Manager must ensure eac
 
 A single pane/server may host multiple sessions over time. The provider needs to know which session is "the pane's session."
 
-- When the user continues a session, pass `--session <id>`. The provider then binds to that exact id.
-- For a fresh pane, call `GET /session/status` on the pane's port and select the active/running session (or the most recently updated session if none is marked active).
+**Chosen strategy:** `POST /session {title?}` upfront, then pass `--session <id>` to the OpenCode CLI.
+- Before launching the pane, the app calls `POST /session {title: "<tab>/<pane>"}` on the per-pane server. If the embedded TUI server isn't reachable before the TUI starts, fall back to discovery (next bullet).
+- The returned `sessionID` is passed to the TUI launch via `--session <id>`.
+- The provider binds to that exact id; no heuristic matching.
 - Store the bound `sessionID` on the pane so restore/restart rebinds to the same session.
+- **Fallback (when `POST /session` isn't usable pre-launch):** launch the TUI, then call `GET /session/status`, pick the active/running session (or most-recently-updated).
+- **Auto session names:** because `POST /session {title?}` accepts a title at creation, OpenCode panes CAN be auto-named in v1 (no longer Claude-only as Q4 originally closed). The title format mirrors Claude's `<tab>/<pane>` convention.
 
 ### 7.3 `OpenCodeStatusProvider`
 
 Create a new provider conforming to `StatusLineDataProvider`, modeled on `CodexStatusProvider`.
 
-- Use `ToolAgnosticDataProvider` as the baseline for worktree, branch, duration, changed lines, version, and PR data.
-- Start an SSE connection to `GET /event` against `http://localhost:<port>`; fall back to periodic polling of `/session/status` if SSE lifecycle proves problematic in Swift concurrency.
+- Use `ToolAgnosticDataProvider` as the baseline for worktree, branch, duration, changed lines, version, and PR data. However, the OpenCode server offers richer sources for some of these:
+  - `GET /session/:id/diff` (`FileDiff[]`) is a more accurate source for `linesAdded`/`linesRemoved` than the app-owned `git diff --stat` `ToolAgnosticDataProvider` does today. Consider calling this when a session is bound; fall back to `ToolAgnosticDataProvider` if the endpoint or session is unavailable.
+  - `GET /vcs` could augment or replace branch + worktree detection.
+  - `GET /project/current` could verify worktree-as-project-root without shelling to git.
+- Resolve the OpenCode version from `GET /global/health` (`{healthy, version}`), not from parsing `opencode --version` stdout. Pass it into `StatusProviderContext` as `detectedHarnessVersion` and use an `OpenCodeVersionAdapter` (modeled on `CodexVersionAdapter`) to gate fields/endpoints by version.
+- Start an SSE connection to `GET /event` against `http://127.0.0.1:<port>`; fall back to periodic polling of `/session/status` at 15s cadence if SSE lifecycle proves problematic in Swift concurrency. **Spike caveat:** if `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` is required for the stream, inject it via `OPENCODE_CONFIG_CONTENT` per-pane (§6).
 - Parse responses from `/session/status` and `/session/:id` to populate:
   - `model`
   - `inputTokens`, `outputTokens`, `context`, `contextRemaining`
   - `cost` (if exposed)
   - `version`
-  - `sessionName` (if exposed; docs only confirm `title`, settable via POST/PATCH)
+  - `sessionName` (from `title`, set at creation via `POST /session {title?}`)
 - Merge baseline and harness data in `emitMerged()`, following the `CodexStatusProvider` pattern.
-- Add bounded tracing for binding attempts, parse failures, and field presence. Do not log prompts, messages, or auth data.
+- Add bounded tracing for binding attempts, parse failures, field presence, version-drift detection, and SSE/polling transitions. Do not log prompts, messages, or auth data.
 
 ### 7.4 `StatusLineMonitor` wiring
 
 - In `StatusLineMonitor.init`, add an `.opencode` branch that creates `OpenCodeStatusProvider`.
 - Add `opencodePort: Int?` to `StatusProviderContext` (mirroring `codexHookRecordPath`).
+- Ensure `detectedHarnessVersion` is populated from `/global/health` for the OpenCode arm.
 - Inject environment variables into the pane:
   - `AGENT_SESSION_MANAGER_PANE_ID=<pane-id>` (consistent with Cursor/Codex)
-  - `AGENT_SESSION_MANAGER_OPENCODE_PORT=<port>` (optional, for diagnostics/plugins)
+  - `AGENT_SESSION_MANAGER_OPENCODE_PORT=<port>` (optional, for diagnostics/plugins) — **namespace risk:** OpenCode parses any `OPENCODE_*` env var as config. Spike must confirm unknown `OPENCODE_*` keys are ignored; otherwise rename to a non-`OPENCODE_`-prefixed env var (e.g., `AGENT_SESSION_MANAGER_OPN_PORT`).
   - `OPENCODE_CONFIG_CONTENT=<json>`
+  - If SSE gating is confirmed: `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`.
 - Update `StatusLineConfig.itemCapabilities` so OpenCode-capable chips are selectable.
 
 ### 7.5 Chip capability classification
@@ -292,12 +362,12 @@ Proposed OpenCode support per chip (finalized after Phase 0 spike):
 | `inputTokens` | Server API | Spike-dependent |
 | `outputTokens` | Server API | Spike-dependent |
 | `context` / `contextRemaining` | Server API | Spike-dependent |
-| `cost` | Server API / `opencode stats` | Likely No; `opencode stats` CLI only, no documented HTTP endpoint |
-| `version` | `opencode --version` | Yes |
-| `sessionName` | Server API | No; only `title` is confirmed, settable via POST/PATCH after creation |
+| `cost` | Server API | Likely No; `opencode stats` CLI only, no documented `/stats` HTTP endpoint. Also probe `/global/health` and `/session/:id` for any cost field. |
+| `version` | `GET /global/health` | Yes |
+| `sessionName` | Server API | Yes (reopened Q4): `POST /session {title?}` at creation |
 | `duration` | App-owned | Yes |
 | `worktree` | App-owned | Yes |
-| `linesAdded` / `linesRemoved` | App-owned | Yes |
+| `linesAdded` / `linesRemoved` | App-owned baseline; alternative `GET /session/:id/diff` | Yes |
 | `pr` | App-level PR tracking | Yes |
 | `profileName` | App state | Yes |
 | `rate5h` / `rate7d` | Not documented | No |
@@ -310,45 +380,97 @@ OpenCode does not use the same hook file mechanism as Claude Code, but it expose
 - `permission.asked` plugin event or server event corresponds to "needs user attention."
 - `session.idle` corresponds to "the agent finished a turn."
 
+### Naming correction
+
+- The `PaneAttentionEvent.Source` enum today has `claudeStop`, `claudePermissionRequest` (not `claudePermission`), `claudeNotification`, `cursorStop`, `osc777`, `rawBell`. There is no `.claudePermission` source.
+- The `NotificationKind` enum today has only `terminalBell`, `prMerged`, `claudeStop` — there is no permission kind. Permission events today route through `PaneAttentionEvent.Source.claudePermissionRequest`, not a separate `NotificationKind`.
+
+Therefore:
+
+- Add `PaneAttentionEvent.Source.opencodeStop` — mirrors `claudeStop`.
+- Add `PaneAttentionEvent.Source.opencodePermissionRequest` (full spelling, mirrors `claudePermissionRequest`) — **not** a new `NotificationKind`.
+- Add `NotificationKind.opencodeStop` — mirrors `claudeStop`.
+- Permission events in v1 produce a `PaneAttentionEvent` (sidebar entry) but **not** a `NotificationKind` (no `.opencodePermission` notification) — match the existing Claude pattern. If you want a permission notification, open a separate decision.
+
+### Subagent gating
+
+The OpenCode flag that enables background subagents is `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS` (env var). The `OPENCODE_EXPERIMENTAL` umbrella flag may also need to be set for any experimental feature to take effect (Phase 0 confirms). Investigate whether `session.idle` fires prematurely while background subagents are running. If so, implement suppression logic analogous to Claude's `SubagentStop`/`PreToolUse` gating. The Phase 0 spike determines whether `tool.execute.before`/`tool.execute.after` can proxy for `PreToolUse`/`SubagentStop`.
+
+If `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` is required for SSE, the same env-injection flow (§6) must set it per-pane; otherwise `session.idle` and `permission.asked` events won't fire from `GET /event`.
+
 ### Work to do
 
 - Consume attention/stopped signals from the server SSE stream (`GET /event`) inside `OpenCodeStatusProvider`.
 - Map `session.idle` to `PaneNotification` / sidebar entries, similar to Claude's `Stop` hook.
-- Map permission events to attention notifications.
-- Add new `PaneAttentionEvent.Source` cases: `.opencodeStop`, `.opencodePermission`.
-- Add new `NotificationKind` case: `.opencodeStop`.
-- Add `NotificationConfig.isOpencodeStopNotificationEnabled` toggle, CodingKey, init/encode arm, and AppSettings field.
+- Map permission events to attention notifications via `PaneAttentionEvent.Source.opencodePermissionRequest`.
+- Add `PaneAttentionEvent.Source.opencodeStop` and `NotificationKind.opencodeStop`.
+- Add `NotificationConfig.isOpencodeStopNotificationEnabled` toggle, `CodingKey`, init/encode arm, and `AppSettings` field.
 - Update `AppState.addNotification` source→kind mapping to handle `.opencodeStop`.
-- Investigate whether `session.idle` fires prematurely while background subagents are running (OpenCode has `experimental.background_subagents`). If so, implement suppression logic analogous to Claude's `SubagentStop` / `PreToolUse` gating. The Phase 0 spike should determine whether `tool.execute.before/after` can proxy for `PreToolUse`/`SubagentStop`.
 
 ## 9. Session persistence, restore, and continue-on-restart
 
+### Backward-compatibility warning
+
+`PersistedPane.harness` is a `Harness` enum. The existing decoder at `SessionPersistence.swift:157` uses `decodeIfPresent(Harness.self, …) ?? .claude`. `decodeIfPresent` **throws** on an unrecognized raw value — the `??` only fires for a missing key, not for an unknown string. Once `.opencode` ships, any `sessions.json` written by the new build will throw when decoded by an older build (which lacks the enum case). Older builds will **not** silently fall back to `.claude`; they will crash the restore.
+
+Mitigation options:
+
+1. Accept breakage — document in release notes that opening v1 OpenCode sessions in an older build crashes restore; older builds must be upgraded.
+2. Wrap the decode in a custom `init(from:)` that catches the throw and degrades to `.claude` with a bounded log, so older builds survive (but the pane launches as Claude, not OpenCode — confusing UX, must surface a banner).
+
+Recommendation: option 1. Older builds crashing on a new file format is acceptable; option 2 silently masks the upgrade and risks users running a pane as Claude when they meant to run OpenCode.
+
+### Session binding
+
+Cross-link §7.2: the app pre-allocates a `sessionID` via `POST /session {title?}` and passes it via `--session <id>`. Persisted state for restore: pane id, `sessionID` (when continuing), injected-config snapshot. The port is transient and reallocated on relaunch — do not persist it. On restore, reallocate a fresh port, rebuild the command/env, and rebind via `--session <id>`.
+
+### Prune race
+
+OpenCode may prune old sessions on startup. If `OPENCODE_DISABLE_PRUNE` isn't injected, a startup prune could delete the persisted `sessionID` before the provider rebinds to it. Recommend injecting `OPENCODE_DISABLE_PRUNE=true` per-pane (or gating restore on session existence via `GET /session/:id` before launching the TUI).
+
 ### Work to do
 
-- `PersistedPane.harness` is a `Harness` enum. Adding `.opencode` is backward compatible because the existing decoder falls back to `.claude` for unknown values (`SessionPersistence.swift:157`).
 - Extend `Tab.refreshPane` and `restartPane` to handle `.opencode`:
   - Reallocate a fresh free port on every launch.
   - Rebuild `controller.pendingCommand` with the new `--port`.
   - Rebuild `OPENCODE_CONFIG_CONTENT` and other injected env vars.
   - Inject `--continue` or `--session <id>` on restart if `AppSettings.continueOnRestart` is true.
 - Store enough state to rebind after restore: at minimum the pane id and, if continuing, the session id. The port is transient and reallocated on relaunch.
-- Auto session names: today this is Claude-only (`--name '<tab>/<pane>'`). OpenCode TUI `--session` takes an ID, not a display name; `opencode run` supports `--title`. v1 leaves auto-naming Claude-only. Future implementation can use `POST /session {title}` or `PATCH /session/:id {title}` after the session is created.
+- Auto session names: because `POST /session {title?}` accepts a title at creation and the provider passes `--session <id>`, OpenCode panes **can** be auto-named in v1. The title format mirrors Claude's `<tab>/<pane>` convention.
 
 ## 10. Additional cross-cutting concerns
 
 These are areas beyond the six categories in the original request that must be addressed before the feature is complete.
 
+### No programmatic TUI driving
+
+OpenCode exposes `POST /tui/submit-prompt`, `POST /tui/append-prompt`, `POST /tui/execute-command`, `POST /tui/show-toast`, `POST /tui/open-help`, `POST /tui/open-sessions`, `POST /tui/open-themes`, `POST /tui/open-models`. Agent Session Manager **must not** call any of these. The terminal pane is the user's surface — driving it programmatically would violate Terminal Purity (AGENTS.md) and undermine the worktree-per-pane model. The HTTP server is for status-line / notification observability only.
+
 ### Dev/prod build isolation
 
-OpenCode's global config and plugin directories (`~/.config/opencode/`, `/Library/Application Support/opencode/`) are shared between Agent Session Manager's dev and production builds. If we ever install a global plugin or managed config, a dev run would affect the user's real OpenCode setup. The recommended env-var-only approach avoids this risk for config. For hooks, prefer the server API over global plugin installation.
+OpenCode's global config and plugin directories (`~/.config/opencode/`, `/Library/Application Support/opencode/`) are shared between Agent Session Manager's dev and production builds. Defenses:
 
-### Telemetry and invariants
+- Env-var-only config injection (the §6 approach) avoids touching these directories.
+- `OPENCODE_DISABLE_DEFAULT_PLUGINS=true` injected per-pane strips default plugins cleanly — use in dev builds for maximum isolation.
+- For hooks, prefer the server API over global plugin installation. A one-time global plugin install is deprioritized because it affects the user's real OpenCode setup and violates dev/prod isolation.
 
-Per the `instrument-runtime-telemetry` skill, every runtime behavior change must:
+### Issue tracking and invariants
 
+Per AGENTS.md, every feature ties to a GitHub issue and contributes invariant-catalog entries. Before implementation:
+
+- File a tracking issue for OpenCode support (referenced in commit messages and PR descriptions).
 - Emit span attributes for harness detection, command build, status provider binding, server API calls, and failures.
-- Add invariant catalog entries if any invariants are enforced (e.g. worktree name, lines added/removed).
 - Keep output bounded (no prompts, no auth, no env secrets).
+
+Add invariant-catalog entries per the `instrument-runtime-telemetry` skill:
+
+- Worktree-name invariant (already enforced; OpenCode panes inherit the contract).
+- Lines-added/removed invariant (if §7.3 switches to `/session/:id/diff`, the source changes but the invariant doesn't).
+- OpenCode-specific invariants to add:
+  - Per-pane port is localhost + ephemeral + mDNS-off.
+  - `OPENCODE_CONFIG_CONTENT` is app-controlled per pane (not user-editable).
+  - `sessionID` is bound and rebindable across restore.
+  - No `/tui/*` endpoint called from the app (Terminal Purity extension).
 
 ### Terminal purity
 
@@ -364,7 +486,7 @@ OpenCode discovers project config by searching upward from the current directory
 
 ### Version/schema drift
 
-Like Codex's `0.136.x` SQLite adapter, the OpenCode server API may change across versions. Implement version detection (`opencode --version`) and degrade gracefully to baseline facts if an endpoint or field is missing.
+Like Codex's `0.136.x` SQLite adapter (`CodexVersionAdapter` in `CodexStatusProvider.swift:66-81`), the OpenCode server API may change across versions. Implement `OpenCodeVersionAdapter` modeled on the Codex pattern: branch on `detectedHarnessVersion` (resolved via `GET /global/health`), gate field-population calls behind version predicates, and emit a bounded trace event when an endpoint or field is missing. Do **not** degrade silently — silent degradation masks breakage from the observability dashboard.
 
 ### Documentation artifacts to create during implementation
 
@@ -378,29 +500,29 @@ Like Codex's `0.136.x` SQLite adapter, the OpenCode server API may change across
 These need to be resolved before or during implementation.
 
 1. **Random-port discovery.** [x] Closed: always pin `--port`.
-2. **SSE vs polling.** [~] SSE preferred; final design in Phase 5.
+2. **SSE vs polling.** [~] SSE preferred; final design in Phase 5. Must confirm whether `GET /event` requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM`; if gated, inject it per-pane.
 3. **Background subagent idle behavior.** [~] Investigate during Phase 0 spike.
-4. **Auto session names.** [x] Closed: no CLI flag; future path is server API POST/PATCH.
+4. **Auto session names.** [~] `POST /session {title?}` accepts a title at creation; v1 can auto-name OpenCode panes if the Phase 0 spike confirms it works against the embedded TUI server. Strategy: create session upfront, pass `--session <id>`.
 5. **Env-var catalog scope.** [x] Closed: expand to OpenCode in v1.
-6. **`OPENCODE_CONFIG_CONTENT` limits.** [x] Closed: no documented limit.
-7. **Cost data availability.** [~] Phase 0 spike; likely "No" for v1.
+6. **`OPENCODE_CONFIG_CONTENT` limits.** [~] No documented OpenCode-side limit, but the previous close was premature. Spike must verify an 8–16 KB inline JSON survives macOS `setenv` + parses through OpenCode's loader.
+7. **Cost data availability.** [~] Phase 0 spike; probe `/global/health` and `/stats`; likely "No" for v1.
 8. **Rate limits.** [x] Closed: not documented.
 
 ## 12. Proposed implementation order
 
 A phased approach keeps each stage compileable and testable.
 
-0. **API spike** — `/doc` schema, SSE shapes, cost/token field presence, background-subagent event semantics.
+0. **API spike** — `/doc` schema (resolve HTML vs JSON), SSE shapes (60s observation), cost/token field presence, background-subagent event semantics, `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` gate, `OPENCODE_CONFIG_CONTENT` 8–16 KB stress test, `POST /session {title}` through embedded TUI server, `/global/health` for version.
 1. **Enum + detection** — add `.opencode`, enable auto-activation when detected, update test assertions.
-2. **CLI flag catalog + persistence + env-var catalog** — `opencodeAll`, `recommendedDefaults`, `AppSettings` fields, `SettingsPersistence` methods, expand `extraEnvVars` plumbing to all harness arms.
+2. **CLI flag catalog + persistence + env-var catalog** — `opencodeAll`, `recommendedDefaults`, `AppSettings` fields, `SettingsPersistence` methods, build the harness-keyed env-var stack from scratch (no Codex/Cursor env-var pattern to mirror — see §4), expand `extraEnvVars` plumbing to all harness arms including `.shell` and `.opencode`.
 3. **Command builder + launch** — `Tab.buildOpenCodeCommand`, free-port allocator, `addPane`/`completeSetup` wiring. Verify a pane can launch `opencode`.
 4. **Config injection** — build and inject `OPENCODE_CONFIG_CONTENT`.
-5. **Status provider** — `OpenCodeStatusProvider`, server SSE/polling, model/token/context population, chip matrix finalized post-spike.
+5. **Status provider** — `OpenCodeStatusProvider`, SSE/polling with 15s fallback cadence, model/token/context population, chip matrix finalized post-spike. Use `GET /global/health` for version (not `opencode --version`). Consider `GET /session/:id/diff` for `linesAdded`/`linesRemoved` (alternative to app-owned `git diff --stat`).
 6. **Notifications** — attention/stopped events from server, sidebar integration, new `NotificationKind`/`Source` cases, toggle persistence, background-subagent gating if needed.
 7. **Restore + continue** — persist session id, rebind on restore, re-allocate port and rebuild command/env on restart, `--continue`/`--session` on restart.
 8. **Telemetry + invariants** — spans, invariant catalog, bounded output.
-9. **Docs + skill** — feature doc, skill, matrix update.
+9. **Docs + skill** — feature doc (`documentation/features/opencode-cli.md`), skill (`.agents/skills/feature-opencode-cli/SKILL.md`), `AGENTS.md` "Feature Skills" entry, update `documentation/features/agent-harness-feature-matrix.md`.
 
 ---
 
-*Last updated: July 4, 2026. This plan will be refined as the Phase 0 spike answers the remaining open questions and implementation begins.*
+*Last updated: July 5, 2026. This plan will be refined as the Phase 0 spike answers the remaining open questions and implementation begins.*
