@@ -10,7 +10,7 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 
 | # | Phase | Status | Notes |
 |---|---|---|---|
-| 0 | [API spike](#phase-0-api-spike) | [ ] | Blocks chip matrix finalization and status-provider design. |
+| 0 | [API spike](#phase-0-api-spike) | [x] | Findings appended below in [Spike Findings](#spike-findings). Chip matrix and provider strategy are now locked. |
 | 1 | [Enum + detection](#1-harness-enum-and-detection) | [ ] | |
 | 2 | [CLI flag catalog + persistence](#3-cli-flags) | [ ] | Includes env-var catalog expansion. |
 | 3 | [Command builder + launch](#3-cli-flags) | [ ] | |
@@ -26,12 +26,12 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | # | Question | Status | Resolution |
 |---|---|---|---|
 | 1 | Random-port discovery | [x] | Always pin `--port`; stdout URL emission is undocumented and the TUI defaults to a random port. |
-| 2 | SSE vs polling | [~] | SSE `GET /event` preferred; polling `/session/status` as fallback. **Phase 0 must confirm whether `/event` requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM`.** Final design in Phase 5. |
-| 3 | Background subagent idle behavior | [~] | Investigate during Phase 0 spike; no documented `SubagentStop`-equivalent event. Confirm whether `OPENCODE_EXPERIMENTAL` umbrella flag is required for experimental features. |
-| 4 | Auto session names | [~] | `POST /session {title?}` accepts title at creation per live server docs. Spike must confirm it works through the embedded TUI server; if so, v1 can auto-name via upfront session creation + `--session <id>`. |
+| 2 | SSE vs polling | [x] | SSE `GET /event` works but **requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`**. Without the flag only `server.connected` is emitted. Fallback is polling `GET /session/:id`, not `/session/status` (the latter returns `{}` in 1.17.13). Inject the flag per-pane via `OPENCODE_CONFIG_CONTENT`. |
+| 3 | Background subagent idle behavior | [x] | Background subagents create **child sessions** (`parentID` points to the parent). The bound parent session's `session.idle` fires accurately when its own turn completes, so no Claude-style `SubagentStop` gating is needed for v1. |
+| 4 | Auto session names | [x] | `POST /session {"title":"..."}` works against the embedded TUI server and returns a session `id`. Passing `--session <id>` rebinds the TUI to that session. v1 can auto-name with the `<tab>/<pane>` convention. |
 | 5 | Env-var catalog scope | [x] | Add OpenCode env-var editor in v1. |
-| 6 | `OPENCODE_CONFIG_CONTENT` limits | [~] | No documented OpenCode-side limit, but the previous close was premature. Spike must stress-test an 8–16 KB inline JSON through macOS `setenv` + OpenCode's loader. |
-| 7 | Cost data availability | [~] | Phase 0 spike; `opencode stats` CLI only, no documented `/stats` HTTP endpoint. Also probe `/global/health` and `/session/:id` for any cost field. Likely "No" for v1. |
+| 6 | `OPENCODE_CONFIG_CONTENT` limits | [x] | **16 KB passes** and **512 KB passes** when the env var is set directly. The only failure observed was at ~1 MB when passing the value through a shell, which hit `ARG_MAX`/`argument list too long` — an invocation-shell limit, not an OpenCode loader limit. Swift `Process.environment` / `setenv` should not hit this ceiling. |
+| 7 | Cost data availability | [x] | **Yes.** `GET /session/:id` returns `cost: number` and `tokens: {input, output, reasoning, cache: {read, write}}`. These also appear in SSE `session.updated` events. `inputTokens`/`outputTokens` and `cost` chips are supported. |
 | 8 | Rate limits | [x] | Not documented anywhere; chips → "No". |
 
 ## Decisions already made
@@ -318,25 +318,26 @@ A single pane/server may host multiple sessions over time. The provider needs to
 - The returned `sessionID` is passed to the TUI launch via `--session <id>`.
 - The provider binds to that exact id; no heuristic matching.
 - Store the bound `sessionID` on the pane so restore/restart rebinds to the same session.
-- **Fallback (when `POST /session` isn't usable pre-launch):** launch the TUI, then call `GET /session/status`, pick the active/running session (or most-recently-updated).
+- **Fallback (when `POST /session` isn't usable pre-launch):** launch the TUI, then call `GET /session` and pick the active/running session (or most-recently-updated). Avoid `GET /session/status`; it returned `{}` in 1.17.13 and carries no useful fields.
 - **Auto session names:** because `POST /session {title?}` accepts a title at creation, OpenCode panes CAN be auto-named in v1 (no longer Claude-only as Q4 originally closed). The title format mirrors Claude's `<tab>/<pane>` convention.
 
 ### 7.3 `OpenCodeStatusProvider`
 
 Create a new provider conforming to `StatusLineDataProvider`, modeled on `CodexStatusProvider`.
 
-- Use `ToolAgnosticDataProvider` as the baseline for worktree, branch, duration, changed lines, version, and PR data. However, the OpenCode server offers richer sources for some of these:
-  - `GET /session/:id/diff` (`FileDiff[]`) is a more accurate source for `linesAdded`/`linesRemoved` than the app-owned `git diff --stat` `ToolAgnosticDataProvider` does today. Consider calling this when a session is bound; fall back to `ToolAgnosticDataProvider` if the endpoint or session is unavailable.
-  - `GET /vcs` could augment or replace branch + worktree detection.
-  - `GET /project/current` could verify worktree-as-project-root without shelling to git.
+- Use `ToolAgnosticDataProvider` as the baseline for worktree, branch, duration, changed lines, version, and PR data. The OpenCode server offers some richer sources, but not for line counts:
+  - `GET /session/:id/diff` returned `[]` for filesystem edits in the spike; do **not** use it for `linesAdded`/`linesRemoved`. Keep the app-owned `git diff --stat` baseline.
+  - `GET /vcs` can augment branch detection (`{"branch","default_branch"}`), but app-owned git is still needed for line counts.
+  - `GET /project/current` confirms the project root; note that OpenCode treats the main repo as the project root and the worktree as a `sandbox`.
 - Resolve the OpenCode version from `GET /global/health` (`{healthy, version}`), not from parsing `opencode --version` stdout. Pass it into `StatusProviderContext` as `detectedHarnessVersion` and use an `OpenCodeVersionAdapter` (modeled on `CodexVersionAdapter`) to gate fields/endpoints by version.
-- Start an SSE connection to `GET /event` against `http://127.0.0.1:<port>`; fall back to periodic polling of `/session/status` at 15s cadence if SSE lifecycle proves problematic in Swift concurrency. **Spike caveat:** if `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` is required for the stream, inject it via `OPENCODE_CONFIG_CONTENT` per-pane (§6).
-- Parse responses from `/session/status` and `/session/:id` to populate:
-  - `model`
-  - `inputTokens`, `outputTokens`, `context`, `contextRemaining`
-  - `cost` (if exposed)
+- Start an SSE connection to `GET /event` against `http://127.0.0.1:<port>`; this requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true` injected per-pane (§6). Fall back to periodic polling of `GET /session/:id` at 15 s cadence if SSE lifecycle proves problematic in Swift concurrency. Do not rely on `GET /session/status`; it returned `{}` in 1.17.13.
+- Parse responses from `GET /session/:id` (and SSE `session.updated` events) to populate:
+  - `model` (`{id, providerID, variant}` object)
+  - `inputTokens`, `outputTokens` (`tokens.input`, `tokens.output`)
+  - `cost` (`cost: number`)
   - `version`
   - `sessionName` (from `title`, set at creation via `POST /session {title?}`)
+- Do **not** populate `context` / `contextRemaining`; those fields are not exposed in 1.17.13.
 - Merge baseline and harness data in `emitMerged()`, following the `CodexStatusProvider` pattern.
 - Add bounded tracing for binding attempts, parse failures, field presence, version-drift detection, and SSE/polling transitions. Do not log prompts, messages, or auth data.
 
@@ -358,16 +359,16 @@ Proposed OpenCode support per chip (finalized after Phase 0 spike):
 
 | Chip | Source | Initial target |
 |---|---|---|
-| `model` | Server API | Yes |
-| `inputTokens` | Server API | Spike-dependent |
-| `outputTokens` | Server API | Spike-dependent |
-| `context` / `contextRemaining` | Server API | Spike-dependent |
-| `cost` | Server API | Likely No; `opencode stats` CLI only, no documented `/stats` HTTP endpoint. Also probe `/global/health` and `/session/:id` for any cost field. |
-| `version` | `GET /global/health` | Yes |
-| `sessionName` | Server API | Yes (reopened Q4): `POST /session {title?}` at creation |
+| `model` | `GET /session/:id` / SSE `session.updated` | Yes (object `{id, providerID, variant}`; display as `providerID/modelID`) |
+| `inputTokens` | `GET /session/:id` / SSE `session.updated` | Yes (`tokens.input`) |
+| `outputTokens` | `GET /session/:id` / SSE `session.updated` | Yes (`tokens.output`) |
+| `context` / `contextRemaining` | Server API | No; not exposed on Session or SessionStatus in 1.17.13 |
+| `cost` | `GET /session/:id` / SSE `session.updated` | Yes (`cost: number`) |
+| `version` | `GET /global/health` | Yes (`version` string) |
+| `sessionName` | `GET /session/:id` / SSE `session.updated` | Yes (set via `POST /session {title}` and pass `--session <id>`) |
 | `duration` | App-owned | Yes |
 | `worktree` | App-owned | Yes |
-| `linesAdded` / `linesRemoved` | App-owned baseline; alternative `GET /session/:id/diff` | Yes |
+| `linesAdded` / `linesRemoved` | App-owned baseline (`git diff --stat`) | Yes; `GET /session/:id/diff` returned `[]` for filesystem edits, so do not use it for line counts |
 | `pr` | App-level PR tracking | Yes |
 | `profileName` | App state | Yes |
 | `rate5h` / `rate7d` | Not documented | No |
@@ -500,12 +501,12 @@ Like Codex's `0.136.x` SQLite adapter (`CodexVersionAdapter` in `CodexStatusProv
 These need to be resolved before or during implementation.
 
 1. **Random-port discovery.** [x] Closed: always pin `--port`.
-2. **SSE vs polling.** [~] SSE preferred; final design in Phase 5. Must confirm whether `GET /event` requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM`; if gated, inject it per-pane.
-3. **Background subagent idle behavior.** [~] Investigate during Phase 0 spike.
-4. **Auto session names.** [~] `POST /session {title?}` accepts a title at creation; v1 can auto-name OpenCode panes if the Phase 0 spike confirms it works against the embedded TUI server. Strategy: create session upfront, pass `--session <id>`.
+2. **SSE vs polling.** [x] Closed: SSE works with `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`; without it the stream is silent after `server.connected`. Fallback polling target is `GET /session/:id`; `/session/status` returns `{}` in 1.17.13.
+3. **Background subagent idle behavior.** [x] Closed: subagents run as child sessions; the bound parent session's `session.idle` is accurate for its own lifecycle.
+4. **Auto session names.** [x] Closed: `POST /session {title}` works against the embedded TUI server and `--session <id>` rebinds to it.
 5. **Env-var catalog scope.** [x] Closed: expand to OpenCode in v1.
-6. **`OPENCODE_CONFIG_CONTENT` limits.** [~] No documented OpenCode-side limit, but the previous close was premature. Spike must verify an 8–16 KB inline JSON survives macOS `setenv` + parses through OpenCode's loader.
-7. **Cost data availability.** [~] Phase 0 spike; probe `/global/health` and `/stats`; likely "No" for v1.
+6. **`OPENCODE_CONFIG_CONTENT` limits.** [x] Closed: 16 KB and 512 KB pass; the only failure was shell `ARG_MAX` at ~1 MB, not OpenCode's loader.
+7. **Cost data availability.** [x] Closed: `cost` and `tokens` are present on `GET /session/:id` and in SSE `session.updated` events.
 8. **Rate limits.** [x] Closed: not documented.
 
 ## 12. Proposed implementation order
@@ -525,4 +526,90 @@ A phased approach keeps each stage compileable and testable.
 
 ---
 
-*Last updated: July 5, 2026. This plan will be refined as the Phase 0 spike answers the remaining open questions and implementation begins.*
+*Last updated: July 5, 2026. Phase 0 spike complete; findings appended in [Spike Findings](#spike-findings).*
+
+## Spike Findings
+
+Spike run on **July 5, 2026** against `opencode` **v1.17.13** in the `.tree/opencode-support-2` worktree. Commands, logs, and captured JSON artifacts are under `/tmp/opencode-spike/`.
+
+### 1. Schema discovery
+
+- `GET /doc` returns an HTML Swagger UI by default. With `Accept: application/json` it returns a 478 KB OpenAPI 3.1 spec.
+- Cross-reference: `packages/sdk/js/src/gen/types.gen.ts` from the `anomalyco/opencode` `dev` branch matches the live spec.
+
+### 2. Health + version
+
+- `GET /global/health` returns `{"healthy":true,"version":"1.17.13"}`.
+- Use this for `detectedHarnessVersion` / `OpenCodeVersionAdapter`; do not parse `opencode --version`.
+
+### 3. SSE event stream (`GET /event`)
+
+- **Gating:** `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true` is **required**. Without it the stream emits only `server.connected` and then stays silent.
+- **Observed events (with flag):** `server.connected`, `server.heartbeat` (~30 s), `session.created`, `session.updated`, `session.status`, `session.idle`, `session.diff`, `message.updated`, `message.part.updated`, `message.part.delta`, `permission.asked`, `permission.replied`.
+- **Stability:** a 60 s curl-held connection stayed open, received heartbeats, and showed no silent disconnect or partial-event failures.
+
+### 4. Session creation and binding
+
+- `POST /session {"title":"spike/test"}` works against both `opencode serve` and the embedded TUI server (`opencode --port …`).
+- Response includes `id`, `title`, `cost`, `tokens`, `version`, `model`, `agent`, `time`, `summary`.
+- Passing `--session <id>` to `opencode` rebinds the TUI to that session.
+- **Decision:** v1 will auto-name OpenCode panes by creating a session upfront and passing `--session <id>`.
+
+### 5. Session / message fields
+
+`GET /session/:id` returns:
+
+- `model: {id, providerID, variant}` (not a string)
+- `cost: number`
+- `tokens: {input, output, reasoning, cache: {read, write}}` (no `total`, no `context`, no `contextRemaining`)
+- `title: string`
+- `agent: string`
+- `version: string`
+- `summary: {additions, deletions, files, diffs?}`
+
+`GET /session/:id/message` returns assistant messages with the same `cost`/`tokens` plus `finish`.
+
+**Chip impact:**
+
+- `cost`, `inputTokens`, `outputTokens`, `model`, `sessionName`, `version` → **Yes**.
+- `context` / `contextRemaining` → **No** (not exposed anywhere in 1.17.13).
+- `rate5h` / `rate7d` → **No** (still undocumented).
+
+### 6. Background subagent idle behavior
+
+- With `OPENCODE_EXPERIMENTAL=true` and `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true`, asking for a background task spawned a **child session** with `parentID` set to the original session.
+- The parent session's `session.status` went `busy` → `idle` and emitted `session.idle` when its own turn finished, while the child session continued `busy` independently.
+- **Decision:** no Claude-style `SubagentStop` gating is needed for v1; the bound session's `session.idle` accurately signals its own turn completion.
+
+### 7. `OPENCODE_CONFIG_CONTENT` stress test
+
+- Tested inline JSON sizes: 4 KB, 8 KB, 16 KB, 32 KB, 64 KB, 128 KB, 256 KB, **512 KB** — all loaded and `/config` reflected `share: "manual"`.
+- **~1 MB failed**, but the failure was `zsh: argument list too long` from the shell invocation, not from OpenCode's loader.
+- **Decision:** the 8–16 KB per-pane payload budget is safe. Swift `Process.environment` / `setenv` should avoid the shell `ARG_MAX` issue entirely.
+
+### 8. Diff, VCS, and project root
+
+- `GET /session/:id/diff` returned `[]` both before and after explicit filesystem edits via the `/session/:id/shell` endpoint. It does **not** reflect worktree changes; it appears to track session-internal snapshot diffs.
+- **Decision:** keep `linesAdded`/`linesRemoved` as app-owned (`git diff --stat`) via `ToolAgnosticDataProvider`.
+- `GET /vcs` returns `{"branch":"opencode-support-2","default_branch":"main"}` — useful for branch detection but app-owned git is still needed for line counts.
+- `GET /path` returns `worktree` and `directory` paths.
+- `GET /project/current` returns the main repo worktree with `sandboxes: [".../.tree/opencode-support-2"]`. OpenCode treats the main repo as the project root and the worktree as a sandbox.
+
+### 9. Notifications / attention signals
+
+- `permission.asked` event observed when asking OpenCode to read `/etc/hosts`:
+  ```json
+  {"type":"permission.asked","properties":{"id":"per_...","sessionID":"...","permission":"external_directory","patterns":["/etc/*"],"metadata":{...},"always":["/etc/*"],"tool":{"messageID":"...","callID":"read_0"}}}
+  ```
+- Map this to `PaneAttentionEvent.Source.opencodePermissionRequest`.
+- Map `session.idle` to `PaneAttentionEvent.Source.opencodeStop` / `NotificationKind.opencodeStop`.
+
+### 10. Open questions resolved
+
+| # | Question | Resolution |
+|---|---|---|
+| 2 | SSE vs polling | SSE requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`; fallback is polling `GET /session/:id` because `/session/status` returns `{}`. |
+| 3 | Background subagent idle behavior | Subagents run as child sessions; parent `session.idle` is accurate. |
+| 4 | Auto session names | `POST /session {title}` works; pass `--session <id>`. |
+| 6 | `OPENCODE_CONFIG_CONTENT` limits | 16 KB+ works; shell `ARG_MAX` is the only observed limit. |
+| 7 | Cost data availability | `cost` and `tokens` are present on Session and in SSE events. |
