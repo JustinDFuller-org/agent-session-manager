@@ -192,7 +192,15 @@ private struct ProfileEditorSheet: View {
     }
 
     private var hiddenEnvVars: [EnvVarConfig] {
-        appSettings.envVarOptions.filter { !$0.isAvailable }
+        currentEnvVarOptions.filter { !$0.isAvailable }
+    }
+
+    private var currentEnvVarOptions: [EnvVarConfig] {
+        switch harness {
+        case .claude: return appSettings.envVarOptions
+        case .opencode: return appSettings.opencodeEnvVarOptions
+        case .codex, .cursor, .shell: return []
+        }
     }
 
     private var isValid: Bool {
@@ -333,8 +341,8 @@ private struct ProfileEditorSheet: View {
                         }
                     }
 
-                    if harness == .claude {
-                        let availableEnvVars = appSettings.envVarOptions.filter(\.isAvailable)
+                    if harness == .claude || harness == .opencode {
+                        let availableEnvVars = currentEnvVarOptions.filter(\.isAvailable)
                         if !availableEnvVars.isEmpty || !hiddenEnvVars.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Environment Variables")
@@ -387,13 +395,29 @@ private struct ProfileEditorSheet: View {
                                                         envVar: envVar,
                                                         state: editorEnvVarStateBinding(for: envVar.id),
                                                         onAddToGlobal: {
-                                                            if let i = appSettings.envVarOptions.firstIndex(where: {
-                                                                $0.id == envVar.id
-                                                            }) {
-                                                                appSettings.envVarOptions[i].isAvailable = true
+                                                            switch harness {
+                                                            case .claude:
+                                                                if let i = appSettings.envVarOptions.firstIndex(where: {
+                                                                    $0.id == envVar.id
+                                                                }) {
+                                                                    appSettings.envVarOptions[i].isAvailable = true
+                                                                }
+                                                                SettingsPersistence.saveEnvVarOptions(
+                                                                    appSettings: appSettings)
+                                                            case .opencode:
+                                                                if let i = appSettings.opencodeEnvVarOptions.firstIndex(
+                                                                    where: {
+                                                                        $0.id == envVar.id
+                                                                    })
+                                                                {
+                                                                    appSettings.opencodeEnvVarOptions[i].isAvailable =
+                                                                        true
+                                                                }
+                                                                SettingsPersistence.saveOpenCodeEnvVars(
+                                                                    appSettings: appSettings)
+                                                            case .codex, .cursor, .shell:
+                                                                break
                                                             }
-                                                            SettingsPersistence.saveEnvVarOptions(
-                                                                appSettings: appSettings)
                                                         }
                                                     )
                                                 }
@@ -506,8 +530,8 @@ private struct ProfileEditorSheet: View {
                 enabled: option.isDefaultEnabled, value: "")
         }
         envVarStates = [:]
-        if harness == .claude {
-            for envVar in appSettings.envVarOptions where envVar.isAvailable {
+        if harness == .claude || harness == .opencode {
+            for envVar in currentEnvVarOptions where envVar.isAvailable {
                 envVarStates[envVar.id] = ProfileEditorOptionState(
                     enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
             }
@@ -549,8 +573,8 @@ private struct ProfileEditorSheet: View {
         let cliOptions = visibleOptions + hiddenEnabled
 
         let envVars: [ProfileEnvVar]
-        if harness == .claude {
-            let visibleEnvVars = appSettings.envVarOptions.filter(\.isAvailable).map { ev in
+        if harness == .claude || harness == .opencode {
+            let visibleEnvVars = currentEnvVarOptions.filter(\.isAvailable).map { ev in
                 let state = envVarStates[ev.id] ?? ProfileEditorOptionState(enabled: false, value: "")
                 return ProfileEnvVar(
                     id: ev.id, isEnabled: state.enabled, value: state.value,

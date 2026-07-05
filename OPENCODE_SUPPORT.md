@@ -12,7 +12,7 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 |---|---|---|---|
 | 0 | [API spike](#phase-0-api-spike) | [x] | Findings appended below in [Spike Findings](#spike-findings). Chip matrix and provider strategy are now locked. |
 | 1 | [Enum + detection](#1-harness-enum-and-detection) | [x] | Enum case added; detection, onboarding toggle, persistence stubs, and compiler-required switch arms landed. |
-| 2 | [CLI flag catalog + persistence](#3-cli-flags) | [ ] | Includes env-var catalog expansion. |
+| 2 | [CLI flag catalog + persistence](#3-cli-flags) | [x] | `CLIOptionConfig.opencodeAll` catalog in place with all OpenCode TUI flags (`--continue`, `--session`, `--fork`, `--prompt`, `--model`, `--agent`, `--auto`, `--port`, `--hostname`, `--mdns`, `--mdns-domain`, `--cors`). `recommendedDefaults(for: .opencode)` recommends `--model` only. `AppSettings.opencodeCliOptions` + `SettingsPersistence` save/load/merge wired through `opencode-settings.json`. Env-var catalog (`EnvVarConfig.opencodeAll`) stood up as new harness-keyed infrastructure with `OPENCODE_CONFIG_CONTENT`/`OPENCODE_PERMISSION` excluded as app-controlled. `AppSettings.opencodeEnvVarOptions` saved/loaded via `opencode-env-var-settings.json`. `extraEnvVars` plumbed through all harness arms via shared `applyExtraEnvVars` helper. Env-var editor surfaced in `NewPaneSheet`, `SettingsView`, `OnboardingWizardView`, and `ProfileSettingsViews`. Harness-aware `CLIOptionConfig` decode via `JSONDecoder.userInfo` so colliding `--agent`/`--continue`/`--model` IDs resolve the correct harness template (combined-search fallback preserved for legacy callers). |
 | 3 | [Command builder + launch](#3-cli-flags) | [ ] | |
 | 4 | [Config injection (`OPENCODE_CONFIG_CONTENT`)](#6-modifying-opencode-inputs-to-work-well-with-agent-session-manager) | [ ] | |
 | 5 | [Status provider](#7-status-line-support) | [ ] | |
@@ -526,7 +526,7 @@ A phased approach keeps each stage compileable and testable.
 
 ---
 
-*Last updated: July 5, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; findings appended in [Spike Findings](#spike-findings).*
+*Last updated: July 5, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; findings appended in [Spike Findings](#spike-findings).*
 
 ## Spike Findings
 

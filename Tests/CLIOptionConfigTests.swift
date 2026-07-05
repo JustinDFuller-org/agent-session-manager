@@ -533,9 +533,12 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(Harness.allCases, [.claude, .codex, .cursor, .opencode])
     }
 
-    func testOpenCodeRecommendedDefaultsAreEmptyStub() {
+    func testOpenCodeRecommendedDefaultsArePopulated() {
         let defaults = CLIOptionConfig.recommendedDefaults(for: .opencode)
-        XCTAssertTrue(defaults.isEmpty)
+        XCTAssertEqual(defaults.count, CLIOptionConfig.opencodeAll.count)
+
+        let availableIDs = Set(defaults.filter(\.isAvailable).map(\.id))
+        XCTAssertEqual(availableIDs, ["--model"])
     }
 }
 

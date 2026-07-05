@@ -113,6 +113,7 @@ final class AppSettings {
     var cursorCliOptions: [CLIOptionConfig] = CLIOptionConfig.cursorAll
     var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
     var envVarOptions: [EnvVarConfig] = EnvVarConfig.all
+    var opencodeEnvVarOptions: [EnvVarConfig] = EnvVarConfig.opencodeAll
     var statusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [Harness.claude.rawValue]
     var defaultBranch: String = "main"

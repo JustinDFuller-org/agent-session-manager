@@ -85,7 +85,7 @@ struct NewPaneSheet: View {
     }
 
     private var visibleEnvVars: [EnvVarConfig] {
-        let allAvailable = appSettings.envVarOptions.filter(\.isAvailable)
+        let allAvailable = currentEnvVarOptions.filter(\.isAvailable)
         guard let profile = selectedProfile else { return allAvailable }
         let showSet = Set(profile.envVars.filter(\.showOnPaneCreate).map(\.id))
         return allAvailable.filter { showSet.contains($0.id) }
@@ -96,7 +96,15 @@ struct NewPaneSheet: View {
     }
 
     private var hiddenEnvVarOptions: [EnvVarConfig] {
-        appSettings.envVarOptions.filter { !$0.isAvailable }
+        currentEnvVarOptions.filter { !$0.isAvailable }
+    }
+
+    private var currentEnvVarOptions: [EnvVarConfig] {
+        switch selectedHarness {
+        case .claude: return appSettings.envVarOptions
+        case .opencode: return appSettings.opencodeEnvVarOptions
+        case .codex, .cursor, .shell: return []
+        }
     }
 
     private var isFormModifiedFromProfile: Bool {
@@ -180,8 +188,8 @@ struct NewPaneSheet: View {
                         )
                     }
                     let envVars: [ProfileEnvVar]
-                    if selectedHarness == .claude {
-                        envVars = appSettings.envVarOptions.filter(\.isAvailable).map { envVar in
+                    if selectedHarness == .claude || selectedHarness == .opencode {
+                        envVars = currentEnvVarOptions.filter(\.isAvailable).map { envVar in
                             let state = envVarStates[envVar.id] ?? OptionState(enabled: false, value: "")
                             let showOnCreate =
                                 selectedProfile?.envVars.first { $0.id == envVar.id }?.showOnPaneCreate ?? false
@@ -338,7 +346,7 @@ struct NewPaneSheet: View {
 
     @ViewBuilder
     private var envVarSection: some View {
-        if selectedHarness == .claude {
+        if selectedHarness == .claude || selectedHarness == .opencode {
             if !visibleEnvVars.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Environment Variables")
@@ -417,7 +425,7 @@ struct NewPaneSheet: View {
 
     @ViewBuilder
     private var hiddenEnvVarSection: some View {
-        if selectedHarness == .claude && !hiddenEnvVarOptions.isEmpty {
+        if (selectedHarness == .claude || selectedHarness == .opencode) && !hiddenEnvVarOptions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Button {
                     showHiddenEnvVars.toggle()
@@ -436,10 +444,24 @@ struct NewPaneSheet: View {
                                 envVar: envVar,
                                 state: envVarStateBinding(for: envVar),
                                 onAddToGlobal: {
-                                    if let index = appSettings.envVarOptions.firstIndex(where: { $0.id == envVar.id }) {
-                                        appSettings.envVarOptions[index].isAvailable = true
+                                    switch selectedHarness {
+                                    case .claude:
+                                        if let index = appSettings.envVarOptions.firstIndex(where: {
+                                            $0.id == envVar.id
+                                        }) {
+                                            appSettings.envVarOptions[index].isAvailable = true
+                                        }
+                                        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+                                    case .opencode:
+                                        if let index = appSettings.opencodeEnvVarOptions.firstIndex(where: {
+                                            $0.id == envVar.id
+                                        }) {
+                                            appSettings.opencodeEnvVarOptions[index].isAvailable = true
+                                        }
+                                        SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
+                                    case .codex, .cursor, .shell:
+                                        break
                                     }
-                                    SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
                                 }
                             )
                         }
@@ -513,8 +535,8 @@ struct NewPaneSheet: View {
             optionStates[option.id] = OptionState(enabled: enabled, value: "")
         }
         envVarStates = [:]
-        if selectedHarness == .claude {
-            for envVar in appSettings.envVarOptions where envVar.isAvailable {
+        if selectedHarness == .claude || selectedHarness == .opencode {
+            for envVar in currentEnvVarOptions where envVar.isAvailable {
                 let value = envVar.isDefaultEnabled ? envVar.defaultValue : ""
                 envVarStates[envVar.id] = OptionState(enabled: envVar.isDefaultEnabled, value: value)
             }
@@ -656,9 +678,9 @@ extension NewPaneSheet {
     }
 
     fileprivate func buildExtraEnvVars() -> [String: String] {
-        guard selectedHarness == .claude else { return [:] }
+        guard selectedHarness == .claude || selectedHarness == .opencode else { return [:] }
         var envVars: [String: String] = [:]
-        for envVar in appSettings.envVarOptions {
+        for envVar in currentEnvVarOptions {
             guard let state = envVarStates[envVar.id], state.enabled else { continue }
             let value = state.value.trimmingCharacters(in: .whitespaces)
             if !value.isEmpty { envVars[envVar.id] = value }

@@ -18,6 +18,24 @@ struct CLIOptionConfig: Identifiable, Codable {
         case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType
     }
 
+    /// When set on a `JSONDecoder`'s `userInfo`, harness-aware decode resolves colliding
+    /// flag IDs (e.g. `--agent`, `--continue`, `--model`) to the matching template from
+    /// the supplied harness's catalog before falling back to a combined search across all
+    /// catalogs. Without this key the decoder preserves legacy behavior: combined search
+    /// with the Claude catalog searched first.
+    static let harnessUserInfoKey: CodingUserInfoKey =
+        CodingUserInfoKey(rawValue: "io.opencode.clioption.harness")!
+
+    static func catalog(for harness: Harness) -> [CLIOptionConfig] {
+        switch harness {
+        case .claude: return all
+        case .codex: return codexAll
+        case .cursor: return cursorAll
+        case .opencode: return opencodeAll
+        case .shell: return []
+        }
+    }
+
     init(
         id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool,
         isUserAdded: Bool = false, customIsStringType: Bool = false
@@ -46,8 +64,15 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
         } else {
             let id = try container.decode(String.self, forKey: .id)
+            let preferredCatalog: [CLIOptionConfig]
+            if let harness = decoder.userInfo[CLIOptionConfig.harnessUserInfoKey] as? Harness {
+                preferredCatalog = CLIOptionConfig.catalog(for: harness)
+            } else {
+                preferredCatalog = []
+            }
             let allTemplates =
-                CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll
+                preferredCatalog
+                + CLIOptionConfig.all + CLIOptionConfig.codexAll + CLIOptionConfig.cursorAll
                 + CLIOptionConfig.opencodeAll
             guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(
@@ -131,6 +156,19 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "profile name")
         case "--sandbox":
             return .string(placeholder: "read-only / workspace-write / danger-full-access")
+        // OpenCode-specific string flags (not in Claude's all list)
+        case "--cors":
+            return .string(placeholder: "Origin(s) allowed for CORS")
+        case "--hostname":
+            return .string(placeholder: "Local server hostname")
+        case "--mdns-domain":
+            return .string(placeholder: "Custom mDNS domain")
+        case "--port":
+            return .string(placeholder: "Local server port")
+        case "--prompt":
+            return .string(placeholder: "Initial prompt")
+        case "--session":
+            return .string(placeholder: "Session ID to continue")
         // String flags
         case "--add-dir":
             return .string(placeholder: "Path to additional working directory")
@@ -417,29 +455,66 @@ struct CLIOptionConfig: Identifiable, Codable {
             isDefaultEnabled: false),
     ]
 
-    static let opencodeAll: [CLIOptionConfig] = []
+    static let opencodeAll: [CLIOptionConfig] = [
+        CLIOptionConfig(
+            id: "--agent", label: "Agent", description: "Agent to use for the OpenCode session", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--auto", label: "Auto", description: "Auto-approve permissions not explicitly denied",
+            isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--continue", label: "Continue", description: "Continue the last OpenCode session", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--cors", label: "CORS", description: "Additional browser origin(s) allowed for CORS",
+            isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--fork", label: "Fork", description: "Fork the session when continuing", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--hostname", label: "Hostname",
+            description: "Hostname for the per-pane local HTTP server (default: 127.0.0.1)", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--mdns", label: "mDNS", description: "Enable mDNS discovery for the local server", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--mdns-domain", label: "mDNS Domain", description: "Custom mDNS domain name", isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--model", label: "Model", description: "Model to use for the OpenCode session (provider/model)",
+            isAvailable: false, isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--port", label: "Server Port", description: "Port for the per-pane local HTTP server",
+            isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--prompt", label: "Prompt", description: "Initial prompt to use when starting the session",
+            isAvailable: false,
+            isDefaultEnabled: false),
+        CLIOptionConfig(
+            id: "--session", label: "Session", description: "Session ID to continue", isAvailable: false,
+            isDefaultEnabled: false),
+    ]
 
     static func recommendedDefaults(for cli: Harness) -> [CLIOptionConfig] {
-        let catalog: [CLIOptionConfig]
         let recommendedIDs: Set<String>
-
         switch cli {
         case .claude:
-            catalog = all
             recommendedIDs = ["--continue", "--resume", "--model", "--permission-mode"]
         case .codex:
-            catalog = codexAll
             recommendedIDs = ["--model", "--ask-for-approval", "--sandbox", "--search"]
         case .cursor:
-            catalog = cursorAll
             recommendedIDs = ["--model", "--resume", "--mode"]
         case .opencode:
-            catalog = opencodeAll
-            recommendedIDs = []
+            recommendedIDs = ["--model"]
         case .shell:
             return []
         }
 
+        let catalog = CLIOptionConfig.catalog(for: cli)
         return catalog.map { option in
             var copy = option
             copy.isAvailable = recommendedIDs.contains(option.id)

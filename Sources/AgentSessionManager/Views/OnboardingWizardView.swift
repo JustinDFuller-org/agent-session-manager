@@ -70,7 +70,7 @@ struct OnboardingWizardView: View {
     @State private var detectionRan: Bool = false
     @State private var draftConfig: StatusLineConfig = .wizardDefault()
     @State private var draftCliOptions: [Harness: [CLIOptionConfig]] = [:]
-    @State private var draftEnvVars: [EnvVarConfig] = []
+    @State private var draftEnvVarOptions: [Harness: [EnvVarConfig]] = [:]
     @State private var cliFlagsTool: Harness = .claude
 
     var body: some View {
@@ -125,8 +125,10 @@ struct OnboardingWizardView: View {
                         draftCliOptions[tool] = CLIOptionConfig.recommendedDefaults(for: tool)
                     }
                 }
-                if draftEnvVars.isEmpty {
-                    draftEnvVars = EnvVarConfig.recommendedDefaults()
+                for tool in Harness.allCases where toolsToSeed.contains(tool) {
+                    if draftEnvVarOptions[tool] == nil, !EnvVarConfig.recommendedDefaults(for: tool).isEmpty {
+                        draftEnvVarOptions[tool] = EnvVarConfig.recommendedDefaults(for: tool)
+                    }
                 }
                 if let first = Harness.allCases.first(where: { toolsToSeed.contains($0) }) {
                     cliFlagsTool = first
@@ -379,6 +381,10 @@ struct OnboardingWizardView: View {
         return tools.isEmpty ? [.claude] : tools
     }
 
+    private var currentHarnessSupportsEnvVars: Bool {
+        cliFlagsTool == .claude || cliFlagsTool == .opencode
+    }
+
     private var isCurrentDraftRecommended: Bool {
         let draft = draftCliOptions[cliFlagsTool] ?? []
         let recommended = CLIOptionConfig.recommendedDefaults(for: cliFlagsTool)
@@ -389,10 +395,11 @@ struct OnboardingWizardView: View {
             return opt.isAvailable == rec.isAvailable && opt.isDefaultEnabled == rec.isDefaultEnabled
         }
         guard cliFlagsMatch else { return false }
-        if cliFlagsTool == .claude {
-            let recommendedEnv = EnvVarConfig.recommendedDefaults()
+        if currentHarnessSupportsEnvVars {
+            let recommendedEnv = EnvVarConfig.recommendedDefaults(for: cliFlagsTool)
+            let draftEnv = draftEnvVarOptions[cliFlagsTool] ?? []
             let recEnvMap = Dictionary(uniqueKeysWithValues: recommendedEnv.map { ($0.id, $0) })
-            return draftEnvVars.allSatisfy { opt in
+            return draftEnv.allSatisfy { opt in
                 guard let rec = recEnvMap[opt.id] else { return false }
                 return opt.isAvailable == rec.isAvailable
             }
@@ -432,8 +439,14 @@ struct OnboardingWizardView: View {
                     onSave: {},
                     customFlagFooter:
                         "Custom flags may not be recognized by all \(cliFlagsTool.displayName) CLI versions.",
-                    envVarOptions: cliFlagsTool == .claude ? $draftEnvVars : nil,
-                    onEnvVarSave: cliFlagsTool == .claude ? {} : nil
+                    envVarOptions: currentHarnessSupportsEnvVars
+                        ? Binding(
+                            get: { draftEnvVarOptions[cliFlagsTool] ?? [] },
+                            set: { draftEnvVarOptions[cliFlagsTool] = $0 }
+                        )
+                        : nil,
+                    onEnvVarSave: currentHarnessSupportsEnvVars ? {} : nil,
+                    envVarHarnessDisplayName: currentHarnessSupportsEnvVars ? cliFlagsTool.displayName : nil
                 )
             }
             .formStyle(.grouped)
@@ -453,11 +466,12 @@ struct OnboardingWizardView: View {
                         }
                         draftCliOptions[cliFlagsTool] = draft
                     }
-                    if cliFlagsTool == .claude {
-                        for i in draftEnvVars.indices {
-                            draftEnvVars[i].isAvailable = false
-                            draftEnvVars[i].isDefaultEnabled = false
+                    if currentHarnessSupportsEnvVars, var draft = draftEnvVarOptions[cliFlagsTool] {
+                        for i in draft.indices {
+                            draft[i].isAvailable = false
+                            draft[i].isDefaultEnabled = false
                         }
+                        draftEnvVarOptions[cliFlagsTool] = draft
                     }
                 }
                 .buttonStyle(.link)
@@ -465,8 +479,8 @@ struct OnboardingWizardView: View {
             } else {
                 Button("Reset to Recommended") {
                     draftCliOptions[cliFlagsTool] = CLIOptionConfig.recommendedDefaults(for: cliFlagsTool)
-                    if cliFlagsTool == .claude {
-                        draftEnvVars = EnvVarConfig.recommendedDefaults()
+                    if currentHarnessSupportsEnvVars {
+                        draftEnvVarOptions[cliFlagsTool] = EnvVarConfig.recommendedDefaults(for: cliFlagsTool)
                     }
                 }
                 .buttonStyle(.link)
@@ -497,9 +511,13 @@ struct OnboardingWizardView: View {
                         break
                     }
                 }
-                if toolsToSave.contains(.claude) {
-                    appSettings.envVarOptions = draftEnvVars
+                if toolsToSave.contains(.claude), let draft = draftEnvVarOptions[.claude] {
+                    appSettings.envVarOptions = draft
                     SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+                }
+                if toolsToSave.contains(.opencode), let draft = draftEnvVarOptions[.opencode] {
+                    appSettings.opencodeEnvVarOptions = draft
+                    SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
                 }
                 step = .profiles
             }

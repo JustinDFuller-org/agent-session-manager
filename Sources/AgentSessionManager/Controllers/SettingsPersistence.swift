@@ -111,6 +111,9 @@ struct SettingsPersistence {
     private static var worktreeBaseRefURL: URL { appSupportDir.appending(path: "worktree-base-ref.json") }
     private static var exitBehaviorURL: URL { appSupportDir.appending(path: "exit-behavior.json") }
     private static var envVarSettingsURL: URL { appSupportDir.appending(path: "env-var-settings.json") }
+    private static var opencodeEnvVarSettingsURL: URL {
+        appSupportDir.appending(path: "opencode-env-var-settings.json")
+    }
     private static var profilesURL: URL { appSupportDir.appending(path: "profiles.json") }
     private static var sessionNameSettingsURL: URL { appSupportDir.appending(path: "session-name-settings.json") }
     private static var shellSettingsURL: URL { appSupportDir.appending(path: "shell-settings.json") }
@@ -137,6 +140,15 @@ struct SettingsPersistence {
             .compactMap(\.value) ?? []
     }
 
+    static func loadCLIOptions(from filename: String, harness: Harness) -> [CLIOptionConfig] {
+        guard let data = try? Data(contentsOf: appSupportDir.appending(path: filename)) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.userInfo[CLIOptionConfig.harnessUserInfoKey] = harness
+        return
+            (try? decoder.decode([FailableDecodable<CLIOptionConfig>].self, from: data))?
+            .compactMap(\.value) ?? []
+    }
+
     static func mergeCLIOptions(_ saved: [CLIOptionConfig], into defaults: [CLIOptionConfig]) -> [CLIOptionConfig] {
         var updated = defaults
         var userAdded: [CLIOptionConfig] = []
@@ -146,6 +158,21 @@ struct SettingsPersistence {
             } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
                 updated[index].isAvailable = savedOption.isAvailable
                 updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
+            }
+        }
+        return updated + userAdded
+    }
+
+    static func mergeEnvVarOptions(_ saved: [EnvVarConfig], into defaults: [EnvVarConfig]) -> [EnvVarConfig] {
+        var updated = defaults
+        var userAdded: [EnvVarConfig] = []
+        for saved in saved {
+            if saved.isUserAdded {
+                userAdded.append(saved)
+            } else if let index = updated.firstIndex(where: { $0.id == saved.id }) {
+                updated[index].isAvailable = saved.isAvailable
+                updated[index].isDefaultEnabled = saved.isDefaultEnabled
+                updated[index].defaultValue = saved.defaultValue
             }
         }
         return updated + userAdded
@@ -169,6 +196,11 @@ struct SettingsPersistence {
     static func saveOpenCodeOptions(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.opencodeCliOptions) else { return }
         try? data.write(to: opencodeSettingsURL)
+    }
+
+    static func saveOpenCodeEnvVars(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.opencodeEnvVarOptions) else { return }
+        try? data.write(to: opencodeEnvVarSettingsURL)
     }
 
     static func saveActiveTools(appSettings: AppSettings) {

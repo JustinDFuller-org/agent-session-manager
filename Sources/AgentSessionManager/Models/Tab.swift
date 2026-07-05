@@ -520,16 +520,13 @@ final class Tab: Identifiable {
             case .shell:
                 controller.pendingCommand = nil
             case .claude:
-                if !extraEnvVars.isEmpty {
-                    controller.pendingEnvironment =
-                        (controller.pendingEnvironment ?? [])
-                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
-                }
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingCommand = Tab.buildClaudeCommand(
                     settingsPath: pane.statusLineMonitor!.settingsFilePath,
                     extraArgs: extra
                 )
             case .codex:
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 pane.statusLineMonitor?.writeCodexHookScript()
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
@@ -542,11 +539,13 @@ final class Tab: Identifiable {
                     hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
                     extraArgs: extra)
             case .cursor:
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
@@ -603,11 +602,7 @@ final class Tab: Identifiable {
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
-                if !extraEnvVars.isEmpty {
-                    controller.pendingEnvironment =
-                        (controller.pendingEnvironment ?? [])
-                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
-                }
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingCommand = Tab.buildClaudeCommand(
                     settingsPath: monitor.settingsFilePath, extraArgs: extra)
             case .codex:
@@ -616,6 +611,7 @@ final class Tab: Identifiable {
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 monitor.writeCodexHookScript()
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
@@ -633,6 +629,7 @@ final class Tab: Identifiable {
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
@@ -643,6 +640,7 @@ final class Tab: Identifiable {
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
@@ -763,6 +761,13 @@ extension Tab {
             suffix += 1
         }
         return paneName
+    }
+
+    private func applyExtraEnvVars(_ extraEnvVars: [String: String], to controller: TerminalController) {
+        guard !extraEnvVars.isEmpty else { return }
+        controller.pendingEnvironment =
+            (controller.pendingEnvironment ?? [])
+            + extraEnvVars.map { "\($0.key)=\($0.value)" }
     }
 }
 
@@ -972,16 +977,13 @@ extension Tab {
             case .shell:
                 controller.pendingCommand = nil
             case .claude:
-                if !extraEnvVars.isEmpty {
-                    controller.pendingEnvironment =
-                        (controller.pendingEnvironment ?? [])
-                        + extraEnvVars.map { "\($0.key)=\($0.value)" }
-                }
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingCommand = Tab.buildClaudeCommand(
                     settingsPath: pane.statusLineMonitor!.settingsFilePath,
                     extraArgs: extra
                 )
             case .codex:
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 pane.statusLineMonitor?.writeCodexHookScript()
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
@@ -994,11 +996,13 @@ extension Tab {
                     hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
                     extraArgs: extra)
             case .cursor:
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
+                applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
