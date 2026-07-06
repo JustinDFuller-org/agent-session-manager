@@ -98,4 +98,33 @@ final class RefreshPaneTests: XCTestCase {
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)") == true)
     }
+
+    @MainActor
+    func testQuickRefreshRebuildsOpenCodeCommandWithFreshPort() {
+        let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
+        let pane = Pane(name: "opencode-pane", tab: tab, harness: .opencode)
+        pane.opencodePort = 11111
+        pane.extraArgs = ["--verbose"]
+        let controller = TerminalController()
+        controller.pendingCommand = "opencode --old-flag"
+        controller.pendingDirectory = "/tmp/repo"
+        controller.pendingEnvironment = ["PATH=/usr/bin"]
+        pane.installTerminalController(controller)
+        tab.panes.append(pane)
+
+        tab.refreshPane(pane)
+
+        XCTAssertNotEqual(pane.opencodePort, 11111)
+        XCTAssertNotNil(pane.opencodePort)
+        let command = pane.terminalController?.pendingCommand ?? ""
+        XCTAssertTrue(command.hasPrefix("opencode --hostname 127.0.0.1 --mdns=false"))
+        XCTAssertTrue(command.contains(" --port \(pane.opencodePort!)"))
+        XCTAssertTrue(command.hasSuffix(" --verbose"))
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("AGENT_SESSION_MANAGER_OPENCODE_PORT=\(pane.opencodePort!)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true") == true)
+    }
 }

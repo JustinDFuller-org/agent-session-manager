@@ -13,7 +13,7 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | 0 | [API spike](#phase-0-api-spike) | [x] | Findings appended below in [Spike Findings](#spike-findings). Chip matrix and provider strategy are now locked. |
 | 1 | [Enum + detection](#1-harness-enum-and-detection) | [x] | Enum case added; detection, onboarding toggle, persistence stubs, and compiler-required switch arms landed. |
 | 2 | [CLI flag catalog + persistence](#3-cli-flags) | [x] | `CLIOptionConfig.opencodeAll` catalog in place with all OpenCode TUI flags (`--continue`, `--session`, `--fork`, `--prompt`, `--model`, `--agent`, `--auto`, `--port`, `--hostname`, `--mdns`, `--mdns-domain`, `--cors`). `recommendedDefaults(for: .opencode)` recommends `--model` only. `AppSettings.opencodeCliOptions` + `SettingsPersistence` save/load/merge wired through `opencode-settings.json`. Env-var catalog (`EnvVarConfig.opencodeAll`) stood up as new harness-keyed infrastructure with `OPENCODE_CONFIG_CONTENT`/`OPENCODE_PERMISSION` excluded as app-controlled. `AppSettings.opencodeEnvVarOptions` saved/loaded via `opencode-env-var-settings.json`. `extraEnvVars` plumbed through all harness arms via shared `applyExtraEnvVars` helper. Env-var editor surfaced in `NewPaneSheet`, `SettingsView`, `OnboardingWizardView`, and `ProfileSettingsViews`. Harness-aware `CLIOptionConfig` decode via `JSONDecoder.userInfo` so colliding `--agent`/`--continue`/`--model` IDs resolve the correct harness template (combined-search fallback preserved for legacy callers). |
-| 3 | [Command builder + launch](#3-cli-flags) | [ ] | |
+| 3 | [Command builder + launch](#3-cli-flags) | [x] | `Tab.buildOpenCodeCommand(port:extraArgs:)` emits `opencode --hostname 127.0.0.1 --mdns=false[ --port <port>]<extraArgs>`. `FreePortAllocator` binds `NWListener` on port 0 to allocate a transient localhost port. All four launch sites (`addPane`, `completeSetup`, `refreshPane` Branch A, `refreshPane` Branch B) allocate a fresh port, rebuild the command, and inject `AGENT_SESSION_MANAGER_PANE_ID`, `AGENT_SESSION_MANAGER_OPENCODE_PORT`, and `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`. Port allocation failure emits `opencode.port_allocation.failed` and omits `--port` so OpenCode falls back to a random port. `opencodePort` is stored transiently on `Pane` (not persisted). |
 | 4 | [Config injection (`OPENCODE_CONFIG_CONTENT`)](#6-modifying-opencode-inputs-to-work-well-with-agent-session-manager) | [ ] | |
 | 5 | [Status provider](#7-status-line-support) | [ ] | |
 | 6 | [Notifications](#8-notifications-and-attention) | [ ] | |
@@ -526,7 +526,7 @@ A phased approach keeps each stage compileable and testable.
 
 ---
 
-*Last updated: July 5, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; findings appended in [Spike Findings](#spike-findings).*
+*Last updated: July 6, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; Phase 3 command builder + launch complete; `OPENCODE_CONFIG_CONTENT` injection deferred to Phase 4; status provider deferred to Phase 5; restore/continue deferred to Phase 7.*
 
 ## Spike Findings
 

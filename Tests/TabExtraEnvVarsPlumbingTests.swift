@@ -50,6 +50,13 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true") == true)
+        XCTAssertNotNil(pane.opencodePort)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("AGENT_SESSION_MANAGER_OPENCODE_PORT=\(pane.opencodePort!)") == true)
     }
 
     func testAddPaneInjectsExtraEnvVarsForClaude() {
@@ -88,6 +95,13 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true") == true)
+        XCTAssertNotNil(pane.opencodePort)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("AGENT_SESSION_MANAGER_OPENCODE_PORT=\(pane.opencodePort!)") == true)
     }
 
     func testCompleteSetupInjectsExtraEnvVarsForOpenCode() {
@@ -115,6 +129,13 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true") == true)
+        XCTAssertNotNil(pane.opencodePort)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("AGENT_SESSION_MANAGER_OPENCODE_PORT=\(pane.opencodePort!)") == true)
     }
 
     func testCompleteSetupInjectsExtraEnvVarsForCodexAndCursor() {

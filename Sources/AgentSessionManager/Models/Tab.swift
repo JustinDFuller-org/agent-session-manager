@@ -546,10 +546,7 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "opencode\(extra)"
+                configureOpenCodeController(controller, pane: pane, extraArgs: extra)
             }
             pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
@@ -641,10 +638,7 @@ final class Tab: Identifiable {
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "opencode\(extra)"
+                configureOpenCodeController(controller, pane: pane, extraArgs: extra)
             }
 
             pane.harness = harness
@@ -677,9 +671,8 @@ final class Tab: Identifiable {
                 + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
         }
         if pane.harness == .opencode {
-            new.pendingEnvironment =
-                (new.pendingEnvironment ?? [])
-                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+            let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
+            configureOpenCodeController(new, pane: pane, extraArgs: extra)
         }
         if pane.harness == .codex {
             monitor.writeCodexHookScript()
@@ -769,6 +762,33 @@ extension Tab {
             (controller.pendingEnvironment ?? [])
             + extraEnvVars.map { "\($0.key)=\($0.value)" }
     }
+
+    private func configureOpenCodeController(
+        _ controller: TerminalController,
+        pane: Pane,
+        extraArgs: String
+    ) {
+        let port = FreePortAllocator.allocate()
+        pane.opencodePort = port
+        if port == nil {
+            TracingService.shared.record(
+                "opencode.port_allocation.failed",
+                attributes: [
+                    "pane.id": pane.id.uuidString,
+                    "pane.name": pane.name,
+                    "tab.id": self.id.uuidString,
+                    "tab.name": self.name,
+                ])
+        }
+        controller.pendingEnvironment =
+            (controller.pendingEnvironment ?? [])
+            + [
+                "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
+                "AGENT_SESSION_MANAGER_OPENCODE_PORT=\(port.map(String.init) ?? "")",
+                "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true",
+            ]
+        controller.pendingCommand = Tab.buildOpenCodeCommand(port: port, extraArgs: extraArgs)
+    }
 }
 
 extension Tab {
@@ -789,6 +809,11 @@ extension Tab {
             .map { "-c \(shellQuote("hooks.\($0)=\(commandValue)"))" }
             .joined(separator: " ")
         return "codex --dangerously-bypass-hook-trust -c \(shellQuote("features.hooks=true")) \(configArgs)\(extraArgs)"
+    }
+
+    nonisolated static func buildOpenCodeCommand(port: Int?, extraArgs: String) -> String {
+        let portArg = port.map { " --port \($0)" } ?? ""
+        return "opencode --hostname 127.0.0.1 --mdns=false\(portArg)\(extraArgs)"
     }
 
     nonisolated static func shellQuote(_ value: String) -> String {
@@ -1003,10 +1028,7 @@ extension Tab {
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "opencode\(extra)"
+                configureOpenCodeController(controller, pane: pane, extraArgs: extra)
             }
             controller.terminalView.telemetryTabName = self.name
             controller.terminalView.telemetryTabUUID = self.id
