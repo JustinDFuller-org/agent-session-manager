@@ -210,4 +210,69 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertEqual(attributes["error.code"], "104")
         XCTAssertEqual(attributes["result"], "schedule_error")
     }
+
+    // MARK: - decideCoalesce
+
+    func testFreshPaneWithNoStateChimes() {
+        let decision = MacNotificationCoordinator.decideCoalesce(
+            now: Date(), cooldown: 6,
+            lastChimeAt: nil, outstanding: nil,
+            incomingSource: .claudeNotification, incomingReason: "Question"
+        )
+        XCTAssertFalse(decision.silent)
+        XCTAssertEqual(decision.reason, "Question")
+        XCTAssertTrue(decision.isSpecific)
+    }
+
+    func testOutstandingNotificationSuppressesChime() {
+        let now = Date()
+        let decision = MacNotificationCoordinator.decideCoalesce(
+            now: now, cooldown: 6,
+            lastChimeAt: now.addingTimeInterval(-10), outstanding: (reason: "Question", isSpecific: true),
+            incomingSource: .claudeNotification, incomingReason: "Question again"
+        )
+        XCTAssertTrue(decision.silent)
+    }
+
+    func testWithinCooldownAndNoOutstandingSuppressesChime() {
+        let now = Date()
+        let decision = MacNotificationCoordinator.decideCoalesce(
+            now: now, cooldown: 6,
+            lastChimeAt: now.addingTimeInterval(-2), outstanding: nil,
+            incomingSource: .rawBell, incomingReason: "Attention needed"
+        )
+        XCTAssertTrue(decision.silent)
+    }
+
+    func testPastCooldownAndNoOutstandingChimes() {
+        let now = Date()
+        let decision = MacNotificationCoordinator.decideCoalesce(
+            now: now, cooldown: 6,
+            lastChimeAt: now.addingTimeInterval(-10), outstanding: nil,
+            incomingSource: .rawBell, incomingReason: "Attention needed"
+        )
+        XCTAssertFalse(decision.silent)
+    }
+
+    func testOutstandingSpecificReasonSurvivesIncomingGenericStop() {
+        let decision = MacNotificationCoordinator.decideCoalesce(
+            now: Date(), cooldown: 6,
+            lastChimeAt: nil, outstanding: (reason: "Permission needed for Bash", isSpecific: true),
+            incomingSource: .claudeStop, incomingReason: "Claude finished responding"
+        )
+        XCTAssertTrue(decision.silent)
+        XCTAssertEqual(decision.reason, "Permission needed for Bash")
+        XCTAssertTrue(decision.isSpecific)
+    }
+
+    func testOutstandingGenericUpgradesToIncomingSpecificReason() {
+        let decision = MacNotificationCoordinator.decideCoalesce(
+            now: Date(), cooldown: 6,
+            lastChimeAt: nil, outstanding: (reason: "Claude finished responding", isSpecific: false),
+            incomingSource: .claudePermissionRequest, incomingReason: "Permission needed for Bash"
+        )
+        XCTAssertTrue(decision.silent)
+        XCTAssertEqual(decision.reason, "Permission needed for Bash")
+        XCTAssertTrue(decision.isSpecific)
+    }
 }
