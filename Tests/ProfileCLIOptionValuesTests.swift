@@ -67,13 +67,13 @@ struct ProfileCLIOptionValuesTests {
     @Test("seededValues does not promote a single value for single-select flags")
     func seededValuesDoesNotPromoteForSingleSelectFlag() {
         let option = ProfileCLIOption(id: "--effort", isEnabled: true, value: "high")
-        #expect(option.seededValues(allowsMultipleValues: false) == [])
+        #expect(option.seededValues(allowsMultipleValues: false).isEmpty)
     }
 
     @Test("seededValues returns empty when there is no value or values to seed from")
     func seededValuesEmptyWhenNothingToSeed() {
         let option = ProfileCLIOption(id: "--mcp-config", isEnabled: true)
-        #expect(option.seededValues(allowsMultipleValues: true) == [])
+        #expect(option.seededValues(allowsMultipleValues: true).isEmpty)
     }
 
     @Test("seededValues trims whitespace from a promoted single value")
@@ -85,6 +85,6 @@ struct ProfileCLIOptionValuesTests {
     @Test("seededValues treats a whitespace-only single value as nothing to seed")
     func seededValuesWhitespaceOnlySingleValueYieldsEmpty() {
         let option = ProfileCLIOption(id: "--mcp-config", isEnabled: true, value: "   ")
-        #expect(option.seededValues(allowsMultipleValues: true) == [])
+        #expect(option.seededValues(allowsMultipleValues: true).isEmpty)
     }
 }
