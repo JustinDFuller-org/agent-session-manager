@@ -911,8 +911,79 @@ private struct CLIOptionRow: View {
                     }
                 }
             }
+            if case .string = option.optionType {
+                CLIOptionPresetEditor(
+                    optionID: option.id,
+                    presetValues: $option.presetValues,
+                    allowsMultipleValues: option.allowsMultipleValues,
+                    onChange: onChange
+                )
+            }
         }
         .padding(.vertical, 8)
+    }
+}
+
+private struct CLIOptionPresetEditor: View {
+    let optionID: String
+    @Binding var presetValues: [String]
+    let allowsMultipleValues: Bool
+    let onChange: () -> Void
+
+    @State private var drafts: [PresetDraft] = []
+
+    private struct PresetDraft: Identifiable {
+        let id = UUID()
+        var value: String
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text("Preset values")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if allowsMultipleValues {
+                    Text("multiple values can be selected at once")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Button {
+                    drafts.append(PresetDraft(value: ""))
+                } label: {
+                    Image(systemName: "plus.circle")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("settings-cli-option-preset-add-\(optionID)")
+            }
+            ForEach($drafts) { $draft in
+                HStack(spacing: 6) {
+                    TextField("Value", text: $draft.value)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.caption, design: .monospaced))
+                        .onChange(of: draft.value) { commit() }
+                        .accessibilityIdentifier("settings-cli-option-preset-value-\(optionID)")
+                    Button {
+                        drafts.removeAll { $0.id == draft.id }
+                        commit()
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("settings-cli-option-preset-remove-\(optionID)")
+                }
+            }
+        }
+        .padding(.top, 4)
+        .onAppear {
+            drafts = presetValues.map { PresetDraft(value: $0) }
+        }
+    }
+
+    private func commit() {
+        presetValues = CLIOptionConfig.normalizedPresetValues(drafts.map(\.value))
+        onChange()
     }
 }
 

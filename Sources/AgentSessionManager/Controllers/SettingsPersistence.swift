@@ -146,6 +146,7 @@ struct SettingsPersistence {
             } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
                 updated[index].isAvailable = savedOption.isAvailable
                 updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
+                updated[index].presetValues = savedOption.presetValues
             }
         }
         return updated + userAdded

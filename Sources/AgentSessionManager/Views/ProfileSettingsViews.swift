@@ -456,8 +456,10 @@ private struct ProfileEditorSheet: View {
                 name = existing.name
                 harness = existing.harness
                 for opt in existing.cliOptions {
+                    let config = activeOptions.first { $0.id == opt.id }
+                    let seeded = opt.seededValues(allowsMultipleValues: config?.allowsMultipleValues ?? false)
                     optionStates[opt.id] = ProfileEditorOptionState(
-                        enabled: opt.isEnabled, value: opt.value ?? "",
+                        enabled: opt.isEnabled, value: opt.value ?? "", values: seeded,
                         showOnPaneCreate: opt.showOnPaneCreate)
                 }
                 for ev in existing.envVars {
@@ -525,6 +527,7 @@ private struct ProfileEditorSheet: View {
                 id: opt.id,
                 isEnabled: state.enabled,
                 value: state.value.isEmpty ? nil : state.value,
+                values: state.values.isEmpty ? nil : state.values,
                 showOnPaneCreate: state.showOnPaneCreate
             )
         }
@@ -533,6 +536,7 @@ private struct ProfileEditorSheet: View {
             return ProfileCLIOption(
                 id: opt.id, isEnabled: true,
                 value: state.value.isEmpty ? nil : state.value,
+                values: state.values.isEmpty ? nil : state.values,
                 showOnPaneCreate: state.showOnPaneCreate)
         }
         let cliOptions = visibleOptions + hiddenEnabled
@@ -572,6 +576,7 @@ private struct ProfileEditorSheet: View {
 private struct ProfileEditorOptionState {
     var enabled: Bool
     var value: String
+    var values: [String] = []
     var showOnPaneCreate: Bool = false
 }
 
@@ -587,22 +592,15 @@ private struct ProfileEditorOptionRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Group {
-                if case .string(let placeholder) = option.optionType {
-                    TextField(placeholder, text: $state.value)
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(!state.enabled)
-                } else {
-                    Color.clear
-                }
-            }
-            .frame(maxWidth: .infinity)
+            CLIOptionValueField(option: option, value: $state.value, values: $state.values, enabled: state.enabled)
+                .frame(maxWidth: .infinity)
             Toggle("Show on new pane", isOn: $state.showOnPaneCreate)
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .help(
                     "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
                 )
+                .accessibilityIdentifier("profile-editor-show-on-pane-\(option.id)")
         }
     }
 }
@@ -647,16 +645,8 @@ private struct ProfileEditorHiddenOptionRow: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Group {
-                if case .string(let placeholder) = option.optionType {
-                    TextField(placeholder, text: $state.value)
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(!state.enabled)
-                } else {
-                    Color.clear
-                }
-            }
-            .frame(maxWidth: .infinity)
+            CLIOptionValueField(option: option, value: $state.value, values: $state.values, enabled: state.enabled)
+                .frame(maxWidth: .infinity)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
