@@ -1,6 +1,8 @@
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetrySdk
+import ResourceExtension
+import SignPostIntegration
 
 /// Opaque handle to a live span. Callers hold this to add child spans or end the span
 /// at a time they control — necessary for callback-based async flows where withSpan
@@ -46,6 +48,8 @@ final class TracingService: @unchecked Sendable {
         lock.withLock { _isEnabled }
     }
 
+    private static let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+
     /// Call on startup and whenever tracing settings change. Must be called from the main actor
     /// (AppSettings is @MainActor), but reconfigures the underlying SDK on whatever thread called it.
     @MainActor
@@ -58,15 +62,33 @@ final class TracingService: @unchecked Sendable {
             return
         }
 
-        let exporter: any SpanExporter = PerPaneSpanExporter(
-            tracesDirectory: settings.resolvedTracingDirectoryURL,
-            maxBytesPerFile: AppSettings.debugFileMaxBytes
+        let resource = DefaultResources().get().merging(
+            other: Resource(attributes: [
+                ResourceAttributes.serviceName.rawValue: .string("AgentSessionManager"),
+                ResourceAttributes.serviceVersion.rawValue: .string(Self.appVersion),
+            ])
         )
 
-        let processor = SimpleSpanProcessor(spanExporter: exporter)
-        let provider = TracerProviderBuilder()
-            .add(spanProcessor: processor)
-            .build()
+        let exporter: any SpanExporter = PerPaneSpanExporter(
+            tracesDirectory: settings.resolvedTracingDirectoryURL,
+            maxBytesPerFile: AppSettings.debugFileMaxBytes,
+            resourceAttributes: resource.attributes.mapValues(\.description)
+        )
+
+        // SimpleSpanProcessor (not BatchSpanProcessor) is intentional: the trace dashboard
+        // live-tails JSONL via DispatchSource and record(...) models instant events, so spans
+        // must land on disk immediately rather than sit in a batch buffer.
+        var builder = TracerProviderBuilder()
+            .with(resource: resource)
+            .add(spanProcessor: SimpleSpanProcessor(spanExporter: exporter))
+
+        if #available(macOS 12, *) {
+            builder = builder.add(spanProcessor: OSSignposterIntegration())
+        } else {
+            builder = builder.add(spanProcessor: SignPostIntegration())
+        }
+
+        let provider = builder.build()
 
         let tracer = provider.get(
             instrumentationName: "AgentSessionManager",
@@ -85,6 +107,7 @@ final class TracingService: @unchecked Sendable {
     /// when the work completes. Use this for callback-based flows where ``withSpan`` cannot
     /// wrap the body (e.g., Process terminationHandler chains).
     func startSpan(_ name: String, attributes: [String: String] = [:]) -> SpanHandle? {
+        AppLog.log(name, level: .debug, attributes: attributes)
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return nil }
         let span = tracer.spanBuilder(spanName: name).startSpan()
         for (key, value) in attributes { span.setAttribute(key: key, value: value) }
@@ -95,6 +118,7 @@ final class TracingService: @unchecked Sendable {
     /// Passing `nil` is a no-op, so callers can hold optional handles without guarding.
     func end(handle: SpanHandle?, attributes: [String: String] = [:]) {
         guard let handle else { return }
+        AppLog.log(handle.span.name, level: .debug, attributes: attributes)
         for (key, value) in attributes { handle.span.setAttribute(key: key, value: value) }
         handle.span.end()
     }
@@ -110,6 +134,7 @@ final class TracingService: @unchecked Sendable {
         endTime: Date? = nil,
         attributes: [String: String] = [:]
     ) {
+        AppLog.log(name, level: .debug, attributes: attributes)
         let (tracer, captureEnabled) = lock.withLock { (_isEnabled ? _tracer : nil, _testCaptureEnabled) }
         if captureEnabled {
             lock.withLock { _recordedEventsForTesting.append((name: name, attributes: attributes)) }
@@ -138,6 +163,7 @@ final class TracingService: @unchecked Sendable {
         attributes: [String: String] = [:],
         _ body: () throws -> T
     ) rethrows -> T {
+        AppLog.log(name, level: .debug, attributes: attributes)
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else {
             return try body()
         }
@@ -158,6 +184,7 @@ final class TracingService: @unchecked Sendable {
         attributes: [String: String] = [:],
         _ body: () async throws -> T
     ) async rethrows -> T {
+        AppLog.log(name, level: .debug, attributes: attributes)
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else {
             return try await body()
         }

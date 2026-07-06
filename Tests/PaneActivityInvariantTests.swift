@@ -325,7 +325,9 @@ final class PaneActivityInvariantTests: XCTestCase {
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertFalse(monitor.isClaudeWorking)
         XCTAssertFalse(monitor.isClaudeStopped)
-        XCTAssertTrue(TracingService.shared.recordedEventsForTesting.isEmpty)
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(events.allSatisfy { $0.name != "pane.activity.changed" })
+        XCTAssertEqual(events.last?.attributes["decision"], "ignored_not_working")
     }
 
     func testOnClaudeStoppedCallbackFiresOncePerEdge() {
@@ -394,10 +396,79 @@ final class PaneActivityInvariantTests: XCTestCase {
 
     func testClaudeActivityIgnoresMalformedAndUnrelatedPayloads() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
-        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"SomeUnknownHook"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data("not json".utf8))
         XCTAssertFalse(monitor.isClaudeWorking)
         XCTAssertTrue(TracingService.shared.recordedEventsForTesting.isEmpty)
+    }
+
+    // MARK: - Background-agent gating (statusline.hook.event + outstanding count)
+
+    func testPreToolUseAgentLaunchIncrementsOutstandingCount() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse","tool_name":"Task"}"#.utf8))
+        let events = TracingService.shared.recordedEventsForTesting.filter { $0.name == "statusline.hook.event" }
+        XCTAssertEqual(events.last?.attributes["outstanding_count"], "1")
+    }
+
+    func testSubagentStopDecrementsOutstandingCountFlooredAtZero() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"SubagentStop"}"#.utf8))
+        let events = TracingService.shared.recordedEventsForTesting.filter { $0.name == "statusline.hook.event" }
+        XCTAssertEqual(events.last?.attributes["outstanding_count"], "0")
+    }
+
+    func testStopIsSuppressedWhileBackgroundAgentsAreOutstanding() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        var callCount = 0
+        monitor.onClaudeStopped = { callCount += 1 }
+
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse","tool_name":"Task"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+
+        XCTAssertEqual(callCount, 0)
+        XCTAssertTrue(monitor.isClaudeWorking, "pane should still read working while a background agent is outstanding")
+        let hookEvents = TracingService.shared.recordedEventsForTesting.filter { $0.name == "statusline.hook.event" }
+        XCTAssertEqual(hookEvents.last?.attributes["decision"], "suppressed_background_agents")
+    }
+
+    func testPlanModeSequenceFiresStopOnceAfterAllBackgroundAgentsComplete() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        monitor.stopNotificationGracePeriod = 0
+        var callCount = 0
+        monitor.onClaudeStopped = { callCount += 1 }
+
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
+        // Plan mode launches two background Explore agents.
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse","tool_name":"Task"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse","tool_name":"Task"}"#.utf8))
+
+        // Main agent finishes its turn while both children are still running — must be suppressed.
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertEqual(callCount, 0)
+        XCTAssertTrue(monitor.isClaudeWorking)
+
+        // First background agent completes; re-wake produces another Stop — still one outstanding.
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"SubagentStop"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertEqual(callCount, 0)
+        XCTAssertTrue(monitor.isClaudeWorking)
+
+        // Second background agent completes; the final Stop is the genuine "done" edge.
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"SubagentStop"}"#.utf8))
+        monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
+        XCTAssertEqual(callCount, 1)
+        XCTAssertTrue(monitor.isClaudeStopped)
+
+        let hookEvents = TracingService.shared.recordedEventsForTesting.filter { $0.name == "statusline.hook.event" }
+        let stopDecisions = hookEvents.filter { $0.attributes["hook_event"] == "Stop" }.map {
+            $0.attributes["decision"]
+        }
+        XCTAssertEqual(
+            stopDecisions,
+            ["suppressed_background_agents", "suppressed_background_agents", "fired"]
+        )
     }
 
     // MARK: - clearNotification trace
