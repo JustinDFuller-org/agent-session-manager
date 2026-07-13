@@ -48,6 +48,7 @@ final class Pane: Identifiable {
     @ObservationIgnored weak var notificationAppState: AppState?
     var isPriority: Bool = false
     var isMerged: Bool = false
+    var isClosed: Bool = false
     var restartToken = UUID()
     var profileID: UUID?
     var extraArgs: [String] = []
@@ -98,7 +99,8 @@ final class Pane: Identifiable {
         statusLineMonitor?.stop()
         statusLineMonitor?.onClaudeHookAttention = nil
         statusLineMonitor?.onPRMerged = nil
-        statusLineMonitor?.onPRNotMerged = nil
+        statusLineMonitor?.onPRClosed = nil
+        statusLineMonitor?.onPRReopened = nil
         statusLineMonitor = nil
     }
 }

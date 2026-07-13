@@ -776,6 +776,19 @@ struct NotificationsContent: View {
                             SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
                         }
                 }
+                SettingRow(
+                    title: "PR Closed Notifications",
+                    description:
+                        "Show a sidebar notification and macOS banner when a tracked PR is closed without merging."
+                ) {
+                    Toggle("PR Closed Notifications", isOn: $appSettings.isPRClosedNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-pr-closed-notifications-toggle")
+                        .onChange(of: appSettings.isPRClosedNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
             }
         }
         .formStyle(.grouped)

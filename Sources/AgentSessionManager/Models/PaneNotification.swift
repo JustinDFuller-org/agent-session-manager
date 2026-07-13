@@ -3,6 +3,7 @@ import Foundation
 enum NotificationKind: String, Codable {
     case terminalBell
     case prMerged
+    case prClosed
     case claudeStop
 }
 
@@ -148,6 +149,9 @@ struct PaneNotification: Identifiable {
     var displayReason: String {
         if kind == .prMerged, let prNumber {
             return "PR #\(prNumber) merged"
+        }
+        if kind == .prClosed, let prNumber {
+            return "PR #\(prNumber) closed"
         }
         return reason ?? PaneAttentionEvent.fallbackReason
     }

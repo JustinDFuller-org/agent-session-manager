@@ -122,13 +122,14 @@ struct PersistedPane: Codable {
     var harness: Harness
     var isPriority: Bool
     var isMerged: Bool
+    var isClosed: Bool
     var worktreeDirectory: String?
     var worktreeIsManaged: Bool
     var profileID: UUID?
     var extraArgs: [String]
 
     enum CodingKeys: String, CodingKey {
-        case id, name, harness, isPriority, isMerged, worktreeDirectory, worktreeIsManaged
+        case id, name, harness, isPriority, isMerged, isClosed, worktreeDirectory, worktreeIsManaged
         case claudeProcessDirectory
         case profileID
         case extraArgs
@@ -136,6 +137,7 @@ struct PersistedPane: Codable {
 
     init(
         id: UUID, name: String, harness: Harness, isPriority: Bool = false, isMerged: Bool = false,
+        isClosed: Bool = false,
         worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil,
         extraArgs: [String] = []
     ) {
@@ -144,6 +146,7 @@ struct PersistedPane: Codable {
         self.harness = harness
         self.isPriority = isPriority
         self.isMerged = isMerged
+        self.isClosed = isClosed
         self.worktreeDirectory = worktreeDirectory
         self.worktreeIsManaged = worktreeIsManaged
         self.profileID = profileID
@@ -157,6 +160,7 @@ struct PersistedPane: Codable {
         harness = (try? container.decodeIfPresent(Harness.self, forKey: .harness)) ?? .claude
         isPriority = (try? container.decodeIfPresent(Bool.self, forKey: .isPriority)) ?? false
         isMerged = (try? container.decodeIfPresent(Bool.self, forKey: .isMerged)) ?? false
+        isClosed = (try? container.decodeIfPresent(Bool.self, forKey: .isClosed)) ?? false
         worktreeDirectory =
             try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
             ?? container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
@@ -172,6 +176,7 @@ struct PersistedPane: Codable {
         try container.encode(harness, forKey: .harness)
         try container.encode(isPriority, forKey: .isPriority)
         try container.encode(isMerged, forKey: .isMerged)
+        try container.encode(isClosed, forKey: .isClosed)
         try container.encode(worktreeDirectory, forKey: .worktreeDirectory)
         try container.encode(worktreeIsManaged, forKey: .worktreeIsManaged)
         try container.encodeIfPresent(profileID, forKey: .profileID)
@@ -203,6 +208,7 @@ struct SessionPersistence {
                         harness: pane.harness,
                         isPriority: pane.isPriority,
                         isMerged: pane.isMerged,
+                        isClosed: pane.isClosed,
                         worktreeDirectory: pane.worktreeDirectory?.path,
                         worktreeIsManaged: pane.worktreeIsManaged,
                         profileID: pane.profileID,
@@ -287,6 +293,7 @@ struct SessionPersistence {
                     appSettings: appSettings
                 )
                 pane.isMerged = persistedPane.isMerged
+                pane.isClosed = persistedPane.isClosed
                 pane.bindNotifications(
                     appState: appState,
                     isPriority: persistedPane.isPriority
@@ -326,24 +333,31 @@ struct SessionPersistence {
         }
         appState.notifications = restored
 
-        for notification in restored where notification.kind == .prMerged {
+        for notification in restored where notification.kind == .prMerged || notification.kind == .prClosed {
             if let tab = appState.tabs.first(where: { $0.id == notification.tabID }),
                 let pane = tab.panes.first(where: { $0.id == notification.paneID })
             {
-                pane.isMerged = true
+                if notification.kind == .prMerged {
+                    pane.isMerged = true
+                } else {
+                    pane.isClosed = true
+                }
             }
         }
     }
 
-    /// Queries GitHub for all restored panes that aren't already marked merged,
-    /// and creates notifications for any whose PR has been merged since last run.
-    static func checkForMergedPRsAfterRestore(appState: AppState) async {
+    /// Queries GitHub for all restored panes that aren't already marked resolved,
+    /// and creates notifications for any whose PR has been merged or closed since last run.
+    static func checkForResolvedPRsAfterRestore(appState: AppState) async {
         guard SettingsPersistence.isPRTrackingEnabled() else { return }
-        guard SettingsPersistence.isPRMergedNotificationsEnabled() else { return }
+        guard
+            SettingsPersistence.isPRMergedNotificationsEnabled()
+                || SettingsPersistence.isPRClosedNotificationsEnabled()
+        else { return }
 
         let candidates: [(pane: Pane, tab: Tab)] = appState.tabs.flatMap { tab in
             tab.panes.compactMap { pane in
-                guard !pane.isMerged else { return nil }
+                guard !pane.isMerged, !pane.isClosed else { return nil }
                 guard pane.worktreeDirectory != nil else { return nil }
                 return (pane: pane, tab: tab)
             }
@@ -400,25 +414,41 @@ struct SessionPersistence {
             "session.pr_check",
             attributes: ["panes_checked": String(candidates.count)])
 
-        let results = await PRTrackingCoordinator.checkBranchesForMergedPRs(
+        let results = await PRTrackingCoordinator.checkBranchesForResolvedPRs(
             branches: branchInfos, parent: checkHandle)
 
         var mergedCount = 0
-        for (paneID, pr) in results where pr.state == "merged" {
+        var closedCount = 0
+        for (paneID, pr) in results {
             guard let (pane, tab) = candidates.first(where: { $0.pane.id == paneID }) else { continue }
-            appState.addPRMergedNotification(
-                paneID: pane.id,
-                paneName: pane.name,
-                tabID: tab.id,
-                tabName: tab.name,
-                prNumber: pr.number,
-                prTitle: pr.title
-            )
-            mergedCount += 1
+            switch pr.state {
+            case "merged":
+                appState.addPRMergedNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    prNumber: pr.number,
+                    prTitle: pr.title
+                )
+                mergedCount += 1
+            case "closed":
+                appState.addPRClosedNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    prNumber: pr.number,
+                    prTitle: pr.title
+                )
+                closedCount += 1
+            default:
+                break
+            }
         }
 
         TracingService.shared.end(
             handle: checkHandle,
-            attributes: ["merged_count": String(mergedCount)])
+            attributes: ["merged_count": String(mergedCount), "closed_count": String(closedCount)])
     }
 }

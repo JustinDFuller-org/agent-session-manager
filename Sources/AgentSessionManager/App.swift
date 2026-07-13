@@ -9,9 +9,10 @@ struct ContentView: View {
     @State private var showCleanupAlert = false
     @State private var pendingCleanupPane: Pane?
     @State private var pendingCleanupTab: Tab?
-    @State private var showPRMergedAlert = false
-    @State private var pendingPRMergedPane: Pane?
-    @State private var pendingPRMergedTab: Tab?
+    @State private var showPRResolutionAlert = false
+    @State private var pendingPRResolutionPane: Pane?
+    @State private var pendingPRResolutionTab: Tab?
+    @State private var pendingPRResolutionKind: NotificationKind = .prMerged
     @State private var showRefreshSheet = false
     @State private var paneToRefresh: Pane?
     @State private var showRefreshSettingsSheet = false
@@ -101,6 +102,7 @@ struct ContentView: View {
                     appSettings.isMacOSBannerNotificationsEnabled = config.isMacOSBannerEnabled
                     appSettings.isCursorNotificationHookAttentionEnabled = config.isCursorHookAttentionEnabled
                     appSettings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
+                    appSettings.isPRClosedNotificationsEnabled = config.isPRClosedNotificationsEnabled
                     appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
                     appSettings.isClaudeStopNotificationEnabled = config.isClaudeStopNotificationEnabled
                 }
@@ -206,7 +208,7 @@ struct ContentView: View {
                 let cleanup = TraceCleanupService(tracesDirectory: appSettings.resolvedTracingDirectoryURL)
                 traceCleanupService = cleanup
                 SessionPersistence.restore(into: appState, appSettings: appSettings)
-                await SessionPersistence.checkForMergedPRsAfterRestore(appState: appState)
+                await SessionPersistence.checkForResolvedPRsAfterRestore(appState: appState)
             }
             await MacNotificationCoordinator.shared.requestAuthorizationIfNeeded()
             if AgentSessionManagerApp.isUITesting {
@@ -255,7 +257,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
             closeActiveTab()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .prMergedActionRequested)) { notif in
+        .onReceive(NotificationCenter.default.publisher(for: .prResolutionActionRequested)) { notif in
             guard
                 let paneIDStr = notif.userInfo?["paneID"] as? String,
                 let tabIDStr = notif.userInfo?["tabID"] as? String,
@@ -264,9 +266,14 @@ struct ContentView: View {
                 let tab = appState.tabs.first(where: { $0.id == tabID }),
                 let pane = tab.panes.first(where: { $0.id == paneID })
             else { return }
-            pendingPRMergedPane = pane
-            pendingPRMergedTab = tab
-            showPRMergedAlert = true
+            if let kindStr = notif.userInfo?["kind"] as? String,
+                let kind = NotificationKind(rawValue: kindStr)
+            {
+                pendingPRResolutionKind = kind
+            }
+            pendingPRResolutionPane = pane
+            pendingPRResolutionTab = tab
+            showPRResolutionAlert = true
         }
         .background(
             KeyboardShortcutView(
@@ -328,41 +335,48 @@ struct ContentView: View {
                 Text("The worktree \"\(pane.name)\" was created by Agent Session Manager. Would you like to delete it?")
             }
         }
-        .alert("PR Merged", isPresented: $showPRMergedAlert) {
+        .alert(
+            pendingPRResolutionKind == .prMerged ? "PR Merged" : "PR Closed",
+            isPresented: $showPRResolutionAlert
+        ) {
             Button("Close Pane") {
-                guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
-                pendingPRMergedPane = nil
-                pendingPRMergedTab = nil
+                guard let pane = pendingPRResolutionPane, let tab = pendingPRResolutionTab else { return }
+                pendingPRResolutionPane = nil
+                pendingPRResolutionTab = nil
                 appState.clearNotification(paneID: pane.id)
                 tab.closePane(pane)
                 SessionPersistence.save(appState: appState)
             }
             Button("Close Pane and Clean Up Worktree", role: .destructive) {
-                guard let pane = pendingPRMergedPane, let tab = pendingPRMergedTab else { return }
-                pendingPRMergedPane = nil
-                pendingPRMergedTab = nil
+                guard let pane = pendingPRResolutionPane, let tab = pendingPRResolutionTab else { return }
+                pendingPRResolutionPane = nil
+                pendingPRResolutionTab = nil
                 appState.clearNotification(paneID: pane.id)
                 tab.closePane(pane)
                 SessionPersistence.save(appState: appState)
                 Task { try? await tab.cleanupWorktree(for: pane) }
             }
             Button("Cancel", role: .cancel) {
-                if let pane = pendingPRMergedPane, let tab = pendingPRMergedTab {
+                if let pane = pendingPRResolutionPane, let tab = pendingPRResolutionTab {
                     appState.focusPane(tabID: tab.id, paneID: pane.id)
                     appState.clearNotification(paneID: pane.id)
                 }
-                pendingPRMergedPane = nil
-                pendingPRMergedTab = nil
+                pendingPRResolutionPane = nil
+                pendingPRResolutionTab = nil
             }
         } message: {
-            if let pane = pendingPRMergedPane {
+            if let pane = pendingPRResolutionPane {
+                let outcomeText =
+                    pendingPRResolutionKind == .prMerged
+                    ? "has been merged"
+                    : "was closed without being merged"
                 let prInfo = pane.statusLineMonitor?.currentData?.pr
                 if let pr = prInfo {
                     let msg =
-                        "PR #\(pr.number) \"\(pr.title)\" for pane \"\(pane.name)\" has been merged. What would you like to do?"
+                        "PR #\(pr.number) \"\(pr.title)\" for pane \"\(pane.name)\" \(outcomeText). What would you like to do?"
                     Text(msg)
                 } else {
-                    Text("The PR for pane \"\(pane.name)\" has been merged. What would you like to do?")
+                    Text("The PR for pane \"\(pane.name)\" \(outcomeText). What would you like to do?")
                 }
             }
         }

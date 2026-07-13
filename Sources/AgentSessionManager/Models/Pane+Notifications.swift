@@ -69,10 +69,24 @@ extension Pane {
                 )
             }
         }
-        statusLineMonitor?.onPRNotMerged = { [weak appState, weak self] in
+        statusLineMonitor?.onPRClosed = { [weak appState, weak tab, weak self] prNumber, prTitle in
+            Task { @MainActor in
+                guard let appState, let tab, let pane = self else { return }
+                appState.addPRClosedNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    prNumber: prNumber,
+                    prTitle: prTitle
+                )
+            }
+        }
+        statusLineMonitor?.onPRReopened = { [weak appState, weak self] in
             Task { @MainActor in
                 guard let appState, let pane = self else { return }
                 appState.clearPRMergedNotification(paneID: pane.id)
+                appState.clearPRClosedNotification(paneID: pane.id)
             }
         }
     }

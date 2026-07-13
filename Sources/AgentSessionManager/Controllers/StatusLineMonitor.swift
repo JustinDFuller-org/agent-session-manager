@@ -67,13 +67,15 @@ final class StatusLineMonitor {
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
     /// Fires on the main actor when Claude transitions from working to stopped (one fire per working→stopped edge).
     var onClaudeStopped: (() -> Void)?
-    /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
+    /// Fires on the main actor when a PR transitions from a non-resolved state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
-    /// Fires on the main actor when a live poll reports a non-merged state after a merged state was observed.
-    var onPRNotMerged: (() -> Void)?
+    /// Fires on the main actor when a PR transitions from a non-resolved state to "closed" (without merging).
+    var onPRClosed: ((_ prNumber: Int, _ prTitle: String) -> Void)?
+    /// Fires on the main actor when a live poll reports a non-resolved state after a resolved (merged or closed) state was observed.
+    var onPRReopened: (() -> Void)?
 
     private var lastKnownPRState: String?
-    private var hasFiredMergedNotification = false
+    private var hasFiredResolutionNotification = false
 
     init(
         paneID: UUID,
@@ -258,7 +260,7 @@ final class StatusLineMonitor {
                 } else {
                     self.currentData?.pr = pr
                 }
-                self.checkForMergedTransition(pr)
+                self.checkForPRResolutionTransition(pr)
             }
         }
     }
@@ -290,7 +292,7 @@ final class StatusLineMonitor {
         agnosticProvider = nil
         PRTrackingCoordinator.shared.unsubscribe(paneID: paneID)
         lastKnownPRState = nil
-        hasFiredMergedNotification = false
+        hasFiredResolutionNotification = false
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
@@ -613,10 +615,13 @@ final class StatusLineMonitor {
     }
 
     @MainActor
-    private func checkForMergedTransition(_ pr: PullRequest?) {
+    private func checkForPRResolutionTransition(_ pr: PullRequest?) {
         guard let pr else { return }
         let newState = pr.state.lowercased()
-        if newState == "merged", lastKnownPRState != nil, lastKnownPRState != "merged" {
+        let isResolved = newState == "merged" || newState == "closed"
+        let wasResolved = lastKnownPRState == "merged" || lastKnownPRState == "closed"
+
+        if isResolved, lastKnownPRState != nil, lastKnownPRState != newState {
             TracingService.shared.record(
                 "statusline.pr_transition",
                 attributes: [
@@ -626,20 +631,31 @@ final class StatusLineMonitor {
                     "new_state": newState,
                 ])
         }
-        if newState != "merged", lastKnownPRState == "merged" {
-            hasFiredMergedNotification = false
-            onPRNotMerged?()
+        if !isResolved, wasResolved {
+            hasFiredResolutionNotification = false
+            onPRReopened?()
+        }
+        if lastKnownPRState != newState {
+            // A transition between two different resolved states (e.g. merged -> closed) is a
+            // live resolution event in its own right and must be allowed to fire again.
+            hasFiredResolutionNotification = false
         }
         defer { lastKnownPRState = newState }
-        guard !hasFiredMergedNotification else { return }
-        guard newState == "merged" else { return }
+        guard !hasFiredResolutionNotification else { return }
+        guard isResolved else { return }
         // Suppress on first observation (app launch/restart) — only fire on a live transition.
         guard lastKnownPRState != nil else { return }
-        guard lastKnownPRState != "merged" else { return }
-        hasFiredMergedNotification = true
-        onPRMerged?(pr.number, pr.title)
+        guard lastKnownPRState != newState else { return }
+        hasFiredResolutionNotification = true
+        if newState == "merged" {
+            onPRMerged?(pr.number, pr.title)
+        } else {
+            onPRClosed?(pr.number, pr.title)
+        }
     }
+}
 
+extension StatusLineMonitor {
     /// For testing only: simulates a PR data update as if received from `gh pr view`.
     @MainActor
     func simulatePRUpdateForTesting(_ data: Data) {
@@ -650,7 +666,7 @@ final class StatusLineMonitor {
         } else {
             currentData?.pr = pr
         }
-        checkForMergedTransition(pr)
+        checkForPRResolutionTransition(pr)
     }
 
     /// For testing only: directly invokes I1 enforcement on a mutable StatusLineData.
@@ -670,9 +686,7 @@ final class StatusLineMonitor {
     func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
         cachedGitStats = stats
     }
-}
 
-extension StatusLineMonitor {
     private func startRepoIdentityFetch(cwd: String) {
         Task { [weak self] in
             guard let self else { return }
