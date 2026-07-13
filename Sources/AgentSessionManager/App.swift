@@ -366,7 +366,8 @@ struct ContentView: View {
             }
         } message: {
             if let pane = pendingPRResolutionPane {
-                let outcomeText = pendingPRResolutionKind == .prMerged
+                let outcomeText =
+                    pendingPRResolutionKind == .prMerged
                     ? "has been merged"
                     : "was closed without being merged"
                 let prInfo = pane.statusLineMonitor?.currentData?.pr

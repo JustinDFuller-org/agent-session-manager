@@ -350,8 +350,9 @@ struct SessionPersistence {
     /// and creates notifications for any whose PR has been merged or closed since last run.
     static func checkForResolvedPRsAfterRestore(appState: AppState) async {
         guard SettingsPersistence.isPRTrackingEnabled() else { return }
-        guard SettingsPersistence.isPRMergedNotificationsEnabled()
-            || SettingsPersistence.isPRClosedNotificationsEnabled()
+        guard
+            SettingsPersistence.isPRMergedNotificationsEnabled()
+                || SettingsPersistence.isPRClosedNotificationsEnabled()
         else { return }
 
         let candidates: [(pane: Pane, tab: Tab)] = appState.tabs.flatMap { tab in

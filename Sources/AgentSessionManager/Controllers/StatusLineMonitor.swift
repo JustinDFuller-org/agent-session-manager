@@ -654,6 +654,9 @@ final class StatusLineMonitor {
         }
     }
 
+}
+
+extension StatusLineMonitor {
     /// For testing only: simulates a PR data update as if received from `gh pr view`.
     @MainActor
     func simulatePRUpdateForTesting(_ data: Data) {
@@ -684,9 +687,7 @@ final class StatusLineMonitor {
     func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
         cachedGitStats = stats
     }
-}
 
-extension StatusLineMonitor {
     private func startRepoIdentityFetch(cwd: String) {
         Task { [weak self] in
             guard let self else { return }
