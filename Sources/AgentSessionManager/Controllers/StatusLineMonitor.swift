@@ -653,7 +653,6 @@ final class StatusLineMonitor {
             onPRClosed?(pr.number, pr.title)
         }
     }
-
 }
 
 extension StatusLineMonitor {
