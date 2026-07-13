@@ -146,8 +146,9 @@ final class PRMergedNotificationTests: XCTestCase {
     }
 
     func testClosedToMergedDoesNotFire() {
-        // "closed" is not "merged" — no fire on closed→merged transition either (closed is already final)
-        // But the monitor does fire if it goes closed→merged since lastKnownPRState != nil
+        // The first observation as "closed" is suppressed (no onPRClosed handler registered here
+        // anyway). The live closed→merged transition that follows still fires onPRMerged once,
+        // since moving between two different resolved states is itself a live resolution event.
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
@@ -400,28 +401,28 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertFalse(pane.isMerged)
     }
 
-    func testOnPRNotMergedFiresOnMergedToOpenTransition() {
+    func testOnPRReopenedFiresOnMergedToOpenTransition() {
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
-        var notMergedCount = 0
-        monitor.onPRNotMerged = { notMergedCount += 1 }
+        var reopenedCount = 0
+        monitor.onPRReopened = { reopenedCount += 1 }
 
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
-        XCTAssertEqual(notMergedCount, 0, "Should not fire while merged")
+        XCTAssertEqual(reopenedCount, 0, "Should not fire while merged")
 
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
-        XCTAssertEqual(notMergedCount, 1, "Should fire once on merged→open transition")
+        XCTAssertEqual(reopenedCount, 1, "Should fire once on merged→open transition")
 
         // Stays open — no further fires
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
-        XCTAssertEqual(notMergedCount, 1)
+        XCTAssertEqual(reopenedCount, 1)
     }
 
-    func testOnPRNotMergedRearmsMergedNotification() {
+    func testOnPRReopenedRearmsMergedNotification() {
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var mergedCount = 0
         monitor.onPRMerged = { _, _ in mergedCount += 1 }
-        monitor.onPRNotMerged = {}
+        monitor.onPRReopened = {}
 
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged"))

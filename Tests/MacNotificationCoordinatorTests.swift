@@ -54,7 +54,7 @@ final class NotificationCoordinatorNavigationTests: XCTestCase {
 
         var alertPosted = false
         let obs = NotificationCenter.default.addObserver(
-            forName: .prMergedActionRequested, object: nil, queue: nil
+            forName: .prResolutionActionRequested, object: nil, queue: nil
         ) { _ in alertPosted = true }
         defer { NotificationCenter.default.removeObserver(obs) }
 
@@ -67,6 +67,37 @@ final class NotificationCoordinatorNavigationTests: XCTestCase {
         XCTAssertEqual(state.activeTabID, state.tabs[1].id)
         XCTAssertEqual(state.activePaneID, panes[1][0].id)
         XCTAssertTrue(alertPosted)
+    }
+
+    func testPRClosedNavigatesToCorrectPaneAndPostsAlert() {
+        let (state, panes) = makeState(tabs: [
+            (name: "tab1", paneNames: ["a"]),
+            (name: "tab2", paneNames: ["b"]),
+        ])
+        state.activeTabID = state.tabs[0].id
+        state.activePaneID = panes[0][0].id
+        MacNotificationCoordinator.shared.bind(appState: state, appSettings: AppSettings())
+
+        var alertPosted = false
+        var receivedKind: String?
+        let obs = NotificationCenter.default.addObserver(
+            forName: .prResolutionActionRequested, object: nil, queue: nil
+        ) { notif in
+            alertPosted = true
+            receivedKind = notif.userInfo?["kind"] as? String
+        }
+        defer { NotificationCenter.default.removeObserver(obs) }
+
+        MacNotificationCoordinator.shared.handleNotificationNavigation(
+            paneIDStr: panes[1][0].id.uuidString,
+            tabIDStr: state.tabs[1].id.uuidString,
+            kind: NotificationKind.prClosed.rawValue
+        )
+
+        XCTAssertEqual(state.activeTabID, state.tabs[1].id)
+        XCTAssertEqual(state.activePaneID, panes[1][0].id)
+        XCTAssertTrue(alertPosted)
+        XCTAssertEqual(receivedKind, NotificationKind.prClosed.rawValue)
     }
 
     // handleNotificationResponse delegates to handleNotificationNavigation; verify navigation
@@ -130,6 +161,15 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertEqual(content.title, "Tab")
         XCTAssertEqual(content.subtitle, "Pane")
         XCTAssertEqual(content.body, "PR #42 merged: Reach 100%%")
+        XCTAssertTrue(content.attachments.isEmpty)
+    }
+
+    func testPRClosedContentIncludesContextTitleAndEscapedPercent() {
+        let content = MacNotificationCoordinator.makePRClosedContent(
+            tabName: "Tab", paneName: "Pane", prNumber: 42, prTitle: "Reach 100%")
+        XCTAssertEqual(content.title, "Tab")
+        XCTAssertEqual(content.subtitle, "Pane")
+        XCTAssertEqual(content.body, "PR #42 closed: Reach 100%%")
         XCTAssertTrue(content.attachments.isEmpty)
     }
 

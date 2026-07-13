@@ -131,6 +131,7 @@ final class AppSettings {
     var debugModeEnabled: Bool = false
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
+    var isPRClosedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30
     var prRequestTimeoutSeconds: Int = 15
     var prBackgroundRefreshEnabled: Bool = true

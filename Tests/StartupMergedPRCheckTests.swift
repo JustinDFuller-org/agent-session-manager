@@ -206,7 +206,7 @@ final class StartupMergedPRCheckTests: XCTestCase {
         XCTAssertEqual(info.branch, "mybranch")
     }
 
-    // MARK: - checkForMergedPRsAfterRestore candidate filtering
+    // MARK: - checkForResolvedPRsAfterRestore candidate filtering
 
     func testStartupCheckSkipsAlreadyMergedPanes() async {
         let state = AppState()
@@ -215,7 +215,7 @@ final class StartupMergedPRCheckTests: XCTestCase {
         pane.isMerged = true
         state.tabs.append(tab)
 
-        await SessionPersistence.checkForMergedPRsAfterRestore(appState: state)
+        await SessionPersistence.checkForResolvedPRsAfterRestore(appState: state)
 
         XCTAssertTrue(state.notifications.isEmpty, "Should not query for already-merged panes")
     }
@@ -226,14 +226,14 @@ final class StartupMergedPRCheckTests: XCTestCase {
         _ = tab.addPane(name: "feature")
         state.tabs.append(tab)
 
-        await SessionPersistence.checkForMergedPRsAfterRestore(appState: state)
+        await SessionPersistence.checkForResolvedPRsAfterRestore(appState: state)
 
         XCTAssertTrue(state.notifications.isEmpty, "Should skip panes without worktree directory")
     }
 
     func testStartupCheckDoesNothingWithNoPanes() async {
         let state = AppState()
-        await SessionPersistence.checkForMergedPRsAfterRestore(appState: state)
+        await SessionPersistence.checkForResolvedPRsAfterRestore(appState: state)
         XCTAssertTrue(state.notifications.isEmpty)
     }
 }

@@ -92,7 +92,7 @@ extension Notification.Name {
     static let newTab = Notification.Name("newTab")
     static let newPane = Notification.Name("newPane")
     static let closeTab = Notification.Name("closeTab")
-    static let prMergedActionRequested = Notification.Name("prMergedActionRequested")
+    static let prResolutionActionRequested = Notification.Name("prResolutionActionRequested")
     static let openShellHere = Notification.Name("openShellHere")
     static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
         "agentSessionManagerPRTrackingSettingChanged")

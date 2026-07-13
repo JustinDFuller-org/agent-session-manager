@@ -77,7 +77,9 @@ final class AppState {
         paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool,
         event: PaneAttentionEvent = .rawBell
     ) {
-        if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prMerged }) {
+        if notifications.contains(where: {
+            $0.paneID == paneID && ($0.kind == .prMerged || $0.kind == .prClosed)
+        }) {
             return
         }
         let kind: NotificationKind = event.source == .claudeStop ? .claudeStop : .terminalBell
@@ -162,6 +164,52 @@ final class AppState {
         SessionPersistence.save(appState: self)
     }
 
+    func addPRClosedNotification(
+        paneID: UUID,
+        paneName: String,
+        tabID: UUID,
+        tabName: String,
+        prNumber: Int,
+        prTitle: String
+    ) {
+        guard SettingsPersistence.isPRClosedNotificationsEnabled() else { return }
+        if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prClosed }) { return }
+        notifications.removeAll { $0.paneID == paneID }
+        notifications.append(
+            PaneNotification(
+                paneID: paneID,
+                paneName: paneName,
+                tabID: tabID,
+                tabName: tabName,
+                isPriority: false,
+                kind: .prClosed,
+                prNumber: prNumber,
+                prTitle: prTitle
+            ))
+        tabs.flatMap(\.panes).first { $0.id == paneID }?.isClosed = true
+        MacNotificationCoordinator.shared.postPRClosedBannerIfNeeded(
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
+            prNumber: prNumber,
+            prTitle: prTitle
+        )
+        SessionPersistence.save(appState: self)
+    }
+
+    func clearPRClosedNotification(paneID: UUID) {
+        let pane = tabs.flatMap(\.panes).first { $0.id == paneID }
+        let hasClosedRow = notifications.contains { $0.paneID == paneID && $0.kind == .prClosed }
+        guard hasClosedRow || pane?.isClosed == true else { return }
+        notifications.removeAll { $0.paneID == paneID && $0.kind == .prClosed }
+        pane?.isClosed = false
+        TracingService.shared.record(
+            "pane.pr_closed.cleared",
+            attributes: ["pane.id": paneID.uuidString])
+        SessionPersistence.save(appState: self)
+    }
+
     func clearNotification(paneID: UUID) {
         MacNotificationCoordinator.shared.markPaneAcknowledged(paneID: paneID)
         if let notification = notifications.first(where: { $0.paneID == paneID }) {
@@ -190,13 +238,14 @@ final class AppState {
             .setFocusedPane(id: nil, reason: "notification_navigation")
         switchToTab(id: notification.tabID)
         setActivePane(id: notification.paneID)
-        if notification.kind == .prMerged {
+        if notification.kind == .prMerged || notification.kind == .prClosed {
             NotificationCenter.default.post(
-                name: .prMergedActionRequested,
+                name: .prResolutionActionRequested,
                 object: nil,
                 userInfo: [
                     "paneID": notification.paneID.uuidString,
                     "tabID": notification.tabID.uuidString,
+                    "kind": notification.kind.rawValue,
                 ]
             )
         }
