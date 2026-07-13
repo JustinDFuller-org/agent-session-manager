@@ -57,6 +57,10 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_OPENCODE_PORT=\(pane.opencodePort!)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .first { $0.hasPrefix("OPENCODE_CONFIG_CONTENT=") } != nil,
+            "Expected OPENCODE_CONFIG_CONTENT to be injected")
     }
 
     func testAddPaneInjectsExtraEnvVarsForClaude() {
@@ -102,6 +106,10 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_OPENCODE_PORT=\(pane.opencodePort!)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .first { $0.hasPrefix("OPENCODE_CONFIG_CONTENT=") } != nil,
+            "Expected OPENCODE_CONFIG_CONTENT to be injected")
     }
 
     func testCompleteSetupInjectsExtraEnvVarsForOpenCode() {
@@ -136,6 +144,10 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_OPENCODE_PORT=\(pane.opencodePort!)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .first { $0.hasPrefix("OPENCODE_CONFIG_CONTENT=") } != nil,
+            "Expected OPENCODE_CONFIG_CONTENT to be injected")
     }
 
     func testCompleteSetupInjectsExtraEnvVarsForCodexAndCursor() {

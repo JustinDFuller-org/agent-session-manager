@@ -546,7 +546,7 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(controller, pane: pane, extraArgs: extra)
+                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
             }
             pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
@@ -638,7 +638,7 @@ final class Tab: Identifiable {
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(controller, pane: pane, extraArgs: extra)
+                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
             }
 
             pane.harness = harness
@@ -672,7 +672,7 @@ final class Tab: Identifiable {
         }
         if pane.harness == .opencode {
             let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
-            configureOpenCodeController(new, pane: pane, extraArgs: extra)
+            configureOpenCodeController(new, pane: pane, extraArgs: extra, extraEnvVars: [:])
         }
         if pane.harness == .codex {
             monitor.writeCodexHookScript()
@@ -766,7 +766,8 @@ extension Tab {
     private func configureOpenCodeController(
         _ controller: TerminalController,
         pane: Pane,
-        extraArgs: String
+        extraArgs: String,
+        extraEnvVars: [String: String] = [:]
     ) {
         let port = FreePortAllocator.allocate()
         pane.opencodePort = port
@@ -780,14 +781,41 @@ extension Tab {
                     "tab.name": self.name,
                 ])
         }
+
+        let appControlledEnvVars: Set<String> = ["OPENCODE_CONFIG_CONTENT", "OPENCODE_PERMISSION"]
+        let overriddenKeys = extraEnvVars.keys.filter { appControlledEnvVars.contains($0) }
+        if !overriddenKeys.isEmpty {
+            InvariantReporter.shared.violated(
+                .opencodeConfigContentAppControlled,
+                context: [
+                    "pane.id": pane.id.uuidString,
+                    "pane.name": pane.name,
+                    "tab.id": self.id.uuidString,
+                    "tab.name": self.name,
+                    "overridden_keys": overriddenKeys.sorted().joined(separator: ","),
+                ])
+        }
+
+        let configContent = Tab.buildOpenCodeConfigContent()
         controller.pendingEnvironment =
             (controller.pendingEnvironment ?? [])
             + [
                 "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
                 "AGENT_SESSION_MANAGER_OPENCODE_PORT=\(port.map(String.init) ?? "")",
                 "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true",
+                "OPENCODE_CONFIG_CONTENT=\(configContent)",
             ]
         controller.pendingCommand = Tab.buildOpenCodeCommand(port: port, extraArgs: extraArgs)
+        TracingService.shared.record(
+            "opencode.config_content.injected",
+            attributes: [
+                "pane.id": pane.id.uuidString,
+                "pane.name": pane.name,
+                "tab.id": self.id.uuidString,
+                "tab.name": self.name,
+                "bytes": String(configContent.utf8.count),
+                "keys": String(2),
+            ])
     }
 }
 
@@ -814,6 +842,20 @@ extension Tab {
     nonisolated static func buildOpenCodeCommand(port: Int?, extraArgs: String) -> String {
         let portArg = port.map { " --port \($0)" } ?? ""
         return "opencode --hostname 127.0.0.1 --mdns=false\(portArg)\(extraArgs)"
+    }
+
+    /// Builds the inline JSON config injected per pane via `OPENCODE_CONFIG_CONTENT`.
+    /// This config sits at tier-6 precedence (below managed settings) and lets Agent
+    /// Session Manager enforce pane-safe defaults without modifying files in the worktree.
+    nonisolated static func buildOpenCodeConfigContent() -> String {
+        let settings: [String: Any] = [
+            "share": "manual",
+            "autoupdate": false,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: settings, options: []) else {
+            return "{}"
+        }
+        return String(decoding: data, as: UTF8.self)
     }
 
     nonisolated static func shellQuote(_ value: String) -> String {
@@ -1028,7 +1070,7 @@ extension Tab {
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(controller, pane: pane, extraArgs: extra)
+                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
             }
             controller.terminalView.telemetryTabName = self.name
             controller.terminalView.telemetryTabUUID = self.id

@@ -35,6 +35,17 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "Launch Services must prefer the running app bundle URL for its bundle identifier.",
         traceEventName: "app.bundle_identity.preferred_url_mismatch"
     )
+
+    static let opencodeConfigContentAppControlled = Invariant(
+        id: "opencode.config_content.app_controlled",
+        integration: "OpenCode",
+        severity: .warning,
+        description: """
+            OPENCODE_CONFIG_CONTENT and OPENCODE_PERMISSION are app-injected per pane; \
+            user-provided values are silently overridden.
+            """,
+        traceEventName: "opencode.config_content.user_override_silenced"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {
