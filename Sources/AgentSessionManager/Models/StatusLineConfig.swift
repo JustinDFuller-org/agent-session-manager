@@ -90,6 +90,60 @@ struct StatusLineRow: Codable, Identifiable, Equatable {
     }
 }
 
+enum CustomFieldTint: String, Codable {
+    case normal
+    case good
+    case warning
+    case critical
+}
+
+/// The render contract a custom field's command emits on stdout. Plain text (the "echo hello" path)
+/// decodes to this with only `text` set; a script opts into a progress bar or state color by
+/// printing this shape as JSON instead.
+struct CustomFieldRenderValue: Codable, Equatable {
+    var text: String?
+    var percent: Double?
+    var tint: CustomFieldTint?
+    var icon: String?
+
+    var isEmpty: Bool { text == nil && percent == nil && tint == nil && icon == nil }
+}
+
+/// An engineer-defined status line field backed by a shell command. See `CustomFieldRunner` for
+/// execution, context-building, and output parsing.
+struct CustomStatusLineField: Codable, Identifiable, Equatable {
+    static let minimumRefreshIntervalSeconds = 5
+    static let defaultRefreshIntervalSeconds = 15
+    static let defaultTimeoutSeconds = 10
+
+    var id: String
+    var label: String
+    var sfSymbol: String
+    var command: String
+    var refreshIntervalSeconds: Int
+    var timeoutSeconds: Int
+
+    init(
+        id: String = "custom:\(UUID().uuidString)",
+        label: String,
+        sfSymbol: String = "terminal",
+        command: String,
+        refreshIntervalSeconds: Int = defaultRefreshIntervalSeconds,
+        timeoutSeconds: Int = defaultTimeoutSeconds
+    ) {
+        self.id = id
+        self.label = label
+        self.sfSymbol = sfSymbol
+        self.command = command
+        self.refreshIntervalSeconds = refreshIntervalSeconds
+        self.timeoutSeconds = timeoutSeconds
+    }
+
+    var effectiveRefreshIntervalSeconds: Int {
+        max(Self.minimumRefreshIntervalSeconds, refreshIntervalSeconds)
+    }
+}
+
 private struct LegacyStatusLineItem: Decodable {
     var id: String
     var label: String
@@ -106,6 +160,7 @@ struct StatusLineConfig: Codable, Equatable {
     var factLabelStyle: FactLabelStyle
     var rowAlignment: RowAlignment
     var showPercentagesAsText: Bool
+    var customFields: [CustomStatusLineField]
 
     static let itemMetadata: [String: (label: String, symbol: String)] = [
         "model": ("Model", "cpu"),
@@ -203,6 +258,11 @@ struct StatusLineConfig: Codable, Equatable {
         }
     }
 
+    /// Built-in catalog plus this config's own custom fields — the full set eligible for the Add Item picker.
+    func availableItems() -> [StatusLineItem] {
+        Self.allItems + customFields.map { StatusLineItem(id: $0.id, label: $0.label, sfSymbol: $0.sfSymbol) }
+    }
+
     var usedItemIDs: Set<String> {
         Set(rows.flatMap { $0.items.map(\.id) })
     }
@@ -218,6 +278,7 @@ struct StatusLineConfig: Codable, Equatable {
         factLabelStyle = .labelOnly
         rowAlignment = .spaceBetween
         showPercentagesAsText = false
+        customFields = []
     }
 
     static func wizardDefault() -> StatusLineConfig {
@@ -242,6 +303,7 @@ struct StatusLineConfig: Codable, Equatable {
         factLabelStyle = try container.decodeIfPresent(FactLabelStyle.self, forKey: .factLabelStyle) ?? .labelOnly
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
         showPercentagesAsText = try container.decodeIfPresent(Bool.self, forKey: .showPercentagesAsText) ?? false
+        customFields = try container.decodeIfPresent([CustomStatusLineField].self, forKey: .customFields) ?? []
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows.enumerated().map { rowIndex, row in
@@ -301,10 +363,11 @@ struct StatusLineConfig: Codable, Equatable {
         try container.encode(factLabelStyle, forKey: .factLabelStyle)
         try container.encode(rowAlignment, forKey: .rowAlignment)
         try container.encode(showPercentagesAsText, forKey: .showPercentagesAsText)
+        try container.encode(customFields, forKey: .customFields)
     }
 
     enum CodingKeys: String, CodingKey {
-        case rows, factLabelStyle, rowAlignment, showPercentagesAsText
+        case rows, factLabelStyle, rowAlignment, showPercentagesAsText, customFields
         case items
     }
 }
@@ -617,6 +680,9 @@ struct StatusLineData: Codable {
     var pr: PullRequest?
     var sessionStatus: SessionStatus?
     var repo: Repo?
+    // Owned by StatusLineMonitor's custom-field scheduler. Not decoded from any harness's JSON —
+    // excluding it from CodingKeys means nothing external can spoof a resolved custom value.
+    var customFields: [String: CustomFieldRenderValue]?
 
     enum CodingKeys: String, CodingKey {
         case model

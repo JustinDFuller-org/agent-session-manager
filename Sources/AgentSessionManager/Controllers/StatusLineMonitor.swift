@@ -62,6 +62,11 @@ final class StatusLineMonitor {
     private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
     private var cachedRepoIdentity: StatusLineData.Repo?
     private var lastAppliedModificationDate: Date?
+    /// Set by the view alongside `setCustomFields`; resolved from `pane.profileID` against `appSettings.profiles`.
+    var profileName: String?
+    private var cachedCustomFieldValues: [String: CustomFieldRenderValue] = [:]
+    private var customFieldTimers: [String: Timer] = [:]
+    private var scheduledCustomFields: [String: CustomStatusLineField] = [:]
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
@@ -272,6 +277,10 @@ final class StatusLineMonitor {
         hookLogSource = nil
         gitDiffTimer?.invalidate()
         gitDiffTimer = nil
+        for timer in customFieldTimers.values { timer.invalidate() }
+        customFieldTimers = [:]
+        scheduledCustomFields = [:]
+        cachedCustomFieldValues = [:]
         TracingService.shared.record(
             "statusline.monitor.stopped",
             attributes: [
@@ -403,6 +412,7 @@ final class StatusLineMonitor {
             enforced.pr = existing
         }
         enforced.repo = cachedRepoIdentity
+        enforced.customFields = cachedCustomFieldValues
         applyI1Enforcement(to: &enforced)
         applyI3Enforcement(to: &enforced)
         currentData = enforced
@@ -507,6 +517,7 @@ final class StatusLineMonitor {
             merged.pr = existing
         }
         merged.repo = cachedRepoIdentity
+        merged.customFields = cachedCustomFieldValues
         currentData = merged
         TracingService.shared.record(
             "statusline.provider.update_applied",
@@ -652,6 +663,110 @@ final class StatusLineMonitor {
         } else {
             onPRClosed?(pr.number, pr.title)
         }
+    }
+}
+
+extension StatusLineMonitor {
+    /// Starts/stops per-field timers to match `fields`, diffing by id+command+refreshIntervalSeconds+timeoutSeconds
+    /// so an unchanged field's timer (and its in-flight cadence) is left alone.
+    func setCustomFields(_ fields: [CustomStatusLineField]) {
+        let nextByID = Dictionary(uniqueKeysWithValues: fields.map { ($0.id, $0) })
+
+        for id in Set(scheduledCustomFields.keys).subtracting(nextByID.keys) {
+            customFieldTimers[id]?.invalidate()
+            customFieldTimers[id] = nil
+            scheduledCustomFields[id] = nil
+            cachedCustomFieldValues[id] = nil
+        }
+
+        for (id, field) in nextByID {
+            if let existing = scheduledCustomFields[id],
+                existing.command == field.command,
+                existing.effectiveRefreshIntervalSeconds == field.effectiveRefreshIntervalSeconds,
+                existing.timeoutSeconds == field.timeoutSeconds
+            {
+                // Label/icon-only edits update in place without restarting the timer/cadence.
+                scheduledCustomFields[id] = field
+                continue
+            }
+            scheduledCustomFields[id] = field
+            customFieldTimers[id]?.invalidate()
+            customFieldTimers[id] = Timer.scheduledTimer(
+                withTimeInterval: TimeInterval(field.effectiveRefreshIntervalSeconds), repeats: true
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.runCustomField(field)
+                }
+            }
+            runCustomField(field)
+        }
+    }
+
+    private func runCustomField(_ field: CustomStatusLineField) {
+        let context = CustomFieldExecutionContext(
+            currentData: currentData,
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
+            harness: harness,
+            workingDirectory: workingDirectory,
+            profileName: profileName
+        )
+        let startedAt = Date()
+        Task { [weak self] in
+            guard let self else { return }
+            let result = await CustomFieldRunner.run(field: field, context: context)
+            await MainActor.run {
+                self.applyCustomFieldResult(field: field, result: result, startedAt: startedAt)
+            }
+        }
+    }
+
+    /// I8: every execution attempt either updates the cached value or records `exec_failed` — a
+    /// failure never silently reverts a previously-good value to "—".
+    private func applyCustomFieldResult(
+        field: CustomStatusLineField, result: CustomFieldExecutionResult, startedAt: Date
+    ) {
+        let durationMs = Date().timeIntervalSince(startedAt) * 1000
+        var attrs: [String: String] = [
+            "pane.name": paneName, "pane.id": paneID.uuidString,
+            "tab.id": tabID.uuidString, "tab.name": tabName,
+            "field_id": field.id,
+        ]
+        switch result {
+        case .success(let value, let outputKind):
+            cachedCustomFieldValues[field.id] = value
+            currentData?.customFields = cachedCustomFieldValues
+            attrs["duration_ms"] = String(format: "%.1f", durationMs)
+            attrs["output_kind"] = outputKind.rawValue
+            TracingService.shared.record("statusline.custom_field.exec_succeeded", attributes: attrs)
+        case .failure(let reason):
+            attrs["reason"] = reason.rawValue
+            attrs["retained_prior_value"] = cachedCustomFieldValues[field.id] != nil ? "true" : "false"
+            TracingService.shared.record("statusline.custom_field.exec_failed", attributes: attrs)
+        }
+    }
+
+    /// For testing only: injects cached custom field values directly.
+    @MainActor
+    func testSetCachedCustomFieldValues(_ values: [String: CustomFieldRenderValue]) {
+        cachedCustomFieldValues = values
+    }
+
+    /// For testing only: reads back the cached custom field values.
+    var cachedCustomFieldValuesForTesting: [String: CustomFieldRenderValue] { cachedCustomFieldValues }
+
+    /// For testing only: directly invokes the success/failure handling logic without spawning a process.
+    @MainActor
+    func testApplyCustomFieldResult(field: CustomStatusLineField, result: CustomFieldExecutionResult) {
+        applyCustomFieldResult(field: field, result: result, startedAt: Date())
+    }
+
+    /// For testing only: invokes `applyProviderSnapshot` directly (the non-Claude payload merge point).
+    @MainActor
+    func testApplyProviderSnapshot(_ data: StatusLineData, providerName: String = "test") {
+        applyProviderSnapshot(data, providerName: providerName)
     }
 }
 

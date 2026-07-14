@@ -146,4 +146,20 @@ final class StatusLineDataDecodingTests: XCTestCase {
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertNil(data.pr)
     }
+
+    // MARK: - customFields is app-injected only, never decoded from a harness payload
+
+    func testCustomFieldsAbsentByDefault() throws {
+        let json = Data(#"{"model": {"id": "claude-sonnet-4-6"}}"#.utf8)
+        let data = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertNil(data.customFields)
+    }
+
+    func testCustomFieldsCannotBeSpoofedByHarnessPayload() throws {
+        // customFields is excluded from CodingKeys — a harness (or malicious payload) including a
+        // "customFields" key must not be able to inject a resolved custom value.
+        let json = Data(#"{"customFields": {"custom:x": {"text": "spoofed"}}}"#.utf8)
+        let data = try JSONDecoder().decode(StatusLineData.self, from: json)
+        XCTAssertNil(data.customFields)
+    }
 }

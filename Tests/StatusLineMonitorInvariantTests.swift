@@ -558,4 +558,131 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         XCTAssertNil(monitor.currentData?.repo)
     }
+
+    // MARK: - I8: Custom field merge points
+
+    func testCustomFieldsMergedIntoCurrentDataOnClaudePayloadApply() throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+        monitor.testSetCachedCustomFieldValues([
+            "custom:abc": CustomFieldRenderValue(text: "hello", percent: nil, tint: nil, icon: nil)
+        ])
+
+        let payload = Data(#"{"cost": {"total_cost_usd": 1.0}}"#.utf8)
+        try payload.write(to: URL(filePath: monitor.filePath))
+        monitor.testApplyLatestPayload(reason: "test")
+
+        XCTAssertEqual(monitor.currentData?.customFields?["custom:abc"]?.text, "hello")
+    }
+
+    func testCustomFieldsMergedIntoCurrentDataOnProviderSnapshot() throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .cursor)
+        monitor.testSetCachedCustomFieldValues([
+            "custom:xyz": CustomFieldRenderValue(text: nil, percent: 42, tint: .warning, icon: nil)
+        ])
+
+        monitor.testApplyProviderSnapshot(.empty())
+
+        XCTAssertEqual(monitor.currentData?.customFields?["custom:xyz"]?.percent, 42)
+        XCTAssertEqual(monitor.currentData?.customFields?["custom:xyz"]?.tint, .warning)
+    }
+
+    func testCustomFieldFailureRetainsPriorValueAndRecordsExecFailed() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let field = CustomStatusLineField(id: "custom:b", label: "B", command: "exit 1")
+
+        monitor.testApplyCustomFieldResult(
+            field: field,
+            result: .success(
+                CustomFieldRenderValue(text: "good", percent: nil, tint: nil, icon: nil), outputKind: .text)
+        )
+        XCTAssertEqual(monitor.cachedCustomFieldValuesForTesting["custom:b"]?.text, "good")
+
+        monitor.testApplyCustomFieldResult(field: field, result: .failure(.nonzeroExit))
+
+        XCTAssertEqual(
+            monitor.cachedCustomFieldValuesForTesting["custom:b"]?.text, "good",
+            "a failed execution must never revert a previously-good value")
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let failed = events.first { $0.name == "statusline.custom_field.exec_failed" }
+        XCTAssertNotNil(failed)
+        XCTAssertEqual(failed?.attributes["reason"], "nonzero_exit")
+        XCTAssertEqual(failed?.attributes["retained_prior_value"], "true")
+    }
+
+    func testCustomFieldSuccessRecordsExecSucceeded() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let field = CustomStatusLineField(id: "custom:c", label: "C", command: "echo hi")
+
+        monitor.testApplyCustomFieldResult(
+            field: field,
+            result: .success(CustomFieldRenderValue(text: "hi", percent: nil, tint: nil, icon: nil), outputKind: .text)
+        )
+
+        let events = TracingService.shared.recordedEventsForTesting
+        let succeeded = events.first { $0.name == "statusline.custom_field.exec_succeeded" }
+        XCTAssertNotNil(succeeded)
+        XCTAssertEqual(succeeded?.attributes["output_kind"], "text")
+        XCTAssertEqual(succeeded?.attributes["field_id"], "custom:c")
+    }
+
+    func testSetCustomFieldsRemovesCachedValueWhenFieldRemoved() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let field = CustomStatusLineField(id: "custom:a", label: "A", command: "echo hi")
+
+        monitor.setCustomFields([field])
+        monitor.testApplyCustomFieldResult(
+            field: field,
+            result: .success(CustomFieldRenderValue(text: "hi", percent: nil, tint: nil, icon: nil), outputKind: .text)
+        )
+        XCTAssertEqual(monitor.cachedCustomFieldValuesForTesting["custom:a"]?.text, "hi")
+
+        monitor.setCustomFields([])
+
+        XCTAssertNil(
+            monitor.cachedCustomFieldValuesForTesting["custom:a"], "removing a field must drop its cached value")
+    }
+
+    func testProfileNameThreadedIntoCustomFieldEnvironment() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+        monitor.profileName = "Backend"
+        let field = CustomStatusLineField(
+            id: "custom:profile", label: "Profile",
+            command: "echo $AGENT_SESSION_MANAGER_PROFILE_NAME",
+            refreshIntervalSeconds: 5, timeoutSeconds: 5)
+        monitor.setCustomFields([field])
+
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting["custom:profile"] != nil
+        }
+        let resolvedText = monitor.cachedCustomFieldValuesForTesting["custom:profile"]?.text
+        monitor.stop()
+
+        XCTAssertTrue(resolved, "expected the custom field to resolve within the timeout")
+        XCTAssertEqual(resolvedText, "Backend")
+    }
+
+    private static func pollUntilTrue(timeout: TimeInterval = 3, _ condition: () -> Bool) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return condition()
+    }
 }
