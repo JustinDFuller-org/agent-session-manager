@@ -632,13 +632,17 @@ struct NewPaneSheet: View {
 // MARK: - Create helpers
 
 extension NewPaneSheet {
-    fileprivate func buildExtraArgs() -> [String] {
+    static func buildExtraArgs(options: [CLIOptionConfig], states: [String: OptionState]) -> [String] {
         var args: [String] = []
-        for option in activeOptions {
-            guard let state = optionStates[option.id], state.enabled else { continue }
-            args.append(contentsOf: option.commandLineArguments(value: state.value))
+        for option in options {
+            guard let state = states[option.id], state.enabled else { continue }
+            args.append(contentsOf: option.commandLineArguments(value: state.value, values: state.values))
         }
         return args
+    }
+
+    fileprivate func buildExtraArgs() -> [String] {
+        Self.buildExtraArgs(options: activeOptions, states: optionStates)
     }
 
     fileprivate func buildExtraEnvVars() -> [String: String] {
@@ -753,7 +757,7 @@ private struct SaveProfileSheet: View {
 
 // MARK: - Reusable rows
 
-private struct OptionState {
+struct OptionState {
     var enabled: Bool
     var value: String
     var values: [String] = []
