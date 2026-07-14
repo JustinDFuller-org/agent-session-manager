@@ -23,36 +23,42 @@ struct StatusLineView: View {
     }
 
     var body: some View {
-        if !nonEmptyRows.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(nonEmptyRows) { row in
-                    switch config.rowAlignment {
-                    case .leading:
-                        HStack(spacing: 12) {
-                            ForEach(row.items) { item in
-                                factView(item: item, data: monitor.currentData)
+        Group {
+            if !nonEmptyRows.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(nonEmptyRows) { row in
+                        switch config.rowAlignment {
+                        case .leading:
+                            HStack(spacing: 12) {
+                                ForEach(row.items) { item in
+                                    factView(item: item, data: monitor.currentData)
+                                }
+                                Spacer(minLength: 0)
                             }
-                            Spacer(minLength: 0)
-                        }
-                    case .spaceBetween:
-                        HStack(spacing: 0) {
-                            ForEach(row.items) { item in
-                                factView(item: item, data: monitor.currentData)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            ForEach(0..<(maxRowItemCount - row.items.count), id: \.self) { _ in
-                                Spacer()
-                                    .frame(maxWidth: .infinity)
+                        case .spaceBetween:
+                            HStack(spacing: 0) {
+                                ForEach(row.items) { item in
+                                    factView(item: item, data: monitor.currentData)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                ForEach(0..<(maxRowItemCount - row.items.count), id: \.self) { _ in
+                                    Spacer()
+                                        .frame(maxWidth: .infinity)
+                                }
                             }
                         }
                     }
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.windowBackground)
+                .accessibilityIdentifier("status-line-row")
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.windowBackground)
-            .accessibilityIdentifier("status-line-row")
+        }
+        .task(id: config.customFields) {
+            monitor.profileName = profileName
+            monitor.setCustomFields(config.customFields)
         }
     }
 
@@ -90,6 +96,11 @@ struct StatusLineView: View {
                 Image(systemName: pr.stateIconName)
                     .font(.system(size: 10))
                     .foregroundStyle(AnyShapeStyle(prCircleColor(pr: pr)))
+            } else if item.id.hasPrefix("custom:") {
+                let custom = data?.customFields?[item.id]
+                Image(systemName: custom?.icon ?? item.sfSymbol)
+                    .font(.system(size: 10))
+                    .foregroundStyle(customFieldIconStyle(custom?.tint))
             } else {
                 Image(systemName: item.sfSymbol)
                     .font(.system(size: 10))
@@ -173,13 +184,39 @@ struct StatusLineView: View {
                     .foregroundStyle(.secondary)
             }
         default:
-            Text(factText(for: item.id, data: data))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if item.id.hasPrefix("custom:"), let percent = data?.customFields?[item.id]?.percent {
+                let tint = customFieldTintColor(data?.customFields?[item.id]?.tint) ?? progressTint(Int(percent))
+                percentageValue(value: percent, label: String(format: "%.0f%%", percent), tint: tint, barWidth: 44)
+            } else {
+                Text(factText(for: item.id, data: data))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func customFieldIconStyle(_ tint: CustomFieldTint?) -> AnyShapeStyle {
+        switch tint {
+        case .good: return AnyShapeStyle(Color.green)
+        case .warning: return AnyShapeStyle(Color.orange)
+        case .critical: return AnyShapeStyle(Color.red)
+        case .normal, .none: return AnyShapeStyle(.tertiary)
+        }
+    }
+
+    private func customFieldTintColor(_ tint: CustomFieldTint?) -> Color? {
+        switch tint {
+        case .good: return .green
+        case .warning: return .orange
+        case .critical: return .red
+        case .normal, .none: return nil
         }
     }
 
     private func factText(for itemID: String, data: StatusLineData?) -> String {
+        if itemID.hasPrefix("custom:") {
+            return data?.customFields?[itemID]?.text ?? "—"
+        }
         switch itemID {
         case "model": return data?.model?.displayName ?? data?.model?.id ?? "—"
         case "worktree": return data?.worktree?.factText ?? "—"
