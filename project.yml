@@ -54,6 +54,10 @@ targets:
         product: OpenTelemetrySdk
       - package: opentelemetry-swift
         product: StdoutExporter
+      - package: opentelemetry-swift
+        product: ResourceExtension
+      - package: opentelemetry-swift
+        product: SignPostIntegration
     entitlements:
       path: AgentSessionManager.entitlements
       properties:

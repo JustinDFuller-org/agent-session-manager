@@ -154,6 +154,7 @@ struct SettingsPersistence {
                 updated[index].isAvailable = savedOption.isAvailable
                 updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
                 updated[index].presetValues = savedOption.presetValues
+                updated[index].allowsMultipleValues = savedOption.allowsMultipleValues
             }
         }
         return updated + userAdded

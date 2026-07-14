@@ -915,7 +915,7 @@ private struct CLIOptionRow: View {
                 CLIOptionPresetEditor(
                     optionID: option.id,
                     presetValues: $option.presetValues,
-                    allowsMultipleValues: option.allowsMultipleValues,
+                    allowsMultipleValues: $option.allowsMultipleValues,
                     onChange: onChange
                 )
             }
@@ -927,7 +927,7 @@ private struct CLIOptionRow: View {
 private struct CLIOptionPresetEditor: View {
     let optionID: String
     @Binding var presetValues: [String]
-    let allowsMultipleValues: Bool
+    @Binding var allowsMultipleValues: Bool
     let onChange: () -> Void
 
     @State private var drafts: [PresetDraft] = []
@@ -939,15 +939,20 @@ private struct CLIOptionPresetEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            Toggle("Allow multiple selections", isOn: $allowsMultipleValues)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .help(
+                    "Only enable this for flags whose CLI accepts multiple space-separated values behind one "
+                        + "flag (e.g. --mcp-config a.json b.json). Enabling it for a flag that only accepts a "
+                        + "single value will produce an incorrect command line."
+                )
+                .accessibilityIdentifier("settings-cli-option-allow-multi-\(optionID)")
+                .onChange(of: allowsMultipleValues) { onChange() }
             HStack(spacing: 6) {
                 Text("Preset values")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if allowsMultipleValues {
-                    Text("multiple values can be selected at once")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
                 Spacer()
                 Button {
                     drafts.append(PresetDraft(value: ""))

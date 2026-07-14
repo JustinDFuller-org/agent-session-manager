@@ -40,6 +40,12 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         app.descendants(matching: .any).matching(identifier: "cli-option-value-menu-\(flagID)").firstMatch
     }
 
+    private func toggleAllowMultipleSelections(forFlagID flagID: String) {
+        let toggle = app.checkBoxes["settings-cli-option-allow-multi-\(flagID)"]
+        waitFor(toggle)
+        toggle.click()
+    }
+
     /// Defines presets for --effort (single-select) and --mcp-config (multi-select), creates a
     /// profile that selects "high" and both mcp-config presets, marks both "Show on new pane",
     /// and saves it. Leaves Settings open on the Profiles tab.
@@ -165,5 +171,69 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         app.buttons["new-pane-open-button"].click()
         waitForDisappear(nameField, timeout: 25)
         waitFor(app.staticTexts.matching(identifier: "pane-name-preset-pane").firstMatch, timeout: 10)
+    }
+
+    /// Toggling "Allow multiple selections" on a non-mcp-config flag should switch its picker from
+    /// a single-select dropdown to the same checkbox-menu multi-select `--mcp-config` uses.
+    func testTogglingAllowMultipleSelectionsSwitchesFlagToMultiSelectMenu() {
+        openToolsTab()
+        toggleAllowMultipleSelections(forFlagID: "--model")
+        definePresets(forFlagID: "--model", presets: ["model-a", "model-b"])
+
+        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        profilesTab.click()
+
+        let newProfileButton = app.buttons["New Profile"]
+        waitFor(newProfileButton)
+        newProfileButton.click()
+
+        let nameField = app.textFields["profile-editor-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText("Multi Model Profile")
+
+        enableOptionRow(flagLabel: "--model")
+        XCTAssertFalse(
+            app.textFields["cli-option-value-field---model"].exists,
+            "--model should no longer render as a plain text field once multi-select is enabled"
+        )
+
+        let modelMenu = valueMenu(forFlagID: "--model")
+        waitFor(modelMenu)
+        modelMenu.click()
+        let modelAItem = app.menuItems["model-a"]
+        waitFor(modelAItem)
+        modelAItem.click()
+        let modelBItem = app.menuItems["model-b"]
+        waitFor(modelBItem, timeout: 2)
+        modelBItem.click()
+
+        XCTAssertTrue(modelMenu.label.contains("2 selected"), "Selecting two presets should summarize the count")
+
+        let saveButton = app.buttons["Save"]
+        waitFor(saveButton)
+        saveButton.click()
+        waitFor(app.staticTexts.matching(NSPredicate(format: "value == %@", "Multi Model Profile")).firstMatch)
+
+        app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+        createTab(named: "MultiModelPane")
+        app.typeKey("p", modifierFlags: .command)
+
+        let profilePicker = app.descendants(matching: .any).matching(identifier: "new-pane-profile-picker").firstMatch
+        waitFor(profilePicker)
+        profilePicker.click()
+        let multiModelProfileItem = app.menuItems.matching(
+            NSPredicate(format: "label CONTAINS %@", "Multi Model Profile")
+        ).firstMatch
+        waitFor(multiModelProfileItem)
+        multiModelProfileItem.click()
+
+        let newPaneModelMenu = valueMenu(forFlagID: "--model")
+        waitFor(newPaneModelMenu)
+        XCTAssertTrue(
+            newPaneModelMenu.label.contains("2 selected"),
+            "New Pane sheet should render the multi-select menu with both saved presets pre-filled"
+        )
     }
 }

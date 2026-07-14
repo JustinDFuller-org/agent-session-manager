@@ -72,6 +72,32 @@ struct CLIOptionConfigPresetValuesTests {
         #expect(!option.allowsMultipleValues)
     }
 
+    @Test("allowsMultipleValues round-trips through JSON for a non-mcp-config flag")
+    func allowsMultipleValuesRoundTripsForOtherFlag() throws {
+        var option = CLIOptionConfig.all.first { $0.id == "--allowedTools" }!
+        option.allowsMultipleValues = true
+        let data = try JSONEncoder().encode(option)
+        let decoded = try JSONDecoder().decode(CLIOptionConfig.self, from: data)
+        #expect(decoded.allowsMultipleValues)
+    }
+
+    @Test("Legacy JSON without allowsMultipleValues decodes to the catalog default")
+    func legacyDecodeWithoutAllowsMultipleValues() throws {
+        let mcpConfigJSON = Data(
+            """
+            {"id":"--mcp-config","isAvailable":true,"isDefaultEnabled":false}
+            """.utf8)
+        let decodedMcpConfig = try JSONDecoder().decode(CLIOptionConfig.self, from: mcpConfigJSON)
+        #expect(decodedMcpConfig.allowsMultipleValues)
+
+        let effortJSON = Data(
+            """
+            {"id":"--effort","isAvailable":true,"isDefaultEnabled":false}
+            """.utf8)
+        let decodedEffort = try JSONDecoder().decode(CLIOptionConfig.self, from: effortJSON)
+        #expect(!decodedEffort.allowsMultipleValues)
+    }
+
     // MARK: - normalizedPresetValues (preset-editor draft flattening)
 
     @Test("normalizedPresetValues drops blank and whitespace-only drafts")
@@ -120,5 +146,15 @@ struct CLIOptionConfigPresetValuesTests {
         #expect(mergedOption?.isAvailable == true)
         #expect(mergedOption?.isDefaultEnabled == true)
         #expect(mergedOption?.presetValues == ["low"])
+    }
+
+    @MainActor
+    @Test("mergeCLIOptions preserves a saved allowsMultipleValues override against catalog defaults")
+    func mergePreservesAllowsMultipleValuesOverride() {
+        var saved = CLIOptionConfig.all.first { $0.id == "--allowedTools" }!
+        saved.allowsMultipleValues = true
+        let merged = SettingsPersistence.mergeCLIOptions([saved], into: CLIOptionConfig.all)
+        let mergedOption = merged.first { $0.id == "--allowedTools" }
+        #expect(mergedOption?.allowsMultipleValues == true)
     }
 }

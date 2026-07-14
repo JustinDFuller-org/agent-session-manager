@@ -88,4 +88,12 @@ struct CLIOptionConfigCommandLineArgumentsTests {
         let result = option("--mcp-config").commandLineArguments(value: "stale.json", values: ["current.json"])
         #expect(result == ["--mcp-config", "'current.json'"])
     }
+
+    @Test("Argv emission is generic across any flag marked allowsMultipleValues, not just --mcp-config")
+    func multiValueEmissionIsGenericAcrossFlags() {
+        var arbitraryFlag = option("--allowedTools")
+        arbitraryFlag.allowsMultipleValues = true
+        let result = arbitraryFlag.commandLineArguments(value: nil, values: ["Read", "Bash(git log *)"])
+        #expect(result == ["--allowedTools", "'Read'", "'Bash(git log *)'"])
+    }
 }
