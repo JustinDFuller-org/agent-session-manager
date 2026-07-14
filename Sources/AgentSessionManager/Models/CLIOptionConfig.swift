@@ -73,7 +73,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.customIsStringType = false
             self.presetValues = (try? container.decodeIfPresent([String].self, forKey: .presetValues)) ?? []
             self.allowsMultipleValues =
-                (try? container.decodeIfPresent(Bool.self, forKey: .allowsMultipleValues)) ?? template.allowsMultipleValues
+                (try? container.decodeIfPresent(Bool.self, forKey: .allowsMultipleValues))
+                ?? template.allowsMultipleValues
         }
     }
 
