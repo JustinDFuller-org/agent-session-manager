@@ -26,7 +26,8 @@ final class CustomFieldRunnerTests: XCTestCase {
         let field = CustomStatusLineField(label: "Echo", command: "echo hello")
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
         guard case .success(let value, let kind) = result else {
-            return XCTFail("Expected success, got \(result)")
+            XCTFail("Expected success, got \(result)")
+            return
         }
         XCTAssertEqual(value.text, "hello")
         XCTAssertEqual(kind, .text)
@@ -36,7 +37,8 @@ final class CustomFieldRunnerTests: XCTestCase {
         let field = CustomStatusLineField(label: "Pct", command: #"echo '{"percent": 42, "tint": "warning"}'"#)
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
         guard case .success(let value, let kind) = result else {
-            return XCTFail("Expected success, got \(result)")
+            XCTFail("Expected success, got \(result)")
+            return
         }
         XCTAssertEqual(value.percent, 42)
         XCTAssertEqual(value.tint, .warning)
@@ -52,7 +54,8 @@ final class CustomFieldRunnerTests: XCTestCase {
             command: #"python3 -c "import json, sys; print(json.load(sys.stdin)['model']['display_name'])""#)
         let result = await CustomFieldRunner.run(field: field, context: makeContext(currentData: currentData))
         guard case .success(let value, _) = result else {
-            return XCTFail("Expected success, got \(result)")
+            XCTFail("Expected success, got \(result)")
+            return
         }
         XCTAssertEqual(value.text, "Sonnet")
     }
@@ -63,7 +66,8 @@ final class CustomFieldRunnerTests: XCTestCase {
         let field = CustomStatusLineField(label: "Fail", command: "exit 1")
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
         guard case .failure(let reason) = result else {
-            return XCTFail("Expected failure, got \(result)")
+            XCTFail("Expected failure, got \(result)")
+            return
         }
         XCTAssertEqual(reason, .nonzeroExit)
     }
@@ -72,7 +76,8 @@ final class CustomFieldRunnerTests: XCTestCase {
         let field = CustomStatusLineField(label: "Empty", command: "true")
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
         guard case .failure(let reason) = result else {
-            return XCTFail("Expected failure, got \(result)")
+            XCTFail("Expected failure, got \(result)")
+            return
         }
         XCTAssertEqual(reason, .emptyOutput)
     }
@@ -83,7 +88,8 @@ final class CustomFieldRunnerTests: XCTestCase {
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
         let elapsed = Date().timeIntervalSince(startedAt)
         guard case .failure(let reason) = result else {
-            return XCTFail("Expected failure, got \(result)")
+            XCTFail("Expected failure, got \(result)")
+            return
         }
         XCTAssertEqual(reason, .timeout)
         XCTAssertLessThan(elapsed, 4, "should be killed near the 1s timeout, not run the full 5s sleep")

@@ -867,6 +867,7 @@ struct AddCustomStatusLineFieldSheet: View {
 
     private static func describe(_ result: CustomFieldExecutionResult) -> String {
         switch result {
+        // swiftlint:disable:next pattern_matching_keywords
         case .success(let value, let outputKind):
             var parts = [outputKind == .structured ? "structured" : "text"]
             if let text = value.text { parts.append("text=\"\(text)\"") }

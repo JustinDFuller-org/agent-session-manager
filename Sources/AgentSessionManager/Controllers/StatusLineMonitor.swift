@@ -735,6 +735,7 @@ extension StatusLineMonitor {
             "field_id": field.id,
         ]
         switch result {
+        // swiftlint:disable:next pattern_matching_keywords
         case .success(let value, let outputKind):
             cachedCustomFieldValues[field.id] = value
             currentData?.customFields = cachedCustomFieldValues
