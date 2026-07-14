@@ -15,14 +15,20 @@ struct CLIOptionConfig: Identifiable, Codable {
     var customIsStringType: Bool
     /// Candidate values offered when selecting this flag, defined at harness scope in Settings → Tools.
     var presetValues: [String]
+    /// Whether this flag's CLI syntax accepts multiple space-separated values behind one flag
+    /// (e.g. `--mcp-config 'a.json' 'b.json'`), rather than a single value. User-configurable per
+    /// flag in Settings → Tools; the user is responsible for only enabling this on flags whose CLI
+    /// is actually variadic.
+    var allowsMultipleValues: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType, presetValues
+        case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType, presetValues, allowsMultipleValues
     }
 
     init(
         id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool,
-        isUserAdded: Bool = false, customIsStringType: Bool = false, presetValues: [String] = []
+        isUserAdded: Bool = false, customIsStringType: Bool = false, presetValues: [String] = [],
+        allowsMultipleValues: Bool = false
     ) {
         self.id = id
         self.label = label
@@ -32,6 +38,7 @@ struct CLIOptionConfig: Identifiable, Codable {
         self.isUserAdded = isUserAdded
         self.customIsStringType = customIsStringType
         self.presetValues = presetValues
+        self.allowsMultipleValues = allowsMultipleValues
     }
 
     init(from decoder: Decoder) throws {
@@ -48,6 +55,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.isUserAdded = true
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
             self.presetValues = (try? container.decodeIfPresent([String].self, forKey: .presetValues)) ?? []
+            self.allowsMultipleValues = false
         } else {
             let id = try container.decode(String.self, forKey: .id)
             let allTemplates =
@@ -64,6 +72,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.isUserAdded = false
             self.customIsStringType = false
             self.presetValues = (try? container.decodeIfPresent([String].self, forKey: .presetValues)) ?? []
+            self.allowsMultipleValues =
+                (try? container.decodeIfPresent(Bool.self, forKey: .allowsMultipleValues)) ?? template.allowsMultipleValues
         }
     }
 
@@ -75,6 +85,8 @@ struct CLIOptionConfig: Identifiable, Codable {
         if isUserAdded {
             try container.encode(true, forKey: .isUserAdded)
             try container.encode(customIsStringType, forKey: .customIsStringType)
+        } else {
+            try container.encode(allowsMultipleValues, forKey: .allowsMultipleValues)
         }
         if !presetValues.isEmpty {
             try container.encode(presetValues, forKey: .presetValues)
@@ -192,12 +204,6 @@ struct CLIOptionConfig: Identifiable, Codable {
         }
     }
 
-    /// Flag IDs whose CLI syntax accepts multiple space-separated values behind one flag
-    /// (e.g. `--mcp-config 'a.json' 'b.json'`), rather than a repeated flag.
-    static let multiValueFlagIDs: Set<String> = ["--mcp-config"]
-
-    var allowsMultipleValues: Bool { !isUserAdded && Self.multiValueFlagIDs.contains(id) }
-
     /// Builds the argv slice for this option given its selected value(s), reusing `Tab`'s
     /// shell-quoting so the resolved launch command matches this exactly.
     func commandLineArguments(value: String?, values: [String] = []) -> [String] {
@@ -313,7 +319,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--mcp-config", label: "MCP Config", description: "Load MCP servers from JSON files or strings",
-            isAvailable: false, isDefaultEnabled: false),
+            isAvailable: false, isDefaultEnabled: false, allowsMultipleValues: true),
         CLIOptionConfig(
             id: "--model", label: "Model", description: "Sets the model for the current session", isAvailable: false,
             isDefaultEnabled: false),
