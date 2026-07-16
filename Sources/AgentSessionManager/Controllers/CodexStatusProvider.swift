@@ -13,6 +13,7 @@ struct StatusProviderContext {
     let environment: [String: String]
     let detectedHarnessVersion: String?
     let codexHookRecordPath: String?
+    let opencodePort: Int?
 }
 
 struct CodexHookSessionRecord: Codable, Equatable {

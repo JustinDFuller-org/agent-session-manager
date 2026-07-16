@@ -150,6 +150,10 @@ struct StatusLineConfig: Codable, Equatable {
         owner: .harness, supportedHarnesses: [.claude, .codex], missingBehavior: .pending)
     static let modelCapability = StatusFactCapability(
         owner: .merged, supportedHarnesses: allHarnesses, missingBehavior: .pending)
+    static let claudeOpencodeCapability = StatusFactCapability(
+        owner: .harness, supportedHarnesses: [.claude, .opencode], missingBehavior: .pending)
+    static let inputOutputTokenCapability = StatusFactCapability(
+        owner: .harness, supportedHarnesses: [.claude, .codex, .opencode], missingBehavior: .pending)
 
     static let itemCapabilities: [String: StatusFactCapability] = [
         "worktree": appCapability,
@@ -160,9 +164,9 @@ struct StatusLineConfig: Codable, Equatable {
         "linesRemoved": appCapability,
         "profileName": appCapability,
         "model": modelCapability,
-        "cost": claudeCapability,
-        "inputTokens": claudeCodexCapability,
-        "outputTokens": claudeCodexCapability,
+        "cost": claudeOpencodeCapability,
+        "inputTokens": inputOutputTokenCapability,
+        "outputTokens": inputOutputTokenCapability,
         "context": claudeCodexCapability,
         "contextRemaining": claudeCodexCapability,
         "rate5h": claudeCodexCapability,
@@ -173,7 +177,7 @@ struct StatusLineConfig: Codable, Equatable {
         "thinking": claudeCapability,
         "vimMode": claudeCapability,
         "agentName": claudeCapability,
-        "sessionName": claudeCapability,
+        "sessionName": claudeOpencodeCapability,
         "outputStyle": claudeCapability,
         "exceeds200k": claudeCapability,
         "repo": appCapability,

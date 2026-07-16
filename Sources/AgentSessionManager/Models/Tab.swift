@@ -501,7 +501,7 @@ final class Tab: Identifiable {
         pane.extraArgs = extraArgs
         let cwd = worktreeDirectory?.path ?? directory.path
 
-        if harness != .shell {
+        if harness != .shell && harness != .opencode {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: harness, processStartTime: Date(),
@@ -547,6 +547,11 @@ final class Tab: Identifiable {
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
+                pane.installStatusLineMonitor(monitor)
             }
             pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
@@ -632,13 +637,13 @@ final class Tab: Identifiable {
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
+                applyExtraEnvVars(extraEnvVars, to: controller)
+                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name)
+                    tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
                 pane.installStatusLineMonitor(monitor)
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
             }
 
             pane.harness = harness
@@ -655,12 +660,17 @@ final class Tab: Identifiable {
         new.pendingShell = old.pendingShell
         old.terminate()
         let cwd = new.pendingDirectory ?? directory.path
-        let monitor = StatusLineMonitor(
-            paneID: pane.id, paneName: pane.name,
-            workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-            tabID: self.id, tabName: self.name)
-        pane.installStatusLineMonitor(monitor)
-        if pane.harness == .claude {
+        var monitor: StatusLineMonitor?
+        if pane.harness != .opencode {
+            monitor = StatusLineMonitor(
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                tabID: self.id, tabName: self.name)
+        }
+        if let monitor {
+            pane.installStatusLineMonitor(monitor)
+        }
+        if pane.harness == .claude, let monitor {
             let extra = Tab.extractExtraArgs(from: old.pendingCommand ?? "")
             let continued = Tab.injectContinueFlagIntoArgs(extra)
             new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
@@ -673,8 +683,13 @@ final class Tab: Identifiable {
         if pane.harness == .opencode {
             let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
             configureOpenCodeController(new, pane: pane, extraArgs: extra, extraEnvVars: [:])
+            let opencodeMonitor = StatusLineMonitor(
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
+            pane.installStatusLineMonitor(opencodeMonitor)
         }
-        if pane.harness == .codex {
+        if pane.harness == .codex, let monitor {
             monitor.writeCodexHookScript()
             new.pendingEnvironment =
                 (new.pendingEnvironment ?? [])
@@ -1025,7 +1040,7 @@ extension Tab {
 
         let cwd = resolved.processDirectory.path
 
-        if pane.harness != .shell {
+        if pane.harness != .shell && pane.harness != .opencode {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
@@ -1071,6 +1086,11 @@ extension Tab {
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
+                pane.installStatusLineMonitor(monitor)
             }
             controller.terminalView.telemetryTabName = self.name
             controller.terminalView.telemetryTabUUID = self.id

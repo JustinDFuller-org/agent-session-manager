@@ -77,7 +77,8 @@ final class StatusLineMonitor {
         harness: Harness,
         processStartTime: Date = Date(),
         tabID: UUID = UUID(),
-        tabName: String = ""
+        tabName: String = "",
+        opencodePort: Int? = nil
     ) {
         self.paneID = paneID
         self.paneName = paneName.isEmpty ? String(paneID.uuidString.prefix(8)) : paneName
@@ -112,7 +113,8 @@ final class StatusLineMonitor {
                 launchArgs: [],
                 environment: [:],
                 detectedHarnessVersion: nil,
-                codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil
+                codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil,
+                opencodePort: opencodePort
             )
         }
 
@@ -123,6 +125,8 @@ final class StatusLineMonitor {
                     workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
             } else if harness == .codex, let providerContext {
                 provider = CodexStatusProvider(context: providerContext)
+            } else if harness == .opencode, let providerContext {
+                provider = OpenCodeStatusProvider(context: providerContext)
             } else {
                 let toolCmd = harness.commandDescription
                 provider = ToolAgnosticDataProvider(

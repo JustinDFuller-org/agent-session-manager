@@ -205,24 +205,33 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testHarnessSpecificItemsAreCorrect() {
-        let agnosticIds: Set<String> = [
-            "worktree", "duration", "version", "pr", "model",
-            "profileName", "linesAdded", "linesRemoved", "repo",
-        ]
         let codexSupportedIds: Set<String> = [
             "inputTokens", "outputTokens", "context", "contextRemaining",
             "rate5h", "rate7d", "rate5hReset", "rate7dReset",
         ]
-        let claudeOnlyIds: Set<String> = ["cost"]
-        for id in StatusLineConfig.itemMetadata.keys
-        where !agnosticIds.contains(id) && !codexSupportedIds.contains(id) && !claudeOnlyIds.contains(id) {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude])
-        }
+        let claudeOnlyIds: Set<String> = [
+            "effort", "thinking", "vimMode", "agentName", "outputStyle",
+            "exceeds200k", "contextSize", "cacheRead", "cacheCreation", "apiDuration",
+        ]
+        let claudeOpencodeIds: Set<String> = ["cost", "sessionName"]
+        let opencodeTokenIds: Set<String> = ["inputTokens", "outputTokens"]
+
         for id in claudeOnlyIds {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude])
+            XCTAssertEqual(
+                StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude], "\(id) should be Claude-only")
+        }
+        for id in claudeOpencodeIds {
+            XCTAssertEqual(
+                StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude, .opencode],
+                "\(id) should be supported by Claude and OpenCode")
+        }
+        for id in opencodeTokenIds {
+            XCTAssertTrue(
+                StatusLineConfig.itemAvailability[id]?.supports(.opencode) == true,
+                "\(id) should be supported by OpenCode")
         }
         for id in codexSupportedIds {
-            XCTAssertTrue(StatusLineConfig.itemAvailability[id]?.supports(.codex) == true)
+            XCTAssertTrue(StatusLineConfig.itemAvailability[id]?.supports(.codex) == true, "\(id) should support Codex")
         }
     }
 

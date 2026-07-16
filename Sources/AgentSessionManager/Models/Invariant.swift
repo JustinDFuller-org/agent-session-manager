@@ -46,6 +46,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
             """,
         traceEventName: "opencode.config_content.user_override_silenced"
     )
+
+    static let opencodePortMissing = Invariant(
+        id: "opencode.port_missing",
+        integration: "OpenCode",
+        severity: .error,
+        description: "An OpenCode pane was started without a configured opencode port.",
+        traceEventName: "statusline.opencode.port_missing"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {
