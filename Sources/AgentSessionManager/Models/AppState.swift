@@ -79,7 +79,13 @@ final class AppState {
         if notifications.contains(where: { $0.paneID == paneID && $0.kind == .prMerged }) {
             return
         }
-        let kind: NotificationKind = event.source == .claudeStop ? .claudeStop : .terminalBell
+        let kind: NotificationKind = {
+            switch event.source {
+            case .claudeStop: return .claudeStop
+            case .opencodeStop: return .opencodeStop
+            default: return .terminalBell
+            }
+        }()
         let notification =
             PaneNotification(
                 paneID: paneID,

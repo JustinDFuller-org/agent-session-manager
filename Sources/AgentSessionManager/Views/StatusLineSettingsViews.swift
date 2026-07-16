@@ -716,6 +716,23 @@ struct NotificationsContent: View {
                     }
                 }
             }
+            Section("OpenCode") {
+                SettingRow(
+                    title: "Notify when OpenCode stops",
+                    description: "Show a banner and sidebar row when OpenCode finishes a turn."
+                ) {
+                    Toggle(
+                        "Notify when OpenCode stops",
+                        isOn: $appSettings.isOpencodeStopNotificationEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-opencode-stop-notification-toggle")
+                    .onChange(of: appSettings.isOpencodeStopNotificationEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+            }
             Section("Sidebar") {
                 SettingRow(
                     title: "Sidebar Position",

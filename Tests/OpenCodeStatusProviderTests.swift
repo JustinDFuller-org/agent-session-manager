@@ -50,6 +50,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         directory: String? = nil,
         title: String? = nil,
         created: Int64,
+        status: String? = nil,
         cost: Double? = 0.42,
         tokens: OpenCodeSessionTokens? = nil,
         model: OpenCodeSessionModel? = nil,
@@ -60,6 +61,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             title: title,
             directory: directory,
             parentID: nil,
+            status: status,
             cost: cost,
             tokens: tokens ?? OpenCodeSessionTokens(input: 100, output: 50, reasoning: 10, cacheRead: 5, cacheWrite: 2),
             model: model ?? OpenCodeSessionModel(id: "k2.7", providerID: "openai", variant: nil),
@@ -77,6 +79,8 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         nonisolated(unsafe) var sessionsByID: [String: OpenCodeSession] = [:]
         nonisolated(unsafe) var renameRequests: [(id: String, title: String)] = []
         nonisolated(unsafe) var renamedSessions: [String: OpenCodeSession] = [:]
+        nonisolated(unsafe) var eventStream: Result<AsyncThrowingStream<OpenCodeEvent, Error>, Error>?
+        nonisolated(unsafe) var eventStreamRequests: [Void] = []
 
         func health() async throws -> (healthy: Bool, version: String?) {
             try healthResult.get()
@@ -104,6 +108,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
                 title: title,
                 directory: original.directory,
                 parentID: original.parentID,
+                status: original.status,
                 cost: original.cost,
                 tokens: original.tokens,
                 model: original.model,
@@ -113,6 +118,22 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             renamedSessions[id] = updated
             sessionsByID[id] = updated
             return updated
+        }
+
+        func events() -> AsyncThrowingStream<OpenCodeEvent, Error> {
+            eventStreamRequests.append(())
+            guard let eventStream else {
+                return AsyncThrowingStream { continuation in
+                    continuation.finish(throwing: OpenCodeServerClientError.unexpectedStatus(0))
+                }
+            }
+            do {
+                return try eventStream.get()
+            } catch {
+                return AsyncThrowingStream { continuation in
+                    continuation.finish(throwing: error)
+                }
+            }
         }
     }
 
@@ -427,5 +448,181 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         XCTAssertTrue(events.contains { $0.name == "statusline.opencode.session.bound" })
         XCTAssertTrue(events.contains { $0.name == "statusline.opencode.session.named" })
         XCTAssertTrue(events.contains { $0.name == "statusline.opencode.poll.success" })
+    }
+
+    func testSSESessionIdleFiresOpencodeStopOnce() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let session = makeSession(
+            id: "ses_sse_stop",
+            directory: tempDir.path,
+            created: processStartMs,
+            status: "busy"
+        )
+        client.sessions = [session]
+        client.sessionsByID[session.id] = session
+        client.eventStream = .success(
+            AsyncThrowingStream { continuation in
+                continuation.yield(.sessionIdle(sessionID: session.id))
+                continuation.yield(.sessionIdle(sessionID: session.id))
+                continuation.finish()
+            })
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart),
+            client: client,
+            startupRetryInterval: 0.01,
+            pollInterval: 60
+        )
+
+        let expectation = XCTestExpectation(description: "provider fires opencode stop once")
+        var stopCount = 0
+        provider.onOpencodeStopped = {
+            stopCount += 1
+            expectation.fulfill()
+        }
+
+        provider.start()
+        wait(for: [expectation], timeout: 3)
+        provider.stop()
+
+        XCTAssertEqual(stopCount, 1)
+        XCTAssertEqual(client.eventStreamRequests.count, 1)
+    }
+
+    func testSSESessionIdleIgnoresOtherSessions() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let session = makeSession(
+            id: "ses_bound",
+            directory: tempDir.path,
+            created: processStartMs,
+            status: "busy"
+        )
+        client.sessions = [session]
+        client.sessionsByID[session.id] = session
+        client.eventStream = .success(
+            AsyncThrowingStream { continuation in
+                continuation.yield(.sessionIdle(sessionID: "ses_other"))
+                continuation.finish()
+            })
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart),
+            client: client,
+            startupRetryInterval: 0.01,
+            pollInterval: 60
+        )
+
+        let expectation = XCTestExpectation(description: "provider emits data")
+        provider.onUpdate = { data in
+            if data.model != nil { expectation.fulfill() }
+        }
+
+        var stopCount = 0
+        provider.onOpencodeStopped = { stopCount += 1 }
+
+        provider.start()
+        wait(for: [expectation], timeout: 3)
+        provider.stop()
+
+        XCTAssertEqual(stopCount, 0)
+    }
+
+    func testSSEPermissionAskedFiresOpencodePermissionRequest() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let session = makeSession(
+            id: "ses_permission",
+            directory: tempDir.path,
+            created: processStartMs
+        )
+        client.sessions = [session]
+        client.sessionsByID[session.id] = session
+        client.eventStream = .success(
+            AsyncThrowingStream { continuation in
+                continuation.yield(
+                    .permissionAsked(
+                        sessionID: session.id,
+                        permission: "external_directory",
+                        patterns: ["/etc/*"]
+                    ))
+                continuation.finish()
+            })
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart),
+            client: client,
+            startupRetryInterval: 0.01,
+            pollInterval: 60
+        )
+
+        let expectation = XCTestExpectation(description: "provider fires permission attention")
+        var attentionEvent: PaneAttentionEvent?
+        provider.onAttention = { event in
+            attentionEvent = event
+            expectation.fulfill()
+        }
+
+        provider.start()
+        wait(for: [expectation], timeout: 3)
+        provider.stop()
+
+        XCTAssertEqual(attentionEvent?.source, .opencodePermissionRequest)
+        XCTAssertEqual(attentionEvent?.reason, "Permission needed for external_directory: /etc/*")
+    }
+
+    func testPollingFallbackDetectsIdleTransition() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let busySession = makeSession(
+            id: "ses_poll_transition",
+            directory: tempDir.path,
+            created: processStartMs,
+            status: "busy"
+        )
+        client.sessions = [busySession]
+        client.sessionsByID[busySession.id] = busySession
+        client.eventStream = .failure(OpenCodeServerClientError.unexpectedStatus(500))
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart),
+            client: client,
+            startupRetryInterval: 0.01,
+            pollInterval: 0.05
+        )
+
+        let updateExpectation = XCTestExpectation(description: "provider emits initial data")
+        let stopExpectation = XCTestExpectation(description: "provider fires stop via polling fallback")
+        provider.onUpdate = { data in
+            if data.model != nil { updateExpectation.fulfill() }
+        }
+        var stopCount = 0
+        provider.onOpencodeStopped = {
+            stopCount += 1
+            stopExpectation.fulfill()
+        }
+
+        provider.start()
+        wait(for: [updateExpectation], timeout: 3)
+
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.1) {
+            let idleSession = self.makeSession(
+                id: "ses_poll_transition",
+                directory: self.tempDir.path,
+                created: processStartMs,
+                status: "idle"
+            )
+            client.sessionsByID[idleSession.id] = idleSession
+        }
+
+        wait(for: [stopExpectation], timeout: 5)
+        provider.stop()
+
+        XCTAssertEqual(stopCount, 1)
     }
 }

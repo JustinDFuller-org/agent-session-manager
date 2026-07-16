@@ -16,7 +16,7 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | 3 | [Command builder + launch](#3-cli-flags) | [x] | `Tab.buildOpenCodeCommand(port:extraArgs:)` emits `opencode --hostname 127.0.0.1 --mdns=false[ --port <port>]<extraArgs>`. `FreePortAllocator` binds `NWListener` on port 0 to allocate a transient localhost port. All four launch sites (`addPane`, `completeSetup`, `refreshPane` Branch A, `refreshPane` Branch B) allocate a fresh port, rebuild the command, and inject `AGENT_SESSION_MANAGER_PANE_ID`, `AGENT_SESSION_MANAGER_OPENCODE_PORT`, and `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`. Port allocation failure emits `opencode.port_allocation.failed` and omits `--port` so OpenCode falls back to a random port. `opencodePort` is stored transiently on `Pane` (not persisted). |
 | 4 | [Config injection (`OPENCODE_CONFIG_CONTENT`)](#6-modifying-opencode-inputs-to-work-well-with-agent-session-manager) | [x] | `Tab.buildOpenCodeConfigContent()` emits compact JSON `{"share":"manual","autoupdate":false}`; `configureOpenCodeController` injects it as `OPENCODE_CONFIG_CONTENT` for all four launch sites, emits `opencode.config_content.injected` span, and reports `opencode.config_content.app_controlled` invariant when user-provided `OPENCODE_CONFIG_CONTENT`/`OPENCODE_PERMISSION` would be silently overridden. `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` stays a separate env var because it is an env var, not a documented config key. Tests cover JSON shape, injection through `addPane`/`refreshPane`/`completeSetup`, and invariant behavior. |
 | 5 | [Status provider](#7-status-line-support) | [x] | `OpenCodeStatusProvider`, HTTP client seam, discovery+PATCH rename, polling, chip capabilities, tests. |
-| 6 | [Notifications](#8-notifications-and-attention) | [ ] | |
+| 6 | [Notifications](#8-notifications-and-attention) | [x] | `NotificationKind.opencodeStop`, `PaneAttentionEvent.Source.opencodeStop/opencodePermissionRequest`, settings persistence + UI toggle, SSE event stream with busy→idle lifecycle, permission events; polling fallback for idle transition. Tests for stop edge, permission, ignored foreign sessions, and polling fallback. |
 | 7 | [Restore + continue](#9-session-persistence-restore-and-continue-on-restart) | [ ] | |
 | 8 | [Telemetry + invariants](#10-additional-cross-cutting-concerns) | [ ] | |
 | 9 | [Docs + skill](#10-additional-cross-cutting-concerns) | [ ] | |
@@ -526,7 +526,7 @@ A phased approach keeps each stage compileable and testable.
 
 ---
 
-*Last updated: July 16, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; Phase 3 command builder + launch complete; Phase 4 `OPENCODE_CONFIG_CONTENT` injection complete; Phase 5 status provider complete; restore/continue deferred to Phase 7.*
+*Last updated: July 16, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; Phase 3 command builder + launch complete; Phase 4 `OPENCODE_CONFIG_CONTENT` injection complete; Phase 5 status provider complete; Phase 6 notifications + attention complete; restore/continue deferred to Phase 7.*
 
 ## Spike Findings
 

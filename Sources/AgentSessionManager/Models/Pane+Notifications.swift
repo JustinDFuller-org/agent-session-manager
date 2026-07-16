@@ -56,6 +56,20 @@ extension Pane {
                 )
             }
         }
+        statusLineMonitor?.onOpencodeStopped = { [weak appState, weak tab, weak self] in
+            Task { @MainActor in
+                guard let appState, let tab, let pane = self else { return }
+                guard SettingsPersistence.isOpencodeStopNotificationEnabled() else { return }
+                appState.addNotification(
+                    paneID: pane.id,
+                    paneName: pane.name,
+                    tabID: tab.id,
+                    tabName: tab.name,
+                    isPriority: pane.isPriority,
+                    event: .opencodeStop
+                )
+            }
+        }
         statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in
             Task { @MainActor in
                 guard let appState, let tab, let pane = self else { return }

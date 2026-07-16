@@ -126,6 +126,8 @@ final class AppSettings {
     var isCursorNotificationHookAttentionEnabled: Bool = true
     /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool = true
+    /// When true, fire a notification when OpenCode finishes a turn.
+    var isOpencodeStopNotificationEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask

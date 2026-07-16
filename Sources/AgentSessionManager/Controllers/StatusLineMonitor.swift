@@ -62,6 +62,8 @@ final class StatusLineMonitor {
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
     /// Fires on the main actor when Claude transitions from working to stopped (one fire per working→stopped edge).
     var onClaudeStopped: (() -> Void)?
+    /// Fires on the main actor when OpenCode transitions from working to stopped (one fire per working→stopped edge).
+    var onOpencodeStopped: (() -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
     /// Fires on the main actor when a live poll reports a non-merged state after a merged state was observed.
@@ -126,7 +128,20 @@ final class StatusLineMonitor {
             } else if harness == .codex, let providerContext {
                 provider = CodexStatusProvider(context: providerContext)
             } else if harness == .opencode, let providerContext {
-                provider = OpenCodeStatusProvider(context: providerContext)
+                let opencodeProvider = OpenCodeStatusProvider(context: providerContext)
+                opencodeProvider.onOpencodeStopped = { [weak self] in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        TracingService.shared.record(
+                            "statusline.opencode.stop.received",
+                            attributes: [
+                                "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                                "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                            ])
+                        self.onOpencodeStopped?()
+                    }
+                }
+                provider = opencodeProvider
             } else {
                 let toolCmd = harness.commandDescription
                 provider = ToolAgnosticDataProvider(
@@ -288,6 +303,7 @@ final class StatusLineMonitor {
         PRTrackingCoordinator.shared.unsubscribe(paneID: paneID)
         lastKnownPRState = nil
         hasFiredMergedNotification = false
+        onOpencodeStopped = nil
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)

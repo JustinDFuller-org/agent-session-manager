@@ -106,6 +106,7 @@ struct ContentView: View {
                     appSettings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
                     appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
                     appSettings.isClaudeStopNotificationEnabled = config.isClaudeStopNotificationEnabled
+                    appSettings.isOpencodeStopNotificationEnabled = config.isOpencodeStopNotificationEnabled
                 }
                 if let config = SettingsPersistence.load(RestartConfig.self, from: "restart-settings.json") {
                     appSettings.continueOnRestart = config.continueOnRestart

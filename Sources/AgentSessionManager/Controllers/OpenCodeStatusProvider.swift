@@ -23,6 +23,7 @@ struct OpenCodeSession: Sendable {
     let title: String?
     let directory: String?
     let parentID: String?
+    let status: String?
     let cost: Double?
     let tokens: OpenCodeSessionTokens?
     let model: OpenCodeSessionModel?
@@ -49,6 +50,15 @@ struct OpenCodeSessionTime: Sendable {
     let updated: Int64?
 }
 
+// MARK: - Server events
+
+enum OpenCodeEvent: Sendable {
+    case sessionIdle(sessionID: String)
+    case permissionAsked(sessionID: String, permission: String, patterns: [String])
+    case heartbeat
+    case other(type: String)
+}
+
 // MARK: - Server client protocol
 
 protocol OpenCodeServerClient: Sendable {
@@ -56,6 +66,7 @@ protocol OpenCodeServerClient: Sendable {
     func listSessions() async throws -> [OpenCodeSession]
     func session(_ id: String) async throws -> OpenCodeSession
     func rename(_ id: String, title: String) async throws -> OpenCodeSession
+    func events() -> AsyncThrowingStream<OpenCodeEvent, Error>
 }
 
 enum OpenCodeServerClientError: Error {
@@ -102,6 +113,92 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
         return decoded.toModel()
     }
 
+    func events() -> AsyncThrowingStream<OpenCodeEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let request = try makeRequest(path: "/event", method: "GET", body: nil)
+                    let (bytes, response) = try await session.bytes(for: request)
+                    guard let httpResponse = response as? HTTPURLResponse,
+                        (200..<300).contains(httpResponse.statusCode)
+                    else {
+                        throw OpenCodeServerClientError.unexpectedStatus(
+                            (response as? HTTPURLResponse)?.statusCode ?? 0)
+                    }
+
+                    var eventType: String?
+                    var dataBuffer = ""
+
+                    for try await line in bytes.lines {
+                        if Task.isCancelled {
+                            continuation.finish(throwing: CancellationError())
+                            return
+                        }
+
+                        if line.isEmpty {
+                            if let type = eventType, !dataBuffer.isEmpty {
+                                if let event = Self.parseEvent(type: type, data: dataBuffer) {
+                                    continuation.yield(event)
+                                }
+                            }
+                            eventType = nil
+                            dataBuffer = ""
+                            continue
+                        }
+
+                        if line.hasPrefix("event:") {
+                            eventType = String(line.dropFirst("event:".count)).trimmingCharacters(
+                                in: .whitespaces)
+                        } else if line.hasPrefix("data:") {
+                            let payload = String(line.dropFirst("data:".count)).trimmingCharacters(
+                                in: .whitespaces)
+                            if !dataBuffer.isEmpty { dataBuffer += "\n" }
+                            dataBuffer += payload
+                        }
+                    }
+
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
+    private static func parseEvent(type: String, data: String) -> OpenCodeEvent? {
+        switch type {
+        case "server.heartbeat":
+            return .heartbeat
+        default:
+            break
+        }
+
+        guard let json = data.data(using: .utf8),
+            let response = try? JSONDecoder().decode(EventResponse.self, from: json)
+        else {
+            return .other(type: type)
+        }
+
+        switch response.type {
+        case "session.idle":
+            guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
+            return .sessionIdle(sessionID: sessionID)
+        case "permission.asked":
+            guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
+            return .permissionAsked(
+                sessionID: sessionID,
+                permission: response.properties?.permission ?? "unknown",
+                patterns: response.properties?.patterns ?? []
+            )
+        default:
+            return .other(type: type)
+        }
+    }
+
     private func get(path: String) async throws -> Data {
         let request = try makeRequest(path: path, method: "GET", body: nil)
         return try await perform(request: request)
@@ -144,11 +241,23 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
         let version: String?
     }
 
+    private struct EventResponse: Decodable {
+        let type: String
+        let properties: EventProperties?
+
+        struct EventProperties: Decodable {
+            let sessionID: String?
+            let permission: String?
+            let patterns: [String]?
+        }
+    }
+
     private struct SessionResponse: Decodable {
         let id: String
         let title: String?
         let directory: String?
         let parentID: String?
+        let status: String?
         let cost: Double?
         let tokens: TokensResponse?
         let model: ModelResponse?
@@ -190,6 +299,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
                 title: title,
                 directory: directory,
                 parentID: parentID,
+                status: status,
                 cost: cost,
                 tokens: tokens.map {
                     OpenCodeSessionTokens(
@@ -219,6 +329,9 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
 final class OpenCodeStatusProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
     var onAttention: ((PaneAttentionEvent) -> Void)?
+    var onOpencodeStopped: (() -> Void)?
+
+    private enum Lifecycle: String { case unknown, working, idle }
 
     private let context: StatusProviderContext
     private let client: any OpenCodeServerClient
@@ -229,11 +342,13 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     private let appDirectory: String
     private let baseline: ToolAgnosticDataProvider
     private var stateTask: Task<Void, Never>?
+    private var eventTask: Task<Void, Never>?
     private var pollTimer: DispatchSourceTimer?
     private var latestHarnessData: StatusLineData?
     private var latestBaselineData: StatusLineData?
     private var boundSessionID: String?
     private var detectedVersion: String?
+    private var lifecycle: Lifecycle = .unknown
 
     init(
         context: StatusProviderContext,
@@ -272,6 +387,8 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     func stop() {
         stateTask?.cancel()
         stateTask = nil
+        eventTask?.cancel()
+        eventTask = nil
         pollTimer?.cancel()
         pollTimer = nil
         baseline.stop()
@@ -330,6 +447,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                         await renameSessionIfNeeded(session)
                         await refreshSession()
                         startPollTimer()
+                        startEventStream()
                         return
                     }
 
@@ -443,6 +561,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         do {
             let session = try await client.session(boundSessionID)
             mergeHarnessData(session)
+            updateLifecycleFromSession(session)
             trace(
                 "statusline.opencode.poll.success",
                 attributes: [
@@ -450,6 +569,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     "has_model": session.model != nil ? "true" : "false",
                     "has_cost": session.cost != nil ? "true" : "false",
                     "has_tokens": session.tokens != nil ? "true" : "false",
+                    "status": session.status ?? "unknown",
                 ])
         } catch {
             trace(
@@ -458,6 +578,122 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     "session_id_prefix": String(boundSessionID.prefix(12)),
                     "error": String(describing: error),
                 ])
+        }
+    }
+
+    // MARK: - Events
+
+    private func startEventStream() {
+        eventTask = Task { [weak self] in
+            await self?.consumeEvents()
+        }
+    }
+
+    private func consumeEvents() async {
+        guard let boundSessionID else { return }
+        var attempt = 0
+        let maxAttempts = 5
+
+        while !Task.isCancelled, attempt < maxAttempts {
+            attempt += 1
+            trace(
+                "statusline.opencode.sse.connecting",
+                attributes: [
+                    "session_id_prefix": String(boundSessionID.prefix(12)),
+                    "attempt": "\(attempt)",
+                ])
+
+            do {
+                let stream = client.events()
+                trace(
+                    "statusline.opencode.sse.connected",
+                    attributes: [
+                        "session_id_prefix": String(boundSessionID.prefix(12)),
+                        "attempt": "\(attempt)",
+                    ])
+
+                for try await event in stream {
+                    guard !Task.isCancelled else { return }
+                    await handleEvent(event)
+                }
+            } catch {
+                trace(
+                    "statusline.opencode.sse.disconnected",
+                    attributes: [
+                        "session_id_prefix": String(boundSessionID.prefix(12)),
+                        "attempt": "\(attempt)",
+                        "error": String(describing: error),
+                    ])
+            }
+
+            guard !Task.isCancelled, attempt < maxAttempts else { break }
+            let backoff = min(0.5 * Double(attempt), 5.0)
+            try? await Task.sleep(nanoseconds: UInt64(backoff * 1_000_000_000))
+        }
+
+        trace(
+            "statusline.opencode.sse.exhausted",
+            attributes: [
+                "session_id_prefix": String(boundSessionID.prefix(12)),
+                "attempts": "\(attempt)",
+                "reason": "fallback_to_polling",
+            ])
+    }
+
+    private func handleEvent(_ event: OpenCodeEvent) async {
+        guard let boundSessionID else { return }
+
+        switch event {
+        case .heartbeat:
+            break
+        case .other:
+            break
+        case .sessionIdle(let sessionID):
+            guard sessionID == boundSessionID else { return }
+            trace(
+                "statusline.opencode.sse.session_idle",
+                attributes: [
+                    "session_id_prefix": String(sessionID.prefix(12)),
+                    "lifecycle": lifecycle.rawValue,
+                ])
+            transitionLifecycle(to: .idle)
+        case .permissionAsked(let sessionID, let permission, let patterns):
+            guard sessionID == boundSessionID else { return }
+
+            let reason =
+                patterns.isEmpty
+                ? "Permission needed for \(permission)"
+                : "Permission needed for \(permission): \(patterns.joined(separator: ", "))"
+            trace(
+                "statusline.opencode.permission.fired",
+                attributes: [
+                    "session_id_prefix": String(sessionID.prefix(12)),
+                    "permission": permission,
+                    "patterns": "\(patterns.count)",
+                ])
+            onAttention?(PaneAttentionEvent(source: .opencodePermissionRequest, reason: reason))
+        }
+    }
+
+    private func transitionLifecycle(to newLifecycle: Lifecycle) {
+        if newLifecycle == .idle, lifecycle == .working {
+            trace(
+                "statusline.opencode.stop.fired",
+                attributes: [
+                    "session_id_prefix": boundSessionID.map { String($0.prefix(12)) } ?? "unknown",
+                    "previous_lifecycle": lifecycle.rawValue,
+                ])
+            onOpencodeStopped?()
+        }
+        lifecycle = newLifecycle
+    }
+
+    private func updateLifecycleFromSession(_ session: OpenCodeSession) {
+        let status = session.status?.lowercased() ?? ""
+        if status == "idle" {
+            transitionLifecycle(to: .idle)
+        } else if status == "busy" {
+            lifecycle = .working
         }
     }
 

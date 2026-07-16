@@ -4,6 +4,7 @@ enum NotificationKind: String, Codable {
     case terminalBell
     case prMerged
     case claudeStop
+    case opencodeStop
 }
 
 struct PaneAttentionEvent: Equatable {
@@ -14,6 +15,8 @@ struct PaneAttentionEvent: Equatable {
         case claudePermissionRequest = "claude_permission_request"
         case claudeStop = "claude_stop"
         case cursorStop = "cursor_stop"
+        case opencodeStop = "opencode_stop"
+        case opencodePermissionRequest = "opencode_permission_request"
     }
 
     static let fallbackReason = "Attention needed"
@@ -36,6 +39,10 @@ struct PaneAttentionEvent: Equatable {
 
     static var cursorStop: PaneAttentionEvent {
         PaneAttentionEvent(source: .cursorStop, reason: "Agent turn completed")
+    }
+
+    static var opencodeStop: PaneAttentionEvent {
+        PaneAttentionEvent(source: .opencodeStop, reason: "OpenCode finished responding")
     }
 
     static func osc777(_ text: String) -> PaneAttentionEvent? {

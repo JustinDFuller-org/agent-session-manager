@@ -22,6 +22,8 @@ struct NotificationConfig: Codable {
     var alwaysShowNotificationsSidebar: Bool
     /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool
+    /// When true, fire a notification when OpenCode finishes a turn.
+    var isOpencodeStopNotificationEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case sidebarSide
@@ -31,6 +33,7 @@ struct NotificationConfig: Codable {
         case isPRMergedNotificationsEnabled
         case alwaysShowNotificationsSidebar
         case isClaudeStopNotificationEnabled
+        case isOpencodeStopNotificationEnabled
     }
 
     init(
@@ -40,7 +43,8 @@ struct NotificationConfig: Codable {
         isCursorHookAttentionEnabled: Bool,
         isPRMergedNotificationsEnabled: Bool,
         alwaysShowNotificationsSidebar: Bool,
-        isClaudeStopNotificationEnabled: Bool
+        isClaudeStopNotificationEnabled: Bool,
+        isOpencodeStopNotificationEnabled: Bool
     ) {
         self.sidebarSide = sidebarSide
         self.isPriorityEnabled = isPriorityEnabled
@@ -49,6 +53,7 @@ struct NotificationConfig: Codable {
         self.isPRMergedNotificationsEnabled = isPRMergedNotificationsEnabled
         self.alwaysShowNotificationsSidebar = alwaysShowNotificationsSidebar
         self.isClaudeStopNotificationEnabled = isClaudeStopNotificationEnabled
+        self.isOpencodeStopNotificationEnabled = isOpencodeStopNotificationEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -64,6 +69,8 @@ struct NotificationConfig: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .alwaysShowNotificationsSidebar) ?? true
         isClaudeStopNotificationEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isClaudeStopNotificationEnabled) ?? true
+        isOpencodeStopNotificationEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isOpencodeStopNotificationEnabled) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -75,6 +82,7 @@ struct NotificationConfig: Codable {
         try container.encode(isPRMergedNotificationsEnabled, forKey: .isPRMergedNotificationsEnabled)
         try container.encode(alwaysShowNotificationsSidebar, forKey: .alwaysShowNotificationsSidebar)
         try container.encode(isClaudeStopNotificationEnabled, forKey: .isClaudeStopNotificationEnabled)
+        try container.encode(isOpencodeStopNotificationEnabled, forKey: .isOpencodeStopNotificationEnabled)
     }
 }
 
@@ -229,7 +237,8 @@ struct SettingsPersistence {
             isCursorHookAttentionEnabled: appSettings.isCursorNotificationHookAttentionEnabled,
             isPRMergedNotificationsEnabled: appSettings.isPRMergedNotificationsEnabled,
             alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar,
-            isClaudeStopNotificationEnabled: appSettings.isClaudeStopNotificationEnabled
+            isClaudeStopNotificationEnabled: appSettings.isClaudeStopNotificationEnabled,
+            isOpencodeStopNotificationEnabled: appSettings.isOpencodeStopNotificationEnabled
         )
         guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: notificationSettingsURL)
@@ -241,6 +250,14 @@ struct SettingsPersistence {
             let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
         else { return true }
         return config.isClaudeStopNotificationEnabled
+    }
+
+    static func isOpencodeStopNotificationEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: notificationSettingsURL),
+            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return true }
+        return config.isOpencodeStopNotificationEnabled
     }
 
     static func isPRMergedNotificationsEnabled() -> Bool {
