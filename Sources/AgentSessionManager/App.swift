@@ -566,7 +566,7 @@ private struct KeyboardShortcutView: NSViewRepresentable {
             guard let termView = view as? BellCapturingTerminalView else { return event }
             let terminal = termView.getTerminal()
             guard terminal.isCurrentBufferAlternate else { return event }
-            guard termView.allowMouseReporting, terminal.mouseMode != .off else { return event }
+            guard terminal.mouseMode != .off else { return event }
 
             let localPoint = termView.convert(point, from: nil)
             let bw = termView.bounds.width
