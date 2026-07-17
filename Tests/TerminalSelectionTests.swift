@@ -26,7 +26,10 @@ final class TerminalSelectionTests: XCTestCase {
         controller.terminalView.feed(text: "more streaming output\n")
         try? await Task.sleep(nanoseconds: 100_000_000)
 
-        XCTAssertTrue(controller.terminalView.selectionActive, "Selection should survive PTY output while mouse reporting is disabled")
+        XCTAssertTrue(
+            controller.terminalView.selectionActive,
+            "Selection should survive PTY output while mouse reporting is disabled"
+        )
         XCTAssertNotNil(controller.terminalView.getSelection())
     }
 }
