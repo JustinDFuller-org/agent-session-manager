@@ -512,7 +512,7 @@ final class Tab: Identifiable {
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
@@ -584,7 +584,7 @@ final class Tab: Identifiable {
             let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             let controller = TerminalController()
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
@@ -644,7 +644,7 @@ final class Tab: Identifiable {
         let new = TerminalController()
         new.pendingCommand = old.pendingCommand
         new.pendingDirectory = old.pendingDirectory
-        new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        new.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
         new.pendingShell = old.pendingShell
         old.terminate()
         let cwd = new.pendingDirectory ?? directory.path
@@ -747,6 +747,17 @@ extension Tab {
 }
 
 extension Tab {
+    /// `__CF`-prefixed vars (e.g. `__CFBundleIdentifier`) are CoreFoundation's private markers
+    /// of this app's own bundle identity, set on every process in its tree. Forwarding them into
+    /// a pane's shell makes that shell carry the GUI app's identity too, which confuses tools that
+    /// key off `__CFBundleIdentifier` for bundle-architecture resolution (e.g. `swift test` fails
+    /// to load its xctest bundle when run from a pane inside this very app).
+    nonisolated static func hostEnvironmentForChildProcess() -> [String] {
+        ProcessInfo.processInfo.environment
+            .filter { !$0.key.hasPrefix("__CF") }
+            .map { "\($0.key)=\($0.value)" }
+    }
+
     nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: String) -> String {
         "claude --settings \(shellQuote(settingsPath))\(extraArgs)"
     }
@@ -944,7 +955,7 @@ extension Tab {
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
             let extra = effectiveExtraArgs.isEmpty ? "" : " " + effectiveExtraArgs.joined(separator: " ")
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
