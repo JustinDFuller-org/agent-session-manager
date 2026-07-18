@@ -15,11 +15,18 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        // SwiftTerm clears the text selection on every PTY chunk and every newline
+        // while mouse reporting is on, so it never survives streaming output.
+        // Scroll-wheel forwarding to alt-buffer TUIs is handled separately in
+        // App.swift based on `terminal.mouseMode`, so this only gives up in-TUI
+        // mouse clicks/drags.
+        allowMouseReporting = false
         installOsc777AttentionHookIfNeeded()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        allowMouseReporting = false
         installOsc777AttentionHookIfNeeded()
     }
 
