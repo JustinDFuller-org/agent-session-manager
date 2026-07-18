@@ -27,14 +27,14 @@ This is the canonical, code-observed audit of Agent Session Manager integration 
 | External worktree attachment | Implemented | Implemented | Implemented | Implemented | Existing paths from `git worktree list --porcelain` can be reused. |
 | Managed worktree cleanup | Implemented | Implemented | Implemented | Implemented | Cleanup is based on pane worktree ownership, not harness type. |
 | Session restore | Implemented | Implemented | Implemented | Implemented | Persisted resolved checkout directories are restored for every harness when they still exist. |
-| Continue on app restart | Implemented | N/A | N/A | N/A | Automatic restore-time `--continue` injection is Claude-only. |
+| Continue on app restart | Implemented | N/A | N/A | Implemented | Automatic restore-time `--continue` injection is Claude-only; OpenCode uses `--session <id>` with `--continue` fallback. |
 | Auto session names | Implemented | N/A | N/A | Implemented | Claude uses `--name '<tab>/<pane>'`; OpenCode discovers the TUI-created session and renames it via `PATCH /session/:id`. |
 | Restart existing process | Implemented | Implemented | Implemented | Implemented | Controller replacement preserves the existing monitor and callback wiring. |
 | Quick refresh and continue | Implemented | Implemented | Implemented | Implemented | Monitor replacement goes through `Pane.installStatusLineMonitor`, which reattaches callbacks. Cursor quick refresh preserves `AGENT_SESSION_MANAGER_PANE_ID`. |
 | Refresh with new settings | Implemented | Implemented | Implemented | Implemented | Monitor/controller replacement goes through pane install methods that rewire callbacks. |
 | Rich status provider | Implemented | Partial | Partial | Implemented | Claude uses `statusLine`; Cursor adds hook model data; Codex adds version-gated SQLite/rollout data for 0.136.x; OpenCode polls the per-pane HTTP API. |
 | Shared baseline status | Implemented | Implemented | Implemented | Implemented | Worktree, branch, duration, lines changed, PR, and profile chips are app-owned where data is available. Cursor and Codex fetch versions; OpenCode uses `GET /global/health`. |
-| Native attention integration | Implemented | Partial | Missing | Missing | Claude uses `Notification` (broadened to `permission_prompt\|elicitation_dialog\|idle_prompt\|agent_needs_input`) plus `SubagentStop`/`PreToolUse` background-agent gating to suppress false "finished" `Stop` notifications; Cursor uses `stop`, but setting changes do not refresh existing Cursor panes. OpenCode attention events are deferred to a follow-up. |
+| Native attention integration | Implemented | Partial | Missing | Implemented | Claude uses `Notification` (broadened to `permission_prompt\|elicitation_dialog\|idle_prompt\|agent_needs_input`) plus `SubagentStop`/`PreToolUse` background-agent gating to suppress false "finished" `Stop` notifications; Cursor uses `stop`, but setting changes do not refresh existing Cursor panes. OpenCode uses SSE `session.idle` and `permission.asked` events with a 15-second polling fallback. |
 | Shared terminal attention | Implemented | Implemented | Implemented | Implemented | BEL and OSC 777 flow through `TerminalController`. |
 | Notification sidebar and banners | Partial | Partial | Partial | Partial | Delivery exists, but new-pane and controller-replacement lifecycle gaps can prevent callbacks from being attached. |
 | Notification persistence | Implemented | Implemented | Implemented | Implemented | Pending in-app notifications are stored in `sessions.json`. |
@@ -79,7 +79,7 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 |---|---|---|---|---|---|
 | BEL handling | Implemented | Implemented | Implemented | Implemented | Shared terminal parser path. |
 | OSC 777 handling | Implemented | Implemented | Implemented | Implemented | Shared `ESC]777;notify;title;body BEL` handler. |
-| Native hook attention | Implemented | Partial | Missing | Missing | Claude `Notification` hook (`permission_prompt`, `elicitation_dialog`, `idle_prompt`, `agent_needs_input`) is refreshed for existing panes when toggled. Cursor `stop` hook is installed, but toggling attention does not refresh existing Cursor providers. OpenCode SSE/poll attention events are deferred to a follow-up. |
+| Native hook attention | Implemented | Partial | Missing | Implemented | Claude `Notification` hook (`permission_prompt`, `elicitation_dialog`, `idle_prompt`, `agent_needs_input`) is refreshed for existing panes when toggled. Cursor `stop` hook is installed, but toggling attention does not refresh existing Cursor providers. OpenCode uses SSE `session.idle` and `permission.asked` events with a 15-second polling fallback. |
 | Background-agent completion gating (`SubagentStop`) | Implemented | N/A | N/A | N/A | Claude registers `SubagentStop` and a `PreToolUse` matcher for `Task\|Agent`; the outstanding-agent count derived from those hooks suppresses the false "Claude finished" `Stop` notification while background agents (e.g. plan-mode Explore agents) are still running. |
 | Sidebar and pane/tab indicators | Partial | Partial | Partial | Partial | Delivery exists once callbacks are wired; see lifecycle gaps below. |
 | macOS banners | Partial | Partial | Partial | Partial | Uses the same callback path as sidebar delivery. |
@@ -90,7 +90,6 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 
 - Cursor attention-toggle changes do not refresh existing Cursor providers. Claude has `refreshClaudeIntegrationFromSettings`; Cursor has no equivalent.
 - Codex rollout parsing is currently supported only for Codex `0.136.x`; unknown versions degrade to baseline/state DB facts.
-- OpenCode native attention integration (`session.idle`, `permission.asked`) and continue-on-restore (`--session <id>`) are not yet implemented.
 
 ## Harness Guides
 
@@ -99,4 +98,4 @@ Individual CLI flag catalogs remain in the harness-specific guides:
 - [Claude Code pane options and shared pane flow](panes.md)
 - [Cursor CLI support](cursor-cli.md)
 - [Codex CLI support](codex-cli.md)
-- OpenCode CLI support (forthcoming)
+- [OpenCode CLI support](opencode-cli.md)
