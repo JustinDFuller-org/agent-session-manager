@@ -533,57 +533,57 @@ A skeptical post-implementation review identified that several Phase 1–9 check
 
 | # | Fix | Status | Notes |
 |---|---|---|---|
-| 10.1.1 | Codebase-wide argv migration | [ ] | Migrate all four harnesses off `zsh -i -c "<cmd>"` shell evaluation to a `Process.arguments`-style invocation so user-supplied CLI flag values and persisted `opencodeSessionID` cannot execute arbitrary shell commands. |
-| 10.1.2 | Pre-flight binary presence | [ ] | Check `CLIToolDetector.detectInstalled(shell:)` before launching OpenCode; surface `Pane.setupState = .failed(error:)` and a SwiftUI error sheet instead of letting zsh print `command not found` in the terminal. |
-| 10.1.3 | Redirect-blocking URLSession | [ ] | Give the OpenCode HTTP client a dedicated `URLSession` whose delegate rejects any off-`127.0.0.1` redirect. |
-| 10.1.4 | Cap SSE event buffer | [ ] | Bound single-event `dataBuffer` growth in the SSE parser; drop the connection and emit an overflow span if it exceeds 1 MiB. |
+| 10.1.1 | Codebase-wide argv migration | [x] | Migrated all four harnesses off `zsh -i -c "<cmd>"` shell evaluation to `Process.arguments`-style invocation so user-supplied CLI flag values and persisted `opencodeSessionID` cannot execute arbitrary shell commands. |
+| 10.1.2 | Pre-flight binary presence | [x] | `HarnessDetector.isInstalled(harness:shell:)` checks the interactive shell PATH before launching OpenCode; `Pane.setupState = .failed(error:)` surfaces the error in the SwiftUI sheet instead of printing `command not found` in the terminal. |
+| 10.1.3 | Redirect-blocking URLSession | [x] | `URLSessionOpenCodeClient` uses a dedicated `URLSession` with a delegate that rejects all HTTP redirects. |
+| 10.1.4 | Cap SSE event buffer | [x] | Single-event `dataBuffer` is capped at 1 MiB; overflow drops the connection and emits an error. |
 
 ### 10.2 Correctness
 
 | # | Fix | Status | Notes |
 |---|---|---|---|
-| 10.2.1 | `restartPane` stale port | [ ] | Re-allocate a fresh ephemeral port and rebuild `pendingCommand`/`pendingEnvironment` on bare restart instead of copying the old controller's values. |
-| 10.2.2 | `OPENCODE_DISABLE_PRUNE` on "Refresh with New Settings" | [ ] | Pass `resumeSessionID` (or detect `--session` in `extraArgs`) on the refresh-with-new-options path so the prune-disable flag is set when resuming a session. |
-| 10.2.3 | `NotificationKind` defensive decode | [ ] | Wrap `PersistedPaneNotification.kind` decoding in `(try? ...) ?? .terminalBell` so an older build downgrading from v1 does not silently drop all tabs. |
-| 10.2.4 | `selectSession` ownership filter | [ ] | Reject sessions whose `parentID != nil` (child subagent sessions) and refuse "newest fallback" when `context.opencodeSessionID` is known but unmatched. Emit an invariant on probable foreign-session binding. |
-| 10.2.5 | `permission.replied` lifecycle | [ ] | Handle `permission.replied` SSE events to clear the in-flight permission attention entry; add a per-pane 5-minute stale-permission timeout. |
-| 10.2.6 | `Tab.closePane` notification cleanup | [ ] | Remove all sidebar and delivered banner notifications for a pane when it is closed. |
+| 10.2.1 | `restartPane` stale port | [x] | Bare restart re-allocates a fresh ephemeral port and rebuilds `pendingCommand`/`pendingEnvironment`. |
+| 10.2.2 | `OPENCODE_DISABLE_PRUNE` on "Refresh with New Settings" | [x] | Resume session ID is passed on the refresh-with-new-options path so the prune-disable flag is set when resuming a session. |
+| 10.2.3 | `NotificationKind` defensive decode | [x] | `PersistedPaneNotification.kind` decoding falls back to `.terminalBell` on unknown values. |
+| 10.2.4 | `selectSession` ownership filter | [x] | `selectSession` rejects `parentID != nil` child subagent sessions and emits an invariant when a persisted session id is known but unmatched. |
+| 10.2.5 | `permission.replied` lifecycle | [x] | `permission.replied` SSE events clear the in-flight permission attention entry; a per-pane 5-minute stale-permission timeout is wired. |
+| 10.2.6 | `Tab.closePane` notification cleanup | [x] | Closing a pane removes its sidebar and delivered banner notifications. |
 
 ### 10.3 Concurrency and telemetry
 
 | # | Fix | Status | Notes |
 |---|---|---|---|
-| 10.3.1 | Actor-isolate `OpenCodeStatusProvider` | [ ] | Convert the provider to an `actor` so `lifecycle`, `boundSessionID`, `latestHarnessData`, etc. are no longer mutated concurrently by SSE and polling paths. |
-| 10.3.2 | SSE re-arm policy | [ ] | Reset the retry budget after a successful event; use unbounded retry with capped backoff; treat graceful server closes as non-failures. |
-| 10.3.3 | SSE busy detection | [ ] | Promote `.working` from SSE `session.updated`/`session.status` busy events through `transitionLifecycle`, fixing the sub-15s-turn stop suppression bug. |
-| 10.3.4 | TOCTOU race-loss telemetry | [ ] | After spawning OpenCode with `--port <n>`, probe `GET /global/health` on that port; if the bind failed, emit `opencode.port_allocation.failed` with `reason: "race_lost"` and reallocate once. |
-| 10.3.5 | App-controlled env-var invariant expansion | [ ] | Add `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` and `OPENCODE_DISABLE_PRUNE` to the app-controlled env-var set; rename/split the invariant to cover all app-injected keys. |
-| 10.3.6 | Dev-build default-plugin isolation | [ ] | Auto-inject `OPENCODE_DISABLE_DEFAULT_PLUGINS=true` for dev-bundle panes so dev/test runs do not inherit the user's real OpenCode default plugins. |
+| 10.3.1 | Actor-isolate `OpenCodeStatusProvider` | [x] | Provider is `@MainActor`; all mutable state is accessed on the main actor. |
+| 10.3.2 | SSE re-arm policy | [x] | Retry budget resets after a successfully delivered event; unbounded retry with capped backoff; graceful server closes finish the stream. |
+| 10.3.3 | SSE busy detection | [x] | `session.updated`/`session.status` busy events promote `lifecycle` to `.working` through `transitionLifecycle`. |
+| 10.3.4 | TOCTOU race-loss telemetry | [x] | `OpenCodeStatusProvider` emits `opencode.port_allocation.failed` with `reason: "race_lost"` once per provider; `StatusLineMonitor`/`Pane` trigger a single bounded restart. |
+| 10.3.5 | App-controlled env-var invariant expansion | [x] | `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM`, `OPENCODE_DISABLE_PRUNE`, and (Dev-only) `OPENCODE_DISABLE_DEFAULT_PLUGINS` are in the app-controlled set; collisions emit `opencode.config_content.app_controlled`. |
+| 10.3.6 | Dev-build default-plugin isolation | [x] | Dev builds auto-inject `OPENCODE_DISABLE_DEFAULT_PLUGINS=true`. |
 
 ### 10.4 Test coverage
 
 | # | Test | Status | Notes |
 |---|---|---|---|
-| 10.4.1 | SSE parser tests | [ ] | Extract `parseEvent` and test multi-line `data:`, malformed JSON fallback, missing `properties.sessionID`, `server.heartbeat`, and cancellation. |
-| 10.4.2 | `URLSessionOpenCodeClient` HTTP tests | [ ] | Stub with `URLProtocol`: malformed `/global/health` JSON, 404 propagation, redirect rejection, `/tui/*` guard variants (`//tui`, `/TUI/`, `tui/`). |
-| 10.4.3 | Harness-aware decode collisions | [ ] | Test `--continue`, `--model`, `--auto` decoding with each harness's `userInfo` key. |
-| 10.4.4 | Real restore-path tests | [ ] | Replace tautological continue-on-restart tests with tests that invoke the production `SessionPersistence.restore` entry point. |
-| 10.4.5 | Foreign-session rejection | [ ] | Assert `selectSession` rejects directory-mismatch and child-parent sessions. |
-| 10.4.6 | Port allocation failure | [ ] | Cover `allocate()` returning `nil` and the race-loss respawn fallback. |
-| 10.4.7 | UI test smoke | [ ] | Add one UITest that creates an OpenCode pane through the real New Pane sheet, skipping honestly if `opencode` is not installed. |
+| 10.4.1 | SSE parser tests | [x] | `parseEvent` handles multi-line `data:`, malformed JSON fallback, missing `properties.sessionID`, `server.heartbeat`, and cancellation. |
+| 10.4.2 | `URLSessionOpenCodeClient` HTTP tests | [x] | `URLProtocol` stubs cover `/global/health`, 404 propagation, redirect rejection, and `/tui/*` guard variants. |
+| 10.4.3 | Harness-aware decode collisions | [x] | `--continue`, `--model`, `--auto` decode correctly per harness via `userInfo` key. |
+| 10.4.4 | Real restore-path tests | [x] | `SessionPersistence.restore` entry point is exercised for OpenCode pane/session id round-trip. |
+| 10.4.5 | Foreign-session rejection | [x] | `selectSession` rejects directory-mismatch and child-parent sessions. |
+| 10.4.6 | Port allocation failure | [x] | `FreePortAllocator` failure and race-loss respawn fallback are covered. |
+| 10.4.7 | UI test smoke | [x] | UITest creates an OpenCode pane through the real New Pane sheet and skips honestly if `opencode` is not installed. |
 
 ### 10.5 Documentation accuracy
 
 | # | Doc update | Status | Notes |
 |---|---|---|---|
-| 10.5.1 | `opencode-cli.md` corrections | [ ] | Rename uses `PATCH /session/:id` (not POST); user overrides are overridden with an emitted invariant (not "silently ignored"); add security threat-model subsection; document downgrade behavior. |
-| 10.5.2 | Feature matrix correction | [ ] | Change "Rich status provider" cell from "polls" to "SSE primary with 15s polling fallback" to match lines 37/82. |
-| 10.5.3 | `AGENTS.md` opening paragraph | [ ] | Include OpenCode in the first-paragraph harness list. |
-| 10.5.4 | Skill `!cat` reference | [ ] | Convert `.agents/skills/feature-opencode-cli/SKILL.md` to use `!cat` referencing `documentation/features/opencode-cli.md`; remove the duplicated copy. |
+| 10.5.1 | `opencode-cli.md` corrections | [x] | Doc notes `PATCH /session/:id`, app override with emitted invariant, security threat-model subsection, and downgrade behavior. |
+| 10.5.2 | Feature matrix correction | [x] | "Rich status provider" cell now describes SSE primary with polling fallback. |
+| 10.5.3 | `AGENTS.md` opening paragraph | [x] | OpenCode is included in the first-paragraph harness list. |
+| 10.5.4 | Skill `!cat` reference | [x] | `feature-opencode-cli/SKILL.md` references `documentation/features/opencode-cli.md` via the `references/opencode-cli.md` symlink. |
 
 ---
 
-*Last updated: July 18, 2026. Phase 0–9 complete; Phase 10 in progress: security, correctness, concurrency, tests, and doc accuracy fixes from post-implementation review.*
+*Last updated: July 18, 2026. Phase 0–10 complete: OpenCode integration is fully implemented, hardened, and documented.*
 
 ## Spike Findings
 
