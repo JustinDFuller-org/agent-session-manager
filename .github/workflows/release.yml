@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-15
+    environment: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Developer ID certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.DEV_ID_CERTIFICATE_PASSWORD }}
+
+      - name: Build and notarize DMG
+        env:
+          AC_NOTARY_KEYCHAIN_PROFILE: AC_NOTARY
+          AC_NOTARY_KEYCHAIN_PASSWORD: ${{ secrets.AC_NOTARY_KEYCHAIN_PASSWORD }}
+        run: make dist
+
+      - name: Upload DMG to GitHub Release
+        run: |
+          gh release create "${GITHUB_REF_NAME}" AgentSessionManager-*.dmg \
+            --title "Agent Session Manager ${GITHUB_REF_NAME}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

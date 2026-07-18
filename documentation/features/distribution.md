@@ -98,6 +98,21 @@ Send your friends the GitHub Release URL. They can download the DMG, mount it, d
 - [ ] Worktree creation under `.agent-session-manager/worktrees/` still works.
 - [ ] The status line shows data for a running pane.
 
+## Update Reminders
+
+Released DMG builds check for new versions using Sparkle against a public `appcast.xml` hosted by this repository's GitHub Pages site. Source-built and ad-hoc-signed builds keep the existing GitHub API check against `main` instead, because they do not carry a stable release channel.
+
+`scripts/dist.sh` configures the Sparkle feed and EdDSA signing keys as part of every release build:
+
+- Strips `ASMSource*` keys from `Info.plist` and writes `ASMDistributionChannel` = `dmg`.
+- Injects the public Sparkle EdDSA key into `Info.plist` as `SUFeedPublicEdKey`.
+- Writes the Sparkle feed URL into `Info.plist` as `SUFeedURL`.
+- Signs the release DMG with the private EdDSA key and appends the resulting item to `appcast.xml`.
+
+Source / development builds never set `ASMDistributionChannel`, so `UpdateCheckCoordinator` routes them to `MainBranchUpdateDetector` and `DMGReleaseDetector` is never initialized.
+
+For full details on the detector routing and the update UI, see [update-reminder.md](update-reminder.md).
+
 ### Environment differences between `make run` and a Finder/DMG launch
 
 `make run` launches the app from your shell, so the app inherits a full environment: the parent shell's `PATH` (including Homebrew, `go`, nvm, etc.) and a `TERM` value set by the terminal emulator.

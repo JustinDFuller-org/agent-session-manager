@@ -7,6 +7,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.13.0"),
         .package(url: "https://github.com/open-telemetry/opentelemetry-swift", from: "1.9.0"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.4"),
     ],
     targets: [
         .executableTarget(
@@ -17,6 +18,7 @@ let package = Package(
                 .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift"),
                 .product(name: "SignPostIntegration", package: "opentelemetry-swift"),
                 .product(name: "ResourceExtension", package: "opentelemetry-swift"),
+                .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/AgentSessionManager",
             linkerSettings: [.linkedLibrary("sqlite3")]
@@ -24,7 +26,8 @@ let package = Package(
         .testTarget(
             name: "AgentSessionManagerTests",
             dependencies: ["AgentSessionManager"],
-            path: "Tests"
+            path: "Tests",
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../.."])]
         )
     ]
 )

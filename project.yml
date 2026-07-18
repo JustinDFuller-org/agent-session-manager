@@ -17,6 +17,9 @@ packages:
   opentelemetry-swift:
     url: https://github.com/open-telemetry/opentelemetry-swift
     from: 1.9.0
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.4
 
 targets:
   AgentSessionManager:
@@ -55,9 +58,11 @@ targets:
       - package: opentelemetry-swift
         product: StdoutExporter
       - package: opentelemetry-swift
-        product: ResourceExtension
-      - package: opentelemetry-swift
         product: SignPostIntegration
+      - package: opentelemetry-swift
+        product: ResourceExtension
+      - package: Sparkle
+        product: Sparkle
     entitlements:
       path: AgentSessionManager.entitlements
       properties:

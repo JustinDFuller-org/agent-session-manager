@@ -165,6 +165,10 @@ AgentSessionManager.xcodeproj/
 # UI test screenshots (committed per-PR via git add -f)
 screenshots/
 
+# Sparkle tooling and signing keys (downloaded/generated locally)
+.sparkle-tools/
+.sparkle/
+
 # Temporary files written by scripts/ship.sh
 .ship-commit-msg
 .ship-pr-body.md

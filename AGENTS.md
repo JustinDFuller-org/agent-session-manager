@@ -208,6 +208,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - worktree-creation: `feature-worktree-creation`
 - agent-harness-matrix: `feature-agent-harness-matrix`
 - distribution: `feature-distribution`
+- update-reminder: `feature-update-reminder`
 
 **Workflow reminders:**
 1. **When working on a feature** — load the corresponding skill (e.g. `feature-panes`) before starting.

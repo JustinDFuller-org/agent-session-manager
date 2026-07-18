@@ -72,6 +72,25 @@ main() {
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version_short" "$info_plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $version_build" "$info_plist"
 
+  info "Marking distribution channel as dmg"
+  for key in ASMSourceCommit ASMSourceBranch ASMSourceCommitDate ASMDistributionChannel; do
+    /usr/libexec/PlistBuddy -c "Delete :$key" "$info_plist" 2>/dev/null || true
+  done
+  /usr/libexec/PlistBuddy -c "Add :ASMDistributionChannel string dmg" "$info_plist"
+
+  local sparkle_public_key_file="$repo_root/.sparkle/sparkle-public.pem"
+  if [ -f "$sparkle_public_key_file" ]; then
+    info "Injecting Sparkle feed URL and public key"
+    local public_key
+    public_key=$(cat "$sparkle_public_key_file")
+    /usr/libexec/PlistBuddy -c "Delete :SUFeedURL" "$info_plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://justinfuller.github.io/agent-session-manager/appcast.xml" "$info_plist"
+    /usr/libexec/PlistBuddy -c "Delete :SUPublicEdKey" "$info_plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :SUPublicEdKey string $public_key" "$info_plist"
+  else
+    info "Sparkle public key not found at $sparkle_public_key_file; skipping feed injection"
+  fi
+
   info "Signing app with Developer ID + entitlements + hardened runtime"
   codesign --force --deep \
     --sign "$DEV_IDENTITY" \
@@ -126,6 +145,10 @@ main() {
   }
 
   hdiutil detach "$mount_point" >/dev/null || die "failed to unmount DMG after validation"
+
+  info "Updating appcast.xml"
+  "$repo_root/scripts/update-appcast.sh" "$dmg_path" "$version_short" "$version_build" || \
+    info "appcast update skipped or failed"
 
   echo
   echo "Distribution ready:"

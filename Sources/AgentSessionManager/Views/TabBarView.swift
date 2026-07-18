@@ -32,12 +32,18 @@ struct TabBarView: View {
 }
 
 private struct UpdatePillView: View {
+    @State private var coordinator = UpdateCheckCoordinator.shared
+
     var body: some View {
         Button {
-            NotificationCenter.default.post(name: .toggleSettings, object: nil)
-            NotificationCenter.default.post(
-                name: .showSettingsSection, object: nil,
-                userInfo: ["section": SettingsSection.about.rawValue])
+            if coordinator.channel == .dmg {
+                coordinator.performUpdate()
+            } else {
+                NotificationCenter.default.post(name: .toggleSettings, object: nil)
+                NotificationCenter.default.post(
+                    name: .showSettingsSection, object: nil,
+                    userInfo: ["section": SettingsSection.about.rawValue])
+            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.up.circle")
