@@ -610,6 +610,19 @@ struct NewPaneSheet: View {
                     "base.branch.source": branchSource,
                 ]
             )
+            if harness == .opencode {
+                let shell = ShellResolver.resolved(appSettings)
+                let installed = await HarnessDetector.isInstalled(harness: .opencode, shell: shell)
+                if !installed {
+                    await MainActor.run {
+                        pane.setupState = .failed(
+                            error:
+                                "OpenCode binary not found in PATH. Install OpenCode or check your shell configuration."
+                        )
+                    }
+                    return
+                }
+            }
             do {
                 let resolved = try await tab.resolveOrAttachWorktree(
                     userRef: trimmed,
@@ -832,14 +845,23 @@ private struct EnvVarToggleRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
-                Text(envVar.id)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(envVar.id)
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                    if envVar.isAppControlled {
+                        Text("Controlled by Agent Session Manager")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(envVar.isAppControlled)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
-                .disabled(!state.enabled)
+                .disabled(!state.enabled || envVar.isAppControlled)
                 .frame(maxWidth: .infinity)
         }
     }
@@ -887,17 +909,26 @@ private struct HiddenEnvVarToggleRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
-                Text(envVar.id)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(envVar.id)
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                    if envVar.isAppControlled {
+                        Text("Controlled by Agent Session Manager")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(envVar.isAppControlled)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
-                .disabled(!state.enabled)
+                .disabled(!state.enabled || envVar.isAppControlled)
                 .frame(maxWidth: .infinity)
-            if state.enabled {
+            if state.enabled && !envVar.isAppControlled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)

@@ -6,6 +6,8 @@ final class EnvVarConfigOpenCodeTests: XCTestCase {
     func testOpenCodeCatalogContainsExpectedVars() {
         let ids = Set(EnvVarConfig.opencodeAll.map(\.id))
         let expectedIDs: Set<String> = [
+            "OPENCODE_CONFIG_CONTENT",
+            "OPENCODE_PERMISSION",
             "OPENCODE_CONFIG",
             "OPENCODE_CONFIG_DIR",
             "OPENCODE_TUI_CONFIG",
@@ -35,22 +37,34 @@ final class EnvVarConfigOpenCodeTests: XCTestCase {
             expectedIDs.isSubset(of: ids), "Missing expected OpenCode env vars: \(expectedIDs.subtracting(ids))")
     }
 
-    func testOpenCodeCatalogExcludesAppControlledVars() {
-        let ids = Set(EnvVarConfig.opencodeAll.map(\.id))
-        XCTAssertFalse(
-            ids.contains("OPENCODE_CONFIG_CONTENT"),
-            "OPENCODE_CONFIG_CONTENT is app-controlled and must not be user-editable")
-        XCTAssertFalse(
-            ids.contains("OPENCODE_PERMISSION"),
-            "OPENCODE_PERMISSION is overridden by app-injected OPENCODE_CONFIG_CONTENT")
+    func testOpenCodeCatalogMarksAppControlledVars() {
+        let appControlled = EnvVarConfig.opencodeAll.filter(\.isAppControlled).map(\.id)
+        let expectedAppControlled: Set<String> = [
+            "OPENCODE_CONFIG_CONTENT",
+            "OPENCODE_PERMISSION",
+            "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM",
+            "OPENCODE_DISABLE_PRUNE",
+        ]
+        let appControlledSet = Set(appControlled)
+        XCTAssertTrue(
+            expectedAppControlled.isSubset(of: appControlledSet),
+            "Missing app-controlled markers: \(expectedAppControlled.subtracting(appControlledSet))")
+        XCTAssertTrue(
+            EnvVarConfig.opencodeAll.first { $0.id == "OPENCODE_CONFIG_CONTENT" }?.isAppControlled == true)
+        XCTAssertTrue(
+            EnvVarConfig.opencodeAll.first { $0.id == "OPENCODE_PERMISSION" }?.isAppControlled == true)
     }
 
     func testRecommendedDefaultsForOpenCodeSurfacesSafeDefaults() {
         let defaults = EnvVarConfig.recommendedDefaults(for: .opencode)
-        let recommendedIDs: Set<String> = [
+        var recommendedIDs: Set<String> = [
             "OPENCODE_AUTO_SHARE", "OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_CLIENT",
-            "OPENCODE_DISABLE_DEFAULT_PLUGINS",
+            "OPENCODE_CONFIG_CONTENT", "OPENCODE_PERMISSION",
+            "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM", "OPENCODE_DISABLE_PRUNE",
         ]
+        #if DEV_BUILD
+        recommendedIDs.insert("OPENCODE_DISABLE_DEFAULT_PLUGINS")
+        #endif
         for id in recommendedIDs {
             let envVar = defaults.first { $0.id == id }
             XCTAssertNotNil(envVar, "Expected recommended env var \(id) in OpenCode defaults")
@@ -62,10 +76,17 @@ final class EnvVarConfigOpenCodeTests: XCTestCase {
         }
     }
 
-    func testRecommendedDefaultsForOpenCodeDoesNotEnableByDefault() {
+    func testRecommendedDefaultsForOpenCodeDoesNotEnableUserControlledByDefault() {
         let defaults = EnvVarConfig.recommendedDefaults(for: .opencode)
-        for envVar in defaults where envVar.isAvailable {
+        for envVar in defaults where envVar.isAvailable && !envVar.isAppControlled {
             XCTAssertFalse(envVar.isDefaultEnabled, "\(envVar.id) should not be default-enabled")
+        }
+    }
+
+    func testRecommendedDefaultsForOpenCodeEnablesAppControlledByDefault() {
+        let defaults = EnvVarConfig.recommendedDefaults(for: .opencode)
+        for envVar in defaults where envVar.isAppControlled {
+            XCTAssertTrue(envVar.isDefaultEnabled, "\(envVar.id) should be default-enabled to show it is active")
         }
     }
 

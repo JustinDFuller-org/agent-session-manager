@@ -54,6 +54,8 @@ struct OpenCodeSessionTime: Sendable {
 enum OpenCodeEvent: Sendable {
     case sessionIdle(sessionID: String)
     case permissionAsked(sessionID: String, permission: String, patterns: [String])
+    case permissionReplied(sessionID: String, permission: String)
+    case sessionBusy(sessionID: String)
     case heartbeat
     case other(type: String)
 }
@@ -78,13 +80,20 @@ enum OpenCodeServerClientError: Error {
 
 // MARK: - URLSession client
 
-final class URLSessionOpenCodeClient: OpenCodeServerClient {
+final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable {
     private let port: Int?
     private let session: URLSession
 
-    init(port: Int?, session: URLSession = .shared) {
+    init(port: Int?, session: URLSession? = nil) {
         self.port = port
-        self.session = session
+        if let session {
+            self.session = session
+        } else {
+            let config = URLSessionConfiguration.default
+            config.httpShouldSetCookies = false
+            let delegate = OpenCodeURLSessionDelegate()
+            self.session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+        }
     }
 
     func health() async throws -> (healthy: Bool, version: String?) {
@@ -128,6 +137,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
 
                     var eventType: String?
                     var dataBuffer = ""
+                    let maxEventBytes = 1_048_576
 
                     for try await line in bytes.lines {
                         if Task.isCancelled {
@@ -152,6 +162,10 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
                         } else if line.hasPrefix("data:") {
                             let payload = String(line.dropFirst("data:".count)).trimmingCharacters(
                                 in: .whitespaces)
+                            if dataBuffer.utf8.count + payload.utf8.count > maxEventBytes {
+                                continuation.finish(throwing: OpenCodeServerClientError.unexpectedStatus(0))
+                                return
+                            }
                             if !dataBuffer.isEmpty { dataBuffer += "\n" }
                             dataBuffer += payload
                         }
@@ -187,12 +201,24 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
         case "session.idle":
             guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
             return .sessionIdle(sessionID: sessionID)
+        case "session.status", "session.updated":
+            guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
+            if response.properties?.status?.lowercased() == "busy" {
+                return .sessionBusy(sessionID: sessionID)
+            }
+            return .other(type: type)
         case "permission.asked":
             guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
             return .permissionAsked(
                 sessionID: sessionID,
                 permission: response.properties?.permission ?? "unknown",
                 patterns: response.properties?.patterns ?? []
+            )
+        case "permission.replied":
+            guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
+            return .permissionReplied(
+                sessionID: sessionID,
+                permission: response.properties?.permission ?? "unknown"
             )
         default:
             return .other(type: type)
@@ -211,7 +237,13 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
 
     func makeRequest(path: String, method: String, body: Data?) throws -> URLRequest {
         guard let port else { throw OpenCodeServerClientError.missingPort }
-        if path.hasPrefix("/tui/") {
+
+        let normalizedPath =
+            path
+            .lowercased()
+            .replacingOccurrences(of: "//", with: "/")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if normalizedPath.hasPrefix("tui/") || normalizedPath == "tui" {
             InvariantReporter.shared.violated(
                 .opencodeTUIEndpointsUnused,
                 context: [
@@ -234,7 +266,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
         return request
     }
 
-    private func perform(request: URLRequest) async throws -> Data {
+    func perform(request: URLRequest) async throws -> Data {
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw OpenCodeServerClientError.unexpectedStatus(0)
@@ -250,6 +282,20 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
         let version: String?
     }
 
+    /// Rejects any HTTP redirect so the OpenCode client cannot be tricked into
+    /// leaving the localhost trust boundary.
+    private final class OpenCodeURLSessionDelegate: NSObject, URLSessionTaskDelegate {
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            completionHandler(nil)
+        }
+    }
+
     private struct EventResponse: Decodable {
         let type: String
         let properties: EventProperties?
@@ -258,6 +304,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
             let sessionID: String?
             let permission: String?
             let patterns: [String]?
+            let status: String?
         }
     }
 
@@ -335,13 +382,17 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
 
 // MARK: - Status provider
 
+@MainActor
 final class OpenCodeStatusProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
     var onAttention: ((PaneAttentionEvent) -> Void)?
     var onOpencodeStopped: (() -> Void)?
     var onSessionBound: ((String) -> Void)?
+    var onPermissionReplied: (() -> Void)?
+    var onPortRaceLost: (() -> Void)?
 
     private enum Lifecycle: String { case unknown, working, idle }
+    private var hasReportedRaceLoss = false
 
     private let context: StatusProviderContext
     private let client: any OpenCodeServerClient
@@ -384,9 +435,11 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
 
     func start() {
         baseline.onUpdate = { [weak self] data in
-            guard let self else { return }
-            self.latestBaselineData = data
-            self.emitMerged()
+            Task { @MainActor in
+                guard let self else { return }
+                self.latestBaselineData = data
+                self.emitMerged()
+            }
         }
         baseline.start()
         stateTask = Task { [weak self] in
@@ -501,6 +554,17 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                         ])
                     didTraceServerWaiting = true
                 }
+                if let port = context.opencodePort, !hasReportedRaceLoss {
+                    hasReportedRaceLoss = true
+                    trace(
+                        "opencode.port_allocation.failed",
+                        attributes: [
+                            "reason": "race_lost",
+                            "port": String(port),
+                            "error": String(describing: error),
+                        ])
+                    onPortRaceLost?()
+                }
             }
 
             if lateBound {
@@ -531,6 +595,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     private func selectSession() async throws -> OpenCodeSession? {
         let sessions = try await client.listSessions()
         let matching = sessions.filter { session in
+            guard session.parentID == nil else { return false }
             guard let directory = session.directory else { return false }
             return URL(filePath: directory).resolvingSymlinksInPath().path == appDirectory
         }
@@ -538,6 +603,21 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         guard !matching.isEmpty else { return nil }
 
         let processStartMs = Int64(context.processStartTime.timeIntervalSince1970 * 1000)
+
+        if let expectedSessionID = context.opencodeSessionID,
+            let expected = matching.first(where: { $0.id == expectedSessionID })
+        {
+            return expected
+        }
+
+        if let expectedSessionID = context.opencodeSessionID {
+            trace(
+                "statusline.opencode.session.expected_missing",
+                attributes: [
+                    "expected_session_id_prefix": String(expectedSessionID.prefix(12)),
+                    "matching_session_count": "\(matching.count)",
+                ])
+        }
 
         if let withinWindow = matching.min(by: { lhs, rhs in
             let lhsDelta = abs((lhs.time?.created ?? 0) - processStartMs)
@@ -633,9 +713,9 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     private func consumeEvents() async {
         guard let boundSessionID else { return }
         var attempt = 0
-        let maxAttempts = 5
+        let maxBackoff: TimeInterval = 60
 
-        while !Task.isCancelled, attempt < maxAttempts {
+        while !Task.isCancelled {
             attempt += 1
             trace(
                 "statusline.opencode.sse.connecting",
@@ -655,6 +735,9 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
 
                 for try await event in stream {
                     guard !Task.isCancelled else { return }
+                    // Reset retry budget after a successfully delivered event; only genuine
+                    // transport failures should back off.
+                    if attempt > 1 { attempt = 1 }
                     await handleEvent(event)
                 }
             } catch {
@@ -667,18 +750,10 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     ])
             }
 
-            guard !Task.isCancelled, attempt < maxAttempts else { break }
-            let backoff = min(0.5 * Double(attempt), 5.0)
+            guard !Task.isCancelled else { break }
+            let backoff = min(0.5 * Double(attempt), maxBackoff)
             try? await Task.sleep(nanoseconds: UInt64(backoff * 1_000_000_000))
         }
-
-        trace(
-            "statusline.opencode.sse.exhausted",
-            attributes: [
-                "session_id_prefix": String(boundSessionID.prefix(12)),
-                "attempts": "\(attempt)",
-                "reason": "fallback_to_polling",
-            ])
     }
 
     private func handleEvent(_ event: OpenCodeEvent) async {
@@ -698,6 +773,15 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     "lifecycle": lifecycle.rawValue,
                 ])
             transitionLifecycle(to: .idle)
+        case .sessionBusy(let sessionID):
+            guard sessionID == boundSessionID else { return }
+            trace(
+                "statusline.opencode.sse.session_busy",
+                attributes: [
+                    "session_id_prefix": String(sessionID.prefix(12)),
+                    "lifecycle": lifecycle.rawValue,
+                ])
+            transitionLifecycle(to: .working)
         case .permissionAsked(let sessionID, let permission, let patterns):
             guard sessionID == boundSessionID else { return }
 
@@ -713,6 +797,15 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     "patterns": "\(patterns.count)",
                 ])
             onAttention?(PaneAttentionEvent(source: .opencodePermissionRequest, reason: reason))
+        case .permissionReplied(let sessionID, let permission):
+            guard sessionID == boundSessionID else { return }
+            trace(
+                "statusline.opencode.permission.replied",
+                attributes: [
+                    "session_id_prefix": String(sessionID.prefix(12)),
+                    "permission": permission,
+                ])
+            onPermissionReplied?()
         }
     }
 

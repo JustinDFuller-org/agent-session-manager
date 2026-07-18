@@ -649,18 +649,28 @@ private struct ProfileEditorEnvVarRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
-                Text(envVar.id)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(envVar.id)
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                    if envVar.isAppControlled {
+                        Text("Controlled by Agent Session Manager")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(envVar.isAppControlled)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
-                .disabled(!state.enabled)
+                .disabled(!state.enabled || envVar.isAppControlled)
                 .frame(maxWidth: .infinity)
             Toggle("Show on new pane", isOn: $state.showOnPaneCreate)
                 .toggleStyle(.checkbox)
                 .labelsHidden()
+                .disabled(envVar.isAppControlled)
                 .help(
                     "Options marked here appear in the New Pane sheet each time you create a pane with this profile."
                 )
@@ -710,17 +720,26 @@ private struct ProfileEditorHiddenEnvVarRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             Toggle(isOn: $state.enabled) {
-                Text(envVar.id)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(envVar.id)
+                        .font(.system(.caption, design: .monospaced))
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                    if envVar.isAppControlled {
+                        Text("Controlled by Agent Session Manager")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(envVar.isAppControlled)
             TextField("Value", text: $state.value)
                 .textFieldStyle(.roundedBorder)
-                .disabled(!state.enabled)
+                .disabled(!state.enabled || envVar.isAppControlled)
                 .frame(maxWidth: .infinity)
-            if state.enabled {
+            if state.enabled && !envVar.isAppControlled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)
                     .font(.caption)

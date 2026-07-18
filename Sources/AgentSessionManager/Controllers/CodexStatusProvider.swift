@@ -443,6 +443,7 @@ final class CodexRolloutTailer {
     }
 }
 
+@MainActor
 final class CodexStatusProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
     var onAttention: ((PaneAttentionEvent) -> Void)?

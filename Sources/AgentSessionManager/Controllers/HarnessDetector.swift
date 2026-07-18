@@ -3,6 +3,32 @@ import Foundation
 enum HarnessDetector {
     typealias ShellRunner = @Sendable (String, String) async -> Bool
 
+    static func isInstalled(harness: Harness, shell: String, runner: ShellRunner? = nil) async -> Bool {
+        let cmd = harness.commandDescription
+        if let run = runner {
+            return await run(shell, cmd)
+        }
+        return await withCheckedContinuation { continuation in
+            let process = Process()
+            let outPipe = Pipe()
+            process.executableURL = URL(filePath: shell)
+            process.arguments = ["-i", "-c", "which \(cmd)"]
+            process.standardOutput = outPipe
+            process.standardError = FileHandle.nullDevice
+            process.terminationHandler = { proc in
+                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let output = (String(data: data, encoding: .utf8) ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                continuation.resume(returning: proc.terminationStatus == 0 && !output.isEmpty)
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(returning: false)
+            }
+        }
+    }
+
     static func detectInstalled(
         shell: String,
         runner: ShellRunner? = nil

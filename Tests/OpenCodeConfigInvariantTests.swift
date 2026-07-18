@@ -59,6 +59,36 @@ final class OpenCodeConfigInvariantTests: XCTestCase {
         XCTAssertTrue(InvariantReporter.shared.violationsForTesting.isEmpty)
     }
 
+    func testUserProvidedExperimentalEventSystemTriggersInvariant() {
+        InvariantReporter.shared.enableTestCapture()
+        let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
+
+        _ = tab.addPane(
+            name: "opencode-pane",
+            harness: .opencode,
+            extraEnvVars: ["OPENCODE_EXPERIMENTAL_EVENT_SYSTEM": "false"]
+        )
+
+        let violation = InvariantReporter.shared.violationsForTesting.first
+        XCTAssertEqual(violation?.invariantID, "opencode.config_content.app_controlled")
+        XCTAssertTrue(violation?.context["overridden_keys"]?.contains("OPENCODE_EXPERIMENTAL_EVENT_SYSTEM") == true)
+    }
+
+    func testUserProvidedDisablePruneTriggersInvariant() {
+        InvariantReporter.shared.enableTestCapture()
+        let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
+
+        _ = tab.addPane(
+            name: "opencode-pane",
+            harness: .opencode,
+            extraEnvVars: ["OPENCODE_DISABLE_PRUNE": "false"]
+        )
+
+        let violation = InvariantReporter.shared.violationsForTesting.first
+        XCTAssertEqual(violation?.invariantID, "opencode.config_content.app_controlled")
+        XCTAssertTrue(violation?.context["overridden_keys"]?.contains("OPENCODE_DISABLE_PRUNE") == true)
+    }
+
     func testAppInjectsConfigContentDespiteUserOverride() {
         let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
         let pane = tab.addPane(

@@ -58,6 +58,24 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         XCTAssertNil(decoded.reason)
     }
 
+    func testUnknownNotificationKindFallsBackToTerminalBell() throws {
+        let data = Data(
+            """
+            {
+              "notificationID":"00000000-0000-0000-0000-000000000001",
+              "paneID":"00000000-0000-0000-0000-000000000002",
+              "paneName":"p",
+              "tabID":"00000000-0000-0000-0000-000000000003",
+              "tabName":"t",
+              "isPriority":false,
+              "timestamp":0,
+              "kind":"future_kind"
+            }
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedPaneNotification.self, from: data)
+        XCTAssertEqual(decoded.kind, .terminalBell)
+    }
+
     func testPersistedNotificationReasonRoundTripsThroughAppState() {
         let state = AppState()
         state.addNotification(

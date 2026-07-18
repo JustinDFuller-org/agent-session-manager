@@ -305,6 +305,7 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertTrue(context.supportedBy(.codex))
     }
 
+    @MainActor
     func testProviderMergesBaselineAndCodexRichFactsAndTracesSelection() throws {
         TracingService.shared.resetForTesting()
         TracingService.shared.enableTestCapture()
@@ -406,6 +407,7 @@ final class CodexStatusProviderTests: XCTestCase {
             })
     }
 
+    @MainActor
     func testProviderStartupRetrySucceedsWhenSQLiteRowAppearsAfterStart() throws {
         TracingService.shared.resetForTesting()
         TracingService.shared.enableTestCapture()
@@ -450,6 +452,7 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertTrue(stateReads.contains { $0.attributes["retry_attempt"] != nil })
     }
 
+    @MainActor
     func testProviderStartupRetrySucceedsWhenHookRecordAppearsAfterStart() throws {
         let rolloutURL = tempDir.appending(path: "rollout.jsonl")
         try codexTokenLine(model: "late-hook", input: 9, output: 3, contextTokens: 6, window: 100)
@@ -480,6 +483,7 @@ final class CodexStatusProviderTests: XCTestCase {
         provider.stop()
     }
 
+    @MainActor
     func testProviderStartupRetrySucceedsWhenRolloutFileAppearsAfterSQLiteRow() throws {
         let rolloutURL = tempDir.appending(path: "late-rollout.jsonl")
         let dbURL = tempDir.appending(path: "state_5.sqlite")
@@ -517,6 +521,7 @@ final class CodexStatusProviderTests: XCTestCase {
         provider.stop()
     }
 
+    @MainActor
     func testProviderIgnoresStaleRowsWhileWaitingForFreshThread() throws {
         let staleRolloutURL = tempDir.appending(path: "stale.jsonl")
         let freshRolloutURL = tempDir.appending(path: "fresh.jsonl")
@@ -584,6 +589,7 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertFalse(observedModels.contains("stale-model"))
     }
 
+    @MainActor
     func testProviderDoesNotDuplicateGenericProviderSpansAndCodexTracesIncludePaneContext() throws {
         TracingService.shared.resetForTesting()
         TracingService.shared.enableTestCapture()
@@ -649,6 +655,7 @@ final class CodexStatusProviderTests: XCTestCase {
 }
 
 extension CodexStatusProviderTests {
+    @MainActor
     func testProviderBindsWhenHookRecordAppearsAfterStartupTimeout() throws {
         TracingService.shared.resetForTesting()
         TracingService.shared.enableTestCapture()
@@ -696,6 +703,7 @@ extension CodexStatusProviderTests {
             })
     }
 
+    @MainActor
     func testProviderIgnoresMismatchedHookRecordThenBindsCorrectRecord() throws {
         TracingService.shared.resetForTesting()
         TracingService.shared.enableTestCapture()

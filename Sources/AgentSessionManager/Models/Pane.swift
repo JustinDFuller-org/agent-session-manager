@@ -56,6 +56,7 @@ final class Pane: Identifiable {
     var extraArgs: [String] = []
     var setupState: PaneSetupState?
     var uiTestActivityStateOverride: PaneActivityState?
+    var opencodeRaceLossRestarted = false
     /// Transient port assigned to an OpenCode pane for its local HTTP API.
     /// Not persisted; a fresh port is allocated on every launch/restart.
     var opencodePort: Int?

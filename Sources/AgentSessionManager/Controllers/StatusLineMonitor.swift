@@ -66,6 +66,10 @@ final class StatusLineMonitor {
     var onOpencodeStopped: (() -> Void)?
     /// Fires on the main actor when the OpenCode status provider discovers the bound session id.
     var onOpencodeSessionBound: ((String) -> Void)?
+    /// Fires on the main actor when OpenCode reports a permission was replied to, so the UI can clear the attention entry.
+    var onOpencodePermissionReplied: (() -> Void)?
+    /// Fires on the main actor when OpenCode likely lost the allocated port to another process.
+    var onOpencodePortRaceLost: (() -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
     /// Fires on the main actor when a live poll reports a non-merged state after a merged state was observed.
@@ -156,6 +160,18 @@ final class StatusLineMonitor {
                                 "session_id_prefix": String(id.prefix(12)),
                             ])
                         self.onOpencodeSessionBound?(id)
+                    }
+                }
+                opencodeProvider.onPermissionReplied = { [weak self] in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.onOpencodePermissionReplied?()
+                    }
+                }
+                opencodeProvider.onPortRaceLost = { [weak self] in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.onOpencodePortRaceLost?()
                     }
                 }
                 provider = opencodeProvider
@@ -321,6 +337,7 @@ final class StatusLineMonitor {
         lastKnownPRState = nil
         hasFiredMergedNotification = false
         onOpencodeStopped = nil
+        onOpencodePermissionReplied = nil
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)

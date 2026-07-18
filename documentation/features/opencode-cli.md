@@ -1,6 +1,6 @@
 # OpenCode CLI Support
 
-Agent Session Manager supports [OpenCode](https://opencode.ai) alongside Claude Code, Codex, and Cursor.
+Agent Session Manager supports [OpenCode](https://opencode.ai) alongside Claude Code, Codex, and Cursor as a fourth agent harness.
 
 ## What It Does
 
@@ -53,16 +53,19 @@ Agent Session Manager always pins `--hostname 127.0.0.1` and `--mdns=false` for 
 
 ## Configuring Environment Variables
 
-OpenCode-specific environment variables can be enabled or disabled in **Settings → Environment Variables → OpenCode**. The default selection includes `OPENCODE_AUTO_SHARE`, `OPENCODE_DISABLE_AUTOUPDATE`, `OPENCODE_CLIENT`, and `OPENCODE_DISABLE_DEFAULT_PLUGINS`.
+OpenCode-specific environment variables can be enabled or disabled in **Settings → Environment Variables → OpenCode**. The default selection includes `OPENCODE_AUTO_SHARE`, `OPENCODE_DISABLE_AUTOUPDATE`, and `OPENCODE_CLIENT`.
 
 ### App-Controlled Variables
 
-The following variables are reserved for Agent Session Manager and do not appear in the user-facing editor:
+The following variables are reserved for Agent Session Manager. They are visible in the editor so users know they are managed, but their toggles and text fields are disabled with a caption explaining the app override:
 
 - `OPENCODE_CONFIG_CONTENT` — written per pane with the app-owned config (`{"share":"manual","autoupdate":false}`)
 - `OPENCODE_PERMISSION` — overridden by the injected `OPENCODE_CONFIG_CONTENT`
+- `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` — forced to `true` to enable server-sent events for the status-line provider
+- `OPENCODE_DISABLE_PRUNE` — injected when continuing a restored session so it is not pruned before the TUI reconnects
+- `OPENCODE_DISABLE_DEFAULT_PLUGINS` — disabled in Dev builds only to reduce background noise during development
 
-Setting these manually in a custom env var would be silently ignored.
+If a user-defined custom variable uses one of these names, the app value wins, the override is logged, and an invariant (`opencode.config_content.app_controlled`) is emitted.
 
 ## Status Line
 
@@ -101,6 +104,20 @@ OpenCode pane names, options, resolved checkout paths, and the bound session ID 
 
 When `Continue on app restart` is enabled, the restore path relaunches `opencode` with `--session <session-id>` and injects `OPENCODE_DISABLE_PRUNE=true` so the persisted session is not pruned before the TUI reconnects. If the session ID is unavailable, the pane falls back to `--continue`. The server port is always reallocated on every launch.
 
+## Security Threat Model
+
+The OpenCode integration is designed to keep the per-pane HTTP server isolated to the local machine:
+
+- `--hostname 127.0.0.1` is always pinned.
+- `--mdns=false` is always pinned.
+- The status-line client refuses to call any `/tui/*` endpoint (e.g., `POST /tui/submit-prompt`). Calling these would let the app drive the TUI, which is outside the Agent Session Manager threat model; such calls are rejected with an `opencode.tui.endpoints_unused` invariant.
+- App-controlled environment variables are set by the app and cannot be overridden from the UI. A collision emits `opencode.config_content.app_controlled`.
+- The HTTP client is configured with a redirect rejection delegate so it cannot be redirected to a remote host.
+
+## Downgrade Behavior
+
+If `opencode` is not found on the interactive shell PATH, the New Pane sheet disables the OpenCode option and shows an inline message. The user can still create the pane after installing OpenCode or by adding it to their shell PATH. No terminal plumbing is shown during this pre-flight check.
+
 ## Invariants
 
 OpenCode contributes the following runtime invariants to the observability dashboard:
@@ -108,6 +125,7 @@ OpenCode contributes the following runtime invariants to the observability dashb
 - `opencode.port.policy` — every pane must bind localhost, ephemeral port, and mDNS off
 - `opencode.session.rebindable` — a session ID must be bound and rebindable across restore
 - `opencode.tui.endpoints_unused` — the app must not call forbidden `/tui/*` endpoints
-- `opencode.config_content.app_controlled` — `OPENCODE_CONFIG_CONTENT`/`OPENCODE_PERMISSION` must not be overridden by user env vars
+- `opencode.config_content.app_controlled` — app-controlled env vars must not be overridden by user env vars
+- `opencode.port_allocation.failed` — telemetry when the ephemeral port allocation loses a race (includes `reason: "race_lost"`)
 
 See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the cross-harness audit.

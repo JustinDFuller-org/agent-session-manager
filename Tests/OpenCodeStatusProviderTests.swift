@@ -2,6 +2,7 @@ import XCTest
 
 @testable import AgentSessionManager
 
+@MainActor
 final class OpenCodeStatusProviderTests: XCTestCase {
     private var tempDir: URL!
 
@@ -655,5 +656,58 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         provider.stop()
 
         XCTAssertEqual(stopCount, 1)
+    }
+
+    func testRaceLossTelemetryEmittedWhenHealthFailsWithKnownPort() throws {
+        let client = FakeClient()
+        client.healthResult = .failure(OpenCodeServerClientError.unexpectedStatus(0))
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(opencodePort: 12345),
+            client: client,
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.05
+        )
+
+        let raceLostExpectation = XCTestExpectation(description: "race lost callback fired")
+        provider.onPortRaceLost = {
+            raceLostExpectation.fulfill()
+        }
+
+        provider.start()
+        wait(for: [raceLostExpectation], timeout: 3)
+        provider.stop()
+
+        let event = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "opencode.port_allocation.failed"
+        }
+        XCTAssertNotNil(event)
+        XCTAssertEqual(event?.attributes["reason"], "race_lost")
+        XCTAssertEqual(event?.attributes["port"], "12345")
+    }
+
+    func testRaceLossTelemetryNotEmittedWhenPortIsMissing() throws {
+        let client = FakeClient()
+        client.healthResult = .failure(OpenCodeServerClientError.unexpectedStatus(0))
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(opencodePort: nil),
+            client: client,
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.05
+        )
+
+        let didCallRaceLost = false
+        provider.onPortRaceLost = {}
+
+        provider.start()
+        wait(for: [], timeout: 0.15)
+        provider.stop()
+
+        let event = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "opencode.port_allocation.failed"
+        }
+        XCTAssertNil(event)
+        XCTAssertFalse(didCallRaceLost)
     }
 }

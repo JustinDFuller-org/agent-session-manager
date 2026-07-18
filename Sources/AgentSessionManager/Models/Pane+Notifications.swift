@@ -75,6 +75,19 @@ extension Pane {
                 self?.opencodeSessionID = id
             }
         }
+        statusLineMonitor?.onOpencodePermissionReplied = { [weak appState, weak self] in
+            Task { @MainActor in
+                guard let appState, let pane = self else { return }
+                appState.clearNotification(paneID: pane.id, kind: .opencodePermissionRequest)
+            }
+        }
+        statusLineMonitor?.onOpencodePortRaceLost = { [weak self] in
+            Task { @MainActor in
+                guard let pane = self, let tab = pane.tab, !pane.opencodeRaceLossRestarted else { return }
+                pane.opencodeRaceLossRestarted = true
+                tab.restartPane(pane)
+            }
+        }
         statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in
             Task { @MainActor in
                 guard let appState, let tab, let pane = self else { return }

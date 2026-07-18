@@ -49,4 +49,25 @@ final class HarnessDetectorTests: XCTestCase {
         // HarnessDetector only probes Harness.allCases which excludes .shell.
         XCTAssertFalse(Harness.allCases.contains(.shell))
     }
+
+    func testIsInstalledTrueWhenRunnerFindsBinary() async {
+        let installed = await HarnessDetector.isInstalled(harness: .opencode, shell: "/bin/zsh") { _, command in
+            command == "opencode"
+        }
+        XCTAssertTrue(installed)
+    }
+
+    func testIsInstalledFalseWhenRunnerDoesNotFindBinary() async {
+        let installed = await HarnessDetector.isInstalled(harness: .opencode, shell: "/bin/zsh") { _, _ in false }
+        XCTAssertFalse(installed)
+    }
+
+    func testIsInstalledUsesCorrectCommandDescription() async {
+        var checkedCommand: String?
+        _ = await HarnessDetector.isInstalled(harness: .cursor, shell: "/bin/zsh") { _, command in
+            checkedCommand = command
+            return false
+        }
+        XCTAssertEqual(checkedCommand, "agent")
+    }
 }

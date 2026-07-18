@@ -1,6 +1,6 @@
 # Agent Harness Feature Matrix
 
-This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, Codex, and OpenCode as of **July 16, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
+This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, Codex, and OpenCode as of **July 18, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
 
 ## Legend
 
@@ -19,9 +19,9 @@ This is the canonical, code-observed audit of Agent Session Manager integration 
 | Tool activation | Implemented | Implemented | Implemented | Implemented | Settings persist active harnesses; only active harnesses appear in New Pane. |
 | Launch command | Implemented | Implemented | Implemented | Implemented | Launches `claude --settings ...`, `agent`, `codex`, or `opencode` in the resolved checkout. |
 | Configurable CLI options | Implemented | Implemented | Implemented | Implemented | Each harness has a separate catalog. See the harness-specific CLI guides linked below. |
-| Configurable environment variables | Implemented | N/A | N/A | Implemented | The user-facing environment-variable catalog is Claude-specific and OpenCode-specific. Cursor and Codex receive the internal `AGENT_SESSION_MANAGER_PANE_ID`. |
+| Configurable environment variables | Implemented | N/A | N/A | Implemented | The user-facing environment-variable catalog is Claude-specific and OpenCode-specific. Cursor and Codex receive the internal `AGENT_SESSION_MANAGER_PANE_ID`. OpenCode app-controlled variables (`OPENCODE_CONFIG_CONTENT`, `OPENCODE_PERMISSION`, `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM`, `OPENCODE_DISABLE_PRUNE`, and `OPENCODE_DISABLE_DEFAULT_PLUGINS` in Dev builds) are shown as disabled in the editor. |
 | Profiles: CLI options | Implemented | Implemented | Implemented | Implemented | Profiles store a harness type and harness-specific CLI options. |
-| Profiles: environment variables | Implemented | N/A | N/A | Implemented | Profile environment variables are Claude-specific and OpenCode-specific. |
+| Profiles: environment variables | Implemented | N/A | N/A | Implemented | Profile environment variables are Claude-specific and OpenCode-specific. OpenCode app-controlled variables are shown as disabled in the editor. |
 | Worktree resolution | Implemented | Implemented | Implemented | Implemented | New Pane passes every harness through `Tab.resolveOrAttachWorktree`. |
 | Loading overlay during worktree setup | Implemented | Implemented | Implemented | Implemented | `addPaneWithLoadingState` precedes async Git setup for every harness. |
 | External worktree attachment | Implemented | Implemented | Implemented | Implemented | Existing paths from `git worktree list --porcelain` can be reused. |

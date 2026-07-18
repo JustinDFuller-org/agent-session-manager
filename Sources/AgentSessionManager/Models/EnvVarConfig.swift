@@ -8,14 +8,16 @@ struct EnvVarConfig: Identifiable, Codable {
     var isDefaultEnabled: Bool
     var defaultValue: String
     var isUserAdded: Bool
+    var isAppControlled: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, isAvailable, isDefaultEnabled, defaultValue, isUserAdded
+        case id, isAvailable, isDefaultEnabled, defaultValue, isUserAdded, isAppControlled
     }
 
     init(
         id: String, label: String, description: String, isAvailable: Bool = false,
-        isDefaultEnabled: Bool = false, defaultValue: String = "", isUserAdded: Bool = false
+        isDefaultEnabled: Bool = false, defaultValue: String = "", isUserAdded: Bool = false,
+        isAppControlled: Bool = false
     ) {
         self.id = id
         self.label = label
@@ -24,6 +26,7 @@ struct EnvVarConfig: Identifiable, Codable {
         self.isDefaultEnabled = isDefaultEnabled
         self.defaultValue = defaultValue
         self.isUserAdded = isUserAdded
+        self.isAppControlled = isAppControlled
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +42,7 @@ struct EnvVarConfig: Identifiable, Codable {
             self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
             self.defaultValue = (try? container.decodeIfPresent(String.self, forKey: .defaultValue)) ?? ""
             self.isUserAdded = true
+            self.isAppControlled = false
         } else {
             let id = try container.decode(String.self, forKey: .id)
             let allTemplates = EnvVarConfig.all + EnvVarConfig.opencodeAll
@@ -53,6 +57,7 @@ struct EnvVarConfig: Identifiable, Codable {
             self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
             self.defaultValue = (try? container.decodeIfPresent(String.self, forKey: .defaultValue)) ?? ""
             self.isUserAdded = false
+            self.isAppControlled = template.isAppControlled
         }
     }
 
@@ -67,6 +72,9 @@ struct EnvVarConfig: Identifiable, Codable {
         if isUserAdded {
             try container.encode(true, forKey: .isUserAdded)
         }
+        if isAppControlled {
+            try container.encode(true, forKey: .isAppControlled)
+        }
     }
 
     static func recommendedDefaults(for cli: Harness) -> [EnvVarConfig] {
@@ -79,10 +87,15 @@ struct EnvVarConfig: Identifiable, Codable {
             recommendedIDs = ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL"]
         case .opencode:
             catalog = opencodeAll
-            recommendedIDs = [
+            var ids: Set<String> = [
                 "OPENCODE_AUTO_SHARE", "OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_CLIENT",
-                "OPENCODE_DISABLE_DEFAULT_PLUGINS",
+                "OPENCODE_CONFIG_CONTENT", "OPENCODE_PERMISSION",
+                "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM", "OPENCODE_DISABLE_PRUNE",
             ]
+            #if DEV_BUILD
+            ids.insert("OPENCODE_DISABLE_DEFAULT_PLUGINS")
+            #endif
+            recommendedIDs = ids
         case .codex, .cursor, .shell:
             return []
         }
@@ -497,11 +510,34 @@ struct EnvVarConfig: Identifiable, Codable {
 
     // MARK: - Predefined OpenCode environment variables
     // Source: https://opencode.ai/docs/config/
-    // Excludes OPENCODE_CONFIG_CONTENT and OPENCODE_PERMISSION because Agent Session Manager
-    // injects those per-pane via OPENCODE_CONFIG_CONTENT; presenting them as editable would
-    // silently misrepresent the effective config.
+    // App-controlled keys are shown in the editor as disabled with a caption, because Agent
+    // Session Manager injects them per-pane and any user-provided value would be overridden.
+
+    static let opencodeDisableDefaultPluginsIsAppControlled: Bool = {
+        #if DEV_BUILD
+        return true
+        #else
+        return false
+        #endif
+    }()
 
     static let opencodeAll: [EnvVarConfig] = [
+        // --- App-controlled config ---
+        EnvVarConfig(
+            id: "OPENCODE_CONFIG_CONTENT",
+            label: "Config Content",
+            description: "Inline OpenCode JSON config injected per-pane by Agent Session Manager.",
+            isDefaultEnabled: true,
+            isAppControlled: true
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_PERMISSION",
+            label: "Permission Policy",
+            description: "Permission policy overridden per-pane by Agent Session Manager via OPENCODE_CONFIG_CONTENT.",
+            isDefaultEnabled: true,
+            isAppControlled: true
+        ),
+
         // --- Config path ---
         EnvVarConfig(
             id: "OPENCODE_CONFIG",
@@ -598,14 +634,18 @@ struct EnvVarConfig: Identifiable, Codable {
         EnvVarConfig(
             id: "OPENCODE_DISABLE_DEFAULT_PLUGINS",
             label: "Disable Default Plugins",
-            description: "Set to true to strip default plugins for a clean session"
+            description: "Set to true to strip default plugins for a clean session.",
+            isDefaultEnabled: opencodeDisableDefaultPluginsIsAppControlled,
+            isAppControlled: opencodeDisableDefaultPluginsIsAppControlled
         ),
 
         // --- Restore ---
         EnvVarConfig(
             id: "OPENCODE_DISABLE_PRUNE",
             label: "Disable Prune",
-            description: "Set to true to prevent pruning old sessions on startup"
+            description: "Set to true to prevent pruning old sessions on startup.",
+            isDefaultEnabled: true,
+            isAppControlled: true
         ),
 
         // --- Telemetry ---
@@ -631,7 +671,9 @@ struct EnvVarConfig: Identifiable, Codable {
         EnvVarConfig(
             id: "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM",
             label: "Experimental Event System",
-            description: "Set to true to enable the server-sent event stream"
+            description: "Set to true to enable the server-sent event stream.",
+            isDefaultEnabled: true,
+            isAppControlled: true
         ),
         EnvVarConfig(
             id: "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS",

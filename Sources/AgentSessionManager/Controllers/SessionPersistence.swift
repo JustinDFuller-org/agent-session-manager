@@ -53,7 +53,7 @@ struct PersistedPaneNotification: Codable, Equatable {
         tabName = try container.decode(String.self, forKey: .tabName)
         isPriority = try container.decode(Bool.self, forKey: .isPriority)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
-        kind = try container.decodeIfPresent(NotificationKind.self, forKey: .kind) ?? .terminalBell
+        kind = (try? container.decodeIfPresent(NotificationKind.self, forKey: .kind)) ?? .terminalBell
         reason = try container.decodeIfPresent(String.self, forKey: .reason)
         prNumber = try container.decodeIfPresent(Int.self, forKey: .prNumber)
         prTitle = try container.decodeIfPresent(String.self, forKey: .prTitle)

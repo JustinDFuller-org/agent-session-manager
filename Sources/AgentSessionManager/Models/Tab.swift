@@ -733,6 +733,7 @@ final class Tab: Identifiable {
         pane.terminalController?.terminate()
         pane.installTerminalController(nil)
         pane.removeStatusLineMonitor()
+        pane.notificationAppState?.clearNotification(paneID: pane.id)
         panes.removeAll { $0.id == pane.id }
     }
 
@@ -833,7 +834,13 @@ extension Tab {
                 ])
         }
 
-        let appControlledEnvVars: Set<String> = ["OPENCODE_CONFIG_CONTENT", "OPENCODE_PERMISSION"]
+        var appControlledEnvVars: Set<String> = [
+            "OPENCODE_CONFIG_CONTENT", "OPENCODE_PERMISSION", "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM",
+            "OPENCODE_DISABLE_PRUNE",
+        ]
+        #if DEV_BUILD
+        appControlledEnvVars.insert("OPENCODE_DISABLE_DEFAULT_PLUGINS")
+        #endif
         let overriddenKeys = extraEnvVars.keys.filter { appControlledEnvVars.contains($0) }
         if !overriddenKeys.isEmpty {
             InvariantReporter.shared.violated(
@@ -871,6 +878,9 @@ extension Tab {
         if effectiveExtraArgs.contains("--session") {
             environment.append("OPENCODE_DISABLE_PRUNE=true")
         }
+        #if DEV_BUILD
+        environment.append("OPENCODE_DISABLE_DEFAULT_PLUGINS=true")
+        #endif
         controller.pendingEnvironment = (controller.pendingEnvironment ?? []) + environment
         let command = Tab.buildOpenCodeCommand(port: port, extraArgs: effectiveExtraArgs)
         controller.pendingCommandArgs = command
