@@ -157,8 +157,12 @@ final class TerminalController: NSObject {
             // - HOME is NOT scoped — Claude Code needs real HOME for ~/.claude/ auth.
             //   Remaining TCC prompts are one-time decisions from Claude's startup
             //   path scanning. See documentation/features/panes.md.
+            //
+            // Environment is sanitized at the last moment before starting the process so that
+            // GUI launches (e.g., opening the app from the DMG) get the same TERM/COLORTERM/LANG
+            // and PATH baseline that terminal-launched runs inherit from the parent shell.
             let args = ["-i", "-c", cmd]
-            let env = pendingEnvironment
+            let env = ProcessEnvironment.sanitize(pendingEnvironment ?? [])
             let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
@@ -183,7 +187,7 @@ final class TerminalController: NSObject {
                 TracingService.shared.record("terminal.process.started", attributes: attrs)
             }
         } else {
-            let env = pendingEnvironment
+            let env = ProcessEnvironment.sanitize(pendingEnvironment ?? [])
             let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
