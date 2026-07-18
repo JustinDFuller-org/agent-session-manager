@@ -28,6 +28,9 @@ build-prd:
 
 app: app-prd
 
+dist: app-prd
+	@scripts/dist.sh "$(APP_BUNDLE)"
+
 app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
@@ -252,4 +255,4 @@ repair-launch-services:
 	@bash scripts/repair-launch-services.sh "$(APP_BUNDLE)" "$(APP_BUNDLE_DEV)"
 
 clean:
-	rm -rf $(APP_BUNDLE) $(APP_BUNDLE_DEV) .build $(APP_NAME).xcodeproj
+	rm -rf $(APP_BUNDLE) $(APP_BUNDLE_DEV) .build $(APP_NAME).xcodeproj $(APP_NAME)-*.dmg

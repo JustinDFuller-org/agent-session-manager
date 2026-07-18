@@ -207,6 +207,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - terminal-rendering: `feature-terminal-rendering`
 - worktree-creation: `feature-worktree-creation`
 - agent-harness-matrix: `feature-agent-harness-matrix`
+- distribution: `feature-distribution`
 
 **Workflow reminders:**
 1. **When working on a feature** — load the corresponding skill (e.g. `feature-panes`) before starting.
@@ -220,5 +221,5 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 
 - Processes are started lazily inside `TerminalRepresentable` once the frame is laid out — don't move process start earlier.
 - Session persistence triggers on tab count or active-tab changes; settings persistence triggers on settings changes.
-- The app is sandboxed except for automation entitlements (`AgentSessionManager.entitlements`).
+- The app does not enable the App Sandbox. It is distributed via Developer ID + notarization, not the Mac App Store or TestFlight for macOS.
 - `URL(string:)` is used in session restore — known issue with paths containing spaces; prefer `URL(filePath:)` in new code.
