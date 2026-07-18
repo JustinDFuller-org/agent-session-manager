@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Build a notarized, Developer ID-signed DMG of Agent Session Manager for
+# distribution outside the Mac App Store.
+#
+# Usage: scripts/dist.sh <path-to-AgentSessionManager.app>
+#
+# The script copies the input .app into a temporary staging area, stamps a
+# unique version into its Info.plist, re-signs it with the Developer ID
+# Application certificate, builds a DMG, submits the DMG to Apple for
+# notarization, staples the resulting ticket, and validates the result.
+#
+# Prerequisites (one-time):
+#   - Developer ID Application certificate installed in Keychain.
+#   - App-specific password created at appleid.apple.com.
+#   - xcrun notarytool store-credentials "AC_NOTARY" --apple-id ... --team-id ... --password ...
+set -euo pipefail
+
+readonly DEV_IDENTITY="Developer ID Application: Justin Fuller (CX2KMQZQ7X)"
+readonly TEAM_ID="CX2KMQZQ7X"
+readonly NOTARY_PROFILE="AC_NOTARY"
+readonly ENTITLEMENTS_FILENAME="AgentSessionManager.entitlements"
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repo_root=$(cd "$script_dir/.." && pwd)
+
+info() { echo "==> $*"; }
+error() { echo "ERROR: $*" >&2; }
+die() { error "$*"; exit 1; }
+
+cleanup() {
+  if [[ -n "${staging_dir:-}" && -d "$staging_dir" ]]; then
+    rm -rf "$staging_dir"
+  fi
+}
+trap cleanup EXIT
+
+main() {
+  if [[ $# -ne 1 ]]; then
+    die "usage: $0 <path-to-AgentSessionManager.app>"
+  fi
+
+  local app_bundle app_bundle_name parent_dir
+  app_bundle="$1"
+  app_bundle_name=$(basename "$app_bundle")
+  parent_dir=$(cd "$(dirname "$app_bundle")" && pwd)
+
+  [[ -d "$app_bundle" ]] || die "app bundle not found: $app_bundle"
+  [[ -f "$app_bundle/Contents/Info.plist" ]] || die "Info.plist missing in app bundle"
+
+  local entitlements_path="$repo_root/$ENTITLEMENTS_FILENAME"
+  [[ -f "$entitlements_path" ]] || die "entitlements file not found: $entitlements_path"
+
+  security find-identity -v -p codesigning | grep -q "$DEV_IDENTITY" || \
+    die "Developer ID identity not found in Keychain: $DEV_IDENTITY"
+
+  local version_short version_build
+  version_short=$(git -C "$repo_root" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)
+  version_short=${version_short:-0.0.1}
+  version_build=$(git -C "$repo_root" rev-list --count HEAD 2>/dev/null || true)
+  version_build=${version_build:-1}
+
+  info "Preparing distribution: $version_short ($version_build)"
+
+  staging_dir=$(mktemp -d -t agent-session-manager-dist.XXXXXX)
+  local staged_app="$staging_dir/$app_bundle_name"
+  local staging_volume="$staging_dir/Agent Session Manager"
+
+  cp -a "$app_bundle" "$staged_app"
+
+  info "Stamping version into Info.plist"
+  local info_plist="$staged_app/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version_short" "$info_plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $version_build" "$info_plist"
+
+  info "Signing app with Developer ID + entitlements + hardened runtime"
+  codesign --force --deep \
+    --sign "$DEV_IDENTITY" \
+    --entitlements "$entitlements_path" \
+    --options runtime \
+    --timestamp \
+    "$staged_app"
+
+  codesign --verify --deep --verbose=2 "$staged_app" >/dev/null || \
+    die "app signature verification failed"
+
+  info "Building DMG"
+  mkdir -p "$staging_volume"
+  cp -a "$staged_app" "$staging_volume/"
+  ln -s /Applications "$staging_volume/Applications"
+
+  local dmg_base="AgentSessionManager-${version_short}-${version_build}"
+  local dmg_path="$parent_dir/${dmg_base}.dmg"
+  rm -f "$dmg_path"
+
+  hdiutil create \
+    -volname "Agent Session Manager" \
+    -srcfolder "$staging_volume" \
+    -fs HFS+ \
+    -format UDZO \
+    -o "$dmg_path" >/dev/null
+
+  info "Submitting DMG to Apple for notarization"
+  xcrun notarytool submit "$dmg_path" \
+    --keychain-profile "$NOTARY_PROFILE" \
+    --wait || die "DMG notarization submission failed"
+
+  info "Stapling notarization ticket to DMG"
+  xcrun stapler staple "$dmg_path" || die "DMG stapling failed"
+  xcrun stapler validate "$dmg_path" >/dev/null || die "DMG stapler validation failed"
+
+  info "Mounting DMG and validating the app inside"
+  local mount_point
+  mount_point=$(mktemp -d -t agent-session-manager-dmg-mount.XXXXXX)
+  hdiutil attach "$dmg_path" -mountpoint "$mount_point" -nobrowse >/dev/null || \
+    die "failed to mount DMG for validation"
+
+  local mounted_app="$mount_point/AgentSessionManager.app"
+  [[ -d "$mounted_app" ]] || {
+    hdiutil detach "$mount_point" >/dev/null 2>&1 || true
+    die "AgentSessionManager.app not found inside mounted DMG"
+  }
+
+  spctl --assess --type exec --verbose=4 "$mounted_app" || {
+    hdiutil detach "$mount_point" >/dev/null 2>&1 || true
+    die "app inside DMG failed Gatekeeper assessment"
+  }
+
+  hdiutil detach "$mount_point" >/dev/null || die "failed to unmount DMG after validation"
+
+  echo
+  echo "Distribution ready:"
+  echo "  $dmg_path"
+}
+
+main "$@"
