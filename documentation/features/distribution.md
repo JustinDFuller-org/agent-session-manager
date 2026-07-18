@@ -97,3 +97,11 @@ Send your friends the GitHub Release URL. They can download the DMG, mount it, d
 - [ ] After dragging to `/Applications`, the app launches and can open a pane that spawns a harness (Claude Code, Cursor, or Codex).
 - [ ] Worktree creation under `.agent-session-manager/worktrees/` still works.
 - [ ] The status line shows data for a running pane.
+
+### Environment differences between `make run` and a Finder/DMG launch
+
+`make run` launches the app from your shell, so the app inherits a full environment: the parent shell's `PATH` (including Homebrew, `go`, nvm, etc.) and a `TERM` value set by the terminal emulator.
+
+Opening the app from Finder or the DMG gives it the minimal environment that LaunchServices provides. Without adjustment, spawned panes can see a bare `PATH` and no `TERM`, which may cause tools like Claude Code to render without color and may surface warnings from `~/.zshrc` that reference tools not yet on `PATH`.
+
+The app handles this by sanitizing each pane's environment before it starts (see [panes.md](panes.md)). When verifying a distribution build, confirm that panes still spawn cleanly and that Claude/Cursor/Codex render color output as expected.
