@@ -634,15 +634,17 @@ final class CodexStatusProviderTests: XCTestCase {
     }
 
     func testBuildCodexCommandRegistersAppOwnedHooks() {
-        let command = Tab.buildCodexCommand(hookScriptPath: "/tmp/hook path.py", extraArgs: " --model gpt-5.1")
+        let command = Tab.buildCodexCommand(hookScriptPath: "/tmp/hook path.py", extraArgs: ["--model", "gpt-5.1"])
 
-        XCTAssertTrue(command.contains("codex --dangerously-bypass-hook-trust"))
+        XCTAssertTrue(command.contains("codex"))
+        XCTAssertTrue(command.contains("--dangerously-bypass-hook-trust"))
         XCTAssertTrue(command.contains("features.hooks=true"))
-        XCTAssertTrue(command.contains("hooks.SessionStart="))
-        XCTAssertTrue(command.contains("hooks.UserPromptSubmit="))
-        XCTAssertTrue(command.contains("hooks.Stop="))
-        XCTAssertTrue(command.contains("/tmp/hook path.py"))
-        XCTAssertTrue(command.hasSuffix(" --model gpt-5.1"))
+        XCTAssertTrue(command.contains(where: { $0.hasPrefix("hooks.SessionStart=") }))
+        XCTAssertTrue(command.contains(where: { $0.hasPrefix("hooks.UserPromptSubmit=") }))
+        XCTAssertTrue(command.contains(where: { $0.hasPrefix("hooks.Stop=") }))
+        XCTAssertTrue(command.contains(where: { $0.contains("/tmp/hook path.py") }))
+        XCTAssertTrue(command.contains("--model"))
+        XCTAssertTrue(command.contains("gpt-5.1"))
     }
 }
 

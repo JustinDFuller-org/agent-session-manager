@@ -20,6 +20,7 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | 7 | [Restore + continue](#9-session-persistence-restore-and-continue-on-restart) | [x] | `opencodeSessionID` persisted on `Pane`/`PersistedPane`; `OpenCodeStatusProvider` reports bound id back to `Pane` via `onSessionBound`; restore path passes `--session <id>` when `continueOnRestart` is enabled (with `--continue` fallback); bare-restart always resumes when a session id is known; `OPENCODE_DISABLE_PRUNE=true` injected only on resume paths; `NewPaneSheet` auto-injects `--session <id>` on refresh to preserve continuity. |
 | 8 | [Telemetry + invariants](#10-additional-cross-cutting-concerns) | [x] | Added `opencode.port.policy`, `opencode.session.rebindable`, `opencode.tui.endpoints_unused` invariants; positive `opencode.port.allocated`/`opencode.command.built` spans; `/tui/*` runtime guard; `NotificationKind.opencodePermissionRequest` for accurate span kind. |
 | 9 | [Docs + skill](#10-additional-cross-cutting-concerns) | [x] | Created `documentation/features/opencode-cli.md`, `.agents/skills/feature-opencode-cli/` skill + symlink, updated `AGENTS.md` Feature Skills list, and corrected stale OpenCode cells in `agent-harness-feature-matrix.md`. |
+| 10 | [Hardening + correctness follow-up](#phase-10-hardening-security-and-correctness-follow-up) | [~] | Security fixes, concurrency hardening, test coverage expansion, and doc accuracy corrections identified during post-implementation review. |
 
 ### Open questions
 
@@ -524,9 +525,65 @@ A phased approach keeps each stage compileable and testable.
 8. **Telemetry + invariants** — spans, invariant catalog, bounded output.
 9. **Docs + skill** — feature doc (`documentation/features/opencode-cli.md`), skill (`.agents/skills/feature-opencode-cli/SKILL.md`), `AGENTS.md` "Feature Skills" entry, update `documentation/features/agent-harness-feature-matrix.md`.
 
+## Phase 10: Hardening, security, and correctness follow-up
+
+A skeptical post-implementation review identified that several Phase 1–9 checkmarks were premature: the code compiles and passes existing unit tests, but real security, correctness, and coverage gaps remain. This phase closes them before the feature is considered complete.
+
+### 10.1 Security
+
+| # | Fix | Status | Notes |
+|---|---|---|---|
+| 10.1.1 | Codebase-wide argv migration | [ ] | Migrate all four harnesses off `zsh -i -c "<cmd>"` shell evaluation to a `Process.arguments`-style invocation so user-supplied CLI flag values and persisted `opencodeSessionID` cannot execute arbitrary shell commands. |
+| 10.1.2 | Pre-flight binary presence | [ ] | Check `CLIToolDetector.detectInstalled(shell:)` before launching OpenCode; surface `Pane.setupState = .failed(error:)` and a SwiftUI error sheet instead of letting zsh print `command not found` in the terminal. |
+| 10.1.3 | Redirect-blocking URLSession | [ ] | Give the OpenCode HTTP client a dedicated `URLSession` whose delegate rejects any off-`127.0.0.1` redirect. |
+| 10.1.4 | Cap SSE event buffer | [ ] | Bound single-event `dataBuffer` growth in the SSE parser; drop the connection and emit an overflow span if it exceeds 1 MiB. |
+
+### 10.2 Correctness
+
+| # | Fix | Status | Notes |
+|---|---|---|---|
+| 10.2.1 | `restartPane` stale port | [ ] | Re-allocate a fresh ephemeral port and rebuild `pendingCommand`/`pendingEnvironment` on bare restart instead of copying the old controller's values. |
+| 10.2.2 | `OPENCODE_DISABLE_PRUNE` on "Refresh with New Settings" | [ ] | Pass `resumeSessionID` (or detect `--session` in `extraArgs`) on the refresh-with-new-options path so the prune-disable flag is set when resuming a session. |
+| 10.2.3 | `NotificationKind` defensive decode | [ ] | Wrap `PersistedPaneNotification.kind` decoding in `(try? ...) ?? .terminalBell` so an older build downgrading from v1 does not silently drop all tabs. |
+| 10.2.4 | `selectSession` ownership filter | [ ] | Reject sessions whose `parentID != nil` (child subagent sessions) and refuse "newest fallback" when `context.opencodeSessionID` is known but unmatched. Emit an invariant on probable foreign-session binding. |
+| 10.2.5 | `permission.replied` lifecycle | [ ] | Handle `permission.replied` SSE events to clear the in-flight permission attention entry; add a per-pane 5-minute stale-permission timeout. |
+| 10.2.6 | `Tab.closePane` notification cleanup | [ ] | Remove all sidebar and delivered banner notifications for a pane when it is closed. |
+
+### 10.3 Concurrency and telemetry
+
+| # | Fix | Status | Notes |
+|---|---|---|---|
+| 10.3.1 | Actor-isolate `OpenCodeStatusProvider` | [ ] | Convert the provider to an `actor` so `lifecycle`, `boundSessionID`, `latestHarnessData`, etc. are no longer mutated concurrently by SSE and polling paths. |
+| 10.3.2 | SSE re-arm policy | [ ] | Reset the retry budget after a successful event; use unbounded retry with capped backoff; treat graceful server closes as non-failures. |
+| 10.3.3 | SSE busy detection | [ ] | Promote `.working` from SSE `session.updated`/`session.status` busy events through `transitionLifecycle`, fixing the sub-15s-turn stop suppression bug. |
+| 10.3.4 | TOCTOU race-loss telemetry | [ ] | After spawning OpenCode with `--port <n>`, probe `GET /global/health` on that port; if the bind failed, emit `opencode.port_allocation.failed` with `reason: "race_lost"` and reallocate once. |
+| 10.3.5 | App-controlled env-var invariant expansion | [ ] | Add `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` and `OPENCODE_DISABLE_PRUNE` to the app-controlled env-var set; rename/split the invariant to cover all app-injected keys. |
+| 10.3.6 | Dev-build default-plugin isolation | [ ] | Auto-inject `OPENCODE_DISABLE_DEFAULT_PLUGINS=true` for dev-bundle panes so dev/test runs do not inherit the user's real OpenCode default plugins. |
+
+### 10.4 Test coverage
+
+| # | Test | Status | Notes |
+|---|---|---|---|
+| 10.4.1 | SSE parser tests | [ ] | Extract `parseEvent` and test multi-line `data:`, malformed JSON fallback, missing `properties.sessionID`, `server.heartbeat`, and cancellation. |
+| 10.4.2 | `URLSessionOpenCodeClient` HTTP tests | [ ] | Stub with `URLProtocol`: malformed `/global/health` JSON, 404 propagation, redirect rejection, `/tui/*` guard variants (`//tui`, `/TUI/`, `tui/`). |
+| 10.4.3 | Harness-aware decode collisions | [ ] | Test `--continue`, `--model`, `--auto` decoding with each harness's `userInfo` key. |
+| 10.4.4 | Real restore-path tests | [ ] | Replace tautological continue-on-restart tests with tests that invoke the production `SessionPersistence.restore` entry point. |
+| 10.4.5 | Foreign-session rejection | [ ] | Assert `selectSession` rejects directory-mismatch and child-parent sessions. |
+| 10.4.6 | Port allocation failure | [ ] | Cover `allocate()` returning `nil` and the race-loss respawn fallback. |
+| 10.4.7 | UI test smoke | [ ] | Add one UITest that creates an OpenCode pane through the real New Pane sheet, skipping honestly if `opencode` is not installed. |
+
+### 10.5 Documentation accuracy
+
+| # | Doc update | Status | Notes |
+|---|---|---|---|
+| 10.5.1 | `opencode-cli.md` corrections | [ ] | Rename uses `PATCH /session/:id` (not POST); user overrides are overridden with an emitted invariant (not "silently ignored"); add security threat-model subsection; document downgrade behavior. |
+| 10.5.2 | Feature matrix correction | [ ] | Change "Rich status provider" cell from "polls" to "SSE primary with 15s polling fallback" to match lines 37/82. |
+| 10.5.3 | `AGENTS.md` opening paragraph | [ ] | Include OpenCode in the first-paragraph harness list. |
+| 10.5.4 | Skill `!cat` reference | [ ] | Convert `.agents/skills/feature-opencode-cli/SKILL.md` to use `!cat` referencing `documentation/features/opencode-cli.md`; remove the duplicated copy. |
+
 ---
 
-*Last updated: July 18, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; Phase 3 command builder + launch complete; Phase 4 `OPENCODE_CONFIG_CONTENT` injection complete; Phase 5 status provider complete; Phase 6 notifications + attention complete; Phase 7 restore + continue complete; Phase 8 telemetry + invariants complete; Phase 9 docs + skill complete.*
+*Last updated: July 18, 2026. Phase 0–9 complete; Phase 10 in progress: security, correctness, concurrency, tests, and doc accuracy fixes from post-implementation review.*
 
 ## Spike Findings
 

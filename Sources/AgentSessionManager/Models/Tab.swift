@@ -513,19 +513,18 @@ final class Tab: Identifiable {
 
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
-            let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
             switch harness {
             case .shell:
-                controller.pendingCommand = nil
+                controller.pendingCommandArgs = nil
             case .claude:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingCommand = Tab.buildClaudeCommand(
+                controller.pendingCommandArgs = Tab.buildClaudeCommand(
                     settingsPath: pane.statusLineMonitor!.settingsFilePath,
-                    extraArgs: extra
+                    extraArgs: extraArgs
                 )
             case .codex:
                 applyExtraEnvVars(extraEnvVars, to: controller)
@@ -537,18 +536,18 @@ final class Tab: Identifiable {
                         "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
                         "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(pane.statusLineMonitor!.codexHookRecordFilePath)",
                     ]
-                controller.pendingCommand = Tab.buildCodexCommand(
+                controller.pendingCommandArgs = Tab.buildCodexCommand(
                     hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
-                    extraArgs: extra)
+                    extraArgs: extraArgs)
             case .cursor:
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "agent\(extra)"
+                controller.pendingCommandArgs = ["agent"] + extraArgs
             case .opencode:
                 installOpenCodeController(
-                    controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
+                    controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars,
                     resumeSessionID: pane.opencodeSessionID, harness: harness)
             }
             pane.installTerminalController(controller)
@@ -565,10 +564,27 @@ final class Tab: Identifiable {
     func restartPane(_ pane: Pane) {
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
-        new.pendingCommand = old.pendingCommand
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = old.pendingEnvironment
         new.pendingShell = old.pendingShell
+
+        if pane.harness == .opencode {
+            // OpenCode binds an ephemeral port per process; a restart must re-allocate
+            // a fresh port and rebuild the command/env so the new server is reachable.
+            let cwd = pane.worktreeDirectory?.path ?? directory.path
+            configureOpenCodeController(
+                new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: [:],
+                resumeSessionID: pane.opencodeSessionID)
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
+                opencodeSessionID: pane.opencodeSessionID)
+            pane.installStatusLineMonitor(monitor)
+        } else {
+            new.pendingCommandArgs = old.pendingCommandArgs
+        }
+
         old.terminate()
         pane.installTerminalController(new)
         pane.restartToken = UUID()
@@ -585,7 +601,6 @@ final class Tab: Identifiable {
         if let extraArgs, let harness {
             guard let old = pane.terminalController else { return }
             old.terminate()
-            let extra = extraArgs.isEmpty ? "" : " " + extraArgs.joined(separator: " ")
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             let controller = TerminalController()
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
@@ -594,7 +609,7 @@ final class Tab: Identifiable {
 
             switch harness {
             case .shell:
-                controller.pendingCommand = nil
+                controller.pendingCommandArgs = nil
                 pane.removeStatusLineMonitor()
             case .claude:
                 let monitor = StatusLineMonitor(
@@ -603,8 +618,8 @@ final class Tab: Identifiable {
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingCommand = Tab.buildClaudeCommand(
-                    settingsPath: monitor.settingsFilePath, extraArgs: extra)
+                controller.pendingCommandArgs = Tab.buildClaudeCommand(
+                    settingsPath: monitor.settingsFilePath, extraArgs: extraArgs)
             case .codex:
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
@@ -620,9 +635,9 @@ final class Tab: Identifiable {
                         "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
                         "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(monitor.codexHookRecordFilePath)",
                     ]
-                controller.pendingCommand = Tab.buildCodexCommand(
+                controller.pendingCommandArgs = Tab.buildCodexCommand(
                     hookScriptPath: monitor.codexHookScriptFilePath,
-                    extraArgs: extra)
+                    extraArgs: extraArgs)
             case .cursor:
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
@@ -633,11 +648,11 @@ final class Tab: Identifiable {
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "agent\(extra)"
+                controller.pendingCommandArgs = ["agent"] + extraArgs
             case .opencode:
                 installOpenCodeController(
-                    controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
-                    harness: harness)
+                    controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars,
+                    resumeSessionID: pane.opencodeSessionID, harness: harness)
             }
 
             pane.harness = harness
@@ -648,7 +663,6 @@ final class Tab: Identifiable {
 
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
-        new.pendingCommand = old.pendingCommand
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
         new.pendingShell = old.pendingShell
@@ -665,19 +679,19 @@ final class Tab: Identifiable {
             pane.installStatusLineMonitor(monitor)
         }
         if pane.harness == .claude, let monitor {
-            let extra = Tab.extractExtraArgs(from: old.pendingCommand ?? "")
-            let continued = Tab.injectContinueFlagIntoArgs(extra)
-            new.pendingCommand = Tab.buildClaudeCommand(settingsPath: monitor.settingsFilePath, extraArgs: continued)
+            let continued = Tab.injectContinueFlagIntoArgs(pane.extraArgs)
+            new.pendingCommandArgs = Tab.buildClaudeCommand(
+                settingsPath: monitor.settingsFilePath, extraArgs: continued)
         }
         if pane.harness == .cursor {
             new.pendingEnvironment =
                 (new.pendingEnvironment ?? [])
                 + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+            new.pendingCommandArgs = ["agent"] + pane.extraArgs
         }
         if pane.harness == .opencode {
-            let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
             installOpenCodeController(
-                new, pane: pane, extraArgs: extra, resumeSessionID: pane.opencodeSessionID,
+                new, pane: pane, extraArgs: pane.extraArgs, resumeSessionID: pane.opencodeSessionID,
                 harness: pane.harness)
         }
         if pane.harness == .codex, let monitor {
@@ -689,10 +703,9 @@ final class Tab: Identifiable {
                     "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
                     "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(monitor.codexHookRecordFilePath)",
                 ]
-            let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
-            new.pendingCommand = Tab.buildCodexCommand(
+            new.pendingCommandArgs = Tab.buildCodexCommand(
                 hookScriptPath: monitor.codexHookScriptFilePath,
-                extraArgs: extra)
+                extraArgs: pane.extraArgs)
         }
         pane.installTerminalController(new)
         pane.restartToken = UUID()
@@ -702,7 +715,7 @@ final class Tab: Identifiable {
     func openShellInPane(_ pane: Pane) {
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
-        new.pendingCommand = nil
+        new.pendingCommandArgs = nil
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = old.pendingEnvironment
         new.pendingShell = old.pendingShell
@@ -772,7 +785,7 @@ extension Tab {
     private func installOpenCodeController(
         _ controller: TerminalController,
         pane: Pane,
-        extraArgs: String,
+        extraArgs: [String],
         extraEnvVars: [String: String] = [:],
         resumeSessionID: String? = nil,
         harness: Harness
@@ -793,7 +806,7 @@ extension Tab {
     private func configureOpenCodeController(
         _ controller: TerminalController,
         pane: Pane,
-        extraArgs: String,
+        extraArgs: [String],
         extraEnvVars: [String: String] = [:],
         resumeSessionID: String? = nil
     ) {
@@ -844,8 +857,7 @@ extension Tab {
         ]
         var effectiveExtraArgs = extraArgs
         if let resumeSessionID {
-            effectiveExtraArgs = " --session \(resumeSessionID)\(extraArgs)"
-            environment.append("OPENCODE_DISABLE_PRUNE=true")
+            effectiveExtraArgs = ["--session", resumeSessionID] + extraArgs
             TracingService.shared.record(
                 "opencode.session.resumed",
                 attributes: [
@@ -856,16 +868,21 @@ extension Tab {
                     "session_id_prefix": String(resumeSessionID.prefix(12)),
                 ])
         }
+        if effectiveExtraArgs.contains("--session") {
+            environment.append("OPENCODE_DISABLE_PRUNE=true")
+        }
         controller.pendingEnvironment = (controller.pendingEnvironment ?? []) + environment
         let command = Tab.buildOpenCodeCommand(port: port, extraArgs: effectiveExtraArgs)
-        controller.pendingCommand = command
+        controller.pendingCommandArgs = command
         let hasSessionArg = effectiveExtraArgs.contains("--session")
         let hasContinueFlag = effectiveExtraArgs.contains("--continue")
 
         let portPolicyCheck =
-            command.contains("--hostname 127.0.0.1")
-            && command.contains("--mdns=false")
-            && (port != nil && command.contains("--port \(portString)"))
+            command.contains("--hostname")
+            && command.contains("127.0.0.1")
+            && command.contains("--mdns")
+            && command.contains("false")
+            && (port != nil && command.contains("--port") && command.contains(portString))
         InvariantReporter.shared.check(
             .opencodePortPolicy,
             portPolicyCheck,
@@ -906,11 +923,11 @@ extension Tab {
 }
 
 extension Tab {
-    nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: String) -> String {
-        "claude --settings \(shellQuote(settingsPath))\(extraArgs)"
+    nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: [String]) -> [String] {
+        ["claude", "--settings", settingsPath] + extraArgs
     }
 
-    nonisolated static func buildCodexCommand(hookScriptPath: String, extraArgs: String) -> String {
+    nonisolated static func buildCodexCommand(hookScriptPath: String, extraArgs: [String]) -> [String] {
         let hookCommand = "/usr/bin/python3 \(shellQuote(hookScriptPath))"
         let escapedHookCommand =
             hookCommand
@@ -918,16 +935,24 @@ extension Tab {
             .replacingOccurrences(of: "\"", with: "\\\"")
         let commandValue = "[{hooks=[{type=\"command\",command=\"\(escapedHookCommand)\",timeout=5}]}]"
         let hookEvents = ["SessionStart", "UserPromptSubmit", "Stop", "StopFailure"]
-        let configArgs =
-            hookEvents
-            .map { "-c \(shellQuote("hooks.\($0)=\(commandValue)"))" }
-            .joined(separator: " ")
-        return "codex --dangerously-bypass-hook-trust -c \(shellQuote("features.hooks=true")) \(configArgs)\(extraArgs)"
+        var args: [String] = [
+            "codex",
+            "--dangerously-bypass-hook-trust",
+            "-c",
+            "features.hooks=true",
+        ]
+        for event in hookEvents {
+            args.append(contentsOf: ["-c", "hooks.\(event)=\(commandValue)"])
+        }
+        return args + extraArgs
     }
 
-    nonisolated static func buildOpenCodeCommand(port: Int?, extraArgs: String) -> String {
-        let portArg = port.map { " --port \($0)" } ?? ""
-        return "opencode --hostname 127.0.0.1 --mdns=false\(portArg)\(extraArgs)"
+    nonisolated static func buildOpenCodeCommand(port: Int?, extraArgs: [String]) -> [String] {
+        var args = ["opencode", "--hostname", "127.0.0.1", "--mdns", "false"]
+        if let port {
+            args.append(contentsOf: ["--port", String(port)])
+        }
+        return args + extraArgs
     }
 
     /// Builds the inline JSON config injected per pane via `OPENCODE_CONFIG_CONTENT`.
@@ -1012,45 +1037,10 @@ extension Tab {
         }
     }
 
-    /// Appends `--continue` to a command string if not already present.
-    nonisolated static func injectContinueFlag(into command: String) -> String {
-        if command.contains("--continue") { return command }
-        return command + " --continue"
-    }
-
-    /// Extracts the extra args portion from a Claude command string (everything after `--settings '...'`).
-    nonisolated static func extractExtraArgs(from command: String) -> String {
-        guard let settingsRange = command.range(of: "--settings ") else {
-            let parts = command.split(separator: " ", maxSplits: 1)
-            return parts.count > 1 ? " " + parts[1] : ""
-        }
-        var idx = settingsRange.upperBound
-        if idx < command.endIndex && command[idx] == "'" {
-            idx = command.index(after: idx)
-            while idx < command.endIndex {
-                if command[idx] == "'" {
-                    if command.index(after: idx) < command.endIndex
-                        && command[command.index(after: idx)] == "\\"
-                    {
-                        idx = command.index(idx, offsetBy: 4, limitedBy: command.endIndex) ?? command.endIndex
-                        continue
-                    }
-                    idx = command.index(after: idx)
-                    break
-                }
-                idx = command.index(after: idx)
-            }
-        }
-        if idx < command.endIndex {
-            return String(command[idx...])
-        }
-        return ""
-    }
-
-    /// Injects `--continue` into an extra-args string if not already present.
-    nonisolated static func injectContinueFlagIntoArgs(_ args: String) -> String {
-        if args.contains("--continue") { return args }
-        return args + " --continue"
+    /// Injects `--continue` into an extra-args array if not already present.
+    nonisolated static func injectContinueFlagIntoArgs(_ args: [String]) -> [String] {
+        guard !args.contains("--continue") else { return args }
+        return args + ["--continue"]
     }
 }
 
@@ -1121,19 +1111,18 @@ extension Tab {
 
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
-            let extra = effectiveExtraArgs.isEmpty ? "" : " " + effectiveExtraArgs.joined(separator: " ")
             controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
             switch pane.harness {
             case .shell:
-                controller.pendingCommand = nil
+                controller.pendingCommandArgs = nil
             case .claude:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingCommand = Tab.buildClaudeCommand(
+                controller.pendingCommandArgs = Tab.buildClaudeCommand(
                     settingsPath: pane.statusLineMonitor!.settingsFilePath,
-                    extraArgs: extra
+                    extraArgs: effectiveExtraArgs
                 )
             case .codex:
                 applyExtraEnvVars(extraEnvVars, to: controller)
@@ -1145,19 +1134,19 @@ extension Tab {
                         "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
                         "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(pane.statusLineMonitor!.codexHookRecordFilePath)",
                     ]
-                controller.pendingCommand = Tab.buildCodexCommand(
+                controller.pendingCommandArgs = Tab.buildCodexCommand(
                     hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
-                    extraArgs: extra)
+                    extraArgs: effectiveExtraArgs)
             case .cursor:
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingEnvironment =
                     (controller.pendingEnvironment ?? [])
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommand = "agent\(extra)"
+                controller.pendingCommandArgs = ["agent"] + effectiveExtraArgs
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 configureOpenCodeController(
-                    controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
+                    controller, pane: pane, extraArgs: effectiveExtraArgs, extraEnvVars: extraEnvVars,
                     resumeSessionID: pane.opencodeSessionID)
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,

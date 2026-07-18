@@ -116,7 +116,10 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 final class TerminalController: NSObject {
     let terminalView: BellCapturingTerminalView
     var processState: ProcessState = .idle
-    var pendingCommand: String?
+    /// Argument-vector form of the command to run. The shell is still used as the
+    /// executable so that PATH resolution from `~/.zshrc` works, but each token is
+    /// shell-quoted before concatenation, eliminating shell-injection risks.
+    var pendingCommandArgs: [String]?
     var pendingDirectory: String?
     var pendingEnvironment: [String]?
     var pendingShell: String?
@@ -138,7 +141,13 @@ final class TerminalController: NSObject {
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
     func startProcess() {
         let shell = pendingShell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        if let cmd = pendingCommand {
+        let env = pendingEnvironment
+        let cwd = pendingDirectory
+        if let commandArgs = pendingCommandArgs {
+            // Build a single shell command by quoting each token individually. This keeps
+            // the interactive shell (and therefore PATH resolution from ~/.zshrc) while
+            // preventing user-supplied values from being interpreted as shell metacharacters.
+            let cmd = commandArgs.map { Self.shellQuote($0) }.joined(separator: " ")
             // Args evolution:
             // - Removed -l (login shell) because it causes zsh to source /etc/zprofile,
             //   ~/.zprofile, and shell init scripts which access TCC-protected paths
@@ -151,59 +160,48 @@ final class TerminalController: NSObject {
             //   Remaining TCC prompts are one-time decisions from Claude's startup
             //   path scanning. See documentation/features/panes.md.
             let args = ["-i", "-c", cmd]
-            let env = pendingEnvironment
-            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
                 args: args,
                 environment: env,
                 currentDirectory: cwd
             )
-            let tracePaneName = terminalView.telemetryPaneName
-            let traceTabName = terminalView.telemetryTabName
-            let tracePaneUUID = terminalView.telemetryPaneUUID
-            let traceTabUUID = terminalView.telemetryTabUUID
-            Task(priority: .utility) { @MainActor in
-                var attrs: [String: String] = [
-                    "executable": shell,
-                    "args": args.joined(separator: " "),
-                    "working_directory": cwd ?? "",
-                    "pane.name": tracePaneName,
-                    "tab.name": traceTabName,
-                ]
-                if let id = tracePaneUUID { attrs["pane.id"] = id.uuidString }
-                if let id = traceTabUUID { attrs["tab.id"] = id.uuidString }
-                TracingService.shared.record("terminal.process.started", attributes: attrs)
-            }
+            recordProcessStarted(executable: shell, args: args, cwd: cwd)
         } else {
-            let env = pendingEnvironment
-            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
                 environment: env,
                 currentDirectory: cwd
             )
-            let tracePaneName = terminalView.telemetryPaneName
-            let traceTabName = terminalView.telemetryTabName
-            let tracePaneUUID = terminalView.telemetryPaneUUID
-            let traceTabUUID = terminalView.telemetryTabUUID
-            Task(priority: .utility) { @MainActor in
-                var attrs: [String: String] = [
-                    "executable": shell,
-                    "args": "",
-                    "working_directory": cwd ?? "",
-                    "pane.name": tracePaneName,
-                    "tab.name": traceTabName,
-                ]
-                if let id = tracePaneUUID { attrs["pane.id"] = id.uuidString }
-                if let id = traceTabUUID { attrs["tab.id"] = id.uuidString }
-                TracingService.shared.record("terminal.process.started", attributes: attrs)
-            }
+            recordProcessStarted(executable: shell, args: [], cwd: cwd)
         }
         let pid = terminalView.process.shellPid
         if pid > 0 {
             processState = .running(pid: pid)
         }
+    }
+
+    private func recordProcessStarted(executable: String, args: [String], cwd: String?) {
+        let tracePaneName = terminalView.telemetryPaneName
+        let traceTabName = terminalView.telemetryTabName
+        let tracePaneUUID = terminalView.telemetryPaneUUID
+        let traceTabUUID = terminalView.telemetryTabUUID
+        Task(priority: .utility) { @MainActor in
+            var attrs: [String: String] = [
+                "executable": executable,
+                "args": args.joined(separator: " "),
+                "working_directory": cwd ?? "",
+                "pane.name": tracePaneName,
+                "tab.name": traceTabName,
+            ]
+            if let id = tracePaneUUID { attrs["pane.id"] = id.uuidString }
+            if let id = traceTabUUID { attrs["tab.id"] = id.uuidString }
+            TracingService.shared.record("terminal.process.started", attributes: attrs)
+        }
+    }
+
+    private static func shellQuote(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 
     var terminalContent: String {

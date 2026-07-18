@@ -80,7 +80,7 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
         let pane = Pane(name: "opencode-pane", tab: tab, harness: .opencode)
         let controller = TerminalController()
-        controller.pendingCommand = "opencode"
+        controller.pendingCommandArgs = ["opencode"]
         controller.pendingDirectory = "/tmp/repo"
         controller.pendingEnvironment = ["PATH=/usr/bin"]
         pane.installTerminalController(controller)

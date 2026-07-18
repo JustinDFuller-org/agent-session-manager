@@ -794,40 +794,40 @@ final class AppSettingsActiveToolsTests: XCTestCase {
 
 final class TabCommandTests: XCTestCase {
     func testBuildClaudeCommand() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: "")
-        XCTAssertEqual(cmd, "claude --settings '/tmp/s.json'")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: [])
+        XCTAssertEqual(cmd, ["claude", "--settings", "/tmp/s.json"])
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithExtraArgs() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --model claude-opus-4-7")
-        XCTAssertTrue(cmd.hasSuffix("--model claude-opus-4-7"))
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: ["--model", "claude-opus-4-7"])
+        XCTAssertEqual(cmd.suffix(2), ["--model", "claude-opus-4-7"])
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandEscapesSettingsQuotes() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/my's.json", extraArgs: "")
-        XCTAssertTrue(cmd.contains("'/tmp/my'\\''s.json'"))
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/my's.json", extraArgs: [])
+        XCTAssertTrue(cmd.contains("/tmp/my's.json"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandOmitWorktreeFlag() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: "")
-        XCTAssertEqual(cmd, "claude --settings '/tmp/s.json'")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: [])
+        XCTAssertEqual(cmd, ["claude", "--settings", "/tmp/s.json"])
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithExtraArgsNoWorktree() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --verbose")
-        XCTAssertTrue(cmd.hasPrefix("claude --settings '/tmp/s.json'"))
-        XCTAssertTrue(cmd.hasSuffix(" --verbose"))
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: ["--verbose"])
+        XCTAssertEqual(cmd.prefix(3), ["claude", "--settings", "/tmp/s.json"])
+        XCTAssertTrue(cmd.contains("--verbose"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithAllowDangerouslySkipPermissions() {
-        let extraArgs = " --allow-dangerously-skip-permissions"
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: extraArgs)
-        XCTAssertTrue(cmd.hasPrefix("claude --settings '/tmp/s.json'"))
+        let cmd = Tab.buildClaudeCommand(
+            settingsPath: "/tmp/s.json", extraArgs: ["--allow-dangerously-skip-permissions"])
+        XCTAssertEqual(cmd.prefix(3), ["claude", "--settings", "/tmp/s.json"])
         XCTAssertTrue(cmd.contains("--allow-dangerously-skip-permissions"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
@@ -859,14 +859,14 @@ final class BranchSanitizationTests: XCTestCase {
 
 final class ContinueOnRestartCommandTests: XCTestCase {
     func testBuildClaudeCommandWithContinueFlag() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --continue")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: ["--continue"])
         XCTAssertTrue(cmd.contains("--continue"))
-        XCTAssertTrue(cmd.hasSuffix("--continue"))
+        XCTAssertEqual(cmd.last, "--continue")
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithoutContinueFlagWhenDisabled() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: "")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: [])
         XCTAssertFalse(cmd.contains("--continue"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
