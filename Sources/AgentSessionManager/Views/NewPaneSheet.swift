@@ -674,6 +674,11 @@ extension NewPaneSheet {
                 }
             }
         }
+        if isRefreshing, selectedHarness == .opencode, let id = refreshingPane?.opencodeSessionID,
+            !args.contains("--session")
+        {
+            args.append(contentsOf: ["--session", id])
+        }
         return args
     }
 

@@ -464,6 +464,7 @@ final class Tab: Identifiable {
         id: UUID? = nil,
         extraEnvVars: [String: String] = [:],
         profileID: UUID? = nil,
+        resumeOpencodeSessionID: String? = nil,
         statusLineConfigOverride: StatusLineConfig? = nil,
         appSettings: AppSettings? = nil
     ) -> Pane {
@@ -499,6 +500,7 @@ final class Tab: Identifiable {
             profileID: profileID
         )
         pane.extraArgs = extraArgs
+        pane.opencodeSessionID = resumeOpencodeSessionID
         let cwd = worktreeDirectory?.path ?? directory.path
 
         if harness != .shell && harness != .opencode {
@@ -546,7 +548,9 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
+                configureOpenCodeController(
+                    controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
+                    resumeSessionID: pane.opencodeSessionID)
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
@@ -638,7 +642,9 @@ final class Tab: Identifiable {
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
+                configureOpenCodeController(
+                    controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
+                    resumeSessionID: nil)
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
@@ -682,7 +688,9 @@ final class Tab: Identifiable {
         }
         if pane.harness == .opencode {
             let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
-            configureOpenCodeController(new, pane: pane, extraArgs: extra, extraEnvVars: [:])
+            configureOpenCodeController(
+                new, pane: pane, extraArgs: extra, extraEnvVars: [:],
+                resumeSessionID: pane.opencodeSessionID)
             let opencodeMonitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
@@ -782,7 +790,8 @@ extension Tab {
         _ controller: TerminalController,
         pane: Pane,
         extraArgs: String,
-        extraEnvVars: [String: String] = [:]
+        extraEnvVars: [String: String] = [:],
+        resumeSessionID: String? = nil
     ) {
         let port = FreePortAllocator.allocate()
         pane.opencodePort = port
@@ -812,15 +821,29 @@ extension Tab {
         }
 
         let configContent = Tab.buildOpenCodeConfigContent()
-        controller.pendingEnvironment =
-            (controller.pendingEnvironment ?? [])
-            + [
-                "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
-                "AGENT_SESSION_MANAGER_OPENCODE_PORT=\(port.map(String.init) ?? "")",
-                "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true",
-                "OPENCODE_CONFIG_CONTENT=\(configContent)",
-            ]
-        controller.pendingCommand = Tab.buildOpenCodeCommand(port: port, extraArgs: extraArgs)
+        let portString = port.map { String($0) } ?? ""
+        var environment: [String] = [
+            "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
+            "AGENT_SESSION_MANAGER_OPENCODE_PORT=\(portString)",
+            "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true",
+            "OPENCODE_CONFIG_CONTENT=\(configContent)",
+        ]
+        var effectiveExtraArgs = extraArgs
+        if let resumeSessionID {
+            effectiveExtraArgs = " --session \(resumeSessionID)\(extraArgs)"
+            environment.append("OPENCODE_DISABLE_PRUNE=true")
+            TracingService.shared.record(
+                "opencode.session.resumed",
+                attributes: [
+                    "pane.id": pane.id.uuidString,
+                    "pane.name": pane.name,
+                    "tab.id": self.id.uuidString,
+                    "tab.name": self.name,
+                    "session_id_prefix": String(resumeSessionID.prefix(12)),
+                ])
+        }
+        controller.pendingEnvironment = (controller.pendingEnvironment ?? []) + environment
+        controller.pendingCommand = Tab.buildOpenCodeCommand(port: port, extraArgs: effectiveExtraArgs)
         TracingService.shared.record(
             "opencode.config_content.injected",
             attributes: [
@@ -1085,7 +1108,9 @@ extension Tab {
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars)
+                configureOpenCodeController(
+                    controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
+                    resumeSessionID: pane.opencodeSessionID)
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
                     workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),

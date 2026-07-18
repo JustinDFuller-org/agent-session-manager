@@ -64,6 +64,8 @@ final class StatusLineMonitor {
     var onClaudeStopped: (() -> Void)?
     /// Fires on the main actor when OpenCode transitions from working to stopped (one fire per working→stopped edge).
     var onOpencodeStopped: (() -> Void)?
+    /// Fires on the main actor when the OpenCode status provider discovers the bound session id.
+    var onOpencodeSessionBound: ((String) -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
     /// Fires on the main actor when a live poll reports a non-merged state after a merged state was observed.
@@ -139,6 +141,19 @@ final class StatusLineMonitor {
                                 "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
                             ])
                         self.onOpencodeStopped?()
+                    }
+                }
+                opencodeProvider.onSessionBound = { [weak self] id in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        TracingService.shared.record(
+                            "statusline.opencode.session.bound.received",
+                            attributes: [
+                                "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                                "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                                "session_id_prefix": String(id.prefix(12)),
+                            ])
+                        self.onOpencodeSessionBound?(id)
                     }
                 }
                 provider = opencodeProvider

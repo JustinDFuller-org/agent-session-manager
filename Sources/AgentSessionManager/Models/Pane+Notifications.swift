@@ -70,6 +70,11 @@ extension Pane {
                 )
             }
         }
+        statusLineMonitor?.onOpencodeSessionBound = { [weak self] id in
+            Task { @MainActor in
+                self?.opencodeSessionID = id
+            }
+        }
         statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in
             Task { @MainActor in
                 guard let appState, let tab, let pane = self else { return }

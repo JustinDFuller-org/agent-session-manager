@@ -126,18 +126,20 @@ struct PersistedPane: Codable {
     var worktreeIsManaged: Bool
     var profileID: UUID?
     var extraArgs: [String]
+    var opencodeSessionID: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, harness, isPriority, isMerged, worktreeDirectory, worktreeIsManaged
         case claudeProcessDirectory
         case profileID
         case extraArgs
+        case opencodeSessionID
     }
 
     init(
         id: UUID, name: String, harness: Harness, isPriority: Bool = false, isMerged: Bool = false,
         worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil,
-        extraArgs: [String] = []
+        extraArgs: [String] = [], opencodeSessionID: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -148,6 +150,7 @@ struct PersistedPane: Codable {
         self.worktreeIsManaged = worktreeIsManaged
         self.profileID = profileID
         self.extraArgs = extraArgs
+        self.opencodeSessionID = opencodeSessionID
     }
 
     init(from decoder: Decoder) throws {
@@ -163,6 +166,7 @@ struct PersistedPane: Codable {
         worktreeIsManaged = (try? container.decodeIfPresent(Bool.self, forKey: .worktreeIsManaged)) ?? false
         profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
         extraArgs = (try? container.decodeIfPresent([String].self, forKey: .extraArgs)) ?? []
+        opencodeSessionID = try container.decodeIfPresent(String.self, forKey: .opencodeSessionID)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -176,6 +180,7 @@ struct PersistedPane: Codable {
         try container.encode(worktreeIsManaged, forKey: .worktreeIsManaged)
         try container.encodeIfPresent(profileID, forKey: .profileID)
         try container.encode(extraArgs, forKey: .extraArgs)
+        try container.encodeIfPresent(opencodeSessionID, forKey: .opencodeSessionID)
     }
 }
 
@@ -206,7 +211,8 @@ struct SessionPersistence {
                         worktreeDirectory: pane.worktreeDirectory?.path,
                         worktreeIsManaged: pane.worktreeIsManaged,
                         profileID: pane.profileID,
-                        extraArgs: pane.extraArgs
+                        extraArgs: pane.extraArgs,
+                        opencodeSessionID: pane.opencodeSessionID
                     )
                 }
             )
@@ -271,10 +277,18 @@ struct SessionPersistence {
                     continue
                 }
                 var extraArgs = persistedPane.extraArgs
+                var resumeOpencodeSessionID: String?
                 if persistedPane.harness == .claude && appSettings.continueOnRestart
                     && !extraArgs.contains("--continue")
                 {
                     extraArgs.append("--continue")
+                }
+                if persistedPane.harness == .opencode && appSettings.continueOnRestart {
+                    if let id = persistedPane.opencodeSessionID, !extraArgs.contains("--session") {
+                        resumeOpencodeSessionID = id
+                    } else if !extraArgs.contains("--continue") {
+                        extraArgs.append("--continue")
+                    }
                 }
                 let pane = tab.addPane(
                     name: persistedPane.name,
@@ -284,6 +298,7 @@ struct SessionPersistence {
                     worktreeIsManaged: persistedPane.worktreeIsManaged,
                     id: persistedPane.id,
                     profileID: persistedPane.profileID,
+                    resumeOpencodeSessionID: resumeOpencodeSessionID,
                     appSettings: appSettings
                 )
                 pane.isMerged = persistedPane.isMerged

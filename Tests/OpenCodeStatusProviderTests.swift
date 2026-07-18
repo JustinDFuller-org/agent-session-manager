@@ -417,6 +417,35 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         provider.stop()
     }
 
+    func testProviderFiresOnSessionBound() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let session = makeSession(id: "ses_bound_callback", directory: tempDir.path, created: processStartMs)
+        client.sessions = [session]
+        client.sessionsByID[session.id] = session
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart),
+            client: client,
+            startupRetryInterval: 0.01,
+            pollInterval: 60
+        )
+
+        let expectation = XCTestExpectation(description: "onSessionBound fires with session id")
+        var boundID: String?
+        provider.onSessionBound = { id in
+            boundID = id
+            expectation.fulfill()
+        }
+
+        provider.start()
+        wait(for: [expectation], timeout: 3)
+        provider.stop()
+
+        XCTAssertEqual(boundID, "ses_bound_callback")
+    }
+
     func testProviderEmitsTraceEvents() throws {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)

@@ -330,6 +330,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
     var onAttention: ((PaneAttentionEvent) -> Void)?
     var onOpencodeStopped: (() -> Void)?
+    var onSessionBound: ((String) -> Void)?
 
     private enum Lifecycle: String { case unknown, working, idle }
 
@@ -435,6 +436,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
 
                     if let session = try await selectSession() {
                         boundSessionID = session.id
+                        onSessionBound?(session.id)
                         let sessionIDPrefix = String(session.id.prefix(12))
                         trace(
                             "statusline.opencode.session.bound",

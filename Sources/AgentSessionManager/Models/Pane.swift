@@ -59,6 +59,8 @@ final class Pane: Identifiable {
     /// Transient port assigned to an OpenCode pane for its local HTTP API.
     /// Not persisted; a fresh port is allocated on every launch/restart.
     var opencodePort: Int?
+    /// OpenCode session ID to resume on relaunch. Persisted across app launches.
+    var opencodeSessionID: String?
 
     init(
         id: UUID = UUID(),

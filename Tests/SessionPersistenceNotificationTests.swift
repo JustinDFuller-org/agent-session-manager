@@ -115,6 +115,26 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         XCTAssertEqual(pane.extraArgs, ["--model", "opus"])
     }
 
+    func testOpenCodeSessionIDPreservedInPane() {
+        let tab = Tab(id: UUID(), name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = tab.addPane(name: "P", harness: .opencode)
+        pane.opencodeSessionID = "ses_abc"
+        XCTAssertEqual(pane.opencodeSessionID, "ses_abc")
+    }
+
+    func testOpenCodeSessionIDIncludedInPersistedSession() {
+        let appState = AppState()
+        let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
+        let pane = Pane(name: "P", tab: tab, harness: .opencode)
+        pane.opencodeSessionID = "ses_xyz"
+        pane.worktreeDirectory = URL(filePath: "/tmp")
+        tab.panes.append(pane)
+        appState.tabs.append(tab)
+
+        let session = SessionPersistence.makePersistedSession(appState: appState)
+        XCTAssertEqual(session.tabs.first?.panes.first?.opencodeSessionID, "ses_xyz")
+    }
+
     func testExtraArgsRoundTripInPersistedPane() throws {
         let persisted = PersistedPane(
             id: UUID(), name: "p", harness: .claude,
@@ -151,6 +171,110 @@ final class SessionPersistenceNotificationTests: XCTestCase {
             extraArgs.append("--continue")
         }
         XCTAssertEqual(extraArgs, ["--model", "claude-opus-4-5", "--continue"])
+    }
+
+    func testOpenCodeSessionIDRoundTripInPersistedPane() throws {
+        let persisted = PersistedPane(
+            id: UUID(), name: "p", harness: .opencode,
+            opencodeSessionID: "ses_abc123"
+        )
+        let data = try JSONEncoder().encode(persisted)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
+        XCTAssertEqual(decoded.opencodeSessionID, "ses_abc123")
+    }
+
+    func testLegacyPaneDefaultsOpenCodeSessionIDNil() throws {
+        let json = Data(
+            """
+            {
+              "id": "00000000-0000-0000-0000-000000000001",
+              "name": "p",
+              "harness": "opencode",
+              "isPriority": false,
+              "worktreeIsManaged": false
+            }
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
+        XCTAssertNil(decoded.opencodeSessionID)
+    }
+
+    func testRestoreCombinesOpenCodeSessionIdWhenContinueOnRestartEnabled() {
+        let pane = PersistedPane(
+            id: UUID(), name: "p", harness: .opencode,
+            extraArgs: ["--model", "test"],
+            opencodeSessionID: "ses_resume"
+        )
+        var extraArgs = pane.extraArgs
+        var resumeOpencodeSessionID: String?
+        let continueOnRestart = true
+        if pane.harness == .opencode && continueOnRestart {
+            if let id = pane.opencodeSessionID, !extraArgs.contains("--session") {
+                resumeOpencodeSessionID = id
+            } else if !extraArgs.contains("--continue") {
+                extraArgs.append("--continue")
+            }
+        }
+        XCTAssertEqual(resumeOpencodeSessionID, "ses_resume")
+        XCTAssertEqual(extraArgs, ["--model", "test"])
+    }
+
+    func testRestoreFallsBackToOpenCodeContinueWhenSessionIdMissing() {
+        let pane = PersistedPane(
+            id: UUID(), name: "p", harness: .opencode,
+            extraArgs: ["--model", "test"]
+        )
+        var extraArgs = pane.extraArgs
+        var resumeOpencodeSessionID: String?
+        let continueOnRestart = true
+        if pane.harness == .opencode && continueOnRestart {
+            if let id = pane.opencodeSessionID, !extraArgs.contains("--session") {
+                resumeOpencodeSessionID = id
+            } else if !extraArgs.contains("--continue") {
+                extraArgs.append("--continue")
+            }
+        }
+        XCTAssertNil(resumeOpencodeSessionID)
+        XCTAssertEqual(extraArgs, ["--model", "test", "--continue"])
+    }
+
+    func testRestoreOpenCodeNoResumeWhenContinueOnRestartDisabled() {
+        let pane = PersistedPane(
+            id: UUID(), name: "p", harness: .opencode,
+            extraArgs: ["--model", "test"],
+            opencodeSessionID: "ses_resume"
+        )
+        var extraArgs = pane.extraArgs
+        var resumeOpencodeSessionID: String?
+        let continueOnRestart = false
+        if pane.harness == .opencode && continueOnRestart {
+            if let id = pane.opencodeSessionID, !extraArgs.contains("--session") {
+                resumeOpencodeSessionID = id
+            } else if !extraArgs.contains("--continue") {
+                extraArgs.append("--continue")
+            }
+        }
+        XCTAssertNil(resumeOpencodeSessionID)
+        XCTAssertEqual(extraArgs, ["--model", "test"])
+    }
+
+    func testOpenCodeSessionBoundUpdatesPane() async {
+        let appState = AppState()
+        let tab = Tab(id: UUID(), name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = Pane(name: "P", tab: tab, harness: .opencode)
+        let monitor = StatusLineMonitor(
+            paneID: pane.id, paneName: pane.name, workingDirectory: "/tmp",
+            harness: .opencode, processStartTime: Date(), tabID: tab.id, tabName: tab.name)
+        pane.installStatusLineMonitor(monitor)
+        pane.bindNotifications(appState: appState, isPriority: false)
+
+        XCTAssertNotNil(pane.tab)
+        XCTAssertNotNil(pane.notificationAppState)
+        XCTAssertNotNil(pane.statusLineMonitor?.onOpencodeSessionBound)
+
+        pane.statusLineMonitor?.onOpencodeSessionBound?("ses_from_monitor")
+        try? await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(pane.opencodeSessionID, "ses_from_monitor")
     }
 
     func testBaseBranchOverrideRoundTripsInPersistedTab() throws {

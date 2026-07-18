@@ -126,5 +126,51 @@ final class RefreshPaneTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true") == true)
+        XCTAssertFalse(
+            pane.terminalController?.pendingEnvironment?
+                .contains("OPENCODE_DISABLE_PRUNE=true") == true)
+    }
+
+    @MainActor
+    func testQuickRefreshReinjectsOpenCodeSessionIdWhenKnown() {
+        let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
+        let pane = Pane(name: "opencode-pane", tab: tab, harness: .opencode)
+        pane.opencodePort = 11111
+        pane.opencodeSessionID = "ses_resume"
+        pane.extraArgs = ["--verbose"]
+        let controller = TerminalController()
+        controller.pendingCommand = "opencode --old-flag"
+        controller.pendingDirectory = "/tmp/repo"
+        controller.pendingEnvironment = ["PATH=/usr/bin"]
+        pane.installTerminalController(controller)
+        tab.panes.append(pane)
+
+        tab.refreshPane(pane)
+
+        XCTAssertNotEqual(pane.opencodePort, 11111)
+        XCTAssertNotNil(pane.opencodePort)
+        let command = pane.terminalController?.pendingCommand ?? ""
+        XCTAssertTrue(command.hasPrefix("opencode --hostname 127.0.0.1 --mdns=false"))
+        XCTAssertTrue(command.contains(" --port \(pane.opencodePort!)"))
+        XCTAssertTrue(command.contains(" --session ses_resume"))
+        XCTAssertTrue(command.hasSuffix(" --verbose"))
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains("OPENCODE_DISABLE_PRUNE=true") == true)
+    }
+
+    @MainActor
+    func testRefreshWithNewSettingsPreservesOpenCodeSessionFlag() {
+        let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
+        let pane = Pane(name: "opencode-pane", tab: tab, harness: .opencode)
+        pane.installTerminalController(TerminalController())
+        tab.panes.append(pane)
+
+        tab.refreshPane(pane, extraArgs: ["--session", "ses_resume", "--verbose"], harness: .opencode)
+
+        let command = pane.terminalController?.pendingCommand ?? ""
+        XCTAssertTrue(command.contains(" --session ses_resume"))
+        XCTAssertTrue(command.contains(" --verbose"))
+        XCTAssertTrue(command.hasPrefix("opencode --hostname 127.0.0.1 --mdns=false"))
     }
 }
