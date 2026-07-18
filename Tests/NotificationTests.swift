@@ -435,6 +435,19 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications[0].kind, .terminalBell)
     }
 
+    func testAddNotificationOpencodePermissionRequestCreatesOpencodePermissionRequestKind() {
+        let state = AppState()
+        let event = PaneAttentionEvent(
+            source: .opencodePermissionRequest,
+            reason: "Permission needed for external_directory: /etc/*")
+        state.addNotification(
+            paneID: UUID(), paneName: "pane", tabID: UUID(), tabName: "tab",
+            isPriority: false, event: event
+        )
+        XCTAssertEqual(state.notifications[0].kind, .opencodePermissionRequest)
+        XCTAssertEqual(state.notifications[0].reason, "Permission needed for external_directory: /etc/*")
+    }
+
     private func claudeEvent(_ json: String) -> PaneAttentionEvent? {
         PaneAttentionEvent.claudeHook(Data(json.utf8))
     }

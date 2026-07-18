@@ -72,4 +72,28 @@ final class OpenCodeConfigInvariantTests: XCTestCase {
         XCTAssertEqual(entries?.count, 2, "User and app entries should both be present")
         XCTAssertTrue(entries?.last?.contains("\"share\":\"manual\"") == true, "App value should be last so it wins")
     }
+
+    func testOpenCodePortPolicyInvariantPassesOnNormalLaunch() {
+        InvariantReporter.shared.enableTestCapture()
+        TracingService.shared.enableTestCapture()
+        let tab = Tab(name: "repo", directory: URL(filePath: "/tmp/repo"))
+
+        _ = tab.addPane(
+            name: "opencode-pane",
+            harness: .opencode,
+            extraEnvVars: [:]
+        )
+
+        XCTAssertFalse(
+            InvariantReporter.shared.violationsForTesting.contains { $0.invariantID == "opencode.port.policy" }
+        )
+
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(events.contains { $0.name == "opencode.port.allocated" })
+        XCTAssertTrue(events.contains { $0.name == "opencode.command.built" })
+        let commandBuilt = events.first { $0.name == "opencode.command.built" }
+        XCTAssertEqual(commandBuilt?.attributes["hostname"], "127.0.0.1")
+        XCTAssertEqual(commandBuilt?.attributes["mdns"], "false")
+        XCTAssertEqual(commandBuilt?.attributes["has_port"], "true")
+    }
 }

@@ -547,15 +547,9 @@ final class Tab: Identifiable {
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(
+                installOpenCodeController(
                     controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
-                    resumeSessionID: pane.opencodeSessionID)
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, paneName: pane.name,
-                    workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
-                pane.installStatusLineMonitor(monitor)
+                    resumeSessionID: pane.opencodeSessionID, harness: harness)
             }
             pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
@@ -641,15 +635,9 @@ final class Tab: Identifiable {
                     + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
                 controller.pendingCommand = "agent\(extra)"
             case .opencode:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(
+                installOpenCodeController(
                     controller, pane: pane, extraArgs: extra, extraEnvVars: extraEnvVars,
-                    resumeSessionID: nil)
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, paneName: pane.name,
-                    workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
-                pane.installStatusLineMonitor(monitor)
+                    harness: harness)
             }
 
             pane.harness = harness
@@ -688,14 +676,9 @@ final class Tab: Identifiable {
         }
         if pane.harness == .opencode {
             let extra = pane.extraArgs.isEmpty ? "" : " " + pane.extraArgs.joined(separator: " ")
-            configureOpenCodeController(
-                new, pane: pane, extraArgs: extra, extraEnvVars: [:],
-                resumeSessionID: pane.opencodeSessionID)
-            let opencodeMonitor = StatusLineMonitor(
-                paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
-            pane.installStatusLineMonitor(opencodeMonitor)
+            installOpenCodeController(
+                new, pane: pane, extraArgs: extra, resumeSessionID: pane.opencodeSessionID,
+                harness: pane.harness)
         }
         if pane.harness == .codex, let monitor {
             monitor.writeCodexHookScript()
@@ -786,6 +769,27 @@ extension Tab {
             + extraEnvVars.map { "\($0.key)=\($0.value)" }
     }
 
+    private func installOpenCodeController(
+        _ controller: TerminalController,
+        pane: Pane,
+        extraArgs: String,
+        extraEnvVars: [String: String] = [:],
+        resumeSessionID: String? = nil,
+        harness: Harness
+    ) {
+        let cwd = pane.worktreeDirectory?.path ?? directory.path
+        applyExtraEnvVars(extraEnvVars, to: controller)
+        configureOpenCodeController(
+            controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars,
+            resumeSessionID: resumeSessionID)
+        let monitor = StatusLineMonitor(
+            paneID: pane.id, paneName: pane.name,
+            workingDirectory: cwd, harness: harness, processStartTime: Date(),
+            tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
+            opencodeSessionID: pane.opencodeSessionID)
+        pane.installStatusLineMonitor(monitor)
+    }
+
     private func configureOpenCodeController(
         _ controller: TerminalController,
         pane: Pane,
@@ -795,7 +799,17 @@ extension Tab {
     ) {
         let port = FreePortAllocator.allocate()
         pane.opencodePort = port
-        if port == nil {
+        if let port {
+            TracingService.shared.record(
+                "opencode.port.allocated",
+                attributes: [
+                    "pane.id": pane.id.uuidString,
+                    "pane.name": pane.name,
+                    "tab.id": self.id.uuidString,
+                    "tab.name": self.name,
+                    "port": String(port),
+                ])
+        } else {
             TracingService.shared.record(
                 "opencode.port_allocation.failed",
                 attributes: [
@@ -843,7 +857,41 @@ extension Tab {
                 ])
         }
         controller.pendingEnvironment = (controller.pendingEnvironment ?? []) + environment
-        controller.pendingCommand = Tab.buildOpenCodeCommand(port: port, extraArgs: effectiveExtraArgs)
+        let command = Tab.buildOpenCodeCommand(port: port, extraArgs: effectiveExtraArgs)
+        controller.pendingCommand = command
+        let hasSessionArg = effectiveExtraArgs.contains("--session")
+        let hasContinueFlag = effectiveExtraArgs.contains("--continue")
+
+        let portPolicyCheck =
+            command.contains("--hostname 127.0.0.1")
+            && command.contains("--mdns=false")
+            && (port != nil && command.contains("--port \(portString)"))
+        InvariantReporter.shared.check(
+            .opencodePortPolicy,
+            portPolicyCheck,
+            context: [
+                "pane.id": pane.id.uuidString,
+                "pane.name": pane.name,
+                "tab.id": self.id.uuidString,
+                "tab.name": self.name,
+                "has_hostname": command.contains("--hostname 127.0.0.1") ? "true" : "false",
+                "has_mdns_off": command.contains("--mdns=false") ? "true" : "false",
+                "has_port": port != nil ? "true" : "false",
+            ])
+
+        TracingService.shared.record(
+            "opencode.command.built",
+            attributes: [
+                "pane.id": pane.id.uuidString,
+                "pane.name": pane.name,
+                "tab.id": self.id.uuidString,
+                "tab.name": self.name,
+                "hostname": "127.0.0.1",
+                "mdns": "false",
+                "has_port": port != nil ? "true" : "false",
+                "has_session_arg": hasSessionArg ? "true" : "false",
+                "has_continue_flag": hasContinueFlag ? "true" : "false",
+            ])
         TracingService.shared.record(
             "opencode.config_content.injected",
             attributes: [

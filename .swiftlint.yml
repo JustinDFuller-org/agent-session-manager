@@ -35,7 +35,6 @@ opt_in_rules:
   - no_space_in_method_call
   - operator_usage_whitespace
   - overridden_super_call
-  - pattern_matching_keywords
   - prefer_self_type_over_type_of_self
   - prefer_zero_over_explicit_init
   - prohibited_super_call

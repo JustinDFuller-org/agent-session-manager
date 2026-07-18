@@ -83,6 +83,7 @@ final class AppState {
             switch event.source {
             case .claudeStop: return .claudeStop
             case .opencodeStop: return .opencodeStop
+            case .opencodePermissionRequest: return .opencodePermissionRequest
             default: return .terminalBell
             }
         }()

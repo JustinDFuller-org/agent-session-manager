@@ -54,6 +54,30 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "An OpenCode pane was started without a configured opencode port.",
         traceEventName: "statusline.opencode.port_missing"
     )
+
+    static let opencodePortPolicy = Invariant(
+        id: "opencode.port.policy",
+        integration: "OpenCode",
+        severity: .error,
+        description: "An OpenCode pane must bind to localhost, use an ephemeral port, and disable mDNS.",
+        traceEventName: "opencode.port.policy_violated"
+    )
+
+    static let opencodeSessionRebindable = Invariant(
+        id: "opencode.session.rebindable",
+        integration: "OpenCode",
+        severity: .warning,
+        description: "An OpenCode pane must bind to a session id and rebind to the same id across restore.",
+        traceEventName: "opencode.session.rebindable_violated"
+    )
+
+    static let opencodeTUIEndpointsUnused = Invariant(
+        id: "opencode.tui.endpoints_unused",
+        integration: "OpenCode",
+        severity: .error,
+        description: "The app must not call OpenCode /tui/* endpoints; the terminal is the user surface.",
+        traceEventName: "opencode.tui.endpoint_forbidden"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {

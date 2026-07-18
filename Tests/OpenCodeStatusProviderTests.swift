@@ -27,7 +27,8 @@ final class OpenCodeStatusProviderTests: XCTestCase {
     private func makeContext(
         workingDirectory: String? = nil,
         processStartTime: Date = Date(),
-        opencodePort: Int? = 41617
+        opencodePort: Int? = 41617,
+        opencodeSessionID: String? = nil
     ) -> StatusProviderContext {
         StatusProviderContext(
             paneID: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
@@ -41,7 +42,8 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             environment: [:],
             detectedHarnessVersion: nil,
             codexHookRecordPath: nil,
-            opencodePort: opencodePort
+            opencodePort: opencodePort,
+            opencodeSessionID: opencodeSessionID
         )
     }
 

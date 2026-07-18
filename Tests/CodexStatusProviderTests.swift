@@ -359,7 +359,8 @@ final class CodexStatusProviderTests: XCTestCase {
                 environment: [:],
                 detectedHarnessVersion: "0.136.0",
                 codexHookRecordPath: hookRecordURL.path,
-                opencodePort: nil
+                opencodePort: nil,
+                opencodeSessionID: nil
             ),
             stateStore: CodexStateStore(databaseURL: dbURL)
         )
@@ -818,7 +819,8 @@ extension CodexStatusProviderTests {
             environment: [:],
             detectedHarnessVersion: "codex-cli 0.136.0",
             codexHookRecordPath: hookRecordPath ?? tempDir.appending(path: "hook-record.json").path,
-            opencodePort: nil
+            opencodePort: nil,
+            opencodeSessionID: nil
         )
     }
 

@@ -82,7 +82,8 @@ final class StatusLineMonitor {
         processStartTime: Date = Date(),
         tabID: UUID = UUID(),
         tabName: String = "",
-        opencodePort: Int? = nil
+        opencodePort: Int? = nil,
+        opencodeSessionID: String? = nil
     ) {
         self.paneID = paneID
         self.paneName = paneName.isEmpty ? String(paneID.uuidString.prefix(8)) : paneName
@@ -118,7 +119,8 @@ final class StatusLineMonitor {
                 environment: [:],
                 detectedHarnessVersion: nil,
                 codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil,
-                opencodePort: opencodePort
+                opencodePort: opencodePort,
+                opencodeSessionID: opencodeSessionID
             )
         }
 

@@ -23,4 +23,13 @@ final class TabBuildOpenCodeCommandTests: XCTestCase {
 
         XCTAssertEqual(command, "opencode --hostname 127.0.0.1 --mdns=false --port 54321")
     }
+
+    func testBuildOpenCodeCommandSatisfiesPortPolicy() {
+        let command = Tab.buildOpenCodeCommand(port: 54321, extraArgs: " --session ses_123")
+
+        XCTAssertTrue(command.contains("--hostname 127.0.0.1"))
+        XCTAssertTrue(command.contains("--mdns=false"))
+        XCTAssertTrue(command.contains("--port 54321"))
+        XCTAssertTrue(command.contains("--session ses_123"))
+    }
 }

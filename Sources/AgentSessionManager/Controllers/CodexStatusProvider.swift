@@ -14,6 +14,7 @@ struct StatusProviderContext {
     let detectedHarnessVersion: String?
     let codexHookRecordPath: String?
     let opencodePort: Int?
+    let opencodeSessionID: String?
 }
 
 struct CodexHookSessionRecord: Codable, Equatable {

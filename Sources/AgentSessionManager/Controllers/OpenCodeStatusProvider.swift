@@ -13,7 +13,6 @@ enum OpenCodeVersionAdapter {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return normalized.isEmpty ? nil : normalized
     }
-
 }
 
 // MARK: - Server models
@@ -74,6 +73,7 @@ enum OpenCodeServerClientError: Error {
     case invalidURL
     case unexpectedStatus(Int)
     case decodingFailed(underlying: Error)
+    case forbiddenTUIEndpoint(path: String)
 }
 
 // MARK: - URLSession client
@@ -209,8 +209,17 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
         return try await perform(request: request)
     }
 
-    private func makeRequest(path: String, method: String, body: Data?) throws -> URLRequest {
+    func makeRequest(path: String, method: String, body: Data?) throws -> URLRequest {
         guard let port else { throw OpenCodeServerClientError.missingPort }
+        if path.hasPrefix("/tui/") {
+            InvariantReporter.shared.violated(
+                .opencodeTUIEndpointsUnused,
+                context: [
+                    "path": path,
+                    "method": method,
+                ])
+            throw OpenCodeServerClientError.forbiddenTUIEndpoint(path: path)
+        }
         guard let url = URL(string: "http://127.0.0.1:\(port)\(path)") else {
             throw OpenCodeServerClientError.invalidURL
         }
@@ -283,7 +292,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient {
 
             enum CodingKeys: String, CodingKey {
                 case id
-                case providerID = "providerID"
+                case providerID
                 case variant
             }
         }
@@ -407,7 +416,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     "tab.id": context.tabID.uuidString,
                     "tab.name": context.tabName,
                 ])
-            trace("statusline.opencode.port_missing")
             return
         }
 
@@ -423,6 +431,14 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                 let (healthy, version) = try await client.health()
                 if healthy {
                     detectedVersion = OpenCodeVersionAdapter.normalize(version)
+                    if detectedVersion == nil {
+                        trace(
+                            "statusline.opencode.version.drift",
+                            attributes: [
+                                "reason": "health_version_missing",
+                                "raw_version": version ?? "nil",
+                            ])
+                    }
                     if !didTraceServerWaiting {
                         trace(
                             "statusline.opencode.server.bound",
@@ -445,6 +461,19 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                                 "retry_attempt": "\(attempt)",
                                 "late_bound": lateBound ? "true" : "false",
                             ])
+
+                        if let expectedSessionID = context.opencodeSessionID, session.id != expectedSessionID {
+                            InvariantReporter.shared.violated(
+                                .opencodeSessionRebindable,
+                                context: [
+                                    "pane.id": context.paneID.uuidString,
+                                    "pane.name": context.paneName,
+                                    "tab.id": context.tabID.uuidString,
+                                    "tab.name": context.tabName,
+                                    "expected_session_id_prefix": String(expectedSessionID.prefix(12)),
+                                    "bound_session_id_prefix": sessionIDPrefix,
+                                ])
+                        }
 
                         await renameSessionIfNeeded(session)
                         await refreshSession()
@@ -479,6 +508,16 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     "statusline.opencode.session.unbindable",
                     attributes: [
                         "retry_attempt": "\(attempt)",
+                        "reason": "startup_timeout",
+                        "app_directory": appDirectory,
+                    ])
+                InvariantReporter.shared.violated(
+                    .opencodeSessionRebindable,
+                    context: [
+                        "pane.id": context.paneID.uuidString,
+                        "pane.name": context.paneName,
+                        "tab.id": context.tabID.uuidString,
+                        "tab.name": context.tabName,
                         "reason": "startup_timeout",
                         "app_directory": appDirectory,
                     ])

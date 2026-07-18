@@ -18,7 +18,7 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | 5 | [Status provider](#7-status-line-support) | [x] | `OpenCodeStatusProvider`, HTTP client seam, discovery+PATCH rename, polling, chip capabilities, tests. |
 | 6 | [Notifications](#8-notifications-and-attention) | [x] | `NotificationKind.opencodeStop`, `PaneAttentionEvent.Source.opencodeStop/opencodePermissionRequest`, settings persistence + UI toggle, SSE event stream with busy→idle lifecycle, permission events; polling fallback for idle transition. Tests for stop edge, permission, ignored foreign sessions, and polling fallback. |
 | 7 | [Restore + continue](#9-session-persistence-restore-and-continue-on-restart) | [x] | `opencodeSessionID` persisted on `Pane`/`PersistedPane`; `OpenCodeStatusProvider` reports bound id back to `Pane` via `onSessionBound`; restore path passes `--session <id>` when `continueOnRestart` is enabled (with `--continue` fallback); bare-restart always resumes when a session id is known; `OPENCODE_DISABLE_PRUNE=true` injected only on resume paths; `NewPaneSheet` auto-injects `--session <id>` on refresh to preserve continuity. |
-| 8 | [Telemetry + invariants](#10-additional-cross-cutting-concerns) | [ ] | |
+| 8 | [Telemetry + invariants](#10-additional-cross-cutting-concerns) | [x] | Added `opencode.port.policy`, `opencode.session.rebindable`, `opencode.tui.endpoints_unused` invariants; positive `opencode.port.allocated`/`opencode.command.built` spans; `/tui/*` runtime guard; `NotificationKind.opencodePermissionRequest` for accurate span kind. |
 | 9 | [Docs + skill](#10-additional-cross-cutting-concerns) | [ ] | |
 
 ### Open questions
@@ -526,7 +526,7 @@ A phased approach keeps each stage compileable and testable.
 
 ---
 
-*Last updated: July 18, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; Phase 3 command builder + launch complete; Phase 4 `OPENCODE_CONFIG_CONTENT` injection complete; Phase 5 status provider complete; Phase 6 notifications + attention complete; Phase 7 restore + continue complete; telemetry/docs/skill deferred to Phases 8–9.*
+*Last updated: July 18, 2026. Phase 0 spike complete; Phase 1 enum + detection complete; Phase 2 CLI flag catalog + persistence + env-var catalog + harness-aware decode complete; Phase 3 command builder + launch complete; Phase 4 `OPENCODE_CONFIG_CONTENT` injection complete; Phase 5 status provider complete; Phase 6 notifications + attention complete; Phase 7 restore + continue complete; Phase 8 telemetry + invariants complete; Phase 9 docs + skill deferred.*
 
 ## Spike Findings
 

@@ -5,6 +5,7 @@ enum NotificationKind: String, Codable {
     case prMerged
     case claudeStop
     case opencodeStop
+    case opencodePermissionRequest
 }
 
 struct PaneAttentionEvent: Equatable {
