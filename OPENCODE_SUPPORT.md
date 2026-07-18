@@ -2,6 +2,8 @@
 
 This document is a working plan for adding [OpenCode](https://opencode.ai) as a fourth agent harness in Agent Session Manager, alongside Claude Code, Codex, and Cursor. It captures what has been researched so far, the architectural decisions already made, the remaining open questions, and a proposed implementation order. It is intentionally not polished end-user documentation; the user-facing feature doc will be created later at `documentation/features/opencode-cli.md`.
 
+Current implementation behavior is documented in `documentation/features/opencode-cli.md`. Some sections below preserve the original API-spike and design alternatives for historical context; they are not a description of the final session-binding call sequence.
+
 ## Progress
 
 Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
@@ -20,16 +22,16 @@ Legend: `[ ]` not started, `[~]` in progress, `[x]` complete.
 | 7 | [Restore + continue](#9-session-persistence-restore-and-continue-on-restart) | [x] | `opencodeSessionID` persisted on `Pane`/`PersistedPane`; `OpenCodeStatusProvider` reports bound id back to `Pane` via `onSessionBound`; restore path passes `--session <id>` when `continueOnRestart` is enabled (with `--continue` fallback); bare-restart always resumes when a session id is known; `OPENCODE_DISABLE_PRUNE=true` injected only on resume paths; `NewPaneSheet` auto-injects `--session <id>` on refresh to preserve continuity. |
 | 8 | [Telemetry + invariants](#10-additional-cross-cutting-concerns) | [x] | Added `opencode.port.policy`, `opencode.session.rebindable`, `opencode.tui.endpoints_unused` invariants; positive `opencode.port.allocated`/`opencode.command.built` spans; `/tui/*` runtime guard; `NotificationKind.opencodePermissionRequest` for accurate span kind. |
 | 9 | [Docs + skill](#10-additional-cross-cutting-concerns) | [x] | Created `documentation/features/opencode-cli.md`, `.agents/skills/feature-opencode-cli/` skill + symlink, updated `AGENTS.md` Feature Skills list, and corrected stale OpenCode cells in `agent-harness-feature-matrix.md`. |
-| 10 | [Hardening + correctness follow-up](#phase-10-hardening-security-and-correctness-follow-up) | [~] | Security fixes, concurrency hardening, test coverage expansion, and doc accuracy corrections identified during post-implementation review. |
+| 10 | [Hardening + correctness follow-up](#phase-10-hardening-security-and-correctness-follow-up) | [x] | Security fixes, concurrency hardening, test coverage expansion, and documentation corrections are complete. |
 
 ### Open questions
 
 | # | Question | Status | Resolution |
 |---|---|---|---|
 | 1 | Random-port discovery | [x] | Always pin `--port`; stdout URL emission is undocumented and the TUI defaults to a random port. |
-| 2 | SSE vs polling | [x] | SSE `GET /event` works but **requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`**. Without the flag only `server.connected` is emitted. Fallback is polling `GET /session/:id`, not `/session/status` (the latter returns `{}` in 1.17.13). Inject the flag per-pane via `OPENCODE_CONFIG_CONTENT`. |
+| 2 | SSE vs polling | [x] | SSE `GET /event` works but **requires `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true`**. Without the flag only `server.connected` is emitted. Fallback is polling `GET /session/:id`, not `/session/status` (the latter returns `{}` in 1.17.13). Inject the flag per-pane as an app-controlled environment variable. |
 | 3 | Background subagent idle behavior | [x] | Background subagents create **child sessions** (`parentID` points to the parent). The bound parent session's `session.idle` fires accurately when its own turn completes, so no Claude-style `SubagentStop` gating is needed for v1. |
-| 4 | Auto session names | [x] | `POST /session {"title":"..."}` works against the embedded TUI server and returns a session `id`. Passing `--session <id>` rebinds the TUI to that session. v1 can auto-name with the `<tab>/<pane>` convention. |
+| 4 | Auto session names | [x] | The provider discovers the TUI-created session, then uses `PATCH /session/:id {"title":"<tab>/<pane>"}` to apply the pane name. Passing `--session <id>` rebinds the TUI to that session. |
 | 5 | Env-var catalog scope | [x] | Add OpenCode env-var editor in v1. |
 | 6 | `OPENCODE_CONFIG_CONTENT` limits | [x] | **16 KB passes** and **512 KB passes** when the env var is set directly. The only failure observed was at ~1 MB when passing the value through a shell, which hit `ARG_MAX`/`argument list too long` — an invocation-shell limit, not an OpenCode loader limit. Swift `Process.environment` / `setenv` should not hit this ceiling. |
 | 7 | Cost data availability | [x] | **Yes.** `GET /session/:id` returns `cost: number` and `tokens: {input, output, reasoning, cache: {read, write}}`. These also appear in SSE `session.updated` events. `inputTokens`/`outputTokens` and `cost` chips are supported. |
@@ -314,13 +316,11 @@ Each `opencode` TUI starts its own server. Agent Session Manager must ensure eac
 
 A single pane/server may host multiple sessions over time. The provider needs to know which session is "the pane's session."
 
-**Chosen strategy:** `POST /session {title?}` upfront, then pass `--session <id>` to the OpenCode CLI.
-- Before launching the pane, the app calls `POST /session {title: "<tab>/<pane>"}` on the per-pane server. If the embedded TUI server isn't reachable before the TUI starts, fall back to discovery (next bullet).
-- The returned `sessionID` is passed to the TUI launch via `--session <id>`.
-- The provider binds to that exact id; no heuristic matching.
-- Store the bound `sessionID` on the pane so restore/restart rebinds to the same session.
-- **Fallback (when `POST /session` isn't usable pre-launch):** launch the TUI, then call `GET /session` and pick the active/running session (or most-recently-updated). Avoid `GET /session/status`; it returned `{}` in 1.17.13 and carries no useful fields.
-- **Auto session names:** because `POST /session {title?}` accepts a title at creation, OpenCode panes CAN be auto-named in v1 (no longer Claude-only as Q4 originally closed). The title format mirrors Claude's `<tab>/<pane>` convention.
+**Implemented strategy:** launch the TUI with the app-assigned port, discover its top-level session with `GET /session`, then rename it with `PATCH /session/:id {title: "<tab>/<pane>"}`.
+- Prefer a persisted session id when one is available; otherwise match a top-level session in the pane's worktree and bind the closest session to process start time.
+- Store the bound `sessionID` on the pane so restore/restart can rebind with `--session <id>`.
+- Reject child subagent sessions and emit a rebindability invariant when the expected session cannot be found.
+- **Auto session names:** the provider applies the `<tab>/<pane>` title after discovery.
 
 ### 7.3 `OpenCodeStatusProvider`
 
@@ -337,7 +337,7 @@ Create a new provider conforming to `StatusLineDataProvider`, modeled on `CodexS
   - `inputTokens`, `outputTokens` (`tokens.input`, `tokens.output`)
   - `cost` (`cost: number`)
   - `version`
-  - `sessionName` (from `title`, set at creation via `POST /session {title?}`)
+  - `sessionName` (from `title`, updated via `PATCH /session/:id` after discovery)
 - Do **not** populate `context` / `contextRemaining`; those fields are not exposed in 1.17.13.
 - Merge baseline and harness data in `emitMerged()`, following the `CodexStatusProvider` pattern.
 - Add bounded tracing for binding attempts, parse failures, field presence, version-drift detection, and SSE/polling transitions. Do not log prompts, messages, or auth data.
@@ -366,7 +366,7 @@ Proposed OpenCode support per chip (finalized after Phase 0 spike):
 | `context` / `contextRemaining` | Server API | No; not exposed on Session or SessionStatus in 1.17.13 |
 | `cost` | `GET /session/:id` / SSE `session.updated` | Yes (`cost: number`) |
 | `version` | `GET /global/health` | Yes (`version` string) |
-| `sessionName` | `GET /session/:id` / SSE `session.updated` | Yes (set via `POST /session {title}` and pass `--session <id>`) |
+| `sessionName` | `GET /session/:id` / SSE `session.updated` | Yes (updated via `PATCH /session/:id`; restore passes `--session <id>`) |
 | `duration` | App-owned | Yes |
 | `worktree` | App-owned | Yes |
 | `linesAdded` / `linesRemoved` | App-owned baseline (`git diff --stat`) | Yes; `GET /session/:id/diff` returned `[]` for filesystem edits, so do not use it for line counts |
@@ -424,13 +424,13 @@ Recommendation: option 1. Older builds crashing on a new file format is acceptab
 
 ### Session binding
 
-Cross-link §7.2: the app pre-allocates a `sessionID` via `POST /session {title?}` and passes it via `--session <id>`. Persisted state for restore: pane id, `sessionID` (when continuing), injected-config snapshot. The port is transient and reallocated on relaunch — do not persist it. On restore, reallocate a fresh port, rebuild the command/env, and rebind via `--session <id>`.
+Cross-link §7.2: the provider discovers and binds the TUI-created session, then persists its id for restart and restore. Persisted state includes the pane id, `sessionID` (when continuing), and pane options. The port is transient and reallocated on relaunch — do not persist it. On restore, reallocate a fresh port, rebuild the command/env, and rebind via `--session <id>`.
 
 ### Prune race
 
 OpenCode may prune old sessions on startup. If `OPENCODE_DISABLE_PRUNE` isn't injected, a startup prune could delete the persisted `sessionID` before the provider rebinds to it. Recommend injecting `OPENCODE_DISABLE_PRUNE=true` per-pane (or gating restore on session existence via `GET /session/:id` before launching the TUI).
 
-### Work to do
+### Implemented behavior
 
 - Extend `Tab.refreshPane` and `restartPane` to handle `.opencode`:
   - Reallocate a fresh free port on every launch.
@@ -438,7 +438,7 @@ OpenCode may prune old sessions on startup. If `OPENCODE_DISABLE_PRUNE` isn't in
   - Rebuild `OPENCODE_CONFIG_CONTENT` and other injected env vars.
   - Inject `--continue` or `--session <id>` on restart if `AppSettings.continueOnRestart` is true.
 - Store enough state to rebind after restore: at minimum the pane id and, if continuing, the session id. The port is transient and reallocated on relaunch.
-- Auto session names: because `POST /session {title?}` accepts a title at creation and the provider passes `--session <id>`, OpenCode panes **can** be auto-named in v1. The title format mirrors Claude's `<tab>/<pane>` convention.
+- Auto session names: the provider renames the discovered session with `PATCH /session/:id`; the title format mirrors Claude's `<tab>/<pane>` convention.
 
 ## 10. Additional cross-cutting concerns
 
@@ -570,7 +570,7 @@ A skeptical post-implementation review identified that several Phase 1–9 check
 | 10.4.4 | Real restore-path tests | [x] | `SessionPersistence.restore` entry point is exercised for OpenCode pane/session id round-trip. |
 | 10.4.5 | Foreign-session rejection | [x] | `selectSession` rejects directory-mismatch and child-parent sessions. |
 | 10.4.6 | Port allocation failure | [x] | `FreePortAllocator` failure and race-loss respawn fallback are covered. |
-| 10.4.7 | UI test smoke | [x] | UITest creates an OpenCode pane through the real New Pane sheet and skips honestly if `opencode` is not installed. |
+| 10.4.7 | UI test smoke | [x] | `OpenCodeFlowTests` enables OpenCode through the real Settings flow and creates a pane through the real New Pane sheet; it skips honestly if `opencode` is not installed. Existing UI-test harness isolation means this covers pane setup UI, while process and SSE behavior remain covered by unit seams and live smoke testing. |
 
 ### 10.5 Documentation accuracy
 

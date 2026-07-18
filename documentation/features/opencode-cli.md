@@ -80,7 +80,7 @@ The provider populates the following chips:
 | `outputTokens` | `GET /session/:id` / SSE `session.updated` |
 | `cost` | `GET /session/:id` / SSE `session.updated` |
 | `version` | `GET /global/health` |
-| `sessionName` | `GET /session/:id` (set via `POST /session {title}` at creation) |
+| `sessionName` | `GET /session/:id` (set via `PATCH /session/:id {title}`) |
 | `worktree` | App-owned checkout directory plus Git branch |
 | `linesAdded` / `linesRemoved` | App-owned `git diff --shortstat HEAD` |
 | `duration` | App-owned process duration |
