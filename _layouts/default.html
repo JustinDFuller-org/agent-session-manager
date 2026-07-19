@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{ page.description | default: site.description }}">
+    <title>{{ page.title | default: site.title }} · {{ site.title }}</title>
+    <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="{{ '/' | relative_url }}">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="{{ '/docs/' | relative_url }}">Documentation</a>
+          <a href="https://github.com/{{ site.repository }}">GitHub</a>
+          <a href="https://github.com/{{ site.repository }}/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="{{ '/docs/' | relative_url }}">Documentation</a>
+            <a href="https://github.com/{{ site.repository }}">GitHub</a>
+            <a href="https://github.com/{{ site.repository }}/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame{% if page.layout == 'home' %} site-frame-home{% endif %}">
+      {% unless page.layout == 'home' %}
+      <aside class="sidebar">
+        <a class="sidebar-home" href="{{ '/' | relative_url }}">Overview</a>
+        {% for group in site.data.navigation %}
+        <section class="nav-group">
+          <h2>{{ group.title }}</h2>
+          <ul>
+            {% for item in group.items %}
+            <li><a{% if page.url == item.url %} class="current" aria-current="page"{% endif %} href="{{ item.url | relative_url }}">{{ item.title }}</a></li>
+            {% endfor %}
+          </ul>
+        </section>
+        {% endfor %}
+      </aside>
+      {% endunless %}
+
+      <main id="main-content" class="content{% if page.layout == 'home' %} content-home{% endif %}">
+        {% if page.layout == 'doc' %}
+        <p class="eyebrow"><a href="{{ '/docs/' | relative_url }}">Documentation</a></p>
+        {% endif %}
+        {{ content }}
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/{{ site.repository }}">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

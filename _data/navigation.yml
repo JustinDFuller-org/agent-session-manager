@@ -1,0 +1,74 @@
+- title: Getting Started
+  items:
+    - title: Setup Wizard
+      url: /features/setup-wizard.html
+    - title: Tabs and Panes
+      url: /features/panes.html
+    - title: Worktree Creation
+      url: /features/worktree-creation.html
+    - title: Default Branch
+      url: /features/default-branch.html
+    - title: Session Names
+      url: /features/session-names.html
+    - title: Continue on Restart
+      url: /features/continue-on-restart.html
+- title: Harnesses
+  items:
+    - title: Feature Matrix
+      url: /features/agent-harness-feature-matrix.html
+    - title: Cursor CLI
+      url: /features/cursor-cli.html
+    - title: Codex CLI
+      url: /features/codex-cli.html
+- title: Configuration
+  items:
+    - title: Profiles
+      url: /features/profiles.html
+    - title: Profile Ordering
+      url: /features/profile-ordering.html
+    - title: Status Line
+      url: /features/status-line.html
+    - title: Settings Navigation
+      url: /features/settings-navigation.html
+    - title: Focus Pane
+      url: /features/focus-pane.html
+    - title: Tab and Pane Reordering
+      url: /features/tab-pane-reordering.html
+    - title: Terminal Scrollback
+      url: /features/terminal-scrollback.html
+- title: Notifications and Observability
+  items:
+    - title: Notifications
+      url: /features/notifications.html
+    - title: Activity Indicators
+      url: /features/tab-pane-activity-indicators.html
+    - title: Pane Loading Indicator
+      url: /features/pane-loading-indicator.html
+    - title: Debug Mode
+      url: /features/debug-logging.html
+    - title: Tracing
+      url: /features/tracing.html
+    - title: Invariants
+      url: /features/invariants.html
+    - title: Observability Dashboard
+      url: /features/observability-dashboard.html
+- title: GitHub Workflows
+  items:
+    - title: PR Tracking
+      url: /features/pr-tracking.html
+    - title: PR Merged Notifications
+      url: /features/pr-merged-notifications.html
+    - title: Worktree Cleanup
+      url: /features/worktree-cleanup.html
+- title: Developer and Release
+  items:
+    - title: Development Builds
+      url: /features/dev-build.html
+    - title: Distribution
+      url: /features/distribution.html
+    - title: Update Reminders
+      url: /features/update-reminder.html
+    - title: UI Test Screenshots
+      url: /features/screenshots.html
+    - title: Terminal Rendering
+      url: /features/terminal-rendering.html
