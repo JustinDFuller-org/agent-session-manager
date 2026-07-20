@@ -111,7 +111,7 @@ Released DMG builds check for new versions using Sparkle against a public `appca
 
 Source / development builds never set `ASMDistributionChannel`, so `UpdateCheckCoordinator` routes them to `MainBranchUpdateDetector` and `DMGReleaseDetector` is never initialized.
 
-For full details on the detector routing and the update UI, see [update-reminder.md](update-reminder.md).
+For full details on the detector routing and the update UI, see [update-reminder.md]({{ '/documentation/features/update-reminder/' | relative_url }}).
 
 ### Environment differences between `make run` and a Finder/DMG launch
 
@@ -119,4 +119,4 @@ For full details on the detector routing and the update UI, see [update-reminder
 
 Opening the app from Finder or the DMG gives it the minimal environment that LaunchServices provides. Without adjustment, spawned panes can see a bare `PATH` and no `TERM`, which may cause tools like Claude Code to render without color and may surface warnings from `~/.zshrc` that reference tools not yet on `PATH`.
 
-The app handles this by sanitizing each pane's environment before it starts (see [panes.md](panes.md)). When verifying a distribution build, confirm that panes still spawn cleanly and that Claude/Cursor/Codex render color output as expected.
+The app handles this by sanitizing each pane's environment before it starts (see [panes.md]({{ '/documentation/features/panes/' | relative_url }})). When verifying a distribution build, confirm that panes still spawn cleanly and that Claude/Cursor/Codex render color output as expected.

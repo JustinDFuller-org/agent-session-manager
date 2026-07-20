@@ -1,74 +1,78 @@
 - title: Getting Started
   items:
     - title: Setup Wizard
-      url: /features/setup-wizard.html
+      url: /documentation/features/setup-wizard/
     - title: Tabs and Panes
-      url: /features/panes.html
+      url: /documentation/features/panes/
     - title: Worktree Creation
-      url: /features/worktree-creation.html
+      url: /documentation/features/worktree-creation/
     - title: Default Branch
-      url: /features/default-branch.html
+      url: /documentation/features/default-branch/
     - title: Session Names
-      url: /features/session-names.html
+      url: /documentation/features/session-names/
     - title: Continue on Restart
-      url: /features/continue-on-restart.html
+      url: /documentation/features/continue-on-restart/
 - title: Harnesses
   items:
     - title: Feature Matrix
-      url: /features/agent-harness-feature-matrix.html
+      url: /documentation/features/agent-harness-feature-matrix/
     - title: Cursor CLI
-      url: /features/cursor-cli.html
+      url: /documentation/features/cursor-cli/
     - title: Codex CLI
-      url: /features/codex-cli.html
+      url: /documentation/features/codex-cli/
 - title: Configuration
   items:
     - title: Profiles
-      url: /features/profiles.html
+      url: /documentation/features/profiles/
     - title: Profile Ordering
-      url: /features/profile-ordering.html
+      url: /documentation/features/profile-ordering/
     - title: Status Line
-      url: /features/status-line.html
+      url: /documentation/features/status-line/
     - title: Settings Navigation
-      url: /features/settings-navigation.html
+      url: /documentation/features/settings-navigation/
     - title: Focus Pane
-      url: /features/focus-pane.html
+      url: /documentation/features/focus-pane/
     - title: Tab and Pane Reordering
-      url: /features/tab-pane-reordering.html
+      url: /documentation/features/tab-pane-reordering/
     - title: Terminal Scrollback
-      url: /features/terminal-scrollback.html
+      url: /documentation/features/terminal-scrollback/
 - title: Notifications and Observability
   items:
     - title: Notifications
-      url: /features/notifications.html
+      url: /documentation/features/notifications/
     - title: Activity Indicators
-      url: /features/tab-pane-activity-indicators.html
+      url: /documentation/features/tab-pane-activity-indicators/
     - title: Pane Loading Indicator
-      url: /features/pane-loading-indicator.html
+      url: /documentation/features/pane-loading-indicator/
     - title: Debug Mode
-      url: /features/debug-logging.html
+      url: /documentation/features/debug-logging/
     - title: Tracing
-      url: /features/tracing.html
+      url: /documentation/features/tracing/
     - title: Invariants
-      url: /features/invariants.html
+      url: /documentation/features/invariants/
     - title: Observability Dashboard
-      url: /features/observability-dashboard.html
-- title: GitHub Workflows
+      url: /documentation/features/observability-dashboard/
+- title: PRs and Worktrees
   items:
     - title: PR Tracking
-      url: /features/pr-tracking.html
+      url: /documentation/features/pr-tracking/
     - title: PR Merged Notifications
-      url: /features/pr-merged-notifications.html
+      url: /documentation/features/pr-merged-notifications/
     - title: Worktree Cleanup
-      url: /features/worktree-cleanup.html
+      url: /documentation/features/worktree-cleanup/
 - title: Developer and Release
   items:
     - title: Development Builds
-      url: /features/dev-build.html
+      url: /documentation/features/dev-build/
     - title: Distribution
-      url: /features/distribution.html
+      url: /documentation/features/distribution/
     - title: Update Reminders
-      url: /features/update-reminder.html
+      url: /documentation/features/update-reminder/
     - title: UI Test Screenshots
-      url: /features/screenshots.html
+      url: /documentation/features/screenshots/
     - title: Terminal Rendering
-      url: /features/terminal-rendering.html
+      url: /documentation/features/terminal-rendering/
+- title: Reference
+  items:
+    - title: Dictionary
+      url: /documentation/dictionary/

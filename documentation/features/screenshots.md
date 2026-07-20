@@ -18,7 +18,7 @@ PR descriptions include inline screenshots of major views so reviewers can see w
 | `pr-merged-alert` | PR merged alert overlay |
 | `settings-panes` | Settings → Panes |
 | `settings-profiles` | Settings → Profiles |
-| `settings-tools` | Settings → CLI Tools |
+| `settings-tools` | Settings → Harnesses |
 | `settings-shortcuts` | Settings → Shortcuts |
 | `settings-status-line` | Settings → Status Line |
 | `settings-notifications` | Settings → Notifications |
@@ -43,7 +43,7 @@ The Makefile passes `$(CURDIR)/screenshots` via `TEST_RUNNER_SCREENSHOTS_OUTPUT_
 
 ## Workflow integration
 
-The [workflow skill](../../.agents/skills/workflow/SKILL.md) runs `make screenshots` as part of step 4 (Verify) and `make pr-screenshots` as the last step 4 action. Screenshots are uploaded to a gist and embedded under the `## Example` section of the PR body — not posted as a separate comment.
+The [workflow skill](https://github.com/{{ site.repository }}/blob/{{ site.branch }}/.agents/skills/workflow/SKILL.md) runs `make screenshots` as part of step 4 (Verify) and `make pr-screenshots` as the last step 4 action. Screenshots are uploaded to a gist and embedded under the `## Example` section of the PR body — not posted as a separate comment.
 
 Run `make pr-screenshots` after the PR is open to capture fresh screenshots, upload them, and update the `## Example` section in the PR body in place.
 

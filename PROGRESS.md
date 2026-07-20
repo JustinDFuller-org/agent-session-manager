@@ -14,7 +14,7 @@ All 7 planned stages completed and committed.
 - Active tab highlighted with accent border
 
 **Panes**
-- Create a pane inside the active tab (`⌘⇧N` → sheet → worktree name)
+- Create a pane inside the active tab (`⌘P` → sheet → worktree name)
 - Pane auto-launches `claude --worktree <name>` in the tab's directory
 - Panes auto-arrange in a grid: 1×1 → 2×1 → 2×2 → 3×2 → 3×3
 - Close a pane (`⌘W` for active pane, or click the × in the pane header)
@@ -23,7 +23,7 @@ All 7 planned stages completed and committed.
 
 **Keyboard**
 - `⌘T` — new tab
-- `⌘⇧N` — new pane
+- `⌘P` — new pane
 - `⌘W` — close active pane
 - `⌘1`–`⌘9` — switch to tab by index
 

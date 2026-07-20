@@ -183,7 +183,7 @@ hr { margin: 2rem 0; border: 0; border-top: 1px solid var(--line); }
   box-shadow: var(--shadow);
 }
 .home-section { padding: 3rem 0; border-top: 1px solid var(--line); }
-.shortcut-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; }
+.shortcut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; }
 .shortcut {
   padding: .85rem;
   border: 1px solid var(--line);

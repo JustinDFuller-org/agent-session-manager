@@ -11,7 +11,7 @@ For example, a pane named `auth-refactor` in a tab named `agent-session-manager`
 
 ## Override
 
-To set a custom name, enable the **Session Name** flag in Settings → CLI Tools. When `--name` (or `-n`) is present in your CLI options, the auto-injection is skipped and your explicit value is used instead.
+To set a custom name, enable the **Session Name** flag in Settings → Harnesses. When `--name` (or `-n`) is present in your CLI options, the auto-injection is skipped and your explicit value is used instead.
 
 ## Disable
 

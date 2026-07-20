@@ -1,6 +1,6 @@
 # Tab Loading Indicator
 
-> **Superseded.** The green loading dot and orange/accent notification dot were replaced by `ActivityIndicatorView` in the tab-pane-activity-indicators feature. See [`tab-pane-activity-indicators.md`](tab-pane-activity-indicators.md) for current behavior.
+> **Superseded.** The green loading dot and orange/accent notification dot were replaced by `ActivityIndicatorView` in the tab-pane-activity-indicators feature. See [`tab-pane-activity-indicators.md`]({{ '/documentation/features/tab-pane-activity-indicators/' | relative_url }}) for current behavior.
 
 ## Historical behavior (pre-supersession)
 
