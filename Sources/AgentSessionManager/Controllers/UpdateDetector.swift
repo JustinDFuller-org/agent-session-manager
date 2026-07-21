@@ -3,8 +3,8 @@ import Foundation
 /// Observable state reported by an `UpdateDetector` to its delegate.
 struct UpdateDetectorState: Equatable {
     var updateAvailable: Bool = false
-    var latestVersion: String? = nil
-    var lastCheckedAt: Date? = nil
+    var latestVersion: String?
+    var lastCheckedAt: Date?
     var isChecking: Bool = false
 }
 

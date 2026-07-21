@@ -14,7 +14,7 @@ final class UpdateCheckCoordinator: UpdateDetectorDelegate {
     private(set) var latestVersion: String?
     private(set) var lastCheckedAt: Date?
     private(set) var isChecking = false
-    private(set) var channel: DistributionChannel? = nil
+    private(set) var channel: DistributionChannel?
 
     private var activeDetector: UpdateDetector?
     private var activeObserver: Any?

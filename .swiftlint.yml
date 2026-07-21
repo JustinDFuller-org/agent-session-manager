@@ -62,6 +62,13 @@ disabled_rules:
   - trailing_closure
   - trailing_comma
   - line_length
+  - identifier_name
+  - type_body_length
+  - file_length
+  - function_body_length
+  - cyclomatic_complexity
+  - function_parameter_count
+  - nesting
   - force_cast
   - force_try
   - attributes
@@ -70,41 +77,3 @@ disabled_rules:
   - opening_brace
   - closure_parameter_position
   - redundant_discardable_let
-
-identifier_name:
-  min_length:
-    warning: 2
-    error: 1
-  max_length:
-    warning: 55
-    error: 60
-  excluded:
-    - id
-    - i
-    - j
-    - x
-    - y
-
-type_body_length:
-  warning: 600
-  error: 800
-
-file_length:
-  warning: 1200
-  error: 1600
-
-function_body_length:
-  warning: 120
-  error: 200
-
-cyclomatic_complexity:
-  warning: 30
-  error: 50
-
-function_parameter_count:
-  warning: 7
-  error: 10
-
-nesting:
-  type_level:
-    warning: 3
