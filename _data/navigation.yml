@@ -1,78 +1,54 @@
 - title: Getting Started
   items:
-    - title: Setup Wizard
-      url: /documentation/features/setup-wizard/
+    - title: Overview
+      url: /documentation/user-guide/overview/
+    - title: Install and First Launch
+      url: /documentation/user-guide/install/
+    - title: Quickstart
+      url: /documentation/user-guide/quickstart/
+    - title: Core Concepts
+      url: /documentation/user-guide/core-concepts/
+- title: Daily Work
+  items:
     - title: Tabs and Panes
-      url: /documentation/features/panes/
-    - title: Worktree Creation
-      url: /documentation/features/worktree-creation/
-    - title: Default Branch
-      url: /documentation/features/default-branch/
-    - title: Session Names
-      url: /documentation/features/session-names/
-    - title: Continue on Restart
-      url: /documentation/features/continue-on-restart/
-- title: Harnesses
+      url: /documentation/user-guide/tabs-and-panes/
+    - title: Project Isolation
+      url: /documentation/user-guide/project-isolation/
+    - title: Focus on One Pane
+      url: /documentation/user-guide/focus-pane/
+    - title: Continue After Restart
+      url: /documentation/user-guide/continue-after-restart/
+    - title: Reorder Tabs and Panes
+      url: /documentation/user-guide/reorder-tabs-and-panes/
+- title: Configure
   items:
-    - title: Feature Matrix
-      url: /documentation/features/agent-harness-feature-matrix/
-    - title: Cursor CLI
-      url: /documentation/features/cursor-cli/
-    - title: Codex CLI
-      url: /documentation/features/codex-cli/
-- title: Configuration
-  items:
+    - title: Agent Tools
+      url: /documentation/user-guide/agent-tools/
     - title: Profiles
-      url: /documentation/features/profiles/
-    - title: Profile Ordering
-      url: /documentation/features/profile-ordering/
-    - title: Status Line
-      url: /documentation/features/status-line/
-    - title: Settings Navigation
-      url: /documentation/features/settings-navigation/
-    - title: Focus Pane
-      url: /documentation/features/focus-pane/
-    - title: Tab and Pane Reordering
-      url: /documentation/features/tab-pane-reordering/
-    - title: Terminal Scrollback
-      url: /documentation/features/terminal-scrollback/
-- title: Notifications and Observability
-  items:
+      url: /documentation/user-guide/profiles/
+    - title: CLI Options
+      url: /documentation/user-guide/cli-options/
+    - title: Status Information
+      url: /documentation/user-guide/status-information/
     - title: Notifications
-      url: /documentation/features/notifications/
-    - title: Activity Indicators
-      url: /documentation/features/tab-pane-activity-indicators/
-    - title: Pane Loading Indicator
-      url: /documentation/features/pane-loading-indicator/
-    - title: Debug Mode
-      url: /documentation/features/debug-logging/
-    - title: Tracing
-      url: /documentation/features/tracing/
-    - title: Invariants
-      url: /documentation/features/invariants/
-    - title: Observability Dashboard
-      url: /documentation/features/observability-dashboard/
-- title: PRs and Worktrees
-  items:
-    - title: PR Tracking
-      url: /documentation/features/pr-tracking/
-    - title: PR Merged Notifications
-      url: /documentation/features/pr-merged-notifications/
+      url: /documentation/user-guide/notifications/
     - title: Worktree Cleanup
-      url: /documentation/features/worktree-cleanup/
-- title: Developer and Release
+      url: /documentation/user-guide/worktree-cleanup/
+- title: Integrations
   items:
-    - title: Development Builds
-      url: /documentation/features/dev-build/
-    - title: Distribution
-      url: /documentation/features/distribution/
-    - title: Update Reminders
-      url: /documentation/features/update-reminder/
-    - title: UI Test Screenshots
-      url: /documentation/features/screenshots/
-    - title: Terminal Rendering
-      url: /documentation/features/terminal-rendering/
+    - title: Supported Agent Tools
+      url: /documentation/user-guide/supported-agent-tools/
+    - title: GitHub Pull Requests
+      url: /documentation/user-guide/github-pull-requests/
+    - title: Updates
+      url: /documentation/user-guide/updates/
+- title: Troubleshooting
+  items:
+    - title: Troubleshooting
+      url: /documentation/user-guide/troubleshooting/
 - title: Reference
   items:
-    - title: Dictionary
-      url: /documentation/dictionary/
+    - title: Keyboard Shortcuts
+      url: /documentation/user-guide/shortcuts/
+    - title: Settings Reference
+      url: /documentation/user-guide/settings-reference/
