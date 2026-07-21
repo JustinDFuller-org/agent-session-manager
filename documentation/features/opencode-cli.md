@@ -41,15 +41,11 @@ OpenCode-specific flags can be enabled or disabled in **Settings → CLI Tools �
 | `--continue` | boolean | Continue the last OpenCode session |
 | `--cors` | string | Additional browser origin(s) allowed for CORS |
 | `--fork` | boolean | Fork the session when continuing |
-| `--hostname` | string | Hostname for the per-pane local HTTP server (default: 127.0.0.1) |
-| `--mdns` | boolean | Enable mDNS discovery for the local server |
-| `--mdns-domain` | string | Custom mDNS domain name |
 | `--model` | string | Model to use for the OpenCode session (`provider/model`) |
-| `--port` | string/number | Port for the per-pane local HTTP server |
 | `--prompt` | string | Initial prompt to use when starting the session |
 | `--session` | string | Session ID to continue |
 
-Agent Session Manager always pins `--hostname 127.0.0.1` and `--mdns=false` for security. Changing `--hostname` or `--mdns` from the UI can violate the per-pane localhost policy and will trigger an invariant warning.
+Agent Session Manager always owns `--hostname 127.0.0.1`, `--mdns=false`, and the ephemeral `--port` value for security and per-pane isolation. Custom or persisted attempts to override these values are ignored.
 
 ## Configuring Environment Variables
 
@@ -59,11 +55,13 @@ OpenCode-specific environment variables can be enabled or disabled in **Settings
 
 The following variables are reserved for Agent Session Manager. They are visible in the editor so users know they are managed, but their toggles and text fields are disabled with a caption explaining the app override:
 
-- `OPENCODE_CONFIG_CONTENT` — written per pane with the app-owned config (`{"share":"manual","autoupdate":false}`)
-- `OPENCODE_PERMISSION` — overridden by the injected `OPENCODE_CONFIG_CONTENT`
+- `OPENCODE_CONFIG_CONTENT` — written per pane with the app-owned config (`{"share":"manual","autoupdate":false,"permission":{"*":"ask"}}`)
+- `OPENCODE_PERMISSION` — reserved because the injected config owns the default permission policy
 - `OPENCODE_EXPERIMENTAL_EVENT_SYSTEM` — forced to `true` to enable server-sent events for the status-line provider
 - `OPENCODE_DISABLE_PRUNE` — injected when continuing a restored session so it is not pruned before the TUI reconnects
 - `OPENCODE_DISABLE_DEFAULT_PLUGINS` — disabled in Dev builds only to reduce background noise during development
+
+`OPENCODE_SERVER_USERNAME` and `OPENCODE_SERVER_PASSWORD` are supported for local server authentication. Credentials are used only in memory for the provider's HTTP and SSE requests and are never written to session persistence or diagnostics.
 
 If a user-defined custom variable uses one of these names, the app value wins, the override is logged, and an invariant (`opencode.config_content.app_controlled`) is emitted.
 

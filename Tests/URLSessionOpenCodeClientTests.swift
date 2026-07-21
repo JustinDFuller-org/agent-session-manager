@@ -35,6 +35,45 @@ final class URLSessionOpenCodeClientTests: XCTestCase {
         XCTAssertEqual(version, "1.17.20")
     }
 
+    func testAuthenticatedRequestsUseBasicAuthAndLongSSETimeout() throws {
+        let client = URLSessionOpenCodeClient(
+            port: 12345,
+            environment: ["OPENCODE_SERVER_USERNAME": "user", "OPENCODE_SERVER_PASSWORD": "secret"],
+            session: stubbedSession())
+
+        let request = try client.makeRequest(path: "/event", method: "GET", body: nil, timeout: 90)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Basic dXNlcjpzZWNyZXQ=")
+        XCTAssertEqual(request.timeoutInterval, 90)
+    }
+
+    func testCurrentStatusEventSchemaIsDecoded() {
+        let busy = URLSessionOpenCodeClient.parseEvent(
+            type: "message",
+            data:
+                #"{"directory":"/tmp","payload":{"type":"session.status","properties":{"sessionID":"ses_current","status":{"type":"busy"}}}}"#
+        )
+        let idle = URLSessionOpenCodeClient.parseEvent(
+            type: "session.status",
+            data: #"{"type":"session.status","properties":{"sessionID":"ses_current","status":{"type":"idle"}}}"#)
+
+        guard case .sessionBusy(let busyID) = busy else {
+            return XCTFail("Expected current structured busy status")
+        }
+        guard case .sessionIdle(let idleID) = idle else {
+            return XCTFail("Expected current structured idle status")
+        }
+        XCTAssertEqual(busyID, "ses_current")
+        XCTAssertEqual(idleID, "ses_current")
+
+        let updated = URLSessionOpenCodeClient.parseEvent(
+            type: "session.updated",
+            data: #"{"type":"session.updated","properties":{"info":{"id":"ses_current"}}}"#)
+        guard case .sessionUpdated(let updatedID) = updated else {
+            return XCTFail("Expected current session.updated metadata event")
+        }
+        XCTAssertEqual(updatedID, "ses_current")
+    }
+
     func testHealthThrowsOnNon200() async {
         StubURLProtocol.requestHandler = { request in
             let response = HTTPURLResponse(

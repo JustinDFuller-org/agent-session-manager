@@ -70,10 +70,11 @@ extension Pane {
                 )
             }
         }
-        statusLineMonitor?.onOpencodeSessionBound = { [weak self] id in
+        statusLineMonitor?.onOpencodeSessionBound = { [weak appState, weak self] id in
             Task { @MainActor in
                 self?.opencodeRaceLossRestarted = false
                 self?.opencodeSessionID = id
+                if let appState { SessionPersistence.save(appState: appState) }
             }
         }
         statusLineMonitor?.onOpencodePermissionReplied = { [weak appState, weak self] in

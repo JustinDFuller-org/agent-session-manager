@@ -56,6 +56,7 @@ enum OpenCodeEvent: Sendable {
     case permissionAsked(sessionID: String, permission: String, patterns: [String])
     case permissionReplied(sessionID: String, permission: String)
     case sessionBusy(sessionID: String)
+    case sessionUpdated(sessionID: String)
     case heartbeat
     case other(type: String)
 }
@@ -82,10 +83,14 @@ enum OpenCodeServerClientError: Error {
 
 final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable {
     private let port: Int?
+    private let serverUsername: String?
+    private let serverPassword: String?
     private let session: URLSession
 
-    init(port: Int?, session: URLSession? = nil) {
+    init(port: Int?, environment: [String: String] = [:], session: URLSession? = nil) {
         self.port = port
+        serverPassword = environment["OPENCODE_SERVER_PASSWORD"]
+        serverUsername = environment["OPENCODE_SERVER_USERNAME"] ?? "opencode"
         if let session {
             self.session = session
         } else {
@@ -126,7 +131,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let request = try makeRequest(path: "/event", method: "GET", body: nil)
+                    let request = try makeRequest(path: "/event", method: "GET", body: nil, timeout: 90)
                     let (bytes, response) = try await session.bytes(for: request)
                     guard let httpResponse = response as? HTTPURLResponse,
                         (200..<300).contains(httpResponse.statusCode)
@@ -183,7 +188,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
         }
     }
 
-    private static func parseEvent(type: String, data: String) -> OpenCodeEvent? {
+    static func parseEvent(type: String, data: String) -> OpenCodeEvent? {
         switch type {
         case "server.heartbeat":
             return .heartbeat
@@ -192,22 +197,39 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
         }
 
         guard let json = data.data(using: .utf8),
-            let response = try? JSONDecoder().decode(EventResponse.self, from: json)
+            let decoded = try? JSONDecoder().decode(EventEnvelope.self, from: json)
         else {
             return .other(type: type)
         }
 
-        switch response.type {
+        let response = decoded.payload ?? EventResponse(type: decoded.type, properties: decoded.properties)
+        let eventName = response.type ?? type
+        switch eventName {
         case "session.idle":
             guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
             return .sessionIdle(sessionID: sessionID)
-        case "session.status", "session.updated":
+        case "session.status":
             guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
-            if response.properties?.status?.lowercased() == "busy" {
+            if response.properties?.status?.value.lowercased() == "busy"
+                || response.properties?.status?.value.lowercased() == "retry"
+            {
                 return .sessionBusy(sessionID: sessionID)
             }
-            return .other(type: type)
-        case "permission.asked":
+            if response.properties?.status?.value.lowercased() == "idle" {
+                return .sessionIdle(sessionID: sessionID)
+            }
+            return .other(type: eventName)
+        case "session.updated":
+            guard let sessionID = response.properties?.sessionID ?? response.properties?.info?.id else {
+                return .other(type: eventName)
+            }
+            if response.properties?.status?.value.lowercased() == "busy"
+                || response.properties?.status?.value.lowercased() == "retry"
+            {
+                return .sessionBusy(sessionID: sessionID)
+            }
+            return .sessionUpdated(sessionID: sessionID)
+        case "permission.asked", "permission.updated":
             guard let sessionID = response.properties?.sessionID else { return .other(type: type) }
             return .permissionAsked(
                 sessionID: sessionID,
@@ -235,7 +257,7 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
         return try await perform(request: request)
     }
 
-    func makeRequest(path: String, method: String, body: Data?) throws -> URLRequest {
+    func makeRequest(path: String, method: String, body: Data?, timeout: TimeInterval = 15) throws -> URLRequest {
         guard let port else { throw OpenCodeServerClientError.missingPort }
 
         let normalizedPath =
@@ -252,17 +274,30 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
                 ])
             throw OpenCodeServerClientError.forbiddenTUIEndpoint(path: path)
         }
-        guard let url = URL(string: "http://127.0.0.1:\(port)\(path)") else {
+        guard !path.contains("?") && !path.contains("#") && !path.contains("\\") else {
+            throw OpenCodeServerClientError.invalidURL
+        }
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = "127.0.0.1"
+        components.port = port
+        components.path = path
+        guard let url = components.url else {
             throw OpenCodeServerClientError.invalidURL
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 5
+        request.timeoutInterval = timeout
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
         }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let serverPassword {
+            let credentials = "\(serverUsername ?? "opencode"):\(serverPassword)"
+            let encoded = Data(credentials.utf8).base64EncodedString()
+            request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
+        }
         return request
     }
 
@@ -296,15 +331,51 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
         }
     }
 
-    private struct EventResponse: Decodable {
-        let type: String
+    private struct EventEnvelope: Decodable {
+        let type: String?
         let properties: EventProperties?
+        let payload: EventResponse?
+    }
 
-        struct EventProperties: Decodable {
-            let sessionID: String?
-            let permission: String?
-            let patterns: [String]?
-            let status: String?
+    private struct EventResponse: Decodable {
+        let type: String?
+        let properties: EventProperties?
+    }
+
+    private struct EventProperties: Decodable {
+        let sessionID: String?
+        let permission: String?
+        let patterns: [String]?
+        let status: EventStatus?
+        let info: SessionInfo?
+    }
+
+    private struct SessionInfo: Decodable {
+        let id: String?
+    }
+
+    private enum EventStatus: Decodable {
+        case string(String)
+        case object(String)
+
+        var value: String {
+            switch self {
+            case .string(let value), .object(let value): return value
+            }
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let value = try? container.decode(String.self) {
+                self = .string(value)
+                return
+            }
+            let object = try container.decode(StatusObject.self)
+            self = .object(object.type)
+        }
+
+        private struct StatusObject: Decodable {
+            let type: String
         }
     }
 
@@ -387,6 +458,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
     var onAttention: ((PaneAttentionEvent) -> Void)?
     var onOpencodeStopped: (() -> Void)?
+    var onActivityChanged: ((Bool) -> Void)?
     var onSessionBound: ((String) -> Void)?
     var onPermissionReplied: (() -> Void)?
     var onPortRaceLost: (() -> Void)?
@@ -419,7 +491,12 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         timeWindowMs: Int64 = 60_000
     ) {
         self.context = context
-        self.client = client ?? URLSessionOpenCodeClient(port: context.opencodePort)
+        self.client =
+            client
+            ?? URLSessionOpenCodeClient(
+                port: context.opencodePort,
+                environment: context.opencodeEnvironment
+            )
         self.startupRetryInterval = startupRetryInterval
         self.startupTimeout = startupTimeout
         self.pollInterval = pollInterval
@@ -529,9 +606,9 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                         }
 
                         await renameSessionIfNeeded(session)
+                        startEventStream()
                         await refreshSession()
                         startPollTimer()
-                        startEventStream()
                         return
                     }
 
@@ -781,13 +858,17 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     "lifecycle": lifecycle.rawValue,
                 ])
             transitionLifecycle(to: .working)
+        case .sessionUpdated(let sessionID):
+            guard sessionID == boundSessionID else { return }
+            await refreshSession()
         case .permissionAsked(let sessionID, let permission, let patterns):
             guard sessionID == boundSessionID else { return }
 
+            let patternCount = patterns.count
             let reason =
-                patterns.isEmpty
+                patternCount == 0
                 ? "Permission needed for \(permission)"
-                : "Permission needed for \(permission): \(patterns.joined(separator: ", "))"
+                : "Permission needed for \(permission) (\(patternCount) requested paths)"
             trace(
                 "statusline.opencode.permission.fired",
                 attributes: [
@@ -819,6 +900,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
             onOpencodeStopped?()
         }
         lifecycle = newLifecycle
+        onActivityChanged?(newLifecycle == .working)
     }
 
     private func updateLifecycleFromSession(_ session: OpenCodeSession) {
@@ -826,7 +908,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         if status == "idle" {
             transitionLifecycle(to: .idle)
         } else if status == "busy" {
-            lifecycle = .working
+            transitionLifecycle(to: .working)
         }
     }
 

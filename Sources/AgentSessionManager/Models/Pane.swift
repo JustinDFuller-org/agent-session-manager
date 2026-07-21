@@ -55,6 +55,9 @@ final class Pane: Identifiable {
     var restartToken = UUID()
     var profileID: UUID?
     var extraArgs: [String] = []
+    /// Runtime-only environment values resolved from pane setup or a selected profile.
+    /// Secret values are intentionally not persisted with the pane.
+    var extraEnvVars: [String: String] = [:]
     var setupState: PaneSetupState?
     var uiTestActivityStateOverride: PaneActivityState?
     var opencodeRaceLossRestarted = false

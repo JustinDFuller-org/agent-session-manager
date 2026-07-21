@@ -717,7 +717,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         provider.stop()
 
         XCTAssertEqual(attentionEvent?.source, .opencodePermissionRequest)
-        XCTAssertEqual(attentionEvent?.reason, "Permission needed for external_directory: /etc/*")
+        XCTAssertEqual(attentionEvent?.reason, "Permission needed for external_directory (1 requested paths)")
     }
 
     func testPollingFallbackDetectsIdleTransition() throws {

@@ -17,7 +17,7 @@ struct NewPaneSheetBuildExtraArgsTests {
             "--model": OptionState(enabled: true, value: "claude-sonnet-5[1m]"),
         ]
         let args = NewPaneSheet.buildExtraArgs(options: options, states: states)
-        #expect(args == ["--mcp-config", "'a.json'", "--model", "'claude-sonnet-5[1m]'"])
+        #expect(args == ["--mcp-config", "a.json", "--model", "claude-sonnet-5[1m]"])
     }
 
     @Test("Multiple selected MCP servers all emit under one flag")
@@ -28,7 +28,7 @@ struct NewPaneSheetBuildExtraArgsTests {
             "--model": OptionState(enabled: true, value: "claude-sonnet-5[1m]"),
         ]
         let args = NewPaneSheet.buildExtraArgs(options: options, states: states)
-        #expect(args == ["--mcp-config", "'a.json'", "'b.json'", "--model", "'claude-sonnet-5[1m]'"])
+        #expect(args == ["--mcp-config", "a.json", "b.json", "--model", "claude-sonnet-5[1m]"])
     }
 
     @Test("A disabled option contributes nothing regardless of its values")
@@ -39,7 +39,7 @@ struct NewPaneSheetBuildExtraArgsTests {
             "--model": OptionState(enabled: true, value: "claude-sonnet-5[1m]"),
         ]
         let args = NewPaneSheet.buildExtraArgs(options: options, states: states)
-        #expect(args == ["--model", "'claude-sonnet-5[1m]'"])
+        #expect(args == ["--model", "claude-sonnet-5[1m]"])
     }
 
     @Test("Output order follows the options list order")
@@ -50,6 +50,6 @@ struct NewPaneSheetBuildExtraArgsTests {
             "--model": OptionState(enabled: true, value: "claude-sonnet-5[1m]"),
         ]
         let args = NewPaneSheet.buildExtraArgs(options: options, states: states)
-        #expect(args == ["--model", "'claude-sonnet-5[1m]'", "--mcp-config", "'a.json'"])
+        #expect(args == ["--model", "claude-sonnet-5[1m]", "--mcp-config", "a.json"])
     }
 }

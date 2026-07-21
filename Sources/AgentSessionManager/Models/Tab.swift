@@ -1,6 +1,33 @@
 import Foundation
 import Observation
 
+enum OpenCodeLaunchPolicy {
+    private static let controlledFlags: Set<String> = ["--hostname", "--mdns", "--mdns-domain", "--port"]
+
+    static func sanitize(_ arguments: [String]) -> [String] {
+        var result: [String] = []
+        var index = 0
+        while index < arguments.count {
+            let argument = arguments[index]
+            let flag = argument.split(separator: "=", maxSplits: 1).first.map(String.init) ?? argument
+            if controlledFlags.contains(flag) {
+                if !argument.contains("=") && flag != "--mdns", index + 1 < arguments.count {
+                    index += 1
+                } else if flag == "--mdns", index + 1 < arguments.count,
+                    !arguments[index + 1].hasPrefix("--")
+                {
+                    index += 1
+                }
+                index += 1
+                continue
+            }
+            result.append(argument)
+            index += 1
+        }
+        return result
+    }
+}
+
 struct GitCommandError: Error, LocalizedError, Equatable {
     let arguments: [String]
     let exitCode: Int32
@@ -500,6 +527,7 @@ final class Tab: Identifiable {
             profileID: profileID
         )
         pane.extraArgs = extraArgs
+        pane.extraEnvVars = extraEnvVars
         pane.opencodeSessionID = resumeOpencodeSessionID
         let cwd = worktreeDirectory?.path ?? directory.path
 
@@ -573,13 +601,14 @@ final class Tab: Identifiable {
             // a fresh port and rebuild the command/env so the new server is reachable.
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             configureOpenCodeController(
-                new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: [:],
+                new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: pane.extraEnvVars,
                 resumeSessionID: pane.opencodeSessionID)
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
-                opencodeSessionID: pane.opencodeSessionID)
+                opencodeSessionID: pane.opencodeSessionID,
+                opencodeEnvironment: pane.extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         } else {
             new.pendingCommandArgs = old.pendingCommandArgs
@@ -656,6 +685,8 @@ final class Tab: Identifiable {
             }
 
             pane.harness = harness
+            pane.extraArgs = extraArgs
+            pane.extraEnvVars = extraEnvVars
             pane.installTerminalController(controller)
             pane.restartToken = UUID()
             return
@@ -691,8 +722,8 @@ final class Tab: Identifiable {
         }
         if pane.harness == .opencode {
             installOpenCodeController(
-                new, pane: pane, extraArgs: pane.extraArgs, resumeSessionID: pane.opencodeSessionID,
-                harness: pane.harness)
+                new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: pane.extraEnvVars,
+                resumeSessionID: pane.opencodeSessionID, harness: pane.harness)
         }
         if pane.harness == .codex, let monitor {
             monitor.writeCodexHookScript()
@@ -800,7 +831,8 @@ extension Tab {
             paneID: pane.id, paneName: pane.name,
             workingDirectory: cwd, harness: harness, processStartTime: Date(),
             tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
-            opencodeSessionID: pane.opencodeSessionID)
+            opencodeSessionID: pane.opencodeSessionID,
+            opencodeEnvironment: extraEnvVars)
         pane.installStatusLineMonitor(monitor)
     }
 
@@ -862,7 +894,7 @@ extension Tab {
             "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM=true",
             "OPENCODE_CONFIG_CONTENT=\(configContent)",
         ]
-        var effectiveExtraArgs = extraArgs
+        var effectiveExtraArgs = OpenCodeLaunchPolicy.sanitize(extraArgs)
         if let resumeSessionID {
             effectiveExtraArgs = ["--session", resumeSessionID] + extraArgs
             TracingService.shared.record(
@@ -901,8 +933,8 @@ extension Tab {
                 "pane.name": pane.name,
                 "tab.id": self.id.uuidString,
                 "tab.name": self.name,
-                "has_hostname": command.contains("--hostname 127.0.0.1") ? "true" : "false",
-                "has_mdns_off": command.contains("--mdns=false") ? "true" : "false",
+                "has_hostname": command.contains("--hostname") && command.contains("127.0.0.1") ? "true" : "false",
+                "has_mdns_off": command.contains("--mdns") && command.contains("false") ? "true" : "false",
                 "has_port": port != nil ? "true" : "false",
             ])
 
@@ -969,7 +1001,7 @@ extension Tab {
         if let port {
             args.append(contentsOf: ["--port", String(port)])
         }
-        return args + extraArgs
+        return args + OpenCodeLaunchPolicy.sanitize(extraArgs)
     }
 
     /// Builds the inline JSON config injected per pane via `OPENCODE_CONFIG_CONTENT`.
@@ -979,6 +1011,7 @@ extension Tab {
         let settings: [String: Any] = [
             "share": "manual",
             "autoupdate": false,
+            "permission": ["*": "ask"],
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: settings, options: []) else {
             return "{}"
@@ -1103,6 +1136,7 @@ extension Tab {
         pane.worktreeDirectory = resolved.processDirectory
         pane.worktreeIsManaged = managed
         pane.extraArgs = effectiveExtraArgs
+        pane.extraEnvVars = extraEnvVars
 
         TracingService.shared.record(
             "tab.worktree.resolved",

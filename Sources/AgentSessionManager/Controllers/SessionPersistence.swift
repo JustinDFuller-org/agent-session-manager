@@ -296,6 +296,15 @@ struct SessionPersistence {
                         extraArgs.append("--continue")
                     }
                 }
+                let restoredEnvironment: [String: String] = {
+                    guard let profileID = persistedPane.profileID,
+                        let profile = appSettings.profiles.first(where: { $0.id == profileID })
+                    else { return [:] }
+                    return profile.envVars.reduce(into: [String: String]()) { result, envVar in
+                        guard envVar.isEnabled, !envVar.value.isEmpty else { return }
+                        result[envVar.id] = envVar.value
+                    }
+                }()
                 let pane = tab.addPane(
                     name: persistedPane.name,
                     extraArgs: extraArgs,
@@ -303,6 +312,7 @@ struct SessionPersistence {
                     worktreeDirectory: worktreeDir,
                     worktreeIsManaged: persistedPane.worktreeIsManaged,
                     id: persistedPane.id,
+                    extraEnvVars: restoredEnvironment,
                     profileID: persistedPane.profileID,
                     resumeOpencodeSessionID: resumeOpencodeSessionID,
                     appSettings: appSettings

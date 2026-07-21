@@ -563,6 +563,7 @@ struct NewPaneSheet: View {
                 pane, extraArgs: extraArgs, harness: selectedHarness, extraEnvVars: extraEnvVars,
                 appSettings: appSettings)
             pane.profileID = selectedProfileID
+            SessionPersistence.save(appState: appState)
             resetForm()
             dismiss()
             return

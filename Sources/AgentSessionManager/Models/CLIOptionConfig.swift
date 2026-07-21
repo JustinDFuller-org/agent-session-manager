@@ -244,8 +244,7 @@ struct CLIOptionConfig: Identifiable, Codable {
         }
     }
 
-    /// Builds the argv slice for this option given its selected value(s), reusing `Tab`'s
-    /// shell-quoting so the resolved launch command matches this exactly.
+    /// Builds raw argv tokens. Shell serialization happens once at the terminal boundary.
     func commandLineArguments(value: String?, values: [String] = []) -> [String] {
         switch optionType {
         case .boolean:
@@ -257,13 +256,13 @@ struct CLIOptionConfig: Identifiable, Codable {
                 if !raw.isEmpty { effectiveValues = [raw] }
             }
             guard !effectiveValues.isEmpty else { return [id] }
-            return [id] + effectiveValues.map { Tab.shellQuote(Tab.expandingLeadingTilde($0)) }
+            return [id] + effectiveValues.map { Tab.expandingLeadingTilde($0) }
         case .string:
             let raw = (value ?? "").trimmingCharacters(in: .whitespaces)
             if raw.isEmpty {
                 return [id]
             }
-            return [id, Tab.shellQuote(Tab.expandingLeadingTilde(raw))]
+            return [id, Tab.expandingLeadingTilde(raw)]
         }
     }
 
@@ -532,22 +531,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             id: "--fork", label: "Fork", description: "Fork the session when continuing", isAvailable: false,
             isDefaultEnabled: false),
         CLIOptionConfig(
-            id: "--hostname", label: "Hostname",
-            description: "Hostname for the per-pane local HTTP server (default: 127.0.0.1)", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--mdns", label: "mDNS", description: "Enable mDNS discovery for the local server", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--mdns-domain", label: "mDNS Domain", description: "Custom mDNS domain name", isAvailable: false,
-            isDefaultEnabled: false),
-        CLIOptionConfig(
             id: "--model", label: "Model", description: "Model to use for the OpenCode session (provider/model)",
             isAvailable: false, isDefaultEnabled: false),
-        CLIOptionConfig(
-            id: "--port", label: "Server Port", description: "Port for the per-pane local HTTP server",
-            isAvailable: false,
-            isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--prompt", label: "Prompt", description: "Initial prompt to use when starting the session",
             isAvailable: false,

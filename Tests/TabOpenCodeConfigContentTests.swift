@@ -18,6 +18,7 @@ final class TabOpenCodeConfigContentTests: XCTestCase {
         let parsed = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
         XCTAssertEqual(parsed["share"] as? String, "manual")
         XCTAssertEqual(parsed["autoupdate"] as? Bool, false)
+        XCTAssertEqual((parsed["permission"] as? [String: String])?["*"], "ask")
     }
 
     func testBuildOpenCodeConfigContentIsCompact() {

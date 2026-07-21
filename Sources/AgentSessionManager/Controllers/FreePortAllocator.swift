@@ -10,7 +10,7 @@ import Network
 /// back to letting the consumer choose its own port.
 final class FreePortAllocator {
     /// Returns a free TCP port number, or `nil` if allocation failed.
-    static func allocate() -> Int? {
+    static func allocate(timeout: TimeInterval = 2) -> Int? {
         let semaphore = DispatchSemaphore(value: 0)
         var allocatedPort: Int?
 
@@ -43,7 +43,8 @@ final class FreePortAllocator {
         }
 
         listener.start(queue: .global(qos: .utility))
-        semaphore.wait()
+        _ = semaphore.wait(timeout: .now() + timeout)
+        if allocatedPort == nil { listener.cancel() }
 
         return allocatedPort
     }

@@ -13,10 +13,6 @@ final class CLIOptionConfigOpenCodeTests: XCTestCase {
             "--model",
             "--agent",
             "--auto",
-            "--port",
-            "--hostname",
-            "--mdns",
-            "--mdns-domain",
             "--cors",
         ]
         XCTAssertTrue(expectedIDs.isSubset(of: ids), "Missing expected OpenCode flags: \(expectedIDs.subtracting(ids))")
@@ -55,7 +51,7 @@ final class CLIOptionConfigOpenCodeTests: XCTestCase {
 
     func testOpenCodeStringFlags() {
         let stringIDs: Set<String> = [
-            "--session", "--prompt", "--model", "--agent", "--port", "--hostname", "--mdns-domain", "--cors",
+            "--session", "--prompt", "--model", "--agent", "--cors",
         ]
         let configsByID = Dictionary(uniqueKeysWithValues: CLIOptionConfig.opencodeAll.map { ($0.id, $0) })
         for id in stringIDs {
@@ -71,7 +67,7 @@ final class CLIOptionConfigOpenCodeTests: XCTestCase {
     }
 
     func testOpenCodeBooleanFlags() {
-        let booleanIDs: Set<String> = ["--continue", "--fork", "--auto", "--mdns"]
+        let booleanIDs: Set<String> = ["--continue", "--fork", "--auto"]
         let configsByID = Dictionary(uniqueKeysWithValues: CLIOptionConfig.opencodeAll.map { ($0.id, $0) })
         for id in booleanIDs {
             guard let config = configsByID[id] else {

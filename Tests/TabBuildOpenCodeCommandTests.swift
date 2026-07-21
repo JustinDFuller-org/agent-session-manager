@@ -45,4 +45,24 @@ final class TabBuildOpenCodeCommandTests: XCTestCase {
         XCTAssertTrue(command.contains("--session"))
         XCTAssertTrue(command.contains("ses_$(touch /tmp/pwned)"))
     }
+
+    func testBuildOpenCodeCommandStripsConflictingNetworkOptions() {
+        let command = Tab.buildOpenCodeCommand(
+            port: 12345,
+            extraArgs: [
+                "--hostname", "0.0.0.0",
+                "--mdns=true",
+                "--mdns-domain", "unsafe.local",
+                "--port=9999",
+                "--model", "provider/model",
+            ])
+
+        XCTAssertEqual(command.filter { $0 == "--hostname" }.count, 1)
+        XCTAssertEqual(command.filter { $0 == "--mdns" }.count, 1)
+        XCTAssertEqual(command.filter { $0 == "--port" }.count, 1)
+        XCTAssertFalse(command.contains("0.0.0.0"))
+        XCTAssertFalse(command.contains("9999"))
+        XCTAssertFalse(command.contains("unsafe.local"))
+        XCTAssertTrue(command.contains("provider/model"))
+    }
 }

@@ -22,6 +22,7 @@ final class StatusLineMonitor {
     private(set) var claudeLifecycle: ClaudeLifecycle = .unknown
     var isClaudeWorking: Bool { claudeLifecycle == .working }
     var isClaudeStopped: Bool { claudeLifecycle == .stopped }
+    private(set) var isOpenCodeWorking = false
 
     private let paneID: UUID
     private let paneName: String
@@ -74,6 +75,7 @@ final class StatusLineMonitor {
     var onClaudeStopped: (() -> Void)?
     /// Fires on the main actor when OpenCode transitions from working to stopped (one fire per working→stopped edge).
     var onOpencodeStopped: (() -> Void)?
+    var onOpencodeActivityChanged: ((Bool) -> Void)?
     /// Fires on the main actor when the OpenCode status provider discovers the bound session id.
     var onOpencodeSessionBound: ((String) -> Void)?
     /// Fires on the main actor when OpenCode reports a permission was replied to, so the UI can clear the attention entry.
@@ -99,7 +101,8 @@ final class StatusLineMonitor {
         tabID: UUID = UUID(),
         tabName: String = "",
         opencodePort: Int? = nil,
-        opencodeSessionID: String? = nil
+        opencodeSessionID: String? = nil,
+        opencodeEnvironment: [String: String] = [:]
     ) {
         self.paneID = paneID
         self.paneName = paneName.isEmpty ? String(paneID.uuidString.prefix(8)) : paneName
@@ -136,7 +139,8 @@ final class StatusLineMonitor {
                 detectedHarnessVersion: nil,
                 codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil,
                 opencodePort: opencodePort,
-                opencodeSessionID: opencodeSessionID
+                opencodeSessionID: opencodeSessionID,
+                opencodeEnvironment: opencodeEnvironment
             )
         }
 
@@ -149,6 +153,13 @@ final class StatusLineMonitor {
                 provider = CodexStatusProvider(context: providerContext)
             } else if harness == .opencode, let providerContext {
                 let opencodeProvider = OpenCodeStatusProvider(context: providerContext)
+                opencodeProvider.onActivityChanged = { [weak self] isWorking in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.isOpenCodeWorking = isWorking
+                        self.onOpencodeActivityChanged?(isWorking)
+                    }
+                }
                 opencodeProvider.onOpencodeStopped = { [weak self] in
                     Task { @MainActor in
                         guard let self else { return }

@@ -15,6 +15,39 @@ struct StatusProviderContext {
     let codexHookRecordPath: String?
     let opencodePort: Int?
     let opencodeSessionID: String?
+    let opencodeEnvironment: [String: String]
+
+    init(
+        paneID: UUID,
+        paneName: String,
+        tabID: UUID,
+        tabName: String,
+        workingDirectory: String,
+        harness: Harness,
+        processStartTime: Date,
+        launchArgs: [String],
+        environment: [String: String],
+        detectedHarnessVersion: String?,
+        codexHookRecordPath: String?,
+        opencodePort: Int?,
+        opencodeSessionID: String?,
+        opencodeEnvironment: [String: String] = [:]
+    ) {
+        self.paneID = paneID
+        self.paneName = paneName
+        self.tabID = tabID
+        self.tabName = tabName
+        self.workingDirectory = workingDirectory
+        self.harness = harness
+        self.processStartTime = processStartTime
+        self.launchArgs = launchArgs
+        self.environment = environment
+        self.detectedHarnessVersion = detectedHarnessVersion
+        self.codexHookRecordPath = codexHookRecordPath
+        self.opencodePort = opencodePort
+        self.opencodeSessionID = opencodeSessionID
+        self.opencodeEnvironment = opencodeEnvironment
+    }
 }
 
 struct CodexHookSessionRecord: Codable, Equatable {
