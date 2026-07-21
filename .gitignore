@@ -158,6 +158,7 @@ AgentSessionManager.xcodeproj/
 
 # Swift package manager
 .swiftpm/
+default.profraw
 
 # Legacy worktree directory
 .tree/
