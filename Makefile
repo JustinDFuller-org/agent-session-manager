@@ -162,9 +162,9 @@ watch-dev:
 xcodeproj:
 	xcodegen generate
 
-test-ui-dev: xcodeproj
+test-ui-dev: xcodeproj sign-dev-test-artifacts
 	rm -rf $(RESULTS_PATH)
-	xcodebuild test \
+	xcodebuild test-without-building \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
 		-configuration Dev \
@@ -172,11 +172,11 @@ test-ui-dev: xcodeproj
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA)
 
-screenshots: xcodeproj
+screenshots: xcodeproj sign-dev-test-artifacts
 	rm -rf $(SCREENSHOTS_DIR)
 	mkdir -p $(SCREENSHOTS_DIR)
 	rm -rf $(RESULTS_PATH)
-	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test \
+	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test-without-building \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
 		-configuration Dev \
@@ -193,6 +193,10 @@ build-for-testing: xcodeproj
 		-configuration Dev \
 		-destination 'platform=macOS' \
 		-derivedDataPath $(DERIVED_DATA)
+
+sign-dev-test-artifacts: build-for-testing
+	codesign --force --deep --sign - $(DERIVED_DATA)/Build/Products/Dev/Sparkle.framework
+	codesign --force --deep --sign - $(DERIVED_DATA)/Build/Products/Dev/AgentSessionManager.app
 
 pr-screenshots:
 	@bash "$(CURDIR)/scripts/pr-screenshots.sh"
