@@ -14,6 +14,7 @@ exclude:
   - .codex
   - .git
   - AGENTS.md
+  - USER_FACING_DOCS.md
   - AgentSessionManager.entitlements
   - AgentSessionManagerUITests.entitlements
   - Makefile
