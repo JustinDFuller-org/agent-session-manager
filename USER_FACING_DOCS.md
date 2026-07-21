@@ -160,7 +160,7 @@ Reviewers should verify the copy against the current UI and source, confirm that
 
 ## 5. Migration TODO
 
-- [ ] Inventory every current feature document and classify it as user-facing, internal-only, or requiring two versions.
+- [x] Inventory every current feature document and classify it as user-facing, internal-only, or requiring two versions.
 - [ ] Create `documentation/user-guide/` and establish the user-guide page template.
 - [ ] Update Jekyll exclusions so internal documentation and planning artifacts cannot be published.
 - [ ] Replace the current mixed-audience navigation with user-guide navigation.
@@ -174,6 +174,52 @@ Reviewers should verify the copy against the current UI and source, confirm that
 - [ ] Add link checking and a documented local Jekyll build or equivalent rendered-site check.
 - [ ] Verify the custom-domain deployment and representative user-guide URLs after each migration phase.
 - [ ] Recheck README and homepage claims against the current four-tool implementation before publishing changes.
+
+### Current feature inventory
+
+Classification is based on the role of each document in the migration, not on whether the existing file is ready to publish:
+
+- **User-facing source** — primarily explains a user task or decision and can supply a single public guide after plain-language editing.
+- **Requires two versions** — describes a user-visible capability and also contains implementation, persistence, telemetry, diagnostic, or integration detail; retain the internal document and create a separate public guide.
+- **Internal-only** — primarily documents development, release, testing, diagnostics, architecture, or historical implementation behavior; do not migrate the existing document to the public guide.
+
+| Document | Classification | Evidence and migration action |
+| --- | --- | --- |
+| `agent-harness-feature-matrix.md` | Internal-only | Canonical code-observed integration audit; use it to verify a future user-facing harness overview, but keep the matrix internal. |
+| `codex-cli.md` | Requires two versions | Combines pane setup and CLI options with status-line and persistence details; retain the integration reference and write a user tool guide. |
+| `continue-on-restart.md` | Requires two versions | User-visible restart behavior is mixed with persistence files and implementation symbols; split the user setting guide from the internal contract. |
+| `cursor-cli.md` | Requires two versions | Combines enabling and creating a pane with hooks, provider behavior, flags, and persistence; retain the technical reference and write a user tool guide. |
+| `debug-logging.md` | Internal-only | Documents durable diagnostic files, unified logging, and Console or Instruments workflows; keep it as a maintainer diagnosis reference. |
+| `default-branch.md` | Requires two versions | Explains user settings while also documenting data flow, telemetry, persistence, and implementation symbols; split public configuration help from the internal contract. |
+| `dev-build.md` | Internal-only | Covers development builds, Xcode, commands, and UI test safety; keep it in repository documentation. |
+| `distribution.md` | Internal-only | Describes signing, notarization, release tooling, and operator verification; use it for a future installation guide only as a source, not as a public page. |
+| `focus-pane.md` | Requires two versions | User workflow and settings are mixed with persistence and telemetry behavior; split the public Focus Pane guide from the internal behavior reference. |
+| `invariants.md` | Internal-only | Defines diagnostic contracts, JSONL output, catalogs, and incident collection; keep it internal. |
+| `notifications.md` | Requires two versions | User-visible notification workflows are mixed with bundle identity, hooks, permission diagnosis, and trace details; split public notification help from the internal reference. |
+| `observability-dashboard.md` | Internal-only | Documents the trace dashboard and OpenTelemetry data model for diagnosis; keep it internal unless a later troubleshooting need is established. |
+| `opencode-cli.md` | Requires two versions | Combines user setup with server, session, security, downgrade, and invariant behavior; retain the technical reference and write a user tool guide. |
+| `pane-loading-indicator.md` | Requires two versions | Describes visible loading and error states alongside implementation behavior; retain the internal contract and explain recovery in the public pane guide. |
+| `panes.md` | Requires two versions | Provides the core user workflow but also mixes harness, worktree, persistence, permissions, and implementation-specific details; split the public pane guide from the internal reference. |
+| `pr-merged-notifications.md` | User-facing source | Primarily explains what users see and which action to choose; migrate it into a task-oriented pull-request workflow guide. |
+| `pr-tracking.md` | Requires two versions | Combines user-facing PR status and configuration with provider and implementation details; split the public PR guide from the internal integration reference. |
+| `profile-ordering.md` | User-facing source | Explains a user decision and its effect on New Pane preselection; migrate it into the profiles configuration guide. |
+| `profiles.md` | User-facing source | Primarily documents creating, editing, displaying, and applying profiles; migrate it into the public configuration guide. |
+| `screenshots.md` | Internal-only | Defines real-flow UI test and PR screenshot generation; keep it as a maintainer workflow. |
+| `session-names.md` | User-facing source | Primarily explains the visible session-name controls and their effect; migrate it into the core concepts or pane guide. |
+| `settings-navigation.md` | Internal-only | Documents SwiftUI layout choices, accessibility identifiers, and window shell details; keep it as an implementation reference. |
+| `setup-wizard.md` | Requires two versions | User onboarding is mixed with persistence files, classes, accessibility identifiers, and UI-test gating; split the public first-launch guide from the internal reference. |
+| `status-line.md` | Requires two versions | User configuration is mixed with providers, catalogs, invariants, and payload behavior; split public status-information help from the internal contract. |
+| `tab-loading-indicator.md` | Internal-only | Explicitly describes superseded historical behavior; retain only as migration history and direct readers to current activity indicators. |
+| `tab-pane-activity-indicators.md` | Requires two versions | Explains a user-visible attention model while also documenting accessibility and tracing details; split the public visual guide from the internal behavior reference. |
+| `tab-pane-reordering.md` | User-facing source | Primarily documents the user gesture, scope, and result; migrate it into the daily-work guide. |
+| `terminal-rendering.md` | Internal-only | Documents a SwiftTerm fork, rendering internals, and maintainer verification; keep it internal. |
+| `terminal-scrollback.md` | User-facing source | Primarily explains scrollback behavior and its setting; migrate it into the daily-work or reference guide. |
+| `tracing.md` | Internal-only | Defines OpenTelemetry file layout, span catalogs, retention, and diagnosis; keep it internal. |
+| `update-reminder.md` | Requires two versions | Combines the visible update flow with distribution-channel routing and release implementation; split public update help from the internal release reference. |
+| `worktree-cleanup.md` | Requires two versions | Explains user cleanup choices while also documenting Git commands, persistence, and managed-worktree rules; split public recovery help from the internal contract. |
+| `worktree-creation.md` | Requires two versions | Combines the New Pane workflow with resolution order, Git operations, terminal purity, and developer maps; split the public project-isolation guide from the internal reference. |
+
+The inventory records stale or historical material without correcting it in this step. In particular, the `panes.md`, `worktree-creation.md`, and `distribution.md` sources contain older three-tool wording that must be checked against the current Claude Code, Cursor, Codex, and OpenCode implementation before public migration.
 
 ## Scope of This Planning Step
 
