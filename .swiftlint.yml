@@ -65,6 +65,8 @@ disabled_rules:
   - force_try
   - attributes
   - optional_data_string_conversion
+  - function_body_length
+  - type_body_length
   - extension_access_modifier
   - opening_brace
   - closure_parameter_position
@@ -84,17 +86,9 @@ identifier_name:
     - x
     - y
 
-type_body_length:
-  warning: 600
-  error: 800
-
 file_length:
   warning: 1200
   error: 1600
-
-function_body_length:
-  warning: 120
-  error: 200
 
 cyclomatic_complexity:
   warning: 30

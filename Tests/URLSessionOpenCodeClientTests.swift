@@ -132,11 +132,11 @@ final class URLSessionOpenCodeClientTests: XCTestCase {
 private final class StubURLProtocol: URLProtocol {
     static var requestHandler: ((URLRequest) -> (Data, URLResponse))?
 
-    override class func canInit(with request: URLRequest) -> Bool {
+    override static func canInit(with request: URLRequest) -> Bool {
         return true
     }
 
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
         return request
     }
 

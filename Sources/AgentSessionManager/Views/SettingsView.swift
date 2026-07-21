@@ -608,7 +608,7 @@ struct CLIOptionsContent: View {
     let customFlagFooter: String
     var envVarOptions: Binding<[EnvVarConfig]>?
     var onEnvVarSave: (() -> Void)?
-    var envVarHarnessDisplayName: String? = nil
+    var envVarHarnessDisplayName: String?
     @State private var showAddCustomFlagSheet = false
     @State private var showAddCustomEnvVarSheet = false
 

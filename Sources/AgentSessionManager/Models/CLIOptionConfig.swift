@@ -30,7 +30,7 @@ struct CLIOptionConfig: Identifiable, Codable {
     /// the supplied harness's catalog before falling back to a combined search across all
     /// catalogs. Without this key the decoder preserves legacy behavior: combined search
     /// with the Claude catalog searched first.
-    static let harnessUserInfoKey: CodingUserInfoKey =
+    static let harnessUserInfoKey =
         CodingUserInfoKey(rawValue: "io.opencode.clioption.harness")!
 
     static func catalog(for harness: Harness) -> [CLIOptionConfig] {
