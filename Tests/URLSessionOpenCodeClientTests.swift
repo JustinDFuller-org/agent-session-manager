@@ -57,10 +57,12 @@ final class URLSessionOpenCodeClientTests: XCTestCase {
             data: #"{"type":"session.status","properties":{"sessionID":"ses_current","status":{"type":"idle"}}}"#)
 
         guard case .sessionBusy(let busyID) = busy else {
-            return XCTFail("Expected current structured busy status")
+            XCTFail("Expected current structured busy status")
+            return
         }
         guard case .sessionIdle(let idleID) = idle else {
-            return XCTFail("Expected current structured idle status")
+            XCTFail("Expected current structured idle status")
+            return
         }
         XCTAssertEqual(busyID, "ses_current")
         XCTAssertEqual(idleID, "ses_current")
@@ -69,7 +71,8 @@ final class URLSessionOpenCodeClientTests: XCTestCase {
             type: "session.updated",
             data: #"{"type":"session.updated","properties":{"info":{"id":"ses_current"}}}"#)
         guard case .sessionUpdated(let updatedID) = updated else {
-            return XCTFail("Expected current session.updated metadata event")
+            XCTFail("Expected current session.updated metadata event")
+            return
         }
         XCTAssertEqual(updatedID, "ses_current")
     }
