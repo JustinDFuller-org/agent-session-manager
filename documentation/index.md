@@ -1,15 +1,17 @@
 ---
 layout: doc-index
 title: Documentation
-description: Guides for using, configuring, developing, and distributing Agent Session Manager.
+description: User guides for installing, using, and configuring Agent Session Manager.
 permalink: /docs/
 ---
 
 # Documentation
 
-Use the guides below to learn the core tab and pane workflow, configure agent harnesses, diagnose sessions, or build and distribute the app.
+Use these guides to install Agent Session Manager, start an agent session, organize daily work, configure supported tools, and recover from common problems.
 
-<label for="doc-search">Filter documentation</label>
+New to Agent Session Manager? Start with **Getting Started**, then use the task groups below when you need a specific workflow or setting.
+
+<label for="doc-search">Search user guides</label>
 <input id="doc-search" class="catalog-search" type="search" placeholder="Filter by section or title" autocomplete="off">
 
 <div id="doc-catalog" class="doc-catalog">
