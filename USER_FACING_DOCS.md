@@ -162,7 +162,7 @@ Reviewers should verify the copy against the current UI and source, confirm that
 
 - [x] Inventory every current feature document and classify it as user-facing, internal-only, or requiring two versions.
 - [x] Create `documentation/user-guide/` and establish the user-guide page template.
-- [ ] Update Jekyll exclusions so internal documentation and planning artifacts cannot be published.
+- [x] Update Jekyll exclusions so internal documentation and planning artifacts cannot be published.
 - [ ] Replace the current mixed-audience navigation with user-guide navigation.
 - [ ] Rewrite the homepage and documentation index around user goals.
 - [ ] Write the overview, requirements, quickstart, and core-concepts pages first.
