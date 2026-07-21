@@ -3,6 +3,12 @@ import XCTest
 class BaseTestCase: XCTestCase {
     var app: XCUIApplication!
 
+    var additionalLaunchArguments: [String] { [] }
+    var additionalLaunchEnvironment: [String: String] { [:] }
+
+    /// Hook for suites that need to prepare real workspace state before the app launches.
+    func prepareTestWorkspace() {}
+
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
@@ -13,9 +19,11 @@ class BaseTestCase: XCTestCase {
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         try? Data("{\"isEnabled\":true,\"branchName\":\"ui-root\"}".utf8)
             .write(to: support.appending(path: "default-branch.json"))
+        prepareTestWorkspace()
 
         app = XCUIApplication()
-        app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
+        app.launchArguments = ["--uitesting", "--uitesting-skip-restore"] + additionalLaunchArguments
+        app.launchEnvironment = additionalLaunchEnvironment
         app.launch()
         app.activate()
     }

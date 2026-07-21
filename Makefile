@@ -183,8 +183,7 @@ screenshots: xcodeproj sign-dev-test-artifacts
 		-destination 'platform=macOS' \
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-only-testing:AgentSessionManagerUITests/ScreenshotTests \
-		-only-testing:AgentSessionManagerUITests/ScreenshotInjectedTests
+		-only-testing:AgentSessionManagerUITests/ScreenshotTests
 
 build-for-testing: xcodeproj
 	xcodebuild build-for-testing \

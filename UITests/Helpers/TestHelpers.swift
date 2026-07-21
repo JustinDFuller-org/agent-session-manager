@@ -42,4 +42,22 @@ extension BaseTestCase {
         // Wait for the pane name text — Text elements are reliably in the accessibility tree.
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(name)").firstMatch, timeout: 10)
     }
+
+    func openShellHere(from paneName: String) -> String {
+        let sourceHeader = app.descendants(matching: .any)
+            .matching(identifier: "pane-header-\(paneName)").firstMatch
+        waitFor(sourceHeader)
+        sourceHeader.rightClick()
+        let menuItem = app.windows.firstMatch.menuItems["Open Shell Here"]
+        waitFor(menuItem)
+        menuItem.click()
+        let shellName = "shell:\(paneName)"
+        waitFor(app.staticTexts["pane-name-\(shellName)"].firstMatch, timeout: 10)
+        return shellName
+    }
+
+    func typeTerminalCommand(_ command: String) {
+        app.typeText(command)
+        app.typeKey(.enter, modifierFlags: [])
+    }
 }

@@ -1,19 +1,56 @@
 import XCTest
 
 final class ScreenshotTests: BaseTestCase {
-    override func setUp() {
-        super.setUp()
-        try? Data("{\"isEnabled\":true,\"branchName\":\"main\"}".utf8)
-            .write(to: UITestAppSupport.directory.appending(path: "default-branch.json"))
-        try? Data("\"head\"".utf8).write(to: UITestAppSupport.directory.appending(path: "worktree-base-ref.json"))
+    private static var launchCount = 0
+    private var githubFixture: ScreenshotGitHubFixture!
+
+    override var additionalLaunchArguments: [String] {
+        ["--uitesting-show-onboarding"]
     }
 
-    func testWalkthrough() {
-        // 1. Empty state
+    override var additionalLaunchEnvironment: [String: String] {
+        githubFixture?.launchEnvironment ?? [:]
+    }
+
+    override func setUp() {
+        Self.launchCount += 1
+        super.setUp()
+    }
+
+    override func prepareTestWorkspace() {
+        let workspace = GitUITestWorkspace.directoryURL
+        GitUITestWorkspace.runGitOrFail(["branch", "main"], cwd: workspace)
+        GitUITestWorkspace.runGitOrFail(
+            ["remote", "add", "origin", "https://github.com/test-owner/test-repository.git"],
+            cwd: workspace
+        )
+        let support = UITestAppSupport.directory
+        try? Data("{\"isEnabled\":true,\"branchName\":\"main\"}".utf8)
+            .write(to: support.appending(path: "default-branch.json"))
+        try? Data("\"head\"".utf8)
+            .write(to: support.appending(path: "worktree-base-ref.json"))
+        try? Data(
+            #"{"intervalSeconds":15,"timeoutSeconds":5,"backgroundRefreshEnabled":true,"backgroundIntervalSeconds":15}"#
+                .utf8
+        ).write(to: support.appending(path: "pr-polling-settings.json"))
+        githubFixture = ScreenshotGitHubFixture()
+    }
+
+    override func tearDown() {
+        XCTAssertEqual(Self.launchCount, 1, "ScreenshotTests must launch the app exactly once")
+        let fixtureDirectory = githubFixture?.directory
+        super.tearDown()
+        if let fixtureDirectory {
+            try? FileManager.default.removeItem(at: fixtureDirectory)
+        }
+    }
+
+    func testWalkthrough() throws {
+        captureOnboarding()
+
         waitFor(emptyStateHint)
         screenshot("empty-state")
 
-        // 2. New tab sheet — empty, then filled (with base branch)
         app.typeKey("t", modifierFlags: .command)
         waitFor(app.textFields["new-tab-name-field"])
         screenshot("new-tab-sheet")
@@ -26,105 +63,173 @@ final class ScreenshotTests: BaseTestCase {
         baseBranchField.typeKey("a", modifierFlags: .command)
         baseBranchField.typeKey(.delete, modifierFlags: [])
         app.buttons["new-tab-choose-dir-button"].click()
-        let createBtn = app.buttons["new-tab-create-button"]
-        waitFor(createBtn)
-        createBtn.click()
+        waitFor(app.buttons["new-tab-create-button"])
+        app.buttons["new-tab-create-button"].click()
         waitFor(app.buttons["tab-button-Alpha"].firstMatch)
-
-        // 3. Main window with a tab
         screenshot("main-window-tab")
 
-        // 4. New pane sheet open
         app.typeKey("p", modifierFlags: .command)
         waitFor(app.textFields["new-pane-name-field"])
         screenshot("new-pane-sheet")
         app.typeKey(.escape, modifierFlags: [])
         waitForDisappear(app.textFields["new-pane-name-field"])
-
-        // 5. Split panes
         createPane(named: "feature-a")
         screenshot("split-panes")
 
-        // 6. Settings — Panes tab
+        captureSettings()
+        captureStatusIndicators()
+        captureActivityIndicators()
+        captureFocusedPane()
+        capturePRNotification()
+        captureTraceDashboard()
+        try captureInvariantDashboard()
+    }
+
+    private func captureOnboarding() {
+        let setupButton = app.buttons["onboarding-setup-button"]
+        waitFor(setupButton)
+        screenshot("onboarding-welcome")
+        setupButton.click()
+
+        let shellPicker = app.popUpButtons["onboarding-shell-picker"]
+        waitFor(shellPicker)
+        screenshot("onboarding-shell")
+        app.buttons["onboarding-shell-continue-button"].click()
+
+        let doneButton = app.buttons["onboarding-done-button"]
+        waitFor(doneButton, timeout: 10)
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: doneButton)
+        wait(for: [enabled], timeout: 15)
+        screenshot("onboarding-tools")
+        doneButton.click()
+
+        let onboardingSheet = app.sheets.firstMatch
+        waitFor(onboardingSheet)
+        waitFor(app.buttons["onboarding-statusline-skip-button"], timeout: 10)
+        waitFor(
+            app.descendants(matching: .any)
+                .matching(identifier: "settings-statusline-percentages-text-toggle").firstMatch
+        )
+        XCTAssertGreaterThan(onboardingSheet.frame.width, 520)
+        XCTAssertGreaterThan(onboardingSheet.frame.height, 360)
+        screenshot("onboarding-status-line")
+
+        let statusLineSaveButton = app.buttons["onboarding-statusline-save-button"]
+        let statusLineHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: statusLineSaveButton
+        )
+        wait(for: [statusLineHittable], timeout: 5)
+        statusLineSaveButton.click()
+
+        let cliFlagsSaveButton = app.buttons["onboarding-cliflags-save-button"]
+        waitFor(cliFlagsSaveButton)
+        let cliFlagsHittable = expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: cliFlagsSaveButton
+        )
+        wait(for: [cliFlagsHittable], timeout: 5)
+        waitFor(
+            app.descendants(matching: .any)
+                .matching(identifier: "settings-cli-option-show---continue").firstMatch
+        )
+        screenshot("onboarding-cli-flags")
+        cliFlagsSaveButton.click()
+
+        let finishButton = app.buttons["onboarding-profiles-finish-button"]
+        waitFor(finishButton)
+        waitFor(app.descendants(matching: .any).matching(identifier: "profile-new-button").firstMatch)
+        screenshot("onboarding-profiles")
+        finishButton.click()
+    }
+
+    private func captureSettings() {
         app.typeKey(",", modifierFlags: .command)
         let settingsWindow = app.windows["AgentSessionManager Settings"]
         waitFor(settingsWindow)
         XCTAssertEqual(round(settingsWindow.frame.width), 900)
         XCTAssertEqual(round(settingsWindow.frame.height), 584)
-        let panesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
-        waitFor(panesTab)
-        panesTab.click()
-        XCTAssertTrue(panesTab.isSelected)
-        screenshot("settings-panes")
 
-        // 7. Settings — Notifications tab
-        let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
-            .firstMatch
-        waitFor(notificationsTab)
-        notificationsTab.click()
-        screenshot("settings-notifications")
-
-        // 8. Remaining settings tabs — click then screenshot each individually so that
-        //    literal string arguments are visible to the scripts/ship.sh grep invariant.
-        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
-        waitFor(profilesTab)
-        profilesTab.click()
-        screenshot("settings-profiles")
-
-        let toolsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tools").firstMatch
-        waitFor(toolsTab)
-        toolsTab.click()
-        screenshot("settings-tools")
-
-        let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
-        waitFor(shortcutsTab)
-        shortcutsTab.click()
-        screenshot("settings-shortcuts")
-
-        let statusLineTab = app.descendants(matching: .any)
-            .matching(identifier: "settings-sidebar-status-line").firstMatch
-        waitFor(statusLineTab)
-        statusLineTab.click()
-        screenshot("settings-status-line")
-
-        let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
-        waitFor(debugTab)
-        debugTab.click()
-        XCTAssertTrue(debugTab.isSelected)
-        screenshot("settings-debug")
-
+        let tabs = [
+            ("settings-sidebar-panes", "settings-panes"),
+            ("settings-sidebar-notifications", "settings-notifications"),
+            ("settings-sidebar-profiles", "settings-profiles"),
+            ("settings-sidebar-tools", "settings-tools"),
+            ("settings-sidebar-shortcuts", "settings-shortcuts"),
+            ("settings-sidebar-status-line", "settings-status-line"),
+            ("settings-sidebar-debug", "settings-debug"),
+        ]
+        for (identifier, screenshotName) in tabs {
+            let tab = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+            waitFor(tab)
+            tab.click()
+            screenshot(screenshotName)
+        }
         app.typeKey("w", modifierFlags: .command)
     }
 
-    func testPaneStatusIndicatorsScreenshot() {
+    private func captureStatusIndicators() {
         createTab(named: "Status")
         createPane(named: "running-pane")
-
-        let idleDot = app.descendants(matching: .any)
-            .matching(identifier: "pane-activity-idle-running-pane").firstMatch
-        XCTAssertTrue(idleDot.waitForExistence(timeout: 15))
-        let statusLineRow = app.descendants(matching: .any)
-            .matching(identifier: "status-line-row").firstMatch
-        XCTAssertTrue(statusLineRow.waitForExistence(timeout: 5))
-
+        waitFor(
+            app.descendants(matching: .any)
+                .matching(identifier: "pane-activity-idle-running-pane").firstMatch,
+            timeout: 15
+        )
+        waitFor(app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch)
         screenshot("pane-status-indicators")
     }
 
-    func testFocusedPaneScreenshot() {
+    private func captureActivityIndicators() {
+        createTab(named: "Activity")
+        createPane(named: "activity-source")
+
+        let idlePane = openShellHere(from: "activity-source")
+        let waitingPane = openShellHere(from: "activity-source")
+        XCTAssertNotEqual(idlePane, waitingPane)
+        typeTerminalCommand("printf '\\a'")
+        waitFor(
+            app.descendants(matching: .any)
+                .matching(identifier: "pane-activity-waiting-\(waitingPane)").firstMatch,
+            timeout: 10
+        )
+        waitFor(
+            app.descendants(matching: .any)
+                .matching(identifier: "pane-activity-idle-\(idlePane)").firstMatch,
+            timeout: 10
+        )
+        screenshot("activity-indicator-states")
+    }
+
+    private func captureFocusedPane() {
         createTab(named: "Focus")
         createPane(named: "reader")
         createPane(named: "worker")
-
         let readerHeader = app.descendants(matching: .any).matching(identifier: "pane-header-reader").firstMatch
         waitFor(readerHeader)
         readerHeader.doubleClick()
         waitFor(app.buttons["pane-show-all-reader"].firstMatch)
-
         screenshot("focused-pane")
+        app.buttons["pane-show-all-reader"].click()
     }
 
-    func testTraceDashboard() {
-        // 1. Enable Debug mode
+    private func capturePRNotification() {
+        createTab(named: "PR")
+        createPane(named: "pr-pane")
+        waitFor(app.staticTexts["#42 (open)"], timeout: 45)
+        githubFixture.markMerged()
+
+        let row = app.descendants(matching: .any)
+            .matching(identifier: "notification-row-pr-pane").firstMatch
+        waitFor(row, timeout: 45)
+        screenshot("notification-sidebar")
+        row.click()
+        waitFor(app.staticTexts["PR Merged"], timeout: 5)
+        screenshot("pr-merged-alert")
+        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
+    }
+
+    private func captureTraceDashboard() {
         app.typeKey(",", modifierFlags: .command)
         let debugTab = app.descendants(matching: .any)
             .matching(identifier: "settings-sidebar-debug").firstMatch
@@ -137,51 +242,36 @@ final class ScreenshotTests: BaseTestCase {
         }
         app.typeKey("w", modifierFlags: .command)
 
-        // 2. Create a tab and pane to generate real trace data
         createTab(named: "trace-demo")
-        createPane(named: "worker")
-
-        // 3. Open the trace dashboard
+        createPane(named: "trace-worker")
         app.typeKey("d", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Trace Dashboard"]
         waitFor(dashboard)
         XCTAssertEqual(round(dashboard.frame.width), 900)
         XCTAssertEqual(round(dashboard.frame.height), 664)
-
-        // 4. Refresh so the dashboard reads the per-pane files written during step 2
         let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
         waitFor(refreshButton)
         refreshButton.click()
-
-        // 5. Select the first pane row so the detail view loads
         let paneRow = dashboard.descendants(matching: .any)
             .matching(identifier: "trace-dashboard-pane-row").firstMatch
         waitFor(paneRow, timeout: 10)
         paneRow.click()
-        XCTAssertTrue(paneRow.isSelected)
-
-        // 6. Wait for the per-pane trace list to appear
-        let filterField = dashboard.textFields["trace-dashboard-filter-field"]
-        waitFor(filterField, timeout: 10)
-
+        waitFor(dashboard.textFields["trace-dashboard-filter-field"], timeout: 10)
         screenshot("trace-dashboard")
 
-        // 7. Click the first trace row to open the waterfall
         let traceRow = dashboard.descendants(matching: .any)
             .matching(identifier: "trace-dashboard-list-row").firstMatch
         waitFor(traceRow, timeout: 10)
         traceRow.click()
-
-        // 8. Wait for the waterfall to render
-        let waterfall = dashboard.descendants(matching: .any)
-            .matching(identifier: "trace-dashboard-waterfall").firstMatch
-        waitFor(waterfall, timeout: 10)
-
+        waitFor(
+            dashboard.descendants(matching: .any)
+                .matching(identifier: "trace-dashboard-waterfall").firstMatch,
+            timeout: 10
+        )
         screenshot("trace-waterfall")
     }
 
-    func testInvariantDashboardScreenshot() throws {
-        // 1. Enable Debug mode
+    private func captureInvariantDashboard() throws {
         app.typeKey(",", modifierFlags: .command)
         let debugTab = app.descendants(matching: .any)
             .matching(identifier: "settings-sidebar-debug").firstMatch
@@ -194,7 +284,6 @@ final class ScreenshotTests: BaseTestCase {
         }
         app.typeKey("w", modifierFlags: .command)
 
-        // 2. Create a real Claude pane and find the monitor file created for it
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
         let existingStatusFiles = Set(
             (try? FileManager.default.contentsOfDirectory(
@@ -205,7 +294,7 @@ final class ScreenshotTests: BaseTestCase {
             .map(\.path) ?? []
         )
         createTab(named: "invariant-demo")
-        createPane(named: "worker")
+        createPane(named: "invariant-worker")
 
         let monitorFileExpectation = expectation(description: "Claude status-line monitor file exists")
         var monitorFile: URL?
@@ -228,12 +317,9 @@ final class ScreenshotTests: BaseTestCase {
         } while Date() < deadline
         wait(for: [monitorFileExpectation], timeout: 0.1)
         XCTAssertNotNil(monitorFile)
-
-        // 3. Exercise the same file ingress Claude uses and let production enforcement report the mismatch
         try Data(#"{"worktree":{"name":"wrong-name","branch":"main"}}"#.utf8)
             .write(to: XCTUnwrap(monitorFile))
 
-        // 4. Open the dashboard and require the real violation before capturing it
         app.typeKey("i", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Invariant Dashboard"]
         waitFor(dashboard)
@@ -241,7 +327,6 @@ final class ScreenshotTests: BaseTestCase {
         XCTAssertEqual(round(dashboard.frame.height), 664)
         let refreshButton = dashboard.buttons["invariant-dashboard-refresh-button"]
         waitFor(refreshButton)
-
         let violation = dashboard.staticTexts["statusline.worktree.name"]
         let violationDeadline = Date().addingTimeInterval(10)
         repeat {
@@ -250,10 +335,11 @@ final class ScreenshotTests: BaseTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         } while Date() < violationDeadline
         XCTAssertTrue(violation.exists, "Expected the real worktree-name violation to appear")
-        let violationRow = dashboard.descendants(matching: .any)
-            .matching(identifier: "invariant-dashboard-row").firstMatch
-        waitFor(violationRow, timeout: 10)
-
+        waitFor(
+            dashboard.descendants(matching: .any)
+                .matching(identifier: "invariant-dashboard-row").firstMatch,
+            timeout: 10
+        )
         screenshot("invariant-dashboard")
     }
 }

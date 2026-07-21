@@ -52,7 +52,13 @@ ORDER=(
     # 5. Notifications while working
     notification-sidebar.png
     pr-merged-alert.png
-    # 6. Configure settings
+    activity-indicator-states.png
+    focused-pane.png
+    # 6. Diagnostics
+    trace-dashboard.png
+    trace-waterfall.png
+    invariant-dashboard.png
+    # 7. Configure settings
     settings-panes.png
     settings-notifications.png
     settings-profiles.png

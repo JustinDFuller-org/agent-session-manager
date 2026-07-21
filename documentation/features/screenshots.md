@@ -1,61 +1,67 @@
 # UI Test Screenshots
 
-PR descriptions include inline screenshots of major views so reviewers can see what the UI looks like without running the app themselves.
+The screenshot walkthrough captures the app in one continuous session for documentation and PR review.
 
-## How it works
+## Coverage
 
-`ScreenshotTests` captures 6 main views and `ScreenshotInjectedTests` captures 3 injected views; together they also walk all 7 Settings pages:
+ScreenshotTests captures all 27 views in order:
 
-| Screenshot | What it shows |
-|---|---|
-| `empty-state` | App launched with no tabs |
-| `main-window-tab` | Main window with one tab open |
-| `new-pane-sheet` | New Pane sheet overlay |
-| `split-panes` | Tab with two panes side by side |
-| `pane-status-indicators` | Pane header with status badge and empty-state fact row (em-dash placeholders) |
-| `focused-pane` | One focused terminal pane with the tab bar and Show All Panes control visible |
-| `notification-sidebar` | Notification sidebar open |
-| `pr-merged-alert` | PR merged alert overlay |
-| `settings-panes` | Settings → Panes |
-| `settings-profiles` | Settings → Profiles |
-| `settings-tools` | Settings → Harnesses |
-| `settings-shortcuts` | Settings → Shortcuts |
-| `settings-status-line` | Settings → Status Line |
-| `settings-notifications` | Settings → Notifications |
-| `settings-debug` | Settings → Debug |
-| `invariant-dashboard` | Invariant Dashboard with a real status-line worktree-name violation |
+- onboarding-welcome
+- onboarding-shell
+- onboarding-tools
+- onboarding-status-line
+- onboarding-cli-flags
+- onboarding-profiles
+- empty-state
+- new-tab-sheet
+- new-tab-sheet-filled
+- main-window-tab
+- new-pane-sheet
+- split-panes
+- settings-panes
+- settings-notifications
+- settings-profiles
+- settings-tools
+- settings-shortcuts
+- settings-status-line
+- settings-debug
+- pane-status-indicators
+- activity-indicator-states
+- focused-pane
+- notification-sidebar
+- pr-merged-alert
+- trace-dashboard
+- trace-waterfall
+- invariant-dashboard
 
-`BaseTestCase.screenshot()` writes PNG files to disk only when the `SCREENSHOTS_OUTPUT_PATH` environment variable is set. Normal `make test-ui-dev` runs capture screenshots as XCTest attachments (unchanged behavior); `make screenshots` additionally writes them as files.
+The app launches once and terminates once. Each screenshot is captured after the preceding real UI flow has completed, so later images show the same session continuing through the product.
 
-For the macOS 26 visual baseline, `ScreenshotTests` overrides the default branch fixture to `main` before capture so the New Tab sheet matches the canonical screenshots instead of the general UITest `ui-root` default.
+BaseTestCase.screenshot() writes PNG files only when SCREENSHOTS_OUTPUT_PATH is set. Normal make test-ui-dev runs retain screenshots as XCTest attachments; make screenshots additionally writes them to screenshots/ in the repository root.
+
+For the macOS 26 visual baseline, the walkthrough prepares the default branch fixture as main before launch so the New Tab sheet uses the canonical branch.
 
 ## Generating screenshots
 
-```bash
-make screenshots
-```
+    make screenshots
 
-This runs both `ScreenshotTests` and `ScreenshotInjectedTests` and writes PNGs to `screenshots/` in the repo root. The directory is gitignored; the workflow force-adds it before creating a PR.
+This runs only ScreenshotTests and writes PNGs to screenshots/. The directory is gitignored; the workflow force-adds it when creating a PR.
 
 ## Multi-worktree safety
 
-The Makefile passes `$(CURDIR)/screenshots` via `TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH`. xcodebuild strips the `TEST_RUNNER_` prefix before forwarding the variable to the test process, so the test receives `SCREENSHOTS_OUTPUT_PATH`. Because `$(CURDIR)` is the absolute worktree path, two simultaneous worktrees write to separate directories and cannot race.
+The Makefile passes the absolute worktree screenshots directory through TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH. xcodebuild strips the TEST_RUNNER_ prefix before forwarding the variable to the test process, so simultaneous worktrees write to separate directories.
 
-## Workflow integration
+## Temporary PR provider fixture
 
-The [workflow skill](https://github.com/{{ site.repository }}/blob/{{ site.branch }}/.agents/skills/workflow/SKILL.md) runs `make screenshots` as part of step 4 (Verify) and `make pr-screenshots` as the last step 4 action. Screenshots are uploaded to a gist and embedded under the `## Example` section of the PR body — not posted as a separate comment.
+The PR sidebar and alert are captured through the normal PRTrackingCoordinator, StatusLineMonitor, AppState notification, and alert paths. For repeatable local runs, the screenshot test temporarily places a generated gh executable first on PATH. It handles only gh api graphql --include --input, returns an open PR initially, and returns the same PR as merged after the test changes its fixture state.
 
-Run `make pr-screenshots` after the PR is open to capture fresh screenshots, upload them, and update the `## Example` section in the PR body in place.
+This temporary provider fixture avoids opening or merging an external GitHub PR on every run. It does not fabricate sessions, panes, notification arrays, or view state. It can be removed later without changing the screenshot walkthrough or production PR notification code.
 
 ## Authenticity
 
-Screenshots must show real app state produced through real flows — the same sequence of interactions a user would take. The following entries in the table above are produced by `ScreenshotInjectedTests.swift`, which writes fabricated `sessions.json` data or forces UI state rather than driving real flows; they are flagged for migration in issue #221:
+Screenshots are produced through one continuous app session and real UI flows. Panes are created through the New Pane sheet, terminal processes run through the normal TerminalController path, terminal attention uses the existing bell handling, and diagnostics use the app-owned trace, invariant, and status-line inputs.
 
-- `pane-status-indicators` — injected sessions + `--inject-pane-working`
-- `notification-sidebar` — injected `pendingNotifications` payload
-- `pr-merged-alert` — injected PR-merged notification payload
-- `activity-indicator-states` — blocked by the `--uitesting` terminal bypass (root fake)
+The temporary GitHub provider fixture is the only intentional fake. It is isolated at the external CLI boundary while the app’s production PR transition and notification behavior remain under test.
 
-`trace-dashboard` and `invariant-dashboard` are real-flow coverage. `ScreenshotTests` enables Debug mode, creates a real pane, refreshes until the trace sidebar shows rows, and for invariants writes a mismatching payload to that pane monitor's existing status-line input file and waits for the production invariant reporter and dashboard refresh path to show visible rows including `statusline.worktree.name`.
+## Workflow integration
 
-Do not add new entries to `ScreenshotInjectedTests.swift`. New screenshots belong in `ScreenshotTests.swift`, which drives the app through real UI flows.
+The workflow skill runs make screenshots during verification. make pr-screenshots captures the same canonical set, uploads the PNGs to a gist, and rewrites the PR Example section in place.
