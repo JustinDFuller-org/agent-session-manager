@@ -35,6 +35,49 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "Launch Services must prefer the running app bundle URL for its bundle identifier.",
         traceEventName: "app.bundle_identity.preferred_url_mismatch"
     )
+
+    static let opencodeConfigContentAppControlled = Invariant(
+        id: "opencode.config_content.app_controlled",
+        integration: "OpenCode",
+        severity: .warning,
+        description: """
+            OPENCODE_CONFIG_CONTENT and OPENCODE_PERMISSION are app-injected per pane; \
+            user-provided values are silently overridden.
+            """,
+        traceEventName: "opencode.config_content.user_override_silenced"
+    )
+
+    static let opencodePortMissing = Invariant(
+        id: "opencode.port_missing",
+        integration: "OpenCode",
+        severity: .error,
+        description: "An OpenCode pane was started without a configured opencode port.",
+        traceEventName: "statusline.opencode.port_missing"
+    )
+
+    static let opencodePortPolicy = Invariant(
+        id: "opencode.port.policy",
+        integration: "OpenCode",
+        severity: .error,
+        description: "An OpenCode pane must bind to localhost, use an ephemeral port, and disable mDNS.",
+        traceEventName: "opencode.port.policy_violated"
+    )
+
+    static let opencodeSessionRebindable = Invariant(
+        id: "opencode.session.rebindable",
+        integration: "OpenCode",
+        severity: .warning,
+        description: "An OpenCode pane must bind to a session id and rebind to the same id across restore.",
+        traceEventName: "opencode.session.rebindable_violated"
+    )
+
+    static let opencodeTUIEndpointsUnused = Invariant(
+        id: "opencode.tui.endpoints_unused",
+        integration: "OpenCode",
+        severity: .error,
+        description: "The app must not call OpenCode /tui/* endpoints; the terminal is the user surface.",
+        traceEventName: "opencode.tui.endpoint_forbidden"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {

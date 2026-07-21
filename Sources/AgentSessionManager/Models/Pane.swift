@@ -10,16 +10,18 @@ enum Harness: String, Codable, CaseIterable {
     case claude
     case codex
     case cursor
+    case opencode
     case shell
 
     /// User-facing harness types — excludes `.shell` which is an internal session type.
-    static var allCases: [Harness] { [.claude, .codex, .cursor] }
+    static var allCases: [Harness] { [.claude, .codex, .cursor, .opencode] }
 
     var displayName: String {
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
         case .cursor: return "Cursor"
+        case .opencode: return "OpenCode"
         case .shell: return "Shell"
         }
     }
@@ -29,6 +31,7 @@ enum Harness: String, Codable, CaseIterable {
         case .claude: return "claude"
         case .codex: return "codex"
         case .cursor: return "agent"
+        case .opencode: return "opencode"
         case .shell: return "$SHELL"
         }
     }
@@ -52,7 +55,17 @@ final class Pane: Identifiable {
     var restartToken = UUID()
     var profileID: UUID?
     var extraArgs: [String] = []
+    /// Runtime-only environment values resolved from pane setup or a selected profile.
+    /// Secret values are intentionally not persisted with the pane.
+    var extraEnvVars: [String: String] = [:]
     var setupState: PaneSetupState?
+    var uiTestActivityStateOverride: PaneActivityState?
+    var opencodeRaceLossRestarted = false
+    /// Transient port assigned to an OpenCode pane for its local HTTP API.
+    /// Not persisted; a fresh port is allocated on every launch/restart.
+    var opencodePort: Int?
+    /// OpenCode session ID to resume on relaunch. Persisted across app launches.
+    var opencodeSessionID: String?
 
     init(
         id: UUID = UUID(),

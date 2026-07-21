@@ -111,7 +111,9 @@ final class AppSettings {
     var cliOptions: [CLIOptionConfig] = CLIOptionConfig.all
     var codexCliOptions: [CLIOptionConfig] = CLIOptionConfig.codexAll
     var cursorCliOptions: [CLIOptionConfig] = CLIOptionConfig.cursorAll
+    var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
     var envVarOptions: [EnvVarConfig] = EnvVarConfig.all
+    var opencodeEnvVarOptions: [EnvVarConfig] = EnvVarConfig.opencodeAll
     var statusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [Harness.claude.rawValue]
     var defaultBranch: String = "main"
@@ -124,6 +126,8 @@ final class AppSettings {
     var isCursorNotificationHookAttentionEnabled: Bool = true
     /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool = true
+    /// When true, fire a notification when OpenCode finishes a turn.
+    var isOpencodeStopNotificationEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
     var existingWorktreeManagement: ExistingWorktreeManagement = .ask

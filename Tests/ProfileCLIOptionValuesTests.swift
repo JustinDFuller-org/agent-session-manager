@@ -47,7 +47,7 @@ struct ProfileCLIOptionValuesTests {
         let decoded = try JSONDecoder().decode(ProfileCLIOption.self, from: json)
         let option = CLIOptionConfig.all.first { $0.id == "--mcp-config" }!
         let args = option.commandLineArguments(value: decoded.value, values: decoded.values ?? [])
-        #expect(args == ["--mcp-config", "'\(NSHomeDirectory())/mcp/legacy.json'"])
+        #expect(args == ["--mcp-config", "\(NSHomeDirectory())/mcp/legacy.json"])
     }
 
     // MARK: - seededValues (drives UI seeding in the profile editor and New Pane sheet)

@@ -59,18 +59,17 @@ final class TracingServiceTests: XCTestCase {
         wait(for: [expectation], timeout: 2)
 
         // Should have at least one JSONL file somewhere under testTraceDir
-        var foundContent: String?
+        var foundContent = ""
         let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
         while let file = enumerator?.nextObject() as? URL {
             if file.pathExtension == "jsonl" {
-                foundContent = try? String(contentsOf: file, encoding: .utf8)
-                break
+                foundContent += (try? String(contentsOf: file, encoding: .utf8)) ?? ""
             }
         }
-        XCTAssertNotNil(foundContent, "Expected a JSONL file under testTraceDir")
-        XCTAssertTrue(foundContent?.contains("test.event") ?? false)
-        XCTAssertTrue(foundContent?.contains("foo") ?? false)
-        XCTAssertTrue(foundContent?.contains("bar") ?? false)
+        XCTAssertFalse(foundContent.isEmpty, "Expected a JSONL file under testTraceDir")
+        XCTAssertTrue(foundContent.contains("test.event"))
+        XCTAssertTrue(foundContent.contains("foo"))
+        XCTAssertTrue(foundContent.contains("bar"))
     }
 
     func testGlobalFileWrittenForSpansWithoutPaneId() throws {
@@ -161,17 +160,16 @@ final class TracingServiceTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { expectation.fulfill() }
         wait(for: [expectation], timeout: 2)
 
-        var foundContent: String?
+        var foundContent = ""
         let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
         while let file = enumerator?.nextObject() as? URL {
             if file.pathExtension == "jsonl" {
-                foundContent = try? String(contentsOf: file, encoding: .utf8)
-                break
+                foundContent += (try? String(contentsOf: file, encoding: .utf8)) ?? ""
             }
         }
-        XCTAssertNotNil(foundContent)
-        XCTAssertTrue(foundContent?.contains("tab.worktree.base_branch_resolved") ?? false)
-        XCTAssertTrue(foundContent?.contains("tab-override") ?? false)
-        XCTAssertTrue(foundContent?.contains("base.branch") ?? false)
+        XCTAssertFalse(foundContent.isEmpty)
+        XCTAssertTrue(foundContent.contains("tab.worktree.base_branch_resolved"))
+        XCTAssertTrue(foundContent.contains("tab-override"))
+        XCTAssertTrue(foundContent.contains("base.branch"))
     }
 }

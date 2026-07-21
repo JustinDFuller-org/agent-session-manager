@@ -82,7 +82,14 @@ final class AppState {
         }) {
             return
         }
-        let kind: NotificationKind = event.source == .claudeStop ? .claudeStop : .terminalBell
+        let kind: NotificationKind = {
+            switch event.source {
+            case .claudeStop: return .claudeStop
+            case .opencodeStop: return .opencodeStop
+            case .opencodePermissionRequest: return .opencodePermissionRequest
+            default: return .terminalBell
+            }
+        }()
         let notification =
             PaneNotification(
                 paneID: paneID,
@@ -222,6 +229,21 @@ final class AppState {
                 ])
         }
         notifications.removeAll { $0.paneID == paneID }
+        MacNotificationCoordinator.shared.removeDeliveredNotifications(forPaneID: paneID)
+        SessionPersistence.save(appState: self)
+    }
+
+    func clearNotification(paneID: UUID, kind: NotificationKind) {
+        guard notifications.contains(where: { $0.paneID == paneID && $0.kind == kind }) else { return }
+        TracingService.shared.record(
+            "pane.notification.cleared",
+            attributes: [
+                "pane.id": paneID.uuidString,
+                "notification.kind": kind.rawValue,
+                "reason": "kind_specific",
+            ])
+        notifications.removeAll { $0.paneID == paneID && $0.kind == kind }
+        MacNotificationCoordinator.shared.removeDeliveredNotifications(forPaneID: paneID)
         SessionPersistence.save(appState: self)
     }
 

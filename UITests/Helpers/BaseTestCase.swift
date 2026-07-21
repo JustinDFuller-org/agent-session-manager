@@ -66,7 +66,8 @@ class BaseTestCase: XCTestCase {
         let support = UITestAppSupport.directory
         for file in [
             "sessions.json", "settings.json", "codex-settings.json",
-            "cursor-settings.json", "statusline-settings.json",
+            "cursor-settings.json", "opencode-settings.json", "opencode-env-var-settings.json",
+            "statusline-settings.json",
             "active-tools-settings.json", "default-branch.json",
             "notification-settings.json", "restart-settings.json",
             "worktree-cleanup.json", "existing-worktree-management.json",

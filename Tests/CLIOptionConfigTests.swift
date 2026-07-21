@@ -205,24 +205,33 @@ final class StatusLineConfigTests: XCTestCase {
     }
 
     func testHarnessSpecificItemsAreCorrect() {
-        let agnosticIds: Set<String> = [
-            "worktree", "duration", "version", "pr", "model",
-            "profileName", "linesAdded", "linesRemoved", "repo",
-        ]
         let codexSupportedIds: Set<String> = [
             "inputTokens", "outputTokens", "context", "contextRemaining",
             "rate5h", "rate7d", "rate5hReset", "rate7dReset",
         ]
-        let claudeOnlyIds: Set<String> = ["cost"]
-        for id in StatusLineConfig.itemMetadata.keys
-        where !agnosticIds.contains(id) && !codexSupportedIds.contains(id) && !claudeOnlyIds.contains(id) {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude])
-        }
+        let claudeOnlyIds: Set<String> = [
+            "effort", "thinking", "vimMode", "agentName", "outputStyle",
+            "exceeds200k", "contextSize", "cacheRead", "cacheCreation", "apiDuration",
+        ]
+        let claudeOpencodeIds: Set<String> = ["cost", "sessionName"]
+        let opencodeTokenIds: Set<String> = ["inputTokens", "outputTokens"]
+
         for id in claudeOnlyIds {
-            XCTAssertEqual(StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude])
+            XCTAssertEqual(
+                StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude], "\(id) should be Claude-only")
+        }
+        for id in claudeOpencodeIds {
+            XCTAssertEqual(
+                StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude, .opencode],
+                "\(id) should be supported by Claude and OpenCode")
+        }
+        for id in opencodeTokenIds {
+            XCTAssertTrue(
+                StatusLineConfig.itemAvailability[id]?.supports(.opencode) == true,
+                "\(id) should be supported by OpenCode")
         }
         for id in codexSupportedIds {
-            XCTAssertTrue(StatusLineConfig.itemAvailability[id]?.supports(.codex) == true)
+            XCTAssertTrue(StatusLineConfig.itemAvailability[id]?.supports(.codex) == true, "\(id) should support Codex")
         }
     }
 
@@ -507,19 +516,38 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(Harness.claude.rawValue, "claude")
         XCTAssertEqual(Harness.codex.rawValue, "codex")
         XCTAssertEqual(Harness.cursor.rawValue, "cursor")
+        XCTAssertEqual(Harness.opencode.rawValue, "opencode")
     }
 
     func testHarnessDisplayNames() {
         XCTAssertEqual(Harness.claude.displayName, "Claude Code")
         XCTAssertEqual(Harness.codex.displayName, "Codex")
         XCTAssertEqual(Harness.cursor.displayName, "Cursor")
+        XCTAssertEqual(Harness.opencode.displayName, "OpenCode")
+    }
+
+    func testHarnessCommandDescriptions() {
+        XCTAssertEqual(Harness.claude.commandDescription, "claude")
+        XCTAssertEqual(Harness.codex.commandDescription, "codex")
+        XCTAssertEqual(Harness.cursor.commandDescription, "agent")
+        XCTAssertEqual(Harness.opencode.commandDescription, "opencode")
     }
 
     func testAllHarnessCases() {
-        XCTAssertEqual(Harness.allCases.count, 3)
+        XCTAssertEqual(Harness.allCases.count, 4)
         XCTAssertTrue(Harness.allCases.contains(.claude))
         XCTAssertTrue(Harness.allCases.contains(.codex))
         XCTAssertTrue(Harness.allCases.contains(.cursor))
+        XCTAssertTrue(Harness.allCases.contains(.opencode))
+        XCTAssertEqual(Harness.allCases, [.claude, .codex, .cursor, .opencode])
+    }
+
+    func testOpenCodeRecommendedDefaultsArePopulated() {
+        let defaults = CLIOptionConfig.recommendedDefaults(for: .opencode)
+        XCTAssertEqual(defaults.count, CLIOptionConfig.opencodeAll.count)
+
+        let availableIDs = Set(defaults.filter(\.isAvailable).map(\.id))
+        XCTAssertEqual(availableIDs, ["--model"])
     }
 }
 
@@ -548,12 +576,34 @@ final class PersistedPaneBackwardCompatTests: XCTestCase {
         XCTAssertFalse(decoded.worktreeIsManaged)
     }
 
+    func testDecodesOpenCodeHarness() throws {
+        let json = Data(
+            """
+            {"id":"A78E5B1C-0000-0000-0000-000000000003","name":"opencode-pane","harness":"opencode"}
+            """.utf8)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
+        XCTAssertEqual(decoded.name, "opencode-pane")
+        XCTAssertEqual(decoded.harness, .opencode)
+        XCTAssertNil(decoded.worktreeDirectory)
+        XCTAssertFalse(decoded.worktreeIsManaged)
+    }
+
     func testRoundTrip() throws {
         let pane = PersistedPane(id: UUID(), name: "test", harness: .codex, isPriority: false)
         let encoded = try JSONEncoder().encode(pane)
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
         XCTAssertEqual(decoded.name, "test")
         XCTAssertEqual(decoded.harness, .codex)
+        XCTAssertNil(decoded.worktreeDirectory)
+        XCTAssertFalse(decoded.worktreeIsManaged)
+    }
+
+    func testOpenCodeRoundTrip() throws {
+        let pane = PersistedPane(id: UUID(), name: "opencode", harness: .opencode, isPriority: false)
+        let encoded = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: encoded)
+        XCTAssertEqual(decoded.name, "opencode")
+        XCTAssertEqual(decoded.harness, .opencode)
         XCTAssertNil(decoded.worktreeDirectory)
         XCTAssertFalse(decoded.worktreeIsManaged)
     }
@@ -744,40 +794,40 @@ final class AppSettingsActiveToolsTests: XCTestCase {
 
 final class TabCommandTests: XCTestCase {
     func testBuildClaudeCommand() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: "")
-        XCTAssertEqual(cmd, "claude --settings '/tmp/s.json'")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: [])
+        XCTAssertEqual(cmd, ["claude", "--settings", "/tmp/s.json"])
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithExtraArgs() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --model claude-opus-4-7")
-        XCTAssertTrue(cmd.hasSuffix("--model claude-opus-4-7"))
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: ["--model", "claude-opus-4-7"])
+        XCTAssertEqual(cmd.suffix(2), ["--model", "claude-opus-4-7"])
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandEscapesSettingsQuotes() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/my's.json", extraArgs: "")
-        XCTAssertTrue(cmd.contains("'/tmp/my'\\''s.json'"))
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/my's.json", extraArgs: [])
+        XCTAssertTrue(cmd.contains("/tmp/my's.json"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandOmitWorktreeFlag() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: "")
-        XCTAssertEqual(cmd, "claude --settings '/tmp/s.json'")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: [])
+        XCTAssertEqual(cmd, ["claude", "--settings", "/tmp/s.json"])
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithExtraArgsNoWorktree() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --verbose")
-        XCTAssertTrue(cmd.hasPrefix("claude --settings '/tmp/s.json'"))
-        XCTAssertTrue(cmd.hasSuffix(" --verbose"))
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: ["--verbose"])
+        XCTAssertEqual(cmd.prefix(3), ["claude", "--settings", "/tmp/s.json"])
+        XCTAssertTrue(cmd.contains("--verbose"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithAllowDangerouslySkipPermissions() {
-        let extraArgs = " --allow-dangerously-skip-permissions"
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: extraArgs)
-        XCTAssertTrue(cmd.hasPrefix("claude --settings '/tmp/s.json'"))
+        let cmd = Tab.buildClaudeCommand(
+            settingsPath: "/tmp/s.json", extraArgs: ["--allow-dangerously-skip-permissions"])
+        XCTAssertEqual(cmd.prefix(3), ["claude", "--settings", "/tmp/s.json"])
         XCTAssertTrue(cmd.contains("--allow-dangerously-skip-permissions"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }
@@ -809,14 +859,14 @@ final class BranchSanitizationTests: XCTestCase {
 
 final class ContinueOnRestartCommandTests: XCTestCase {
     func testBuildClaudeCommandWithContinueFlag() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: " --continue")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: ["--continue"])
         XCTAssertTrue(cmd.contains("--continue"))
-        XCTAssertTrue(cmd.hasSuffix("--continue"))
+        XCTAssertEqual(cmd.last, "--continue")
         XCTAssertFalse(cmd.contains("--worktree"))
     }
 
     func testBuildClaudeCommandWithoutContinueFlagWhenDisabled() {
-        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: "")
+        let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/s.json", extraArgs: [])
         XCTAssertFalse(cmd.contains("--continue"))
         XCTAssertFalse(cmd.contains("--worktree"))
     }

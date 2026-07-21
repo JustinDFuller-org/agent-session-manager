@@ -82,14 +82,17 @@ struct ContentView: View {
             }
             if !CommandLine.arguments.contains("--uitesting-skip-restore") {
                 appSettings.cliOptions = SettingsPersistence.mergeCLIOptions(
-                    SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "settings.json"),
+                    SettingsPersistence.loadCLIOptions(from: "settings.json", harness: .claude),
                     into: CLIOptionConfig.all)
                 appSettings.codexCliOptions = SettingsPersistence.mergeCLIOptions(
-                    SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "codex-settings.json"),
+                    SettingsPersistence.loadCLIOptions(from: "codex-settings.json", harness: .codex),
                     into: CLIOptionConfig.codexAll)
                 appSettings.cursorCliOptions = SettingsPersistence.mergeCLIOptions(
-                    SettingsPersistence.loadFailableArray(CLIOptionConfig.self, from: "cursor-settings.json"),
+                    SettingsPersistence.loadCLIOptions(from: "cursor-settings.json", harness: .cursor),
                     into: CLIOptionConfig.cursorAll)
+                appSettings.opencodeCliOptions = SettingsPersistence.mergeCLIOptions(
+                    SettingsPersistence.loadCLIOptions(from: "opencode-settings.json", harness: .opencode),
+                    into: CLIOptionConfig.opencodeAll)
                 if let config = SettingsPersistence.load(StatusLineConfig.self, from: "statusline-settings.json") {
                     appSettings.statusLineConfig = config
                 }
@@ -105,6 +108,7 @@ struct ContentView: View {
                     appSettings.isPRClosedNotificationsEnabled = config.isPRClosedNotificationsEnabled
                     appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
                     appSettings.isClaudeStopNotificationEnabled = config.isClaudeStopNotificationEnabled
+                    appSettings.isOpencodeStopNotificationEnabled = config.isOpencodeStopNotificationEnabled
                 }
                 if let config = SettingsPersistence.load(RestartConfig.self, from: "restart-settings.json") {
                     appSettings.continueOnRestart = config.continueOnRestart
@@ -139,22 +143,12 @@ struct ContentView: View {
                 if let value = SettingsPersistence.load(ExitBehavior.self, from: "exit-behavior.json") {
                     appSettings.exitBehavior = value
                 }
-                let savedEnvVars = SettingsPersistence.loadFailableArray(
-                    EnvVarConfig.self, from: "env-var-settings.json")
-                if !savedEnvVars.isEmpty {
-                    var updated = EnvVarConfig.all
-                    var userAdded: [EnvVarConfig] = []
-                    for saved in savedEnvVars {
-                        if saved.isUserAdded {
-                            userAdded.append(saved)
-                        } else if let index = updated.firstIndex(where: { $0.id == saved.id }) {
-                            updated[index].isAvailable = saved.isAvailable
-                            updated[index].isDefaultEnabled = saved.isDefaultEnabled
-                            updated[index].defaultValue = saved.defaultValue
-                        }
-                    }
-                    appSettings.envVarOptions = updated + userAdded
-                }
+                appSettings.envVarOptions = SettingsPersistence.mergeEnvVarOptions(
+                    SettingsPersistence.loadFailableArray(EnvVarConfig.self, from: "env-var-settings.json"),
+                    into: EnvVarConfig.all)
+                appSettings.opencodeEnvVarOptions = SettingsPersistence.mergeEnvVarOptions(
+                    SettingsPersistence.loadFailableArray(EnvVarConfig.self, from: "opencode-env-var-settings.json"),
+                    into: EnvVarConfig.opencodeAll)
                 if let config = SettingsPersistence.load(
                     SettingsPersistence.ProfilesContainer.self, from: "profiles.json")
                 {

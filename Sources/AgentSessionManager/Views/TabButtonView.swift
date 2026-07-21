@@ -19,16 +19,18 @@ struct TabButtonView: View {
                     HStack(spacing: 4) {
                         let tabActivityStateValue = tabActivityState(
                             tab.panes.map { pane in
-                                paneActivityState(
-                                    processState: pane.terminalController?.processState,
-                                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
-                                    isStopped: pane.statusLineMonitor?.isClaudeStopped ?? false,
-                                    sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
-                                    hasNotification: tabPaneIDs.contains(pane.id)
-                                        && appState.notifications.contains {
-                                            $0.paneID == pane.id && $0.kind != .claudeStop
-                                        }
-                                )
+                                pane.uiTestActivityStateOverride
+                                    ?? paneActivityState(
+                                        processState: pane.terminalController?.processState,
+                                        isWorking: (pane.statusLineMonitor?.isClaudeWorking ?? false)
+                                            || (pane.statusLineMonitor?.isOpenCodeWorking ?? false),
+                                        isStopped: pane.statusLineMonitor?.isClaudeStopped ?? false,
+                                        sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
+                                        hasNotification: tabPaneIDs.contains(pane.id)
+                                            && appState.notifications.contains {
+                                                $0.paneID == pane.id && $0.kind != .claudeStop
+                                            }
+                                    )
                             })
                         ActivityIndicatorView(
                             state: tabActivityStateValue,

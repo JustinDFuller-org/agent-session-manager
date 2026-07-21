@@ -85,6 +85,7 @@ struct CursorDataProviderTests {
         #expect(command?.contains("agent-session-manager-cursor-hook.sh") == true)
     }
 
+    @MainActor
     @Test func testHookOutputFilePathContainsPaneID() {
         let paneID = UUID()
         let provider = CursorDataProvider(
@@ -119,6 +120,7 @@ struct CursorDataProviderTests {
         #expect(CursorHookSetup.hookEntry["command"] as? String != CursorHookSetup.stopHookEntry["command"] as? String)
     }
 
+    @MainActor
     @Test func testAttentionFilePathContainsPaneID() {
         let paneID = UUID()
         let provider = CursorDataProvider(
@@ -127,6 +129,7 @@ struct CursorDataProviderTests {
         #expect(provider.attentionFilePath.contains("agent-session-manager-cursor-attention-"))
     }
 
+    @MainActor
     @Test func testAttentionFilePathDiffersFromHookOutputFilePath() {
         let paneID = UUID()
         let provider = CursorDataProvider(

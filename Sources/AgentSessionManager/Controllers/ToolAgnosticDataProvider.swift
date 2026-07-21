@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 protocol StatusLineDataProvider: AnyObject {
     var onUpdate: ((StatusLineData) -> Void)? { get set }
     var onAttention: ((PaneAttentionEvent) -> Void)? { get set }
@@ -7,6 +8,7 @@ protocol StatusLineDataProvider: AnyObject {
     func stop()
 }
 
+@MainActor
 final class ToolAgnosticDataProvider: StatusLineDataProvider {
     let workingDirectory: String
     let toolCommand: String
@@ -35,7 +37,9 @@ final class ToolAgnosticDataProvider: StatusLineDataProvider {
         }
         refreshNow()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            self?.refreshNow()
+            Task { @MainActor [weak self] in
+                self?.refreshNow()
+            }
         }
     }
 

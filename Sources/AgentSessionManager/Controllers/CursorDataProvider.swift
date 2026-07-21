@@ -7,6 +7,7 @@ import Foundation
 /// The hooks-based model detection requires a user-level `~/.cursor/hooks.json` with an
 /// `afterAgentResponse` hook that writes stdin to a file keyed by the `AGENT_SESSION_MANAGER_PANE_ID`
 /// environment variable. `CursorHookSetup` handles creating/updating this file.
+@MainActor
 final class CursorDataProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
     var onAttention: ((PaneAttentionEvent) -> Void)?
@@ -150,7 +151,9 @@ final class CursorDataProvider: StatusLineDataProvider {
         }
         refreshNow()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            self?.refreshNow()
+            Task { @MainActor [weak self] in
+                self?.refreshNow()
+            }
         }
     }
 

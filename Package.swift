@@ -21,7 +21,10 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/AgentSessionManager",
-            linkerSettings: [.linkedLibrary("sqlite3")]
+            linkerSettings: [
+                .linkedLibrary("sqlite3"),
+                .linkedFramework("Network"),
+            ]
         ),
         .testTarget(
             name: "AgentSessionManagerTests",

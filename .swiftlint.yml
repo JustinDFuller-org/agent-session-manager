@@ -35,7 +35,6 @@ opt_in_rules:
   - no_space_in_method_call
   - operator_usage_whitespace
   - overridden_super_call
-  - pattern_matching_keywords
   - prefer_self_type_over_type_of_self
   - prefer_zero_over_explicit_init
   - prohibited_super_call
@@ -62,18 +61,43 @@ disabled_rules:
   - trailing_closure
   - trailing_comma
   - line_length
-  - identifier_name
-  - type_body_length
-  - file_length
-  - function_body_length
-  - cyclomatic_complexity
-  - function_parameter_count
-  - nesting
   - force_cast
   - force_try
   - attributes
   - optional_data_string_conversion
+  - function_body_length
+  - type_body_length
   - extension_access_modifier
   - opening_brace
   - closure_parameter_position
   - redundant_discardable_let
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 55
+    error: 60
+  excluded:
+    - id
+    - i
+    - j
+    - x
+    - y
+
+file_length:
+  warning: 1200
+  error: 1600
+
+cyclomatic_complexity:
+  warning: 30
+  error: 50
+
+function_parameter_count:
+  warning: 7
+  error: 10
+
+nesting:
+  type_level:
+    warning: 3
