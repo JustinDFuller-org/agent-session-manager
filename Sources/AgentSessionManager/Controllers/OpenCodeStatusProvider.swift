@@ -392,7 +392,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     var onPortRaceLost: (() -> Void)?
 
     private enum Lifecycle: String { case unknown, working, idle }
-    private var hasReportedRaceLoss = false
 
     private let context: StatusProviderContext
     private let client: any OpenCodeServerClient
@@ -479,6 +478,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         while !Task.isCancelled {
             attempt += 1
             let lateBound = Date() > deadline
+            var attemptError: Error?
 
             do {
                 let (healthy, version) = try await client.health()
@@ -545,6 +545,7 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                     }
                 }
             } catch {
+                attemptError = error
                 if !didTraceServerWaiting {
                     trace(
                         "statusline.opencode.server.waiting",
@@ -554,20 +555,21 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
                         ])
                     didTraceServerWaiting = true
                 }
-                if let port = context.opencodePort, !hasReportedRaceLoss {
-                    hasReportedRaceLoss = true
+            }
+
+            if lateBound {
+                if let error = attemptError, let port = context.opencodePort {
                     trace(
                         "opencode.port_allocation.failed",
                         attributes: [
                             "reason": "race_lost",
                             "port": String(port),
                             "error": String(describing: error),
+                            "late_bound": "true",
+                            "retry_attempt": "\(attempt)",
                         ])
                     onPortRaceLost?()
                 }
-            }
-
-            if lateBound {
                 trace(
                     "statusline.opencode.session.unbindable",
                     attributes: [
@@ -600,8 +602,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
             return URL(filePath: directory).resolvingSymlinksInPath().path == appDirectory
         }
 
-        guard !matching.isEmpty else { return nil }
-
         let processStartMs = Int64(context.processStartTime.timeIntervalSince1970 * 1000)
 
         if let expectedSessionID = context.opencodeSessionID,
@@ -631,14 +631,13 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         }
 
         trace(
-            "statusline.opencode.session.fallback_to_newest",
+            "statusline.opencode.session.waiting_for_create",
             attributes: [
-                "session_count": "\(matching.count)",
-                "process_start_ms": "\(processStartMs)",
-                "closest_created_ms":
-                    "\(matching.compactMap { $0.time?.created }.min { abs($0 - processStartMs) < abs($1 - processStartMs) } ?? 0)",
+                "reason": context.opencodeSessionID == nil ? "no_in_window" : "expected_missing",
+                "matching_count": "\(matching.count)",
+                "time_window_ms": "\(timeWindowMs)",
             ])
-        return matching.max { ($0.time?.created ?? 0) < ($1.time?.created ?? 0) }
+        return nil
     }
 
     private func renameSessionIfNeeded(_ session: OpenCodeSession) async {

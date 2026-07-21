@@ -89,6 +89,8 @@ The provider populates the following chips:
 
 OpenCode does not expose context window or rate-limit data in the tested API, so `context`, `contextRemaining`, `rate5h`, `rate7d`, `rate5hReset`, `rate7dReset`, and Claude-specific chips (`effort`, `thinking`, `vimMode`, `agentName`, `outputStyle`, `exceeds200k`) are not populated for OpenCode panes.
 
+Session binding is correctness-first: restored panes use their expected session ID when it is present, and otherwise the provider binds only a top-level session in the pane's directory created within the startup time window. If no session qualifies, it keeps retrying until the startup timeout instead of binding an older session.
+
 ## Notifications and Attention
 
 OpenCode attention events are driven by the server's SSE stream:
@@ -126,6 +128,6 @@ OpenCode contributes the following runtime invariants to the observability dashb
 - `opencode.session.rebindable` — a session ID must be bound and rebindable across restore
 - `opencode.tui.endpoints_unused` — the app must not call forbidden `/tui/*` endpoints
 - `opencode.config_content.app_controlled` — app-controlled env vars must not be overridden by user env vars
-- `opencode.port_allocation.failed` — telemetry when the ephemeral port allocation loses a race (includes `reason: "race_lost"`)
+- `opencode.port_allocation.failed` — telemetry when the ephemeral port allocation loses a race after startup binding has passed its retry window (includes `reason: "race_lost"` and `late_bound: "true"`)
 
 See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the cross-harness audit.

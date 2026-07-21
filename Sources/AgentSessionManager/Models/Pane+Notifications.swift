@@ -72,6 +72,7 @@ extension Pane {
         }
         statusLineMonitor?.onOpencodeSessionBound = { [weak self] id in
             Task { @MainActor in
+                self?.opencodeRaceLossRestarted = false
                 self?.opencodeSessionID = id
             }
         }

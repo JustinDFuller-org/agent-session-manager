@@ -319,7 +319,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         XCTAssertEqual(client.renameRequests.first?.title, "repo/opencode-pane")
     }
 
-    func testProviderFallsBackToNewestWhenOutsideTimeWindow() throws {
+    func testProviderDoesNotBindWhenNoSessionWithinTimeWindow() throws {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
@@ -331,24 +331,137 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             context: makeContext(processStartTime: processStart),
             client: client,
             startupRetryInterval: 0.01,
+            startupTimeout: 0.1,
             pollInterval: 60,
             timeWindowMs: 60_000
         )
 
-        let expectation = XCTestExpectation(description: "provider falls back to newest session")
-        provider.onUpdate = { data in
-            if data.model != nil {
-                expectation.fulfill()
-            }
+        provider.start()
+        let delay = XCTestExpectation(description: "provider retries without binding")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { delay.fulfill() }
+        wait(for: [delay], timeout: 1)
+        provider.stop()
+
+        XCTAssertTrue(client.renameRequests.isEmpty)
+        let events = TracingService.shared.recordedEventsForTesting
+        XCTAssertTrue(
+            events.contains { event in
+                event.name == "statusline.opencode.session.waiting_for_create"
+                    && event.attributes["reason"] == "no_in_window"
+                    && event.attributes["matching_count"] == "1"
+                    && event.attributes["time_window_ms"] == "60000"
+            })
+        XCTAssertFalse(events.contains { $0.name == "statusline.opencode.session.fallback_to_newest" })
+        XCTAssertFalse(events.contains { $0.name == "statusline.opencode.session.bound" })
+    }
+
+    func testSelectSessionExactMatchReturnedWhenExpectedIDPresent() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let expected = makeSession(
+            id: "ses_expected",
+            directory: tempDir.path,
+            created: processStartMs - 120_000
+        )
+        client.sessions = [expected]
+        client.sessionsByID[expected.id] = expected
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart, opencodeSessionID: expected.id),
+            client: client,
+            startupRetryInterval: 0.01,
+            pollInterval: 60,
+            timeWindowMs: 60_000
+        )
+
+        let expectation = XCTestExpectation(description: "provider binds exact expected session")
+        var boundID: String?
+        provider.onSessionBound = { id in
+            boundID = id
+            expectation.fulfill()
         }
 
         provider.start()
-        wait(for: [expectation], timeout: 3)
+        wait(for: [expectation], timeout: 1)
         provider.stop()
 
-        XCTAssertEqual(client.renameRequests.first?.id, "ses_old")
+        XCTAssertEqual(boundID, expected.id)
+    }
+
+    func testBrandNewPaneDoesNotBindStaleSessionEndToEnd() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let stale = makeSession(
+            id: "ses_stale",
+            directory: tempDir.path,
+            created: processStartMs - 30 * 60 * 60 * 1_000
+        )
+        client.sessions = [stale]
+        client.sessionsByID[stale.id] = stale
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart),
+            client: client,
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.1,
+            pollInterval: 60,
+            timeWindowMs: 60_000
+        )
+
+        var boundIDs: [String] = []
+        provider.onSessionBound = { boundIDs.append($0) }
+
+        provider.start()
+        let delay = XCTestExpectation(description: "provider retries without binding restored session")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { delay.fulfill() }
+        wait(for: [delay], timeout: 1)
+        provider.stop()
+
+        XCTAssertTrue(boundIDs.isEmpty)
+        XCTAssertTrue(client.renameRequests.isEmpty)
+        XCTAssertFalse(
+            TracingService.shared.recordedEventsForTesting.contains {
+                $0.name == "statusline.opencode.session.bound"
+            })
+    }
+
+    func testRestoredPaneWithMissingExpectedSessionDoesNotFallbackToNewest() throws {
+        let processStart = Date()
+        let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
+        let client = FakeClient()
+        let stale = makeSession(
+            id: "ses_unrelated",
+            directory: tempDir.path,
+            created: processStartMs - 30 * 60 * 60 * 1_000
+        )
+        client.sessions = [stale]
+        client.sessionsByID[stale.id] = stale
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(processStartTime: processStart, opencodeSessionID: "ses_old"),
+            client: client,
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.1,
+            pollInterval: 60,
+            timeWindowMs: 60_000
+        )
+
+        var boundIDs: [String] = []
+        provider.onSessionBound = { boundIDs.append($0) }
+
+        provider.start()
+        let delay = XCTestExpectation(description: "provider retries without binding restored session")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { delay.fulfill() }
+        wait(for: [delay], timeout: 1)
+        provider.stop()
+
         let events = TracingService.shared.recordedEventsForTesting
-        XCTAssertTrue(events.contains { $0.name == "statusline.opencode.session.fallback_to_newest" })
+        XCTAssertTrue(boundIDs.isEmpty)
+        XCTAssertTrue(client.renameRequests.isEmpty)
+        XCTAssertTrue(events.contains { $0.name == "statusline.opencode.session.expected_missing" })
+        XCTAssertFalse(events.contains { $0.name == "statusline.opencode.session.bound" })
     }
 
     func testProviderReportsPortMissingInvariant() {
@@ -684,6 +797,95 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         XCTAssertNotNil(event)
         XCTAssertEqual(event?.attributes["reason"], "race_lost")
         XCTAssertEqual(event?.attributes["port"], "12345")
+        XCTAssertEqual(event?.attributes["late_bound"], "true")
+        XCTAssertEqual(event?.attributes["pane.id"], "11111111-1111-1111-1111-111111111111")
+        XCTAssertEqual(event?.attributes["tab.id"], "22222222-2222-2222-2222-222222222222")
+    }
+
+    func testRaceLossCallbackNotFiredDuringStartupWindow() throws {
+        let client = FakeClient()
+        client.healthResult = .failure(OpenCodeServerClientError.unexpectedStatus(0))
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(opencodePort: 12345),
+            client: client,
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.3
+        )
+
+        var callbackCount = 0
+        provider.onPortRaceLost = { callbackCount += 1 }
+
+        provider.start()
+        let delay = XCTestExpectation(description: "startup window remains open")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { delay.fulfill() }
+        wait(for: [delay], timeout: 1)
+
+        XCTAssertEqual(callbackCount, 0)
+        XCTAssertFalse(
+            TracingService.shared.recordedEventsForTesting.contains {
+                $0.name == "opencode.port_allocation.failed"
+            })
+        provider.stop()
+    }
+
+    func testRaceLossCallbackFiresAtStartupTimeout() throws {
+        let client = FakeClient()
+        client.healthResult = .failure(OpenCodeServerClientError.unexpectedStatus(0))
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(opencodePort: 12345),
+            client: client,
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.05
+        )
+
+        let expectation = XCTestExpectation(description: "race lost callback fired at startup timeout")
+        expectation.assertForOverFulfill = true
+        var callbackCount = 0
+        provider.onPortRaceLost = {
+            callbackCount += 1
+            expectation.fulfill()
+        }
+
+        provider.start()
+        wait(for: [expectation], timeout: 1)
+        wait(for: [], timeout: 0.1)
+        provider.stop()
+
+        let events = TracingService.shared.recordedEventsForTesting.filter {
+            $0.name == "opencode.port_allocation.failed"
+        }
+        XCTAssertEqual(callbackCount, 1)
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events.first?.attributes["late_bound"], "true")
+    }
+
+    func testRaceLossOneShotAfterLateBound() throws {
+        let client = FakeClient()
+        client.healthResult = .failure(OpenCodeServerClientError.unexpectedStatus(0))
+
+        let provider = OpenCodeStatusProvider(
+            context: makeContext(opencodePort: 12345),
+            client: client,
+            startupRetryInterval: 0.01,
+            startupTimeout: 0.03
+        )
+
+        var callbackCount = 0
+        provider.onPortRaceLost = { callbackCount += 1 }
+
+        provider.start()
+        let delay = XCTestExpectation(description: "provider exits after late-bound race loss")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { delay.fulfill() }
+        wait(for: [delay], timeout: 1)
+        provider.stop()
+
+        let events = TracingService.shared.recordedEventsForTesting.filter {
+            $0.name == "opencode.port_allocation.failed"
+        }
+        XCTAssertEqual(callbackCount, 1)
+        XCTAssertEqual(events.count, 1)
     }
 
     func testRaceLossTelemetryNotEmittedWhenPortIsMissing() throws {

@@ -289,10 +289,52 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         XCTAssertNotNil(pane.notificationAppState)
         XCTAssertNotNil(pane.statusLineMonitor?.onOpencodeSessionBound)
 
+        pane.opencodeRaceLossRestarted = true
         pane.statusLineMonitor?.onOpencodeSessionBound?("ses_from_monitor")
         try? await Task.sleep(for: .milliseconds(100))
 
         XCTAssertEqual(pane.opencodeSessionID, "ses_from_monitor")
+        XCTAssertFalse(pane.opencodeRaceLossRestarted)
+    }
+
+    func testOpencodePortRaceLossRestartsPaneWithFreshPortOnce() async {
+        let appState = AppState()
+        let tab = Tab(id: UUID(), name: "T", directory: URL(fileURLWithPath: "/tmp"))
+        let pane = Pane(name: "P", tab: tab, harness: .opencode)
+        let controller = TerminalController()
+        controller.pendingDirectory = "/tmp"
+        controller.pendingCommandArgs = ["opencode"]
+        pane.installTerminalController(controller)
+        tab.panes.append(pane)
+
+        let originalPort = 12345
+        pane.opencodePort = originalPort
+        let monitor = StatusLineMonitor(
+            paneID: pane.id, paneName: pane.name, workingDirectory: "/tmp",
+            harness: .opencode, processStartTime: Date(), tabID: tab.id, tabName: tab.name,
+            opencodePort: originalPort)
+        pane.installStatusLineMonitor(monitor)
+        pane.bindNotifications(appState: appState, isPriority: false)
+
+        let originalToken = pane.restartToken
+        pane.statusLineMonitor?.onOpencodePortRaceLost?()
+        try? await Task.sleep(for: .milliseconds(100))
+
+        let restartedPort = pane.opencodePort
+        let restartedToken = pane.restartToken
+        XCTAssertNotNil(restartedPort)
+        XCTAssertNotEqual(restartedPort, originalPort)
+        XCTAssertNotEqual(restartedToken, originalToken)
+        XCTAssertTrue(pane.opencodeRaceLossRestarted)
+
+        pane.statusLineMonitor?.onOpencodePortRaceLost?()
+        try? await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(pane.opencodePort, restartedPort)
+        XCTAssertEqual(pane.restartToken, restartedToken)
+
+        pane.removeStatusLineMonitor()
+        pane.terminalController?.terminate()
     }
 
     func testBaseBranchOverrideRoundTripsInPersistedTab() throws {
