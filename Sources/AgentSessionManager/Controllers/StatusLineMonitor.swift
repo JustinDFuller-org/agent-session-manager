@@ -52,11 +52,21 @@ final class StatusLineMonitor {
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
+    private var pendingStopWork: DispatchWorkItem?
+    /// A forced-continue flow re-enters `.working` via `UserPromptSubmit` shortly after a `Stop` —
+    /// deferring the callback lets that resume cancel the spurious first chime. Tunable if real-world
+    /// continuation timing needs adjustment.
+    var stopNotificationGracePeriod: TimeInterval = 1.8
     private var agnosticProvider: (any StatusLineDataProvider)?
     private var gitDiffTimer: Timer?
     private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
     private var cachedRepoIdentity: StatusLineData.Repo?
     private var lastAppliedModificationDate: Date?
+    /// Set by the view alongside `setCustomFields`; resolved from `pane.profileID` against `appSettings.profiles`.
+    var profileName: String?
+    private var cachedCustomFieldValues: [String: CustomFieldRenderValue] = [:]
+    private var customFieldTimers: [String: Timer] = [:]
+    private var scheduledCustomFields: [String: CustomStatusLineField] = [:]
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
@@ -72,11 +82,13 @@ final class StatusLineMonitor {
     var onOpencodePortRaceLost: (() -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
-    /// Fires on the main actor when a live poll reports a non-merged state after a merged state was observed.
-    var onPRNotMerged: (() -> Void)?
+    /// Fires on the main actor when a PR transitions from a non-resolved state to "closed" (without merging).
+    var onPRClosed: ((_ prNumber: Int, _ prTitle: String) -> Void)?
+    /// Fires on the main actor when a live poll reports a non-resolved state after a resolved (merged or closed) state was observed.
+    var onPRReopened: (() -> Void)?
 
     private var lastKnownPRState: String?
-    private var hasFiredMergedNotification = false
+    private var hasFiredResolutionNotification = false
 
     init(
         paneID: UUID,
@@ -305,7 +317,7 @@ final class StatusLineMonitor {
                 } else {
                     self.currentData?.pr = pr
                 }
-                self.checkForMergedTransition(pr)
+                self.checkForPRResolutionTransition(pr)
             }
         }
     }
@@ -317,6 +329,10 @@ final class StatusLineMonitor {
         hookLogSource = nil
         gitDiffTimer?.invalidate()
         gitDiffTimer = nil
+        for timer in customFieldTimers.values { timer.invalidate() }
+        customFieldTimers = [:]
+        scheduledCustomFields = [:]
+        cachedCustomFieldValues = [:]
         TracingService.shared.record(
             "statusline.monitor.stopped",
             attributes: [
@@ -326,6 +342,8 @@ final class StatusLineMonitor {
                 "tab.name": tabName,
             ])
         stopAttentionWatcher()
+        pendingStopWork?.cancel()
+        pendingStopWork = nil
         agnosticProvider?.stop()
         if !isClaude {
             TracingService.shared.record(
@@ -335,9 +353,9 @@ final class StatusLineMonitor {
         agnosticProvider = nil
         PRTrackingCoordinator.shared.unsubscribe(paneID: paneID)
         lastKnownPRState = nil
-        hasFiredMergedNotification = false
         onOpencodeStopped = nil
         onOpencodePermissionReplied = nil
+        hasFiredResolutionNotification = false
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)
         try? FileManager.default.removeItem(atPath: attentionSignalFilePath)
@@ -448,6 +466,7 @@ final class StatusLineMonitor {
             enforced.pr = existing
         }
         enforced.repo = cachedRepoIdentity
+        enforced.customFields = cachedCustomFieldValues
         applyI1Enforcement(to: &enforced)
         applyI3Enforcement(to: &enforced)
         currentData = enforced
@@ -552,6 +571,7 @@ final class StatusLineMonitor {
             merged.pr = existing
         }
         merged.repo = cachedRepoIdentity
+        merged.customFields = cachedCustomFieldValues
         currentData = merged
         TracingService.shared.record(
             "statusline.provider.update_applied",
@@ -590,6 +610,8 @@ final class StatusLineMonitor {
         guard let payload = try? JSONDecoder().decode(ClaudeActivityPayload.self, from: data) else { return }
         switch payload.hookEventName {
         case "UserPromptSubmit":
+            pendingStopWork?.cancel()
+            pendingStopWork = nil
             recordHookEventSpan(payload, decision: nil)
             guard claudeLifecycle != .working else { return }
             claudeLifecycle = .working
@@ -620,7 +642,7 @@ final class StatusLineMonitor {
                     "hook_event": payload.hookEventName,
                 ])
             recordHookEventSpan(payload, decision: "fired")
-            onClaudeStopped?()
+            scheduleClaudeStoppedNotification()
         case "SubagentStop":
             outstandingBackgroundAgents = max(0, outstandingBackgroundAgents - 1)
             recordHookEventSpan(payload, decision: nil)
@@ -634,6 +656,19 @@ final class StatusLineMonitor {
         }
     }
 
+    private func scheduleClaudeStoppedNotification() {
+        pendingStopWork?.cancel()
+        guard stopNotificationGracePeriod > 0 else {
+            onClaudeStopped?()
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            self?.onClaudeStopped?()
+        }
+        pendingStopWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + stopNotificationGracePeriod, execute: work)
+    }
+
     private func stopAttentionWatcher() {
         attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
@@ -645,10 +680,13 @@ final class StatusLineMonitor {
     }
 
     @MainActor
-    private func checkForMergedTransition(_ pr: PullRequest?) {
+    private func checkForPRResolutionTransition(_ pr: PullRequest?) {
         guard let pr else { return }
         let newState = pr.state.lowercased()
-        if newState == "merged", lastKnownPRState != nil, lastKnownPRState != "merged" {
+        let isResolved = newState == "merged" || newState == "closed"
+        let wasResolved = lastKnownPRState == "merged" || lastKnownPRState == "closed"
+
+        if isResolved, lastKnownPRState != nil, lastKnownPRState != newState {
             TracingService.shared.record(
                 "statusline.pr_transition",
                 attributes: [
@@ -658,20 +696,136 @@ final class StatusLineMonitor {
                     "new_state": newState,
                 ])
         }
-        if newState != "merged", lastKnownPRState == "merged" {
-            hasFiredMergedNotification = false
-            onPRNotMerged?()
+        if !isResolved, wasResolved {
+            hasFiredResolutionNotification = false
+            onPRReopened?()
+        }
+        if lastKnownPRState != newState {
+            // A transition between two different resolved states (e.g. merged -> closed) is a
+            // live resolution event in its own right and must be allowed to fire again.
+            hasFiredResolutionNotification = false
         }
         defer { lastKnownPRState = newState }
-        guard !hasFiredMergedNotification else { return }
-        guard newState == "merged" else { return }
+        guard !hasFiredResolutionNotification else { return }
+        guard isResolved else { return }
         // Suppress on first observation (app launch/restart) — only fire on a live transition.
         guard lastKnownPRState != nil else { return }
-        guard lastKnownPRState != "merged" else { return }
-        hasFiredMergedNotification = true
-        onPRMerged?(pr.number, pr.title)
+        guard lastKnownPRState != newState else { return }
+        hasFiredResolutionNotification = true
+        if newState == "merged" {
+            onPRMerged?(pr.number, pr.title)
+        } else {
+            onPRClosed?(pr.number, pr.title)
+        }
+    }
+}
+
+extension StatusLineMonitor {
+    /// Starts/stops per-field timers to match `fields`, diffing by id+command+refreshIntervalSeconds+timeoutSeconds
+    /// so an unchanged field's timer (and its in-flight cadence) is left alone.
+    func setCustomFields(_ fields: [CustomStatusLineField]) {
+        let nextByID = Dictionary(uniqueKeysWithValues: fields.map { ($0.id, $0) })
+
+        for id in Set(scheduledCustomFields.keys).subtracting(nextByID.keys) {
+            customFieldTimers[id]?.invalidate()
+            customFieldTimers[id] = nil
+            scheduledCustomFields[id] = nil
+            cachedCustomFieldValues[id] = nil
+        }
+
+        for (id, field) in nextByID {
+            if let existing = scheduledCustomFields[id],
+                existing.command == field.command,
+                existing.effectiveRefreshIntervalSeconds == field.effectiveRefreshIntervalSeconds,
+                existing.timeoutSeconds == field.timeoutSeconds
+            {
+                // Label/icon-only edits update in place without restarting the timer/cadence.
+                scheduledCustomFields[id] = field
+                continue
+            }
+            scheduledCustomFields[id] = field
+            customFieldTimers[id]?.invalidate()
+            customFieldTimers[id] = Timer.scheduledTimer(
+                withTimeInterval: TimeInterval(field.effectiveRefreshIntervalSeconds), repeats: true
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.runCustomField(field)
+                }
+            }
+            runCustomField(field)
+        }
     }
 
+    private func runCustomField(_ field: CustomStatusLineField) {
+        let context = CustomFieldExecutionContext(
+            currentData: currentData,
+            paneID: paneID,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
+            harness: harness,
+            workingDirectory: workingDirectory,
+            profileName: profileName
+        )
+        let startedAt = Date()
+        Task { [weak self] in
+            guard let self else { return }
+            let result = await CustomFieldRunner.run(field: field, context: context)
+            await MainActor.run {
+                self.applyCustomFieldResult(field: field, result: result, startedAt: startedAt)
+            }
+        }
+    }
+
+    /// I8: every execution attempt either updates the cached value or records `exec_failed` — a
+    /// failure never silently reverts a previously-good value to "—".
+    private func applyCustomFieldResult(
+        field: CustomStatusLineField, result: CustomFieldExecutionResult, startedAt: Date
+    ) {
+        let durationMs = Date().timeIntervalSince(startedAt) * 1000
+        var attrs: [String: String] = [
+            "pane.name": paneName, "pane.id": paneID.uuidString,
+            "tab.id": tabID.uuidString, "tab.name": tabName,
+            "field_id": field.id,
+        ]
+        switch result {
+        // swiftlint:disable:next pattern_matching_keywords
+        case .success(let value, let outputKind):
+            cachedCustomFieldValues[field.id] = value
+            currentData?.customFields = cachedCustomFieldValues
+            attrs["duration_ms"] = String(format: "%.1f", durationMs)
+            attrs["output_kind"] = outputKind.rawValue
+            TracingService.shared.record("statusline.custom_field.exec_succeeded", attributes: attrs)
+        case .failure(let reason):
+            attrs["reason"] = reason.rawValue
+            attrs["retained_prior_value"] = cachedCustomFieldValues[field.id] != nil ? "true" : "false"
+            TracingService.shared.record("statusline.custom_field.exec_failed", attributes: attrs)
+        }
+    }
+
+    /// For testing only: injects cached custom field values directly.
+    @MainActor
+    func testSetCachedCustomFieldValues(_ values: [String: CustomFieldRenderValue]) {
+        cachedCustomFieldValues = values
+    }
+
+    /// For testing only: reads back the cached custom field values.
+    var cachedCustomFieldValuesForTesting: [String: CustomFieldRenderValue] { cachedCustomFieldValues }
+
+    /// For testing only: directly invokes the success/failure handling logic without spawning a process.
+    @MainActor
+    func testApplyCustomFieldResult(field: CustomStatusLineField, result: CustomFieldExecutionResult) {
+        applyCustomFieldResult(field: field, result: result, startedAt: Date())
+    }
+
+    /// For testing only: invokes `applyProviderSnapshot` directly (the non-Claude payload merge point).
+    @MainActor
+    func testApplyProviderSnapshot(_ data: StatusLineData, providerName: String = "test") {
+        applyProviderSnapshot(data, providerName: providerName)
+    }
+}
+
+extension StatusLineMonitor {
     /// For testing only: simulates a PR data update as if received from `gh pr view`.
     @MainActor
     func simulatePRUpdateForTesting(_ data: Data) {
@@ -682,7 +836,7 @@ final class StatusLineMonitor {
         } else {
             currentData?.pr = pr
         }
-        checkForMergedTransition(pr)
+        checkForPRResolutionTransition(pr)
     }
 
     /// For testing only: directly invokes I1 enforcement on a mutable StatusLineData.
@@ -702,9 +856,7 @@ final class StatusLineMonitor {
     func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
         cachedGitStats = stats
     }
-}
 
-extension StatusLineMonitor {
     private func startRepoIdentityFetch(cwd: String) {
         Task { [weak self] in
             guard let self else { return }

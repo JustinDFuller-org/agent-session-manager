@@ -78,6 +78,123 @@ Errors during payload processing are never silently dropped. `applyLatestPayload
 
 The `worktree` fact renders as `name • branch` when both values are available, or just `name` when branch is absent (computed by `StatusLineData.Worktree.factText`). The old `worktreeBranch` item has been removed from the catalog. Saved configurations containing `worktreeBranch` rows are migrated on first decode: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped. The migration emits `statusline.migration.worktreebranch_merged`.
 
+## Custom Fields
+
+Engineers can extend the status line with their own fields backed by a shell command, without the
+app needing to know what those commands do. A custom field's id is always `custom:<uuid>` and lives
+in `StatusLineConfig.customFields: [CustomStatusLineField]` — both the global config and any
+profile's `statusLineConfig` override can define their own set independently.
+
+### Config shape
+
+```swift
+struct CustomStatusLineField: Codable, Identifiable, Equatable {
+    var id: String                    // "custom:<uuid>"
+    var label: String
+    var sfSymbol: String               // fallback/default icon
+    var command: String
+    var refreshIntervalSeconds: Int    // effectiveRefreshIntervalSeconds clamps to a 5s minimum
+    var timeoutSeconds: Int            // default 10s — a cold-cache refresh needs headroom
+}
+```
+
+### Execution model
+
+`StatusLineMonitor.setCustomFields(_:)` starts one repeating `Timer` per field (immediate first
+run + `effectiveRefreshIntervalSeconds` cadence), diffing against the previously-scheduled set so an
+unchanged field's timer isn't restarted. `CustomFieldRunner.run(field:context:)` runs the command via
+`/bin/zsh -lc` in the pane's working directory with a per-field timeout (`Process.terminate()` via a
+`DispatchWorkItem`, since `Process` has no built-in timeout), strips ANSI escape sequences from
+stdout, and parses the result.
+
+### What the command receives
+
+**stdin** — a JSON object shaped like Claude's own `statusLine` hook payload, so a script written
+against that convention drops in unchanged, plus everything the app additionally knows:
+
+```jsonc
+{
+  "model": { "display_name": "Sonnet", "id": "claude-sonnet-4-6" },
+  "cost": { "total_cost_usd": 0.42, "total_duration_ms": 813000, "total_lines_added": 12 },
+  "context_window": { "used_percentage": 34 },
+  "worktree": { "name": "custom-status-line", "branch": "custom-status-line" },
+  "repo": { "host": "github.com", "owner": "nytimes", "name": "agent-session-manager" },
+  "pr": { "number": 258, "state": "open" },
+  "pane": { "id": "...", "name": "backend" },
+  "tab": { "id": "...", "name": "Feature work" },
+  "harness": "claude",
+  "working_directory": "/Users/you/code/agent-session-manager",
+  "profile_name": "Backend"
+}
+```
+
+Built via `CustomFieldRunner.buildContextPayload(context:)`: encodes the pane's current
+`StatusLineData`, converts it to a `[String: Any]` via `JSONSerialization`, and merges in
+`pane`/`tab`/`harness`/`working_directory`/`profile_name`. `custom_fields` is explicitly stripped so
+a field's own or a sibling's resolved value never reaches a command — no recursive/cyclic
+dependencies between custom fields.
+
+**Environment** — a curated (not exhaustive) set of flat `AGENT_SESSION_MANAGER_*` vars for
+one-liners that don't want to shell out to `jq`, matching the prefix convention already used for
+Codex hook env vars: `_PANE_ID`, `_PANE_NAME`, `_TAB_ID`, `_TAB_NAME`, `_PROFILE_NAME`, `_HARNESS`,
+`_WORKING_DIRECTORY`, `_MODEL`, `_WORKTREE_NAME`, `_WORKTREE_BRANCH`, `_COST_USD`, `_LINES_ADDED`,
+`_LINES_REMOVED`, `_DURATION_MS`, `_REPO`. Built via `CustomFieldRunner.buildEnvironment(context:)`.
+
+### Render contract: plain text is the floor, structure is opt-in
+
+`echo "hello"` just works — the whole trimmed, ANSI-stripped, first-line output (capped at 200
+characters) becomes the fact's text. A script opts into a progress bar or state-driven color by
+printing this shape as JSON instead:
+
+```swift
+struct CustomFieldRenderValue: Codable, Equatable {
+    var text: String?
+    var percent: Double?       // 0-100; renders as a progress bar, same as `context`/`rate5h`
+    var tint: CustomFieldTint? // .normal | .good | .warning | .critical; falls back to the
+                                // existing progressTint() thresholds (<70 green, <90 orange, else red)
+                                // when percent is set but tint isn't
+    var icon: String?          // per-invocation SF Symbol override; falls back to the field's
+                                // configured sfSymbol
+}
+```
+
+`CustomFieldRunner.parse(_:)` tries `JSONDecoder` first; if the output decodes to a value with at
+least one non-nil field, it's used as-is. Otherwise the whole trimmed output becomes `text`.
+
+### Caching is the script's job, not the app's
+
+The app runs each field's command independently on its own timer — it does not dedupe or share
+results across fields. If several fields derive from one expensive/shared source, collapse that
+into a shared TTL-gated cache file plus a fast reader script (exactly the
+`litellm-cache-refresh.sh`/`litellm-metric.sh` pattern below), not something the app does for you.
+Set an honest `timeoutSeconds` for a script with a cold-cache refresh path — the default (10s) gives
+a two-sequential-curl cold path headroom before `Process.terminate()` kills it.
+
+### Worked examples
+
+**Spend/budget percentage as a progress bar** — `~/.claude/scripts/litellm-metric-asm.sh pct` reads
+a TTL-gated cache (refreshed by `~/.claude/scripts/litellm-cache-refresh.sh`, called first and
+ignored on failure so a stale-but-present cache still renders) and emits
+`{"percent": 24.6, "tint": "warning"}` instead of a formatted `"24.6%"` string. `spend`/`budget`
+still print plain text (`litellm-metric.sh spend|budget` works unmodified, since plain text is
+already the floor of the contract).
+
+**A trivial one** — `kubectl config current-context` as a field's command needs no adaptation at
+all. Most git/worktree/model/cost data doesn't need a custom field, since it's already built in
+(`worktree`, `linesAdded`, `cost`, `model`, …) — custom fields exist for genuinely external things a
+command can compute that the app has no other way to know.
+
+### Invariants
+
+**I8. Every custom-field execution attempt either updates the cached value or records a failure**
+
+A failed run (nonzero exit, timeout, spawn error, empty output) never silently reverts a
+previously-good cached value to `—`. `StatusLineMonitor.applyCustomFieldResult` updates
+`cachedCustomFieldValues[field.id]` only on success; on failure it leaves the cache untouched and
+records `statusline.custom_field.exec_failed` with `retained_prior_value`.
+
+**Authoritative source**: `StatusLineMonitor.applyCustomFieldResult(field:result:startedAt:)`.
+
 ## Claude statusLine Schema & Field Ownership
 
 Claude writes a JSON file at a well-known path; the app reads it via `StatusLineMonitor`. The [official schema](https://code.claude.com/docs/en/statusline) defines which keys Claude guarantees and their types.
@@ -138,9 +255,11 @@ Catch-all "lenient" decoders (decode whatever arrives without validation) are no
 | `Sources/.../Controllers/ToolAgnosticDataProvider.swift` | Git stats for non-Claude panes |
 | `Sources/.../Controllers/CursorDataProvider.swift` | Git stats for Cursor panes |
 | `Sources/.../Views/StatusLineView.swift` | Chip rendering |
-| `Sources/.../Views/StatusLineSettingsViews.swift` | Settings UI and alphabetical picker |
+| `Sources/.../Views/StatusLineSettingsViews.swift` | Settings UI, alphabetical picker, `AddCustomStatusLineFieldSheet` |
+| `Sources/.../Controllers/CustomFieldRunner.swift` | Custom field command execution, context-building, output parsing |
 | `Tests/GitDiffStatsTests.swift` | Parser unit tests |
 | `Tests/StatusLineMonitorInvariantTests.swift` | I1, I2, I3 invariant tests |
+| `Tests/CustomFieldRunnerTests.swift` | Custom field execution, timeout, ANSI-strip, structured-vs-plain-text parsing |
 
 ## Trace Events
 
@@ -161,3 +280,5 @@ Catch-all "lenient" decoders (decode whatever arrives without validation) are no
 | `statusline.codex.tailer_started` | `pane.id`, `pane.name`, `tab.id`, `tab.name` | Codex transcript tailer starts |
 | `statusline.codex.tailer_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `line_count`, `update_count`, `catch_up` | Codex rollout tailer reads a bounded batch |
 | `statusline.codex.parsed_update` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `has_model`, `has_tokens`, `has_context`, `has_rate_limits` | Codex rollout parsing produced a supported update |
+| `statusline.custom_field.exec_succeeded` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `duration_ms`, `output_kind` (`text`\|`structured`) | I8: a custom field's command completed and its cached value was updated |
+| `statusline.custom_field.exec_failed` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `reason` (`nonzero_exit`\|`timeout`\|`spawn_error`\|`empty_output`), `retained_prior_value` | I8: a custom field's command failed; the prior cached value is kept, never reverted to `—` |

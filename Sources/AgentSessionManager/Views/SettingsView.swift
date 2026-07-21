@@ -8,6 +8,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     case statusLine = "status-line"
     case notifications
     case debug
+    case about
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .statusLine: "Status Line"
         case .notifications: "Notifications"
         case .debug: "Debug"
+        case .about: "About"
         }
     }
 
@@ -32,6 +34,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .statusLine: "chart.bar"
         case .notifications: "bell"
         case .debug: "ladybug"
+        case .about: "info.circle"
         }
     }
 }
@@ -54,6 +57,7 @@ enum SettingsSidebarTheme {
 struct SettingsView: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var selection: SettingsSection = .panes
+    @State private var updateCheckCoordinator = UpdateCheckCoordinator.shared
 
     var body: some View {
         HStack(spacing: 0) {
@@ -63,6 +67,7 @@ struct SettingsView: View {
                         SettingsSidebarRow(
                             section: section,
                             isSelected: selection == section,
+                            showBadge: section == .about && updateCheckCoordinator.updateAvailable,
                             onSelect: { selection = section }
                         )
                     }
@@ -109,6 +114,9 @@ struct SettingsView: View {
                 case .debug:
                     DebugView()
                         .environment(appSettings)
+                case .about:
+                    AboutContent()
+                        .environment(appSettings)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -116,12 +124,20 @@ struct SettingsView: View {
         .background(Theme.mac26Content)
         .frame(minWidth: 900, idealWidth: 900, minHeight: 552, idealHeight: 552)
         .pinnedWindowChrome(Theme.settingsWindowChrome)
+        .onReceive(NotificationCenter.default.publisher(for: .showSettingsSection)) { notif in
+            guard
+                let raw = notif.userInfo?["section"] as? String,
+                let section = SettingsSection(rawValue: raw)
+            else { return }
+            selection = section
+        }
     }
 }
 
 private struct SettingsSidebarRow: View {
     let section: SettingsSection
     let isSelected: Bool
+    var showBadge: Bool = false
     let onSelect: () -> Void
 
     var body: some View {
@@ -133,6 +149,12 @@ private struct SettingsSidebarRow: View {
                 Text(section.title)
                     .font(.system(size: 12, weight: .medium))
                 Spacer()
+                if showBadge {
+                    Circle()
+                        .fill(Theme.accent)
+                        .frame(width: 8, height: 8)
+                        .accessibilityIdentifier("settings-sidebar-about-badge")
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(isSelected ? Color.white : Color.primary)
@@ -907,8 +929,84 @@ private struct CLIOptionRow: View {
                     }
                 }
             }
+            if case .string = option.optionType {
+                CLIOptionPresetEditor(
+                    optionID: option.id,
+                    presetValues: $option.presetValues,
+                    allowsMultipleValues: $option.allowsMultipleValues,
+                    onChange: onChange
+                )
+            }
         }
         .padding(.vertical, 8)
+    }
+}
+
+private struct CLIOptionPresetEditor: View {
+    let optionID: String
+    @Binding var presetValues: [String]
+    @Binding var allowsMultipleValues: Bool
+    let onChange: () -> Void
+
+    @State private var drafts: [PresetDraft] = []
+
+    private struct PresetDraft: Identifiable {
+        let id = UUID()
+        var value: String
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Allow multiple selections", isOn: $allowsMultipleValues)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .help(
+                    "Only enable this for flags whose CLI accepts multiple space-separated values behind one "
+                        + "flag (e.g. --mcp-config a.json b.json). Enabling it for a flag that only accepts a "
+                        + "single value will produce an incorrect command line."
+                )
+                .accessibilityIdentifier("settings-cli-option-allow-multi-\(optionID)")
+                .onChange(of: allowsMultipleValues) { onChange() }
+            HStack(spacing: 6) {
+                Text("Preset values")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    drafts.append(PresetDraft(value: ""))
+                } label: {
+                    Image(systemName: "plus.circle")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("settings-cli-option-preset-add-\(optionID)")
+            }
+            ForEach($drafts) { $draft in
+                HStack(spacing: 6) {
+                    TextField("Value", text: $draft.value)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.caption, design: .monospaced))
+                        .onChange(of: draft.value) { commit() }
+                        .accessibilityIdentifier("settings-cli-option-preset-value-\(optionID)")
+                    Button {
+                        drafts.removeAll { $0.id == draft.id }
+                        commit()
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("settings-cli-option-preset-remove-\(optionID)")
+                }
+            }
+        }
+        .padding(.top, 4)
+        .onAppear {
+            drafts = presetValues.map { PresetDraft(value: $0) }
+        }
+    }
+
+    private func commit() {
+        presetValues = CLIOptionConfig.normalizedPresetValues(drafts.map(\.value))
+        onChange()
     }
 }
 
@@ -969,5 +1067,121 @@ private struct CustomCLIOptionRow: View {
             }
         }
         .padding(.vertical, 8)
+    }
+}
+
+private struct AboutContent: View {
+    @Environment(AppSettings.self) private var appSettings
+    @State private var coordinator = UpdateCheckCoordinator.shared
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
+    private static func shortSHA(_ sha: String) -> String { String(sha.prefix(7)) }
+
+    var body: some View {
+        @Bindable var appSettings = appSettings
+        Form {
+            if let provenance = BuildProvenance.current() {
+                Section("Build") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Built from \(provenance.branch) @ \(Self.shortSHA(provenance.commit))")
+                            .font(.system(.body, design: .monospaced))
+                            .fontWeight(.medium)
+                        if let date = provenance.commitDate {
+                            Text(Self.relativeFormatter.localizedString(for: date, relativeTo: Date()))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    if !provenance.isMainSourceBuild {
+                        Text("Update reminders are only available for builds made from main.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if provenance.isMainSourceBuild {
+                    Section("Updates") {
+                        if let latest = coordinator.latestCommit {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Latest main: \(Self.shortSHA(latest))")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                if let checked = coordinator.lastCheckedAt {
+                                    Text(
+                                        "Checked \(Self.relativeFormatter.localizedString(for: checked, relativeTo: Date()))"
+                                    )
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+
+                        if coordinator.updateAvailable {
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .foregroundStyle(Theme.accent)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Update available")
+                                        .fontWeight(.medium)
+                                    Text("Run git pull && make run to update.")
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .accessibilityIdentifier("settings-about-update-available-banner")
+                        }
+
+                        Button {
+                            coordinator.check()
+                        } label: {
+                            if coordinator.isChecking {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Check for Updates")
+                            }
+                        }
+                        .disabled(coordinator.isChecking)
+                        .accessibilityIdentifier("settings-check-for-updates-button")
+
+                        SettingRow(
+                            title: "Update Reminder",
+                            description: "Show a reminder in the tab bar when a newer commit exists on GitHub main.",
+                            defaultValue: "On"
+                        ) {
+                            Toggle("Update Reminder", isOn: $appSettings.updateReminderEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-update-reminder-toggle")
+                                .onChange(of: appSettings.updateReminderEnabled) {
+                                    SettingsPersistence.saveUpdateCheckSettings(appSettings: appSettings)
+                                    if appSettings.updateReminderEnabled {
+                                        UpdateCheckCoordinator.shared.start()
+                                    } else {
+                                        UpdateCheckCoordinator.shared.stop()
+                                    }
+                                }
+                        }
+                    }
+                }
+            } else {
+                Section("Version") {
+                    Text("Version 1.0")
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .pinnedFormBackground()
     }
 }

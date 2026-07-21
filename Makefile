@@ -28,6 +28,9 @@ build-prd:
 
 app: app-prd
 
+dist: app-prd
+	@scripts/dist.sh "$(APP_BUNDLE)"
+
 app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
@@ -52,6 +55,15 @@ app-prd: build
 		/usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true; \
 		/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string $$ICON_NAME" $(APP_BUNDLE)/Contents/Info.plist; \
 	fi
+	@COMMIT=$$(git rev-parse HEAD 2>/dev/null); \
+	BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null); \
+	DATE=$$(git show -s --format=%cI HEAD 2>/dev/null); \
+	PLIST=$(APP_BUNDLE)/Contents/Info.plist; \
+	for kv in "ASMSourceCommit:$$COMMIT" "ASMSourceBranch:$$BRANCH" "ASMSourceCommitDate:$$DATE"; do \
+		key=$${kv%%:*}; val=$${kv#*:}; \
+		/usr/libexec/PlistBuddy -c "Delete :$$key" $$PLIST 2>/dev/null || true; \
+		[ -n "$$val" ] && /usr/libexec/PlistBuddy -c "Add :$$key string $$val" $$PLIST; \
+	done
 	codesign --force --deep --sign - $(APP_BUNDLE)
 	touch $(APP_BUNDLE)
 	$(MAKE) repair-launch-services
@@ -113,6 +125,15 @@ app-dev: build-dev
 		/usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" $(APP_BUNDLE_DEV)/Contents/Info.plist 2>/dev/null || true; \
 		/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string $$ICON_NAME" $(APP_BUNDLE_DEV)/Contents/Info.plist; \
 	fi
+	@COMMIT=$$(git rev-parse HEAD 2>/dev/null); \
+	BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null); \
+	DATE=$$(git show -s --format=%cI HEAD 2>/dev/null); \
+	PLIST=$(APP_BUNDLE_DEV)/Contents/Info.plist; \
+	for kv in "ASMSourceCommit:$$COMMIT" "ASMSourceBranch:$$BRANCH" "ASMSourceCommitDate:$$DATE"; do \
+		key=$${kv%%:*}; val=$${kv#*:}; \
+		/usr/libexec/PlistBuddy -c "Delete :$$key" $$PLIST 2>/dev/null || true; \
+		[ -n "$$val" ] && /usr/libexec/PlistBuddy -c "Add :$$key string $$val" $$PLIST; \
+	done
 	codesign --force --deep --sign - $(APP_BUNDLE_DEV)
 	touch $(APP_BUNDLE_DEV)
 	$(MAKE) repair-launch-services
@@ -186,7 +207,7 @@ reset-app-state:
     terminal-settings.json worktree-base-ref.json exit-behavior.json \
     env-var-settings.json profiles.json session-name-settings.json \
     shell-settings.json onboarding-settings.json activity-indicator-settings.json \
-    focus-mode-settings.json; do \
+	    focus-mode-settings.json update-check-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
 	done
 	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager/traces"
@@ -203,7 +224,7 @@ reset-app-state-dev:
     terminal-settings.json worktree-base-ref.json exit-behavior.json \
     env-var-settings.json profiles.json session-name-settings.json \
     shell-settings.json onboarding-settings.json activity-indicator-settings.json \
-    focus-mode-settings.json; do \
+	    focus-mode-settings.json update-check-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
 		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done
@@ -236,4 +257,4 @@ repair-launch-services:
 	@bash scripts/repair-launch-services.sh "$(APP_BUNDLE)" "$(APP_BUNDLE_DEV)"
 
 clean:
-	rm -rf $(APP_BUNDLE) $(APP_BUNDLE_DEV) .build $(APP_NAME).xcodeproj
+	rm -rf $(APP_BUNDLE) $(APP_BUNDLE_DEV) .build $(APP_NAME).xcodeproj $(APP_NAME)-*.dmg

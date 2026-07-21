@@ -19,6 +19,7 @@ struct NotificationConfig: Codable {
     /// When true, install a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
     var isCursorHookAttentionEnabled: Bool
     var isPRMergedNotificationsEnabled: Bool
+    var isPRClosedNotificationsEnabled: Bool
     var alwaysShowNotificationsSidebar: Bool
     /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool
@@ -31,6 +32,7 @@ struct NotificationConfig: Codable {
         case isMacOSBannerEnabled
         case isCursorHookAttentionEnabled
         case isPRMergedNotificationsEnabled
+        case isPRClosedNotificationsEnabled
         case alwaysShowNotificationsSidebar
         case isClaudeStopNotificationEnabled
         case isOpencodeStopNotificationEnabled
@@ -42,6 +44,7 @@ struct NotificationConfig: Codable {
         isMacOSBannerEnabled: Bool,
         isCursorHookAttentionEnabled: Bool,
         isPRMergedNotificationsEnabled: Bool,
+        isPRClosedNotificationsEnabled: Bool,
         alwaysShowNotificationsSidebar: Bool,
         isClaudeStopNotificationEnabled: Bool,
         isOpencodeStopNotificationEnabled: Bool
@@ -51,6 +54,7 @@ struct NotificationConfig: Codable {
         self.isMacOSBannerEnabled = isMacOSBannerEnabled
         self.isCursorHookAttentionEnabled = isCursorHookAttentionEnabled
         self.isPRMergedNotificationsEnabled = isPRMergedNotificationsEnabled
+        self.isPRClosedNotificationsEnabled = isPRClosedNotificationsEnabled
         self.alwaysShowNotificationsSidebar = alwaysShowNotificationsSidebar
         self.isClaudeStopNotificationEnabled = isClaudeStopNotificationEnabled
         self.isOpencodeStopNotificationEnabled = isOpencodeStopNotificationEnabled
@@ -65,6 +69,8 @@ struct NotificationConfig: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .isCursorHookAttentionEnabled) ?? true
         isPRMergedNotificationsEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isPRMergedNotificationsEnabled) ?? true
+        isPRClosedNotificationsEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isPRClosedNotificationsEnabled) ?? true
         alwaysShowNotificationsSidebar =
             try container.decodeIfPresent(Bool.self, forKey: .alwaysShowNotificationsSidebar) ?? true
         isClaudeStopNotificationEnabled =
@@ -80,6 +86,7 @@ struct NotificationConfig: Codable {
         try container.encode(isMacOSBannerEnabled, forKey: .isMacOSBannerEnabled)
         try container.encode(isCursorHookAttentionEnabled, forKey: .isCursorHookAttentionEnabled)
         try container.encode(isPRMergedNotificationsEnabled, forKey: .isPRMergedNotificationsEnabled)
+        try container.encode(isPRClosedNotificationsEnabled, forKey: .isPRClosedNotificationsEnabled)
         try container.encode(alwaysShowNotificationsSidebar, forKey: .alwaysShowNotificationsSidebar)
         try container.encode(isClaudeStopNotificationEnabled, forKey: .isClaudeStopNotificationEnabled)
         try container.encode(isOpencodeStopNotificationEnabled, forKey: .isOpencodeStopNotificationEnabled)
@@ -130,6 +137,7 @@ struct SettingsPersistence {
         appSupportDir.appending(path: "activity-indicator-settings.json")
     }
     private static var focusModeSettingsURL: URL { appSupportDir.appending(path: "focus-mode-settings.json") }
+    private static var updateCheckSettingsURL: URL { appSupportDir.appending(path: "update-check-settings.json") }
 
     static func save<Value: Encodable>(_ value: Value, to filename: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
@@ -166,6 +174,8 @@ struct SettingsPersistence {
             } else if let index = updated.firstIndex(where: { $0.id == savedOption.id }) {
                 updated[index].isAvailable = savedOption.isAvailable
                 updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
+                updated[index].presetValues = savedOption.presetValues
+                updated[index].allowsMultipleValues = savedOption.allowsMultipleValues
             }
         }
         return updated + userAdded
@@ -236,6 +246,7 @@ struct SettingsPersistence {
             isMacOSBannerEnabled: appSettings.isMacOSBannerNotificationsEnabled,
             isCursorHookAttentionEnabled: appSettings.isCursorNotificationHookAttentionEnabled,
             isPRMergedNotificationsEnabled: appSettings.isPRMergedNotificationsEnabled,
+            isPRClosedNotificationsEnabled: appSettings.isPRClosedNotificationsEnabled,
             alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar,
             isClaudeStopNotificationEnabled: appSettings.isClaudeStopNotificationEnabled,
             isOpencodeStopNotificationEnabled: appSettings.isOpencodeStopNotificationEnabled
@@ -266,6 +277,14 @@ struct SettingsPersistence {
             let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
         else { return true }
         return config.isPRMergedNotificationsEnabled
+    }
+
+    static func isPRClosedNotificationsEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: notificationSettingsURL),
+            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return true }
+        return config.isPRClosedNotificationsEnabled
     }
 
     struct DebugSettings: Codable {
@@ -379,5 +398,23 @@ struct SettingsPersistence {
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: focusModeSettingsURL)
+    }
+
+    struct UpdateCheckSettings: Codable {
+        var enabled: Bool = true
+    }
+
+    static func saveUpdateCheckSettings(appSettings: AppSettings) {
+        let payload = UpdateCheckSettings(enabled: appSettings.updateReminderEnabled)
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: updateCheckSettingsURL)
+    }
+
+    static func isUpdateReminderEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: updateCheckSettingsURL),
+            let settings = try? JSONDecoder().decode(UpdateCheckSettings.self, from: data)
+        else { return true }
+        return settings.enabled
     }
 }

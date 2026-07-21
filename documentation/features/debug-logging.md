@@ -1,10 +1,38 @@
 # Debug Mode
 
-Debug mode is the single switch for durable diagnostic output. It is off by default.
+Debug Mode is the switch for durable diagnostic *files*. It does not gate unified logging or
+Instruments signposts, both of which are always on.
 
-Production writes under `~/Library/Application Support/agent-session-manager/`. Development builds use the isolated `~/Library/Application Support/agent-session-manager.dev/` directory.
+## Signals
 
-Production writes under `~/Library/Application Support/agent-session-manager/`. Development builds use the isolated `~/Library/Application Support/agent-session-manager.dev/` directory.
+- **Always-on (no Debug Mode needed):**
+  - Unified logging via `os.Logger` (`AppLog`) — every `TracingService` span/record call forwards
+    an entry here, regardless of whether Debug Mode is enabled. Visible in Console.app or
+    `log stream`.
+  - Instruments signposts (`OSSignposterIntegration` / `SignPostIntegration`) — every span shows up
+    as a `os_signpost` interval in Instruments' Points of Interest, whether or not the JSONL trace
+    file exists.
+- **Debug-Mode-gated (durable files):**
+  - OpenTelemetry JSONL traces under `traces/`
+  - Invariant JSONL violations under `invariants/invariants.jsonl`
+
+See `documentation/features/tracing.md` for the trace file schema and `instrument-runtime-telemetry`
+for the instrumentation checklist (spans fan out to all three sinks from a single call).
+
+## Console recipe
+
+```bash
+log stream --predicate 'subsystem == "com.justinfuller.agent-session-manager"' --level debug
+```
+
+Use `com.justinfuller.agent-session-manager.dev` for Dev builds. Categories mirror span-name
+prefixes (`terminal`, `pane`, `tab`, `pr`, `statusline`, `notification`, `session`, `invariant`,
+`app`); filter further with `category == "pane"` etc. Attribute values render as `<private>` unless
+the process streaming the log is the logging client itself (e.g. `log stream` run as the same
+user works; a redacted Console.app view from another session may not).
+
+Production writes under `~/Library/Application Support/agent-session-manager/`. Development builds
+use the isolated `~/Library/Application Support/agent-session-manager.dev/` directory.
 
 ## Settings
 
@@ -30,8 +58,6 @@ Debug mode enables both:
 - invariant JSONL violations under `invariants/invariants.jsonl`
 
 Both outputs use fixed 10 MB caps. Trace files retain their existing one-day cleanup behavior. Invariant logs are size-bounded only so violations remain available during dogfooding.
-
-Top-level `debug-trace.log` and `traces.jsonl` files are stale legacy formats when present. Report them separately from current per-pane traces.
 
 Top-level `debug-trace.log` and `traces.jsonl` files are stale legacy formats when present. Report them separately from current per-pane traces.
 

@@ -19,6 +19,33 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     /// Set while handling a banner click so `applicationShouldHandleReopen` can avoid redundant work.
     private(set) var isHandlingNotificationResponse = false
 
+    /// When we last actually played a sound for a pane; drives the time-based cooldown.
+    private var lastChimeAt: [UUID: Date] = [:]
+    /// Present while a pane's notification is unacknowledged; drives "still open" + content preference.
+    private var outstanding: [UUID: (reason: String, isSpecific: Bool)] = [:]
+    private static let coalesceCooldown: TimeInterval = 6
+
+    /// Decides whether a repeat banner for a pane should re-chime (sound) or update silently in place.
+    struct CoalesceDecision: Equatable {
+        let silent: Bool
+        let reason: String
+        let isSpecific: Bool
+    }
+
+    static func decideCoalesce(
+        now: Date, cooldown: TimeInterval,
+        lastChimeAt: Date?, outstanding: (reason: String, isSpecific: Bool)?,
+        incomingSource: PaneAttentionEvent.Source, incomingReason: String
+    ) -> CoalesceDecision {
+        let incomingSpecific = incomingSource != .claudeStop
+        let withinCooldown = lastChimeAt.map { now.timeIntervalSince($0) < cooldown } ?? false
+        let silent = outstanding != nil || withinCooldown
+        if let outstanding, outstanding.isSpecific, !incomingSpecific {
+            return CoalesceDecision(silent: silent, reason: outstanding.reason, isSpecific: true)
+        }
+        return CoalesceDecision(silent: silent, reason: incomingReason, isSpecific: incomingSpecific)
+    }
+
     func bind(appState: AppState, appSettings: AppSettings) {
         self.appState = appState
         self.appSettings = appSettings
@@ -66,6 +93,18 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         return content
     }
 
+    nonisolated static func makePRClosedContent(
+        tabName: String, paneName: String, prNumber: Int, prTitle: String
+    )
+        -> UNMutableNotificationContent
+    {
+        let content = UNMutableNotificationContent()
+        content.title = tabName
+        content.subtitle = paneName
+        content.body = escapedBannerBody("PR #\(prNumber) closed: \(prTitle)")
+        return content
+    }
+
     func requestAuthorizationIfNeeded() async {
         guard !AgentSessionManagerApp.isUITesting else { return }
         guard let appSettings = self.appSettings else { return }
@@ -98,13 +137,20 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         guard let appSettings = self.appSettings else { return }
         guard appSettings.isMacOSBannerNotificationsEnabled else { return }
         guard !AgentSessionManagerApp.isUITesting else { return }
+        let now = Date()
+        let decision = Self.decideCoalesce(
+            now: now, cooldown: Self.coalesceCooldown,
+            lastChimeAt: lastChimeAt[paneID], outstanding: outstanding[paneID],
+            incomingSource: source, incomingReason: reason
+        )
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
             guard settings.authorizationStatus == .authorized else { return }
             guard settings.alertSetting == .enabled else { return }
-            let content = Self.makePaneAttentionContent(tabName: tabName, paneName: paneName, reason: reason)
-            content.sound = .default
+            let content = Self.makePaneAttentionContent(
+                tabName: tabName, paneName: paneName, reason: decision.reason)
+            content.sound = decision.silent ? nil : .default
             content.userInfo = [
                 MacNotificationUserInfoKey.paneID: paneID.uuidString,
                 MacNotificationUserInfoKey.tabID: tabID.uuidString,
@@ -115,12 +161,17 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
                 paneID: paneID, paneName: paneName, tabID: tabID, tabName: tabName)
             do {
                 try await center.add(request)
+                if !decision.silent {
+                    lastChimeAt[paneID] = now
+                }
+                outstanding[paneID] = (decision.reason, decision.isSpecific)
                 TracingService.shared.record(
                     "notification.pane_attention.posted",
                     attributes: paneAttributes.merging([
-                        "reason": reason,
+                        "reason": decision.reason,
                         "source": source.rawValue,
                         "result": "posted",
+                        "coalesced": decision.silent ? "true" : "false",
                     ]) { _, new in new })
             } catch {
                 TracingService.shared.record(
@@ -177,7 +228,53 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         }
     }
 
+    func postPRClosedBannerIfNeeded(
+        paneID: UUID,
+        paneName: String,
+        tabID: UUID,
+        tabName: String,
+        prNumber: Int,
+        prTitle: String
+    ) {
+        guard let appSettings = self.appSettings, appSettings.isMacOSBannerNotificationsEnabled else { return }
+        guard !AgentSessionManagerApp.isUITesting else { return }
+        Task { @MainActor in
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            guard settings.authorizationStatus == .authorized else { return }
+            guard settings.alertSetting == .enabled else { return }
+            let content = Self.makePRClosedContent(
+                tabName: tabName, paneName: paneName, prNumber: prNumber, prTitle: prTitle)
+            content.sound = .default
+            content.userInfo = [
+                MacNotificationUserInfoKey.paneID: paneID.uuidString,
+                MacNotificationUserInfoKey.tabID: tabID.uuidString,
+                MacNotificationUserInfoKey.notificationKind: NotificationKind.prClosed.rawValue,
+            ]
+            let identifier = "pr-closed-\(paneID.uuidString)"
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+            let paneAttributes = Self.paneAttributes(
+                paneID: paneID, paneName: paneName, tabID: tabID, tabName: tabName)
+            do {
+                try await center.add(request)
+                TracingService.shared.record(
+                    "notification.pr_closed.posted",
+                    attributes: paneAttributes.merging([
+                        "pr.title": prTitle,
+                        "result": "posted",
+                    ]) { _, new in new })
+            } catch {
+                TracingService.shared.record(
+                    "notification.pr_closed.skipped",
+                    attributes: paneAttributes.merging(
+                        Self.errorAttributes(error, result: "schedule_error")
+                    ) { _, new in new })
+            }
+        }
+    }
+
     func removeDeliveredNotifications(forPaneID paneID: UUID) {
+        markPaneAcknowledged(paneID: paneID)
         guard appSettings != nil else { return }
         guard !AgentSessionManagerApp.isUITesting else { return }
         Task { @MainActor in
@@ -187,12 +284,24 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
             center.removeDeliveredNotifications(withIdentifiers: [
                 "pane-\(paneID.uuidString)",
                 "pr-merged-\(paneID.uuidString)",
+                "pr-closed-\(paneID.uuidString)",
             ])
         }
     }
 
-    /// Navigates to the pane identified by `paneIDStr`/`tabIDStr` and, for PR merged
-    /// notifications, additionally posts `prMergedActionRequested` so the alert appears.
+    /// Marks a pane's notification as seen — a later chime is fresh (subject to cooldown) rather than "still open".
+    func markPaneAcknowledged(paneID: UUID) {
+        outstanding[paneID] = nil
+    }
+
+    /// Clears all coalesce state for a pane — call when its tab/pane is closed.
+    func forgetPane(paneID: UUID) {
+        outstanding[paneID] = nil
+        lastChimeAt[paneID] = nil
+    }
+
+    /// Navigates to the pane identified by `paneIDStr`/`tabIDStr` and, for PR resolution
+    /// notifications, additionally posts `prResolutionActionRequested` so the alert appears.
     /// Extracted for testability — does not call `NSApp.activate`.
     @discardableResult
     func handleNotificationNavigation(paneIDStr: String, tabIDStr: String, kind: String?) -> String {
@@ -202,11 +311,11 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         else { return "invalid_context" }
         guard let state = appState else { return "state_unavailable" }
         state.focusPane(tabID: tabID, paneID: paneID)
-        if kind == NotificationKind.prMerged.rawValue {
+        if let kind, kind == NotificationKind.prMerged.rawValue || kind == NotificationKind.prClosed.rawValue {
             NotificationCenter.default.post(
-                name: .prMergedActionRequested,
+                name: .prResolutionActionRequested,
                 object: nil,
-                userInfo: ["paneID": paneIDStr, "tabID": tabIDStr]
+                userInfo: ["paneID": paneIDStr, "tabID": tabIDStr, "kind": kind]
             )
         }
         return "navigated"

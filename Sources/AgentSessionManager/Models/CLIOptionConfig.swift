@@ -13,9 +13,16 @@ struct CLIOptionConfig: Identifiable, Codable {
     var isDefaultEnabled: Bool
     var isUserAdded: Bool
     var customIsStringType: Bool
+    /// Candidate values offered when selecting this flag, defined at harness scope in Settings → Tools.
+    var presetValues: [String]
+    /// Whether this flag's CLI syntax accepts multiple space-separated values behind one flag
+    /// (e.g. `--mcp-config 'a.json' 'b.json'`), rather than a single value. User-configurable per
+    /// flag in Settings → Tools; the user is responsible for only enabling this on flags whose CLI
+    /// is actually variadic.
+    var allowsMultipleValues: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType
+        case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType, presetValues, allowsMultipleValues
     }
 
     /// When set on a `JSONDecoder`'s `userInfo`, harness-aware decode resolves colliding
@@ -38,7 +45,8 @@ struct CLIOptionConfig: Identifiable, Codable {
 
     init(
         id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool,
-        isUserAdded: Bool = false, customIsStringType: Bool = false
+        isUserAdded: Bool = false, customIsStringType: Bool = false, presetValues: [String] = [],
+        allowsMultipleValues: Bool = false
     ) {
         self.id = id
         self.label = label
@@ -47,6 +55,8 @@ struct CLIOptionConfig: Identifiable, Codable {
         self.isDefaultEnabled = isDefaultEnabled
         self.isUserAdded = isUserAdded
         self.customIsStringType = customIsStringType
+        self.presetValues = presetValues
+        self.allowsMultipleValues = allowsMultipleValues
     }
 
     init(from decoder: Decoder) throws {
@@ -62,6 +72,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
             self.isUserAdded = true
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
+            self.presetValues = (try? container.decodeIfPresent([String].self, forKey: .presetValues)) ?? []
+            self.allowsMultipleValues = false
         } else {
             let id = try container.decode(String.self, forKey: .id)
             let preferredCatalog: [CLIOptionConfig]
@@ -85,6 +97,10 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
             self.isUserAdded = false
             self.customIsStringType = false
+            self.presetValues = (try? container.decodeIfPresent([String].self, forKey: .presetValues)) ?? []
+            self.allowsMultipleValues =
+                (try? container.decodeIfPresent(Bool.self, forKey: .allowsMultipleValues))
+                ?? template.allowsMultipleValues
         }
     }
 
@@ -96,6 +112,11 @@ struct CLIOptionConfig: Identifiable, Codable {
         if isUserAdded {
             try container.encode(true, forKey: .isUserAdded)
             try container.encode(customIsStringType, forKey: .customIsStringType)
+        } else {
+            try container.encode(allowsMultipleValues, forKey: .allowsMultipleValues)
+        }
+        if !presetValues.isEmpty {
+            try container.encode(presetValues, forKey: .presetValues)
         }
     }
 
@@ -223,6 +244,43 @@ struct CLIOptionConfig: Identifiable, Codable {
         }
     }
 
+    /// Builds the argv slice for this option given its selected value(s), reusing `Tab`'s
+    /// shell-quoting so the resolved launch command matches this exactly.
+    func commandLineArguments(value: String?, values: [String] = []) -> [String] {
+        switch optionType {
+        case .boolean:
+            return [id]
+        case .string where allowsMultipleValues:
+            var effectiveValues = values.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            if effectiveValues.isEmpty {
+                let raw = (value ?? "").trimmingCharacters(in: .whitespaces)
+                if !raw.isEmpty { effectiveValues = [raw] }
+            }
+            guard !effectiveValues.isEmpty else { return [id] }
+            return [id] + effectiveValues.map { Tab.shellQuote(Tab.expandingLeadingTilde($0)) }
+        case .string:
+            let raw = (value ?? "").trimmingCharacters(in: .whitespaces)
+            if raw.isEmpty {
+                return [id]
+            }
+            return [id, Tab.shellQuote(Tab.expandingLeadingTilde(raw))]
+        }
+    }
+
+    /// Cleans up user-edited preset drafts for persistence: trims whitespace, drops blanks, and
+    /// removes duplicates while preserving first-seen order.
+    static func normalizedPresetValues(_ raw: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for entry in raw {
+            let trimmed = entry.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty, !seen.contains(trimmed) else { continue }
+            seen.insert(trimmed)
+            result.append(trimmed)
+        }
+        return result
+    }
+
     static let all: [CLIOptionConfig] = [
         CLIOptionConfig(
             id: "--add-dir", label: "Add Directory",
@@ -301,7 +359,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             isAvailable: false, isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--mcp-config", label: "MCP Config", description: "Load MCP servers from JSON files or strings",
-            isAvailable: false, isDefaultEnabled: false),
+            isAvailable: false, isDefaultEnabled: false, allowsMultipleValues: true),
         CLIOptionConfig(
             id: "--model", label: "Model", description: "Sets the model for the current session", isAvailable: false,
             isDefaultEnabled: false),

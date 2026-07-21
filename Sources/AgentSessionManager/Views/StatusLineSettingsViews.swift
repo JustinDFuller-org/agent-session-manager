@@ -10,11 +10,25 @@ struct StatusLineEditorPhases: OptionSet {
 
 /// Facts, alignment, rows, and add-row controls for [`StatusLineConfig`]. Omit PR tracking —
 /// that stays on [`AppSettings`].
+private enum CustomFieldSheetTarget: Identifiable {
+    case new
+    case edit(CustomStatusLineField)
+
+    var id: String {
+        switch self {
+        case .new: return "new"
+        case .edit(let field): return field.id
+        }
+    }
+}
+
 struct StatusLineConfigLayoutEditor: View {
     @Binding var config: StatusLineConfig
     var filterCLI: Harness?
     let phases: StatusLineEditorPhases
     let onPersist: () -> Void
+
+    @State private var customFieldSheetTarget: CustomFieldSheetTarget?
 
     var body: some View {
         Group {
@@ -65,7 +79,7 @@ struct StatusLineConfigLayoutEditor: View {
             if phases.contains(.rows) {
                 ForEach(Array(config.rows.indices), id: \.self) { rowIndex in
                     let rowCount = config.rows.count
-                    let base = StatusLineConfig.allItems.filter { !config.usedItemIDs.contains($0.id) }
+                    let base = config.availableItems().filter { !config.usedItemIDs.contains($0.id) }
                     let filtered = filterCLI.map { cli in base.filter { $0.supportedBy(cli) } } ?? base
                     let available = filtered.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
                     Section {
@@ -109,10 +123,12 @@ struct StatusLineConfigLayoutEditor: View {
                                         "cacheCreation": "Cache creation input tokens this session (Claude only)",
                                         "apiDuration": "Total API request time in milliseconds (Claude only)",
                                     ]
-                                    if let description = descriptions[item.id] {
+                                    let customCommand = config.customFields.first { $0.id == item.id }?.command
+                                    if let description = descriptions[item.id] ?? customCommand {
                                         Text(description)
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
+                                            .lineLimit(1)
                                     }
                                 }
                                 Spacer()
@@ -197,6 +213,65 @@ struct StatusLineConfigLayoutEditor: View {
                         Label("Add Row", systemImage: "plus")
                     }
                     .buttonStyle(.borderless)
+                }
+                Section("Custom Fields") {
+                    ForEach(config.customFields) { field in
+                        HStack {
+                            Image(systemName: field.sfSymbol)
+                                .frame(width: 16)
+                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(field.label)
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text(field.command)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Button {
+                                customFieldSheetTarget = .edit(field)
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
+                            .buttonStyle(.borderless)
+                            Button(role: .destructive) {
+                                touch { cfg in
+                                    cfg.customFields.removeAll { $0.id == field.id }
+                                    for rowIndex in cfg.rows.indices {
+                                        cfg.rows[rowIndex].items.removeAll { $0.id == field.id }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundStyle(.red)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                    Button {
+                        customFieldSheetTarget = .new
+                    } label: {
+                        Label("Add Custom Field", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+        }
+        .sheet(item: $customFieldSheetTarget) { target in
+            switch target {
+            case .new:
+                AddCustomStatusLineFieldSheet(editingField: nil) { field in
+                    touch { $0.customFields.append(field) }
+                }
+            case .edit(let field):
+                AddCustomStatusLineFieldSheet(editingField: field) { updated in
+                    touch { cfg in
+                        if let index = cfg.customFields.firstIndex(where: { $0.id == updated.id }) {
+                            cfg.customFields[index] = updated
+                        }
+                    }
                 }
             }
         }
@@ -641,6 +716,180 @@ struct AddCustomFlagSheet: View {
     }
 }
 
+struct AddCustomStatusLineFieldSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var editingField: CustomStatusLineField?
+    let onSave: (CustomStatusLineField) -> Void
+
+    @State private var label = ""
+    @State private var sfSymbol = "terminal"
+    @State private var command = ""
+    @State private var refreshIntervalSeconds = CustomStatusLineField.defaultRefreshIntervalSeconds
+    @State private var timeoutSeconds = CustomStatusLineField.defaultTimeoutSeconds
+    @State private var isRunningPreview = false
+    @State private var previewResult: String?
+
+    private var isValid: Bool {
+        !label.trimmingCharacters(in: .whitespaces).isEmpty
+            && !command.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(editingField == nil ? "Add Custom Field" : "Edit Custom Field")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Label").font(.subheadline).foregroundStyle(.secondary)
+                TextField("Spend", text: $label).textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("SF Symbol").font(.subheadline).foregroundStyle(.secondary)
+                TextField("dollarsign.circle", text: $sfSymbol)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Command").font(.subheadline).foregroundStyle(.secondary)
+                TextEditor(text: $command)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(height: 70)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.3)))
+                Text(
+                    "Runs via /bin/zsh -lc in the pane's working directory. Receives the app's status line "
+                        + "context as stdin JSON plus AGENT_SESSION_MANAGER_* env vars. Print plain text, "
+                        + "or JSON like {\"percent\": 42, \"tint\": \"warning\"} to render a progress bar."
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                Text(
+                    "If several fields derive from one expensive/shared source, each field's command still "
+                        + "runs independently — collapse that into a shared TTL-gated cache file plus a fast "
+                        + "reader script rather than relying on the app to dedupe it for you."
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Refresh (seconds)").font(.subheadline).foregroundStyle(.secondary)
+                    TextField("", value: $refreshIntervalSeconds, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Timeout (seconds)").font(.subheadline).foregroundStyle(.secondary)
+                    TextField("", value: $timeoutSeconds, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Button {
+                        runPreview()
+                    } label: {
+                        if isRunningPreview {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Label("Run Now", systemImage: "play.fill")
+                        }
+                    }
+                    .disabled(command.trimmingCharacters(in: .whitespaces).isEmpty || isRunningPreview)
+                    Spacer()
+                }
+                if let previewResult {
+                    Text(previewResult)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button(editingField == nil ? "Add" : "Save") { submit() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!isValid)
+            }
+        }
+        .padding(24)
+        .frame(width: 460)
+        .onAppear {
+            guard let editingField else { return }
+            label = editingField.label
+            sfSymbol = editingField.sfSymbol
+            command = editingField.command
+            refreshIntervalSeconds = editingField.refreshIntervalSeconds
+            timeoutSeconds = editingField.timeoutSeconds
+        }
+    }
+
+    private func submit() {
+        guard isValid else { return }
+        let field = CustomStatusLineField(
+            id: editingField?.id ?? "custom:\(UUID().uuidString)",
+            label: label.trimmingCharacters(in: .whitespaces),
+            sfSymbol: sfSymbol.trimmingCharacters(in: .whitespaces).isEmpty ? "terminal" : sfSymbol,
+            command: command,
+            refreshIntervalSeconds: refreshIntervalSeconds,
+            timeoutSeconds: timeoutSeconds
+        )
+        onSave(field)
+        dismiss()
+    }
+
+    private func runPreview() {
+        isRunningPreview = true
+        previewResult = nil
+        let context = CustomFieldExecutionContext(
+            currentData: nil,
+            paneID: UUID(),
+            paneName: "preview",
+            tabID: UUID(),
+            tabName: "preview",
+            harness: .claude,
+            workingDirectory: NSHomeDirectory(),
+            profileName: nil
+        )
+        let previewField = CustomStatusLineField(
+            label: label, sfSymbol: sfSymbol, command: command,
+            refreshIntervalSeconds: refreshIntervalSeconds, timeoutSeconds: timeoutSeconds)
+        Task {
+            let result = await CustomFieldRunner.run(field: previewField, context: context)
+            await MainActor.run {
+                isRunningPreview = false
+                previewResult = Self.describe(result)
+            }
+        }
+    }
+
+    private static func describe(_ result: CustomFieldExecutionResult) -> String {
+        switch result {
+        // swiftlint:disable:next pattern_matching_keywords
+        case .success(let value, let outputKind):
+            var parts = [outputKind == .structured ? "structured" : "text"]
+            if let text = value.text { parts.append("text=\"\(text)\"") }
+            if let percent = value.percent { parts.append("percent=\(percent)") }
+            if let tint = value.tint { parts.append("tint=\(tint.rawValue)") }
+            if let icon = value.icon { parts.append("icon=\(icon)") }
+            return parts.joined(separator: "  ")
+        case .failure(let reason):
+            return "Failed: \(reason.rawValue)"
+        }
+    }
+}
+
 struct NotificationsContent: View {
     @Environment(AppSettings.self) private var appSettings
 
@@ -799,6 +1048,19 @@ struct NotificationsContent: View {
                         .labelsHidden()
                         .accessibilityIdentifier("settings-pr-merged-notifications-toggle")
                         .onChange(of: appSettings.isPRMergedNotificationsEnabled) {
+                            SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        }
+                }
+                SettingRow(
+                    title: "PR Closed Notifications",
+                    description:
+                        "Show a sidebar notification and macOS banner when a tracked PR is closed without merging."
+                ) {
+                    Toggle("PR Closed Notifications", isOn: $appSettings.isPRClosedNotificationsEnabled)
+                        .toggleStyle(.checkbox)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings-pr-closed-notifications-toggle")
+                        .onChange(of: appSettings.isPRClosedNotificationsEnabled) {
                             SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
                         }
                 }

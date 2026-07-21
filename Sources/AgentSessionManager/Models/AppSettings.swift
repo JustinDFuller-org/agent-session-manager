@@ -135,6 +135,7 @@ final class AppSettings {
     var debugModeEnabled: Bool = false
     var githubPRTrackingEnabled: Bool = true
     var isPRMergedNotificationsEnabled: Bool = true
+    var isPRClosedNotificationsEnabled: Bool = true
     var prPollingIntervalSeconds: Int = 30
     var prRequestTimeoutSeconds: Int = 15
     var prBackgroundRefreshEnabled: Bool = true
@@ -149,6 +150,7 @@ final class AppSettings {
     var paneActivityIndicatorsEnabled: Bool = true
     var focusModeTabSwitchBehavior: FocusModeTabSwitchBehavior = .rememberFocus
     var hideNotificationSidebarWhileFocused: Bool = true
+    var updateReminderEnabled: Bool = true
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 

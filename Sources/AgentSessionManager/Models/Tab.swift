@@ -513,7 +513,7 @@ final class Tab: Identifiable {
 
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
@@ -603,7 +603,7 @@ final class Tab: Identifiable {
             old.terminate()
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             let controller = TerminalController()
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
@@ -664,7 +664,7 @@ final class Tab: Identifiable {
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
         new.pendingDirectory = old.pendingDirectory
-        new.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        new.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
         new.pendingShell = old.pendingShell
         old.terminate()
         let cwd = new.pendingDirectory ?? directory.path
@@ -933,6 +933,13 @@ extension Tab {
 }
 
 extension Tab {
+    /// Removes private CoreFoundation bundle markers before a pane inherits the GUI environment.
+    nonisolated static func hostEnvironmentForChildProcess() -> [String] {
+        ProcessInfo.processInfo.environment
+            .filter { !$0.key.hasPrefix("__CF") }
+            .map { "\($0.key)=\($0.value)" }
+    }
+
     nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: [String]) -> [String] {
         ["claude", "--settings", settingsPath] + extraArgs
     }
@@ -1121,7 +1128,7 @@ extension Tab {
 
         if !AgentSessionManagerApp.isUITesting {
             let controller = TerminalController()
-            controller.pendingEnvironment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
             controller.pendingDirectory = cwd
             controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 

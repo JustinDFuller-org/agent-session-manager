@@ -15,11 +15,18 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        // SwiftTerm clears the text selection on every PTY chunk and every newline
+        // while mouse reporting is on, so it never survives streaming output.
+        // Scroll-wheel forwarding to alt-buffer TUIs is handled separately in
+        // App.swift based on `terminal.mouseMode`, so this only gives up in-TUI
+        // mouse clicks/drags.
+        allowMouseReporting = false
         installOsc777AttentionHookIfNeeded()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        allowMouseReporting = false
         installOsc777AttentionHookIfNeeded()
     }
 
@@ -141,8 +148,6 @@ final class TerminalController: NSObject {
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
     func startProcess() {
         let shell = pendingShell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        let env = pendingEnvironment
-        let cwd = pendingDirectory
         if let commandArgs = pendingCommandArgs {
             // Build a single shell command by quoting each token individually. This keeps
             // the interactive shell (and therefore PATH resolution from ~/.zshrc) while
@@ -159,7 +164,13 @@ final class TerminalController: NSObject {
             // - HOME is NOT scoped — Claude Code needs real HOME for ~/.claude/ auth.
             //   Remaining TCC prompts are one-time decisions from Claude's startup
             //   path scanning. See documentation/features/panes.md.
+            //
+            // Environment is sanitized at the last moment before starting the process so that
+            // GUI launches (e.g., opening the app from the DMG) get the same TERM/COLORTERM/LANG
+            // and PATH baseline that terminal-launched runs inherit from the parent shell.
             let args = ["-i", "-c", cmd]
+            let env = ProcessEnvironment.sanitize(pendingEnvironment ?? [])
+            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
                 args: args,
@@ -168,6 +179,8 @@ final class TerminalController: NSObject {
             )
             recordProcessStarted(executable: shell, args: args, cwd: cwd)
         } else {
+            let env = ProcessEnvironment.sanitize(pendingEnvironment ?? [])
+            let cwd = pendingDirectory
             terminalView.startProcess(
                 executable: shell,
                 environment: env,

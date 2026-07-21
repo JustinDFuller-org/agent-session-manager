@@ -115,6 +115,9 @@ struct NewPaneSheet: View {
             if state?.enabled != opt.isEnabled { return true }
             if let val = opt.value, state?.value != val { return true }
             if opt.value == nil && !(state?.value ?? "").isEmpty { return true }
+            let config = activeOptions.first { $0.id == opt.id }
+            let expectedValues = opt.seededValues(allowsMultipleValues: config?.allowsMultipleValues ?? false)
+            if (state?.values ?? []) != expectedValues { return true }
         }
         for ev in profile.envVars {
             let state = envVarStates[ev.id]
@@ -184,6 +187,7 @@ struct NewPaneSheet: View {
                             id: option.id,
                             isEnabled: state.enabled,
                             value: state.value.isEmpty ? nil : state.value,
+                            values: state.values.isEmpty ? nil : state.values,
                             showOnPaneCreate: showOnCreate
                         )
                     }
@@ -517,7 +521,9 @@ struct NewPaneSheet: View {
             selectedHarness = profile.harness
             optionStates = [:]
             for opt in profile.cliOptions {
-                optionStates[opt.id] = OptionState(enabled: opt.isEnabled, value: opt.value ?? "")
+                let config = activeOptions.first { $0.id == opt.id }
+                let seeded = opt.seededValues(allowsMultipleValues: config?.allowsMultipleValues ?? false)
+                optionStates[opt.id] = OptionState(enabled: opt.isEnabled, value: opt.value ?? "", values: seeded)
             }
             envVarStates = [:]
             for envVar in profile.envVars {
@@ -669,24 +675,17 @@ struct NewPaneSheet: View {
 // MARK: - Create helpers
 
 extension NewPaneSheet {
-    fileprivate func buildExtraArgs() -> [String] {
+    static func buildExtraArgs(options: [CLIOptionConfig], states: [String: OptionState]) -> [String] {
         var args: [String] = []
-        for option in activeOptions {
-            guard let state = optionStates[option.id], state.enabled else { continue }
-            switch option.optionType {
-            case .boolean:
-                args.append(option.id)
-            case .string:
-                let raw = state.value.trimmingCharacters(in: .whitespaces)
-                if raw.isEmpty {
-                    args.append(option.id)
-                } else {
-                    let value = Tab.expandingLeadingTilde(raw)
-                    let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
-                    args.append(contentsOf: [option.id, "'\(escaped)'"])
-                }
-            }
+        for option in options {
+            guard let state = states[option.id], state.enabled else { continue }
+            args.append(contentsOf: option.commandLineArguments(value: state.value, values: state.values))
         }
+        return args
+    }
+
+    fileprivate func buildExtraArgs() -> [String] {
+        var args = Self.buildExtraArgs(options: activeOptions, states: optionStates)
         if isRefreshing, selectedHarness == .opencode, let id = refreshingPane?.opencodeSessionID,
             !args.contains("--session")
         {
@@ -807,9 +806,10 @@ private struct SaveProfileSheet: View {
 
 // MARK: - Reusable rows
 
-private struct OptionState {
+struct OptionState {
     var enabled: Bool
     var value: String
+    var values: [String] = []
 }
 
 private struct CLIOptionToggleRow: View {
@@ -824,16 +824,8 @@ private struct CLIOptionToggleRow: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Group {
-                if case .string(let placeholder) = option.optionType {
-                    TextField(placeholder, text: $state.value)
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(!state.enabled)
-                } else {
-                    Color.clear
-                }
-            }
-            .frame(maxWidth: .infinity)
+            CLIOptionValueField(option: option, value: $state.value, values: $state.values, enabled: state.enabled)
+                .frame(maxWidth: .infinity)
         }
     }
 }
@@ -881,16 +873,8 @@ private struct HiddenCLIOptionToggleRow: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Group {
-                if case .string(let placeholder) = option.optionType {
-                    TextField(placeholder, text: $state.value)
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(!state.enabled)
-                } else {
-                    Color.clear
-                }
-            }
-            .frame(maxWidth: .infinity)
+            CLIOptionValueField(option: option, value: $state.value, values: $state.values, enabled: state.enabled)
+                .frame(maxWidth: .infinity)
             if state.enabled {
                 Button("Show in all profiles", action: onAddToGlobal)
                     .buttonStyle(.borderless)

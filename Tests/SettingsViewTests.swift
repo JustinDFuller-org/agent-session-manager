@@ -22,6 +22,7 @@ final class SettingsViewTests: XCTestCase {
             .statusLine,
             .notifications,
             .debug,
+            .about,
         ]
         let expectedTitles = [
             "Panes",
@@ -31,6 +32,7 @@ final class SettingsViewTests: XCTestCase {
             "Status Line",
             "Notifications",
             "Debug",
+            "About",
         ]
         let expectedIcons = [
             "square.split.2x1",
@@ -40,6 +42,7 @@ final class SettingsViewTests: XCTestCase {
             "chart.bar",
             "bell",
             "ladybug",
+            "info.circle",
         ]
 
         XCTAssertEqual(SettingsSection.allCases, expectedOrder)

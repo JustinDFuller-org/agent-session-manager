@@ -50,6 +50,16 @@ These are one-time Transparency, Consent, and Control (TCC) prompts. They occur 
 
 The app runs the user’s shell as `zsh -i -c '<command>'` (and omits the login `-l` flag). That avoids sourcing `/etc/zprofile` and `~/.zprofile`, which can trigger extra TCC prompts when those scripts touch protected paths. The shell is still interactive (`-i`), so `~/.zshrc` can run and tools like Homebrew or version managers can adjust `PATH`. The app does **not** use `zsh -f` (which skips init files entirely and often breaks CLI discovery).
 
+### Environment sanitization
+
+Before a pane process starts, the app sanitizes the environment it inherited:
+
+- `TERM=xterm-256color` and `COLORTERM=truecolor` are added if unset (SwiftTerm's advertised terminal capabilities).
+- `LANG=en_US.UTF-8` is added if unset.
+- `PATH` is merged with the system default entries from `/etc/paths` and `/etc/paths.d/*` — the same files macOS uses for login shells — so tools like `go`, Homebrew, and version managers are findable even when the app was launched from Finder/DMG and inherited LaunchServices' minimal PATH.
+
+Inherited values are always preserved. When Agent Session Manager is launched from a terminal, the parent shell usually supplies a complete `PATH` and `TERM`, so the sanitizer is a no-op. When launched from the DMG via Finder, the sanitizer restores the missing baseline.
+
 For process launches and environment details when diagnosing issues, see [debug-logging.md](debug-logging.md).
 
 ### If prompts persist across sessions

@@ -397,9 +397,9 @@ final class PRTrackingCoordinator {
         var branch: String
     }
 
-    /// Runs a single batched GraphQL query for the given branches and returns merged PR info.
+    /// Runs a single batched GraphQL query for the given branches and returns resolved PR info.
     /// Does not require a running coordinator or active subscriptions.
-    static func checkBranchesForMergedPRs(
+    static func checkBranchesForResolvedPRs(
         branches: [BranchInfo],
         parent: SpanHandle? = nil
     ) async -> [(paneID: UUID, pr: PullRequest)] {

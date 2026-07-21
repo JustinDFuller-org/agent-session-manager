@@ -147,6 +147,7 @@ vite.config.ts.timestamp-*
 AgentSessionManager.app/
 AgentSessionManagerDev.app/
 AgentSessionManager.xcodeproj/
+*.dmg
 
 # macOS
 .DS_Store
