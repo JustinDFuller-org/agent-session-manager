@@ -164,7 +164,8 @@ struct PaneView: View {
                 pane.uiTestActivityStateOverride
                 ?? paneActivityState(
                     processState: pane.terminalController?.processState,
-                    isWorking: pane.statusLineMonitor?.isClaudeWorking ?? false,
+                    isWorking: (pane.statusLineMonitor?.isClaudeWorking ?? false)
+                        || (pane.statusLineMonitor?.isOpenCodeWorking ?? false),
                     isStopped: pane.statusLineMonitor?.isClaudeStopped ?? false,
                     sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
                     hasNotification: hasNotification

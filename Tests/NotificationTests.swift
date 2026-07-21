@@ -14,6 +14,7 @@ private func restoreNotificationSettings(into settings: AppSettings) {
     settings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
     settings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
     settings.isClaudeStopNotificationEnabled = config.isClaudeStopNotificationEnabled
+    settings.isOpencodeStopNotificationEnabled = config.isOpencodeStopNotificationEnabled
 }
 
 @MainActor
@@ -165,6 +166,36 @@ final class NotificationTests: XCTestCase {
         let restored = AppSettings()
         restoreNotificationSettings(into: restored)
         XCTAssertFalse(restored.isClaudeStopNotificationEnabled)
+    }
+
+    func testOpencodeStopNotificationEnabledRoundTrip() {
+        let notificationURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager/notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: notificationURL) }
+
+        let settings = AppSettings()
+        settings.isOpencodeStopNotificationEnabled = false
+        SettingsPersistence.saveNotificationSettings(appSettings: settings)
+
+        let restored = AppSettings()
+        restoreNotificationSettings(into: restored)
+        XCTAssertFalse(restored.isOpencodeStopNotificationEnabled)
+    }
+
+    func testOpencodeStopNotificationEnabledLegacyDefaultsTrue() throws {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appending(path: "notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try Data(#"{"sidebarSide":"right","isPriorityEnabled":true}"#.utf8).write(to: url)
+        let restored = AppSettings()
+        restored.isOpencodeStopNotificationEnabled = false
+        restoreNotificationSettings(into: restored)
+        XCTAssertTrue(restored.isOpencodeStopNotificationEnabled)
     }
 
     func testClaudeStopNotificationEnabledLegacyDefaultsTrue() throws {
@@ -367,6 +398,10 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(PaneAttentionEvent.claudeStop.reason, "Claude finished responding")
     }
 
+    func testOpencodeStopReason() {
+        XCTAssertEqual(PaneAttentionEvent.opencodeStop.reason, "OpenCode finished responding")
+    }
+
     func testAddNotificationClaudeStopCreatesClaudeStopKind() {
         let state = AppState()
         let paneID = UUID()
@@ -379,6 +414,18 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications[0].reason, "Claude finished responding")
     }
 
+    func testAddNotificationOpencodeStopCreatesOpencodeStopKind() {
+        let state = AppState()
+        let paneID = UUID()
+        state.addNotification(
+            paneID: paneID, paneName: "pane", tabID: UUID(), tabName: "tab",
+            isPriority: false, event: .opencodeStop
+        )
+        XCTAssertEqual(state.notifications.count, 1)
+        XCTAssertEqual(state.notifications[0].kind, .opencodeStop)
+        XCTAssertEqual(state.notifications[0].reason, "OpenCode finished responding")
+    }
+
     func testAddNotificationTerminalBellCreatesTerminalBellKind() {
         let state = AppState()
         state.addNotification(
@@ -386,6 +433,19 @@ final class NotificationTests: XCTestCase {
             isPriority: false, event: .rawBell
         )
         XCTAssertEqual(state.notifications[0].kind, .terminalBell)
+    }
+
+    func testAddNotificationOpencodePermissionRequestCreatesOpencodePermissionRequestKind() {
+        let state = AppState()
+        let event = PaneAttentionEvent(
+            source: .opencodePermissionRequest,
+            reason: "Permission needed for external_directory: /etc/*")
+        state.addNotification(
+            paneID: UUID(), paneName: "pane", tabID: UUID(), tabName: "tab",
+            isPriority: false, event: event
+        )
+        XCTAssertEqual(state.notifications[0].kind, .opencodePermissionRequest)
+        XCTAssertEqual(state.notifications[0].reason, "Permission needed for external_directory: /etc/*")
     }
 
     private func claudeEvent(_ json: String) -> PaneAttentionEvent? {

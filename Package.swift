@@ -19,7 +19,10 @@ let package = Package(
                 .product(name: "ResourceExtension", package: "opentelemetry-swift"),
             ],
             path: "Sources/AgentSessionManager",
-            linkerSettings: [.linkedLibrary("sqlite3")]
+            linkerSettings: [
+                .linkedLibrary("sqlite3"),
+                .linkedFramework("Network"),
+            ]
         ),
         .testTarget(
             name: "AgentSessionManagerTests",

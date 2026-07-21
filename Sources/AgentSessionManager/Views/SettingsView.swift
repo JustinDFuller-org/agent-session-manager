@@ -575,6 +575,21 @@ private struct ToolsContent: View {
                             onSave: { SettingsPersistence.saveCursorOptions(appSettings: appSettings) },
                             customFlagFooter: "Custom flags may not be recognized by all Cursor CLI versions."
                         )
+                    case .opencode:
+                        CLIOptionsContent(
+                            options: Binding(
+                                get: { appSettings.opencodeCliOptions },
+                                set: { appSettings.opencodeCliOptions = $0 }
+                            ),
+                            onSave: { SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings) },
+                            customFlagFooter: "Custom flags may not be recognized by all OpenCode CLI versions.",
+                            envVarOptions: Binding(
+                                get: { appSettings.opencodeEnvVarOptions },
+                                set: { appSettings.opencodeEnvVarOptions = $0 }
+                            ),
+                            onEnvVarSave: { SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings) },
+                            envVarHarnessDisplayName: "OpenCode"
+                        )
                     case .shell:
                         EmptyView()
                     }
@@ -593,6 +608,7 @@ struct CLIOptionsContent: View {
     let customFlagFooter: String
     var envVarOptions: Binding<[EnvVarConfig]>?
     var onEnvVarSave: (() -> Void)?
+    var envVarHarnessDisplayName: String?
     @State private var showAddCustomFlagSheet = false
     @State private var showAddCustomEnvVarSheet = false
 
@@ -650,7 +666,8 @@ struct CLIOptionsContent: View {
                 EnvVarSections(
                     options: envBinding,
                     onSave: envSave,
-                    showAddSheet: $showAddCustomEnvVarSheet
+                    showAddSheet: $showAddCustomEnvVarSheet,
+                    harnessDisplayName: envVarHarnessDisplayName ?? "Claude Code"
                 )
             }
         }
@@ -681,6 +698,7 @@ private struct EnvVarSections: View {
     @Binding var options: [EnvVarConfig]
     let onSave: () -> Void
     @Binding var showAddSheet: Bool
+    var harnessDisplayName: String = "Claude Code"
 
     private var enabledOptions: [EnvVarConfig] {
         options.filter { $0.isAvailable && !$0.isUserAdded }.sorted { $0.id < $1.id }
@@ -698,7 +716,7 @@ private struct EnvVarSections: View {
         Group {
             Section("Environment Variables") {
                 Text(
-                    "Configure which environment variables are set when launching Claude Code. Variables marked as default will be pre-enabled with their default value in the New Pane dialog."
+                    "Configure which environment variables are set when launching \(harnessDisplayName). Variables marked as default will be pre-enabled with their default value in the New Pane dialog."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -719,7 +737,7 @@ private struct EnvVarSections: View {
             }
             Section(
                 header: Text("Custom Env Vars"),
-                footer: Text("Custom environment variables are passed to the Claude Code process.")
+                footer: Text("Custom environment variables are passed to the \(harnessDisplayName) process.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             ) {

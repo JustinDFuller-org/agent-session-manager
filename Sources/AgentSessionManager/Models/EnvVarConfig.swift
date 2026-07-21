@@ -8,14 +8,16 @@ struct EnvVarConfig: Identifiable, Codable {
     var isDefaultEnabled: Bool
     var defaultValue: String
     var isUserAdded: Bool
+    var isAppControlled: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, isAvailable, isDefaultEnabled, defaultValue, isUserAdded
+        case id, isAvailable, isDefaultEnabled, defaultValue, isUserAdded, isAppControlled
     }
 
     init(
         id: String, label: String, description: String, isAvailable: Bool = false,
-        isDefaultEnabled: Bool = false, defaultValue: String = "", isUserAdded: Bool = false
+        isDefaultEnabled: Bool = false, defaultValue: String = "", isUserAdded: Bool = false,
+        isAppControlled: Bool = false
     ) {
         self.id = id
         self.label = label
@@ -24,6 +26,7 @@ struct EnvVarConfig: Identifiable, Codable {
         self.isDefaultEnabled = isDefaultEnabled
         self.defaultValue = defaultValue
         self.isUserAdded = isUserAdded
+        self.isAppControlled = isAppControlled
     }
 
     init(from decoder: Decoder) throws {
@@ -39,9 +42,11 @@ struct EnvVarConfig: Identifiable, Codable {
             self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
             self.defaultValue = (try? container.decodeIfPresent(String.self, forKey: .defaultValue)) ?? ""
             self.isUserAdded = true
+            self.isAppControlled = false
         } else {
             let id = try container.decode(String.self, forKey: .id)
-            guard let template = EnvVarConfig.all.first(where: { $0.id == id }) else {
+            let allTemplates = EnvVarConfig.all + EnvVarConfig.opencodeAll
+            guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .id, in: container, debugDescription: "Unknown env var: \(id)")
             }
@@ -52,6 +57,7 @@ struct EnvVarConfig: Identifiable, Codable {
             self.isDefaultEnabled = try container.decode(Bool.self, forKey: .isDefaultEnabled)
             self.defaultValue = (try? container.decodeIfPresent(String.self, forKey: .defaultValue)) ?? ""
             self.isUserAdded = false
+            self.isAppControlled = template.isAppControlled
         }
     }
 
@@ -66,13 +72,35 @@ struct EnvVarConfig: Identifiable, Codable {
         if isUserAdded {
             try container.encode(true, forKey: .isUserAdded)
         }
+        if isAppControlled {
+            try container.encode(true, forKey: .isAppControlled)
+        }
     }
 
-    static func recommendedDefaults() -> [EnvVarConfig] {
-        let recommendedIDs: Set<String> = [
-            "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL",
-        ]
-        return all.map { envVar in
+    static func recommendedDefaults(for cli: Harness) -> [EnvVarConfig] {
+        let catalog: [EnvVarConfig]
+        let recommendedIDs: Set<String>
+
+        switch cli {
+        case .claude:
+            catalog = all
+            recommendedIDs = ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL"]
+        case .opencode:
+            catalog = opencodeAll
+            var ids: Set<String> = [
+                "OPENCODE_AUTO_SHARE", "OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_CLIENT",
+                "OPENCODE_CONFIG_CONTENT", "OPENCODE_PERMISSION",
+                "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM", "OPENCODE_DISABLE_PRUNE",
+            ]
+            #if DEV_BUILD
+            ids.insert("OPENCODE_DISABLE_DEFAULT_PLUGINS")
+            #endif
+            recommendedIDs = ids
+        case .codex, .cursor, .shell:
+            return []
+        }
+
+        return catalog.map { envVar in
             var copy = envVar
             copy.isAvailable = recommendedIDs.contains(envVar.id)
             return copy
@@ -477,6 +505,185 @@ struct EnvVarConfig: Identifiable, Codable {
             id: "DEBUG",
             label: "Debug",
             description: "Set to 1 to enable debug mode"
+        ),
+    ]
+
+    // MARK: - Predefined OpenCode environment variables
+    // Source: https://opencode.ai/docs/config/
+    // App-controlled keys are shown in the editor as disabled with a caption, because Agent
+    // Session Manager injects them per-pane and any user-provided value would be overridden.
+
+    static let opencodeDisableDefaultPluginsIsAppControlled: Bool = {
+        #if DEV_BUILD
+        return true
+        #else
+        return false
+        #endif
+    }()
+
+    static let opencodeAll: [EnvVarConfig] = [
+        // --- App-controlled config ---
+        EnvVarConfig(
+            id: "OPENCODE_CONFIG_CONTENT",
+            label: "Config Content",
+            description: "Inline OpenCode JSON config injected per-pane by Agent Session Manager.",
+            isDefaultEnabled: true,
+            isAppControlled: true
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_PERMISSION",
+            label: "Permission Policy",
+            description: "Permission policy overridden per-pane by Agent Session Manager via OPENCODE_CONFIG_CONTENT.",
+            isDefaultEnabled: true,
+            isAppControlled: true
+        ),
+
+        // --- Config path ---
+        EnvVarConfig(
+            id: "OPENCODE_CONFIG",
+            label: "Config Path",
+            description: "Path to an OpenCode configuration file"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_CONFIG_DIR",
+            label: "Config Directory",
+            description: "Directory containing OpenCode configuration files"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_TUI_CONFIG",
+            label: "TUI Config Path",
+            description: "Path to the TUI-specific configuration file"
+        ),
+
+        // --- Server auth ---
+        EnvVarConfig(
+            id: "OPENCODE_SERVER_PASSWORD",
+            label: "Server Password",
+            description: "Password for the local OpenCode HTTP server"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_SERVER_USERNAME",
+            label: "Server Username",
+            description: "Username for the local OpenCode HTTP server"
+        ),
+
+        // --- Behavior ---
+        EnvVarConfig(
+            id: "OPENCODE_AUTO_SHARE",
+            label: "Auto Share",
+            description: "Automatic sharing behavior for sessions"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_AUTOUPDATE",
+            label: "Disable Autoupdate",
+            description: "Set to true to disable automatic update checks"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_TERMINAL_TITLE",
+            label: "Disable Terminal Title",
+            description: "Set to true to prevent OpenCode from updating the terminal title"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_AUTOCOMPACT",
+            label: "Disable Autocompact",
+            description: "Set to true to disable automatic context compaction"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_MOUSE",
+            label: "Disable Mouse",
+            description: "Set to true to disable mouse support in the TUI"
+        ),
+
+        // --- Claude Code interop ---
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_CLAUDE_CODE",
+            label: "Disable Claude Code",
+            description: "Set to true to disable Claude Code integration"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_CLAUDE_CODE_PROMPT",
+            label: "Disable Claude Code Prompt",
+            description: "Set to true to disable the Claude Code system prompt"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_CLAUDE_CODE_SKILLS",
+            label: "Disable Claude Code Skills",
+            description: "Set to true to disable Claude Code skills import"
+        ),
+
+        // --- Models / network ---
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_MODELS_FETCH",
+            label: "Disable Models Fetch",
+            description: "Set to true to skip fetching the remote model list"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_MODELS_URL",
+            label: "Models URL",
+            description: "Override the URL used to fetch available models"
+        ),
+
+        // --- LSP / tools ---
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_LSP_DOWNLOAD",
+            label: "Disable LSP Download",
+            description: "Set to true to disable automatic LSP server downloads"
+        ),
+
+        // --- Dev/prod isolation ---
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_DEFAULT_PLUGINS",
+            label: "Disable Default Plugins",
+            description: "Set to true to strip default plugins for a clean session.",
+            isDefaultEnabled: opencodeDisableDefaultPluginsIsAppControlled,
+            isAppControlled: opencodeDisableDefaultPluginsIsAppControlled
+        ),
+
+        // --- Restore ---
+        EnvVarConfig(
+            id: "OPENCODE_DISABLE_PRUNE",
+            label: "Disable Prune",
+            description: "Set to true to prevent pruning old sessions on startup.",
+            isDefaultEnabled: true,
+            isAppControlled: true
+        ),
+
+        // --- Telemetry ---
+        EnvVarConfig(
+            id: "OPENCODE_CLIENT",
+            label: "Client Identifier",
+            description: "Client identifier string reported by OpenCode"
+        ),
+
+        // --- Testing ---
+        EnvVarConfig(
+            id: "OPENCODE_FAKE_VCS",
+            label: "Fake VCS",
+            description: "Set to true to use a fake version control provider"
+        ),
+
+        // --- Experimental ---
+        EnvVarConfig(
+            id: "OPENCODE_EXPERIMENTAL",
+            label: "Experimental Umbrella",
+            description: "Set to true to enable experimental features"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_EXPERIMENTAL_EVENT_SYSTEM",
+            label: "Experimental Event System",
+            description: "Set to true to enable the server-sent event stream.",
+            isDefaultEnabled: true,
+            isAppControlled: true
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS",
+            label: "Experimental Background Subagents",
+            description: "Set to true to enable background subagent sessions"
+        ),
+        EnvVarConfig(
+            id: "OPENCODE_ENABLE_EXPERIMENTAL_MODELS",
+            label: "Enable Experimental Models",
+            description: "Set to true to surface experimental model options"
         ),
     ]
 }

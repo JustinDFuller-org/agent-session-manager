@@ -45,6 +45,40 @@ final class InvariantTests: XCTestCase {
         XCTAssertEqual(event?.attributes["field"], "worktree.name")
     }
 
+    func testOpenCodePortPolicyInvariantHasExpectedCatalogValues() {
+        XCTAssertEqual(Invariant.opencodePortPolicy.id, "opencode.port.policy")
+        XCTAssertEqual(Invariant.opencodePortPolicy.integration, "OpenCode")
+        XCTAssertEqual(Invariant.opencodePortPolicy.severity, .error)
+        XCTAssertEqual(Invariant.opencodePortPolicy.traceEventName, "opencode.port.policy_violated")
+    }
+
+    func testOpenCodeSessionRebindableInvariantHasExpectedCatalogValues() {
+        XCTAssertEqual(Invariant.opencodeSessionRebindable.id, "opencode.session.rebindable")
+        XCTAssertEqual(Invariant.opencodeSessionRebindable.integration, "OpenCode")
+        XCTAssertEqual(Invariant.opencodeSessionRebindable.severity, .warning)
+        XCTAssertEqual(Invariant.opencodeSessionRebindable.traceEventName, "opencode.session.rebindable_violated")
+    }
+
+    func testOpenCodeTUIEndpointsUnusedInvariantHasExpectedCatalogValues() {
+        XCTAssertEqual(Invariant.opencodeTUIEndpointsUnused.id, "opencode.tui.endpoints_unused")
+        XCTAssertEqual(Invariant.opencodeTUIEndpointsUnused.integration, "OpenCode")
+        XCTAssertEqual(Invariant.opencodeTUIEndpointsUnused.severity, .error)
+        XCTAssertEqual(Invariant.opencodeTUIEndpointsUnused.traceEventName, "opencode.tui.endpoint_forbidden")
+    }
+
+    func testOpenCodeTUIEndpointInvariantEmitsTraceEvent() {
+        TracingService.shared.enableTestCapture()
+        InvariantReporter.shared.violated(
+            .opencodeTUIEndpointsUnused,
+            context: ["path": "/tui/submit-prompt", "method": "POST"]
+        )
+
+        let event = TracingService.shared.recordedEventsForTesting.first
+        XCTAssertEqual(event?.name, "opencode.tui.endpoint_forbidden")
+        XCTAssertEqual(event?.attributes["invariant.id"], "opencode.tui.endpoints_unused")
+        XCTAssertEqual(event?.attributes["path"], "/tui/submit-prompt")
+    }
+
     func testBundleIdentityPreferredURLMatchingPathPassesWithoutViolation() {
         InvariantReporter.shared.enableTestCapture()
         let runningURL = URL(filePath: "/tmp/AgentSessionManager.app")

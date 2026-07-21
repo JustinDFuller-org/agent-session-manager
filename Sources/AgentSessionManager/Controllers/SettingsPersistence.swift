@@ -23,6 +23,8 @@ struct NotificationConfig: Codable {
     var alwaysShowNotificationsSidebar: Bool
     /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool
+    /// When true, fire a notification when OpenCode finishes a turn.
+    var isOpencodeStopNotificationEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case sidebarSide
@@ -33,6 +35,7 @@ struct NotificationConfig: Codable {
         case isPRClosedNotificationsEnabled
         case alwaysShowNotificationsSidebar
         case isClaudeStopNotificationEnabled
+        case isOpencodeStopNotificationEnabled
     }
 
     init(
@@ -43,7 +46,8 @@ struct NotificationConfig: Codable {
         isPRMergedNotificationsEnabled: Bool,
         isPRClosedNotificationsEnabled: Bool,
         alwaysShowNotificationsSidebar: Bool,
-        isClaudeStopNotificationEnabled: Bool
+        isClaudeStopNotificationEnabled: Bool,
+        isOpencodeStopNotificationEnabled: Bool
     ) {
         self.sidebarSide = sidebarSide
         self.isPriorityEnabled = isPriorityEnabled
@@ -53,6 +57,7 @@ struct NotificationConfig: Codable {
         self.isPRClosedNotificationsEnabled = isPRClosedNotificationsEnabled
         self.alwaysShowNotificationsSidebar = alwaysShowNotificationsSidebar
         self.isClaudeStopNotificationEnabled = isClaudeStopNotificationEnabled
+        self.isOpencodeStopNotificationEnabled = isOpencodeStopNotificationEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -70,6 +75,8 @@ struct NotificationConfig: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .alwaysShowNotificationsSidebar) ?? true
         isClaudeStopNotificationEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isClaudeStopNotificationEnabled) ?? true
+        isOpencodeStopNotificationEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isOpencodeStopNotificationEnabled) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -82,6 +89,7 @@ struct NotificationConfig: Codable {
         try container.encode(isPRClosedNotificationsEnabled, forKey: .isPRClosedNotificationsEnabled)
         try container.encode(alwaysShowNotificationsSidebar, forKey: .alwaysShowNotificationsSidebar)
         try container.encode(isClaudeStopNotificationEnabled, forKey: .isClaudeStopNotificationEnabled)
+        try container.encode(isOpencodeStopNotificationEnabled, forKey: .isOpencodeStopNotificationEnabled)
     }
 }
 
@@ -101,6 +109,7 @@ struct SettingsPersistence {
     private static var settingsURL: URL { appSupportDir.appending(path: "settings.json") }
     private static var codexSettingsURL: URL { appSupportDir.appending(path: "codex-settings.json") }
     private static var cursorSettingsURL: URL { appSupportDir.appending(path: "cursor-settings.json") }
+    private static var opencodeSettingsURL: URL { appSupportDir.appending(path: "opencode-settings.json") }
     private static var statusLineSettingsURL: URL { appSupportDir.appending(path: "statusline-settings.json") }
     private static var activeToolsURL: URL { appSupportDir.appending(path: "active-tools-settings.json") }
     private static var defaultBranchURL: URL { appSupportDir.appending(path: "default-branch.json") }
@@ -117,6 +126,9 @@ struct SettingsPersistence {
     private static var worktreeBaseRefURL: URL { appSupportDir.appending(path: "worktree-base-ref.json") }
     private static var exitBehaviorURL: URL { appSupportDir.appending(path: "exit-behavior.json") }
     private static var envVarSettingsURL: URL { appSupportDir.appending(path: "env-var-settings.json") }
+    private static var opencodeEnvVarSettingsURL: URL {
+        appSupportDir.appending(path: "opencode-env-var-settings.json")
+    }
     private static var profilesURL: URL { appSupportDir.appending(path: "profiles.json") }
     private static var sessionNameSettingsURL: URL { appSupportDir.appending(path: "session-name-settings.json") }
     private static var shellSettingsURL: URL { appSupportDir.appending(path: "shell-settings.json") }
@@ -144,6 +156,15 @@ struct SettingsPersistence {
             .compactMap(\.value) ?? []
     }
 
+    static func loadCLIOptions(from filename: String, harness: Harness) -> [CLIOptionConfig] {
+        guard let data = try? Data(contentsOf: appSupportDir.appending(path: filename)) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.userInfo[CLIOptionConfig.harnessUserInfoKey] = harness
+        return
+            (try? decoder.decode([FailableDecodable<CLIOptionConfig>].self, from: data))?
+            .compactMap(\.value) ?? []
+    }
+
     static func mergeCLIOptions(_ saved: [CLIOptionConfig], into defaults: [CLIOptionConfig]) -> [CLIOptionConfig] {
         var updated = defaults
         var userAdded: [CLIOptionConfig] = []
@@ -155,6 +176,21 @@ struct SettingsPersistence {
                 updated[index].isDefaultEnabled = savedOption.isDefaultEnabled
                 updated[index].presetValues = savedOption.presetValues
                 updated[index].allowsMultipleValues = savedOption.allowsMultipleValues
+            }
+        }
+        return updated + userAdded
+    }
+
+    static func mergeEnvVarOptions(_ saved: [EnvVarConfig], into defaults: [EnvVarConfig]) -> [EnvVarConfig] {
+        var updated = defaults
+        var userAdded: [EnvVarConfig] = []
+        for saved in saved {
+            if saved.isUserAdded {
+                userAdded.append(saved)
+            } else if let index = updated.firstIndex(where: { $0.id == saved.id }) {
+                updated[index].isAvailable = saved.isAvailable
+                updated[index].isDefaultEnabled = saved.isDefaultEnabled
+                updated[index].defaultValue = saved.defaultValue
             }
         }
         return updated + userAdded
@@ -173,6 +209,16 @@ struct SettingsPersistence {
     static func saveCursorOptions(appSettings: AppSettings) {
         guard let data = try? JSONEncoder().encode(appSettings.cursorCliOptions) else { return }
         try? data.write(to: cursorSettingsURL)
+    }
+
+    static func saveOpenCodeOptions(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.opencodeCliOptions) else { return }
+        try? data.write(to: opencodeSettingsURL)
+    }
+
+    static func saveOpenCodeEnvVars(appSettings: AppSettings) {
+        guard let data = try? JSONEncoder().encode(appSettings.opencodeEnvVarOptions) else { return }
+        try? data.write(to: opencodeEnvVarSettingsURL)
     }
 
     static func saveActiveTools(appSettings: AppSettings) {
@@ -202,7 +248,8 @@ struct SettingsPersistence {
             isPRMergedNotificationsEnabled: appSettings.isPRMergedNotificationsEnabled,
             isPRClosedNotificationsEnabled: appSettings.isPRClosedNotificationsEnabled,
             alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar,
-            isClaudeStopNotificationEnabled: appSettings.isClaudeStopNotificationEnabled
+            isClaudeStopNotificationEnabled: appSettings.isClaudeStopNotificationEnabled,
+            isOpencodeStopNotificationEnabled: appSettings.isOpencodeStopNotificationEnabled
         )
         guard let data = try? JSONEncoder().encode(config) else { return }
         try? data.write(to: notificationSettingsURL)
@@ -214,6 +261,14 @@ struct SettingsPersistence {
             let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
         else { return true }
         return config.isClaudeStopNotificationEnabled
+    }
+
+    static func isOpencodeStopNotificationEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: notificationSettingsURL),
+            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return true }
+        return config.isOpencodeStopNotificationEnabled
     }
 
     static func isPRMergedNotificationsEnabled() -> Bool {

@@ -22,6 +22,7 @@ final class StatusLineMonitor {
     private(set) var claudeLifecycle: ClaudeLifecycle = .unknown
     var isClaudeWorking: Bool { claudeLifecycle == .working }
     var isClaudeStopped: Bool { claudeLifecycle == .stopped }
+    private(set) var isOpenCodeWorking = false
 
     private let paneID: UUID
     private let paneName: String
@@ -72,7 +73,16 @@ final class StatusLineMonitor {
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
     /// Fires on the main actor when Claude transitions from working to stopped (one fire per working→stopped edge).
     var onClaudeStopped: (() -> Void)?
-    /// Fires on the main actor when a PR transitions from a non-resolved state to "merged".
+    /// Fires on the main actor when OpenCode transitions from working to stopped (one fire per working→stopped edge).
+    var onOpencodeStopped: (() -> Void)?
+    var onOpencodeActivityChanged: ((Bool) -> Void)?
+    /// Fires on the main actor when the OpenCode status provider discovers the bound session id.
+    var onOpencodeSessionBound: ((String) -> Void)?
+    /// Fires on the main actor when OpenCode reports a permission was replied to, so the UI can clear the attention entry.
+    var onOpencodePermissionReplied: (() -> Void)?
+    /// Fires on the main actor when OpenCode likely lost the allocated port to another process.
+    var onOpencodePortRaceLost: (() -> Void)?
+    /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
     /// Fires on the main actor when a PR transitions from a non-resolved state to "closed" (without merging).
     var onPRClosed: ((_ prNumber: Int, _ prTitle: String) -> Void)?
@@ -89,7 +99,10 @@ final class StatusLineMonitor {
         harness: Harness,
         processStartTime: Date = Date(),
         tabID: UUID = UUID(),
-        tabName: String = ""
+        tabName: String = "",
+        opencodePort: Int? = nil,
+        opencodeSessionID: String? = nil,
+        opencodeEnvironment: [String: String] = [:]
     ) {
         self.paneID = paneID
         self.paneName = paneName.isEmpty ? String(paneID.uuidString.prefix(8)) : paneName
@@ -124,7 +137,10 @@ final class StatusLineMonitor {
                 launchArgs: [],
                 environment: [:],
                 detectedHarnessVersion: nil,
-                codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil
+                codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil,
+                opencodePort: opencodePort,
+                opencodeSessionID: opencodeSessionID,
+                opencodeEnvironment: opencodeEnvironment
             )
         }
 
@@ -135,6 +151,53 @@ final class StatusLineMonitor {
                     workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
             } else if harness == .codex, let providerContext {
                 provider = CodexStatusProvider(context: providerContext)
+            } else if harness == .opencode, let providerContext {
+                let opencodeProvider = OpenCodeStatusProvider(context: providerContext)
+                opencodeProvider.onActivityChanged = { [weak self] isWorking in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.isOpenCodeWorking = isWorking
+                        self.onOpencodeActivityChanged?(isWorking)
+                    }
+                }
+                opencodeProvider.onOpencodeStopped = { [weak self] in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        TracingService.shared.record(
+                            "statusline.opencode.stop.received",
+                            attributes: [
+                                "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                                "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                            ])
+                        self.onOpencodeStopped?()
+                    }
+                }
+                opencodeProvider.onSessionBound = { [weak self] id in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        TracingService.shared.record(
+                            "statusline.opencode.session.bound.received",
+                            attributes: [
+                                "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                                "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                                "session_id_prefix": String(id.prefix(12)),
+                            ])
+                        self.onOpencodeSessionBound?(id)
+                    }
+                }
+                opencodeProvider.onPermissionReplied = { [weak self] in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.onOpencodePermissionReplied?()
+                    }
+                }
+                opencodeProvider.onPortRaceLost = { [weak self] in
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.onOpencodePortRaceLost?()
+                    }
+                }
+                provider = opencodeProvider
             } else {
                 let toolCmd = harness.commandDescription
                 provider = ToolAgnosticDataProvider(
@@ -301,6 +364,8 @@ final class StatusLineMonitor {
         agnosticProvider = nil
         PRTrackingCoordinator.shared.unsubscribe(paneID: paneID)
         lastKnownPRState = nil
+        onOpencodeStopped = nil
+        onOpencodePermissionReplied = nil
         hasFiredResolutionNotification = false
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: settingsFilePath)

@@ -11,6 +11,17 @@ final class HarnessDetectorTests: XCTestCase {
         XCTAssertTrue(result.contains(.claude))
         XCTAssertTrue(result.contains(.codex))
         XCTAssertFalse(result.contains(.cursor))
+        XCTAssertFalse(result.contains(.opencode))
+    }
+
+    func testDetectsOpenCodeBinary() async {
+        let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, command in
+            command == "opencode"
+        }
+        XCTAssertTrue(result.contains(.opencode))
+        XCTAssertFalse(result.contains(.claude))
+        XCTAssertFalse(result.contains(.codex))
+        XCTAssertFalse(result.contains(.cursor))
     }
 
     func testReturnsEmptySetWhenNothingInstalled() async {
@@ -37,5 +48,26 @@ final class HarnessDetectorTests: XCTestCase {
     func testHarnessAllCasesExcludesShell() {
         // HarnessDetector only probes Harness.allCases which excludes .shell.
         XCTAssertFalse(Harness.allCases.contains(.shell))
+    }
+
+    func testIsInstalledTrueWhenRunnerFindsBinary() async {
+        let installed = await HarnessDetector.isInstalled(harness: .opencode, shell: "/bin/zsh") { _, command in
+            command == "opencode"
+        }
+        XCTAssertTrue(installed)
+    }
+
+    func testIsInstalledFalseWhenRunnerDoesNotFindBinary() async {
+        let installed = await HarnessDetector.isInstalled(harness: .opencode, shell: "/bin/zsh") { _, _ in false }
+        XCTAssertFalse(installed)
+    }
+
+    func testIsInstalledUsesCorrectCommandDescription() async {
+        var checkedCommand: String?
+        _ = await HarnessDetector.isInstalled(harness: .cursor, shell: "/bin/zsh") { _, command in
+            checkedCommand = command
+            return false
+        }
+        XCTAssertEqual(checkedCommand, "agent")
     }
 }

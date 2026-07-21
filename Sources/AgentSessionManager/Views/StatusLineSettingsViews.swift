@@ -474,6 +474,11 @@ struct EnvVarOptionRow: View {
                     Text(option.description)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if option.isAppControlled {
+                        Text("Controlled by Agent Session Manager per pane; user values are overridden.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
@@ -483,6 +488,7 @@ struct EnvVarOptionRow: View {
                         Toggle("Show", isOn: $option.isAvailable)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
+                            .disabled(option.isAppControlled)
                             .onChange(of: option.isAvailable) {
                                 if !option.isAvailable {
                                     option.isDefaultEnabled = false
@@ -496,7 +502,7 @@ struct EnvVarOptionRow: View {
                         Toggle("Default on", isOn: $option.isDefaultEnabled)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
-                            .disabled(!option.isAvailable)
+                            .disabled(!option.isAvailable || option.isAppControlled)
                             .onChange(of: option.isDefaultEnabled) { onChange() }
                     }
                 }
@@ -510,6 +516,7 @@ struct EnvVarOptionRow: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
                         .frame(maxWidth: .infinity)
+                        .disabled(option.isAppControlled)
                         .onChange(of: option.defaultValue) { onChange() }
                 }
             }
@@ -537,6 +544,7 @@ struct CustomEnvVarOptionRow: View {
                         Toggle("Show", isOn: $option.isAvailable)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
+                            .disabled(option.isAppControlled)
                             .onChange(of: option.isAvailable) {
                                 if !option.isAvailable {
                                     option.isDefaultEnabled = false
@@ -550,7 +558,7 @@ struct CustomEnvVarOptionRow: View {
                         Toggle("Default on", isOn: $option.isDefaultEnabled)
                             .toggleStyle(.checkbox)
                             .labelsHidden()
-                            .disabled(!option.isAvailable)
+                            .disabled(!option.isAvailable || option.isAppControlled)
                             .onChange(of: option.isDefaultEnabled) { onChange() }
                     }
                 }
@@ -570,6 +578,7 @@ struct CustomEnvVarOptionRow: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
                         .frame(maxWidth: .infinity)
+                        .disabled(option.isAppControlled)
                         .onChange(of: option.defaultValue) { onChange() }
                 }
             }
@@ -961,6 +970,23 @@ struct NotificationsContent: View {
                     .labelsHidden()
                     .accessibilityIdentifier("settings-cursor-notification-hook-toggle")
                     .onChange(of: appSettings.isCursorNotificationHookAttentionEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+            }
+            Section("OpenCode") {
+                SettingRow(
+                    title: "Notify when OpenCode stops",
+                    description: "Show a banner and sidebar row when OpenCode finishes a turn."
+                ) {
+                    Toggle(
+                        "Notify when OpenCode stops",
+                        isOn: $appSettings.isOpencodeStopNotificationEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-opencode-stop-notification-toggle")
+                    .onChange(of: appSettings.isOpencodeStopNotificationEnabled) {
                         SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
                     }
                 }
