@@ -15,7 +15,7 @@ Tabs keep projects separate, while panes let you work on multiple tasks without 
 
 ## Before you start
 
-Create a tab for a Git repository by following the [Quickstart](quickstart/). To create an agent pane, make sure at least one tool is active in [Agent Tools](agent-tools/).
+Create a tab for a Git repository by following the [Quickstart]({{ '/documentation/user-guide/quickstart/' | relative_url }}). To create an agent pane, make sure at least one tool is active in [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }}).
 
 ## How to use it
 
@@ -47,7 +47,7 @@ The new shell pane uses the same working directory as the pane you selected.
 
 Choose the close button in a pane header or press ⌘W to close the active pane. To close the active tab, press ⌘K or use **File → Close Tab**.
 
-If the pane uses a working copy managed by Agent Session Manager, closing it may show cleanup choices. See [Worktree Cleanup](worktree-cleanup/).
+If the pane uses a working copy managed by Agent Session Manager, closing it may show cleanup choices. See [Worktree Cleanup]({{ '/documentation/user-guide/worktree-cleanup/' | relative_url }}).
 
 ## What you should see
 
@@ -65,8 +65,8 @@ _Each pane has its own header, terminal area, and status line._
 
 ## Related tasks
 
-- [Agent Tools](agent-tools/)
-- [Project Isolation](project-isolation/)
-- [Reorder Tabs and Panes](reorder-tabs-and-panes/)
-- [Continue After Restart](continue-after-restart/)
-- [Troubleshooting](troubleshooting/)
+- [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }})
+- [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [Reorder Tabs and Panes]({{ '/documentation/user-guide/reorder-tabs-and-panes/' | relative_url }})
+- [Continue After Restart]({{ '/documentation/user-guide/continue-after-restart/' | relative_url }})
+- [Troubleshooting]({{ '/documentation/user-guide/troubleshooting/' | relative_url }})

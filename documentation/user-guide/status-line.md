@@ -54,6 +54,6 @@ _A pane status line displays the configured facts below the terminal._
 
 ## Related tasks
 
-- [Profiles](profiles/)
-- [Agent Tools](agent-tools/)
-- [Tool Options](tool-options/)
+- [Profiles]({{ '/documentation/user-guide/profiles/' | relative_url }})
+- [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }})
+- [Tool Options]({{ '/documentation/user-guide/tool-options/' | relative_url }})

@@ -49,6 +49,6 @@ Closing an externally managed checkout simply closes the pane. Closing a managed
 
 ## Related tasks
 
-- [Project Isolation](project-isolation/)
-- [Continue After Restart](continue-after-restart/)
-- [Tabs and Panes](tabs-and-panes/)
+- [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [Continue After Restart]({{ '/documentation/user-guide/continue-after-restart/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})

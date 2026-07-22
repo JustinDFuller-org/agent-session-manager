@@ -45,5 +45,5 @@ The tab or pane moves to its new position. Pane reordering changes the grid orde
 
 ## Related tasks
 
-- [Tabs and Panes](tabs-and-panes/)
-- [Continue After Restart](continue-after-restart/)
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Continue After Restart]({{ '/documentation/user-guide/continue-after-restart/' | relative_url }})

@@ -86,9 +86,9 @@ When **Manage existing worktree** appears, choose **Manage** if Agent Session Ma
 
 ## Related tasks
 
-- [Install and First Launch](install/)
-- [Agent Tools](agent-tools/)
-- [Tabs and Panes](tabs-and-panes/)
-- [Project Isolation](project-isolation/)
-- [Continue After Restart](continue-after-restart/)
-- [Worktree Cleanup](worktree-cleanup/)
+- [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }})
+- [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [Continue After Restart]({{ '/documentation/user-guide/continue-after-restart/' | relative_url }})
+- [Worktree Cleanup]({{ '/documentation/user-guide/worktree-cleanup/' | relative_url }})

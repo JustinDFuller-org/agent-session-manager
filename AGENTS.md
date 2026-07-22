@@ -64,7 +64,12 @@ make xcodeproj    # regenerate Xcode project via xcodegen (required before UI te
 make lint         # swift-format lint --recursive --strict (matches CI format check)
 make setup-hooks  # configure git hooks for pre-commit (unit tests) and pre-push (UI smoke tests)
 make clean        # remove .build/, .app/, .xcodeproj/
+make docs-check   # render the GitHub Pages site and check generated local links
 ```
+
+The documentation check requires a current Ruby installation and Bundler. It
+builds the site into `.build/docs-site` and validates the rendered HTML without
+checking external URLs over the network.
 
 ## Testing
 

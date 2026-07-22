@@ -11,7 +11,7 @@ This walkthrough takes you from the main window to a running agent session in a 
 
 ## Before you start
 
-Complete [Install and First Launch](install/) and make sure at least one agent tool is active in **Settings → Harnesses**. Use a Git repository for the project directory.
+Complete [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }}) and make sure at least one agent tool is active in **Settings → Harnesses**. Use a Git repository for the project directory.
 
 ## How to use it
 
@@ -49,9 +49,9 @@ _New Pane combines the harness, session name, CLI options, and environment setti
 
 ## Related tasks
 
-- [Core Concepts](core-concepts/)
-- [Tabs and Panes](tabs-and-panes/)
-- [Agent Tools](agent-tools/)
-- [Project Isolation](project-isolation/)
-- [Overview](overview/)
-- [Install and First Launch](install/)
+- [Core Concepts]({{ '/documentation/user-guide/core-concepts/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }})
+- [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [Overview]({{ '/documentation/user-guide/overview/' | relative_url }})
+- [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }})

@@ -44,6 +44,6 @@ The changed shortcut is used for that action the next time you invoke it. The ta
 
 ## Related tasks
 
-- [Tabs and Panes](tabs-and-panes/)
-- [Focus Pane](focus-pane/)
-- [Tool Options](tool-options/)
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Focus Pane]({{ '/documentation/user-guide/focus-pane/' | relative_url }})
+- [Tool Options]({{ '/documentation/user-guide/tool-options/' | relative_url }})

@@ -54,6 +54,6 @@ _Notifications settings control banners, tool completion alerts, and sidebar beh
 
 ## Related tasks
 
-- [Focus Pane](focus-pane/)
-- [Tabs and Panes](tabs-and-panes/)
-- [Status Line](status-line/)
+- [Focus Pane]({{ '/documentation/user-guide/focus-pane/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Status Line]({{ '/documentation/user-guide/status-line/' | relative_url }})

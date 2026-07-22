@@ -15,7 +15,7 @@ Profiles save repeated setup. Create one for a common model, permission mode, wo
 
 ## Before you start
 
-Enable the agent tool you want to use in [Agent Tools](agent-tools/). Profiles can only use active tools.
+Enable the agent tool you want to use in [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }}). Profiles can only use active tools.
 
 ## How to use it
 
@@ -52,13 +52,13 @@ _Profiles are managed from the Profiles section of Settings._
 
 ## If it does not work
 
-- If a profile does not appear in **New Pane**, enable its harness in [Agent Tools](agent-tools/).
+- If a profile does not appear in **New Pane**, enable its harness in [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }}).
 - If an option is not visible, edit the profile and enable **Show on new pane** for that option.
 - If the profile is not preselected, move it higher than other profiles for the same harness.
 
 ## Related tasks
 
-- [Agent Tools](agent-tools/)
-- [Tool Options](tool-options/)
-- [Status Line](status-line/)
-- [Tabs and Panes](tabs-and-panes/)
+- [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }})
+- [Tool Options]({{ '/documentation/user-guide/tool-options/' | relative_url }})
+- [Status Line]({{ '/documentation/user-guide/status-line/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})

@@ -38,6 +38,6 @@ The saved tabs reappear, with each restorable pane starting in its saved working
 
 ## Related tasks
 
-- [Project Isolation](project-isolation/)
-- [Worktree Cleanup](worktree-cleanup/)
-- [Tabs and Panes](tabs-and-panes/)
+- [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [Worktree Cleanup]({{ '/documentation/user-guide/worktree-cleanup/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})

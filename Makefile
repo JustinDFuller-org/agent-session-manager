@@ -200,6 +200,12 @@ sign-dev-test-artifacts: build-for-testing
 pr-screenshots:
 	@bash "$(CURDIR)/scripts/pr-screenshots.sh"
 
+docs-build:
+	bundle exec jekyll build --destination .build/docs-site --trace
+
+docs-check:
+	@bash "$(CURDIR)/scripts/check-docs.sh"
+
 reset-app-state:
 	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \
     opencode-settings.json opencode-env-var-settings.json \

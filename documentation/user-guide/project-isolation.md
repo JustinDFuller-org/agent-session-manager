@@ -51,7 +51,7 @@ The pane opens in the selected working copy, and the agent tool starts there. Ot
 
 ## Related tasks
 
-- [Tabs and Panes](tabs-and-panes/)
-- [Continue After Restart](continue-after-restart/)
-- [Worktree Cleanup](worktree-cleanup/)
-- [Troubleshooting](troubleshooting/)
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Continue After Restart]({{ '/documentation/user-guide/continue-after-restart/' | relative_url }})
+- [Worktree Cleanup]({{ '/documentation/user-guide/worktree-cleanup/' | relative_url }})
+- [Troubleshooting]({{ '/documentation/user-guide/troubleshooting/' | relative_url }})

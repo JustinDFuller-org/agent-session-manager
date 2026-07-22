@@ -29,6 +29,6 @@ _The main window keeps related agent sessions together in one tab._
 
 ## Related tasks
 
-- [Install and First Launch](install/)
-- [Quickstart](quickstart/)
-- [Core Concepts](core-concepts/)
+- [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }})
+- [Quickstart]({{ '/documentation/user-guide/quickstart/' | relative_url }})
+- [Core Concepts]({{ '/documentation/user-guide/core-concepts/' | relative_url }})

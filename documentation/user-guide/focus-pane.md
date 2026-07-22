@@ -47,6 +47,6 @@ _Focused Pane mode expands the selected terminal while keeping its controls visi
 
 ## Related tasks
 
-- [Tabs and Panes](tabs-and-panes/)
-- [Notifications](notifications/)
-- [Reorder Tabs and Panes](reorder-tabs-and-panes/)
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Notifications]({{ '/documentation/user-guide/notifications/' | relative_url }})
+- [Reorder Tabs and Panes]({{ '/documentation/user-guide/reorder-tabs-and-panes/' | relative_url }})

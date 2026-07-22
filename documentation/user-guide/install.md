@@ -48,7 +48,7 @@ If the wizard does not detect a tool, confirm that the tool is installed and ava
 
 ## Related tasks
 
-- [Quickstart](quickstart/)
-- [Core Concepts](core-concepts/)
-- [Overview](overview/)
-- [Troubleshooting](troubleshooting/)
+- [Quickstart]({{ '/documentation/user-guide/quickstart/' | relative_url }})
+- [Core Concepts]({{ '/documentation/user-guide/core-concepts/' | relative_url }})
+- [Overview]({{ '/documentation/user-guide/overview/' | relative_url }})
+- [Troubleshooting]({{ '/documentation/user-guide/troubleshooting/' | relative_url }})

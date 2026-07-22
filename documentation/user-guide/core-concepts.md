@@ -43,9 +43,9 @@ _A tab identifies the project context shown below the tab bar._
 
 ## Related tasks
 
-- [Quickstart](quickstart/)
-- [Tabs and Panes](tabs-and-panes/)
-- [Agent Tools](agent-tools/)
-- [Project Isolation](project-isolation/)
-- [Overview](overview/)
-- [Install and First Launch](install/)
+- [Quickstart]({{ '/documentation/user-guide/quickstart/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }})
+- [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [Overview]({{ '/documentation/user-guide/overview/' | relative_url }})
+- [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }})

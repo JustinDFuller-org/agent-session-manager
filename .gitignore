@@ -144,6 +144,8 @@ vite.config.ts.timestamp-*
 
 # Build artifacts
 .build/
+.bundle/
+vendor/bundle/
 AgentSessionManager.app/
 AgentSessionManagerDev.app/
 AgentSessionManager.xcodeproj/

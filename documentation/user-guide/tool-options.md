@@ -47,6 +47,6 @@ _Use the Harnesses settings to control which options appear during pane creation
 
 ## Related tasks
 
-- [Agent Tools](agent-tools/)
-- [Profiles](profiles/)
-- [Quickstart](quickstart/)
+- [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }})
+- [Profiles]({{ '/documentation/user-guide/profiles/' | relative_url }})
+- [Quickstart]({{ '/documentation/user-guide/quickstart/' | relative_url }})

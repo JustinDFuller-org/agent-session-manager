@@ -45,7 +45,7 @@ If the tool is active but a pane cannot start, confirm that the selected shell c
 
 ## Related tasks
 
-- [Install and First Launch](install/)
-- [Tabs and Panes](tabs-and-panes/)
-- [Project Isolation](project-isolation/)
-- [Troubleshooting](troubleshooting/)
+- [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }})
+- [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
+- [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [Troubleshooting]({{ '/documentation/user-guide/troubleshooting/' | relative_url }})
