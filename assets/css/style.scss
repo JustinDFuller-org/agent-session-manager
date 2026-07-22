@@ -134,6 +134,7 @@ a:hover { color: #174c80; }
 
 .content { min-width: 0; max-width: 800px; }
 .content-home { max-width: 100%; }
+.doc-article img { display: block; max-width: 100%; height: auto; }
 .eyebrow { margin: 0 0 .75rem; color: var(--muted); font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
 h1, h2, h3 { line-height: 1.2; }
 h1 { margin: 0 0 1rem; font-size: clamp(2.2rem, 5vw, 4.5rem); letter-spacing: -.03em; }

@@ -175,6 +175,10 @@ Reviewers should verify the copy against the current UI and source, confirm that
 - [x] Verify the custom-domain deployment and representative user-guide URLs after each migration phase. Verified 2026-07-22 against Pages build `3e9f953` at `https://agent-session-manager.justindfuller.com`; the homepage, `/docs/`, representative user-guide pages, CSS, and documentation images returned HTTPS 200 responses, while internal-only paths were excluded by the local rendered-site check.
 - [x] Recheck README and homepage claims against the current four-tool implementation before publishing changes. Audited 2026-07-22 against the harness catalog, settings labels, per-tool CLI catalogs, and status-line capabilities; removed stale three-tool, Claude-only, and fixed-count wording.
 
+### Post-migration maintenance TODO
+
+- [ ] Constrain inline documentation screenshots to the article column so they scale responsively without horizontal page overflow while preserving their aspect ratio.
+
 ### Current feature inventory
 
 Classification is based on the role of each document in the migration, not on whether the existing file is ready to publish:
