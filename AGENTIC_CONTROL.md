@@ -33,10 +33,11 @@ possible future integration for other local clients, but the harnesses do not
 speak XPC and would still require custom adapters.
 
 The official [Swift MCP SDK](https://github.com/modelcontextprotocol/swift-sdk)
-is the first implementation candidate. Its current Swift 6 requirements must
-be checked against this repository's Swift 5.9 package settings before the
-dependency is adopted. The control domain must remain independent of that
-transport decision.
+is the first implementation candidate. The repository uses Swift tools 6.1,
+matching the SDK's current manifest requirement. The app source remains in its
+existing Swift 5 language mode until its separate concurrency migration is
+complete; it is still compiled by the installed Swift 6 toolchain. The control
+domain must remain independent of that transport decision.
 
 ## Configuration
 
@@ -225,7 +226,7 @@ must remove their files, processes, and tokens before they finish.
 
 | Item | Observed value |
 |---|---|
-| Repository manifest | Swift tools 5.9, macOS 14 minimum |
+| Repository manifest | Swift tools 6.1, Swift 5 language mode, macOS 14 minimum |
 | Host toolchain | Swift 6.4, Xcode 27.0 |
 | Swift MCP SDK candidate | 0.12.1; its manifest declares Swift tools 6.1 |
 | Claude Code | 2.1.216 |
@@ -233,12 +234,13 @@ must remove their files, processes, and tokens before they finish.
 | Cursor Agent | 2026.05.15-3f71873 |
 | OpenCode | 1.18.4 |
 
-The SDK candidate resolved and imported successfully in isolated macOS 14
-packages using both Swift tools 5.9 and 6.1 when compiled by the installed Swift
-6.4 compiler. A Swift 5.9 compiler is not installed in this environment, so
-compatibility with an older compiler remains unverified. Do not treat the
-manifest-level result as permission to raise the repository toolchain or add the
-dependency; that decision belongs in a separate implementation change.
+The SDK candidate resolved and imported successfully in an isolated macOS 14
+package using Swift tools 6.1 when compiled by the installed Swift 6.4
+compiler. The repository now matches that requirement without adding the SDK
+dependency yet. SwiftPM's tools version is a manifest compatibility floor; the
+host's installed Swift 6.4 compiler remains the version used to build the
+project. Enabling Swift 6 language mode is deferred because existing tracing
+code currently reports sendability and actor-isolation errors under that mode.
 
 #### Streamable HTTP result
 

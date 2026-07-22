@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.1
 import PackageDescription
 
 let package = Package(
@@ -29,5 +29,6 @@ let package = Package(
             dependencies: ["AgentSessionManager"],
             path: "Tests"
         )
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )
