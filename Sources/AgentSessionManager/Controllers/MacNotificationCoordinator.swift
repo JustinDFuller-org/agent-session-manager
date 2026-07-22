@@ -1,5 +1,5 @@
 import AppKit
-import UserNotifications
+@preconcurrency import UserNotifications
 
 enum MacNotificationUserInfoKey {
     static let paneID = "paneID"
