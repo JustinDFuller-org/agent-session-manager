@@ -4,7 +4,7 @@ The screenshot walkthrough captures the app in one continuous session for docume
 
 ## Coverage
 
-ScreenshotTests captures all 21 views in order:
+ScreenshotTests captures all 25 views in order:
 
 - onboarding-welcome
 - onboarding-shell
@@ -18,6 +18,9 @@ ScreenshotTests captures all 21 views in order:
 - main-window-tab
 - new-pane-sheet
 - split-panes
+- existing-worktree-prompt
+- worktree-cleanup-alert
+- reordered-tabs-and-panes
 - settings-panes
 - settings-notifications
 - settings-profiles
@@ -26,6 +29,7 @@ ScreenshotTests captures all 21 views in order:
 - settings-status-line
 - settings-debug
 - pane-status-indicators
+- notification-sidebar
 - focused-pane
 
 The app launches once and terminates once. Each screenshot is captured after the preceding real UI flow has completed, so later images show the same session continuing through the product.
@@ -44,17 +48,9 @@ This runs only ScreenshotTests and writes PNGs to screenshots/. The directory is
 
 The Makefile passes the absolute worktree screenshots directory through TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH. xcodebuild strips the TEST_RUNNER_ prefix before forwarding the variable to the test process, so simultaneous worktrees write to separate directories.
 
-## Temporary PR provider fixture
-
-The PR sidebar and alert are captured through the normal PRTrackingCoordinator, StatusLineMonitor, AppState notification, and alert paths. For repeatable local runs, the screenshot test temporarily places a generated gh executable first on PATH. It handles only gh api graphql --include --input, returns an open PR initially, and returns the same PR as merged after the test changes its fixture state.
-
-This temporary provider fixture avoids opening or merging an external GitHub PR on every run. It does not fabricate sessions, panes, notification arrays, or view state. It can be removed later without changing the screenshot walkthrough or production PR notification code.
-
 ## Authenticity
 
-Screenshots are produced through one continuous app session and real UI flows. Panes are created through the New Pane sheet, terminal processes run through the normal TerminalController path, terminal attention uses the existing bell handling, and diagnostics use the app-owned trace, invariant, and status-line inputs.
-
-The temporary GitHub provider fixture is the only intentional fake. It is isolated at the external CLI boundary while the app’s production PR transition and notification behavior remain under test.
+Screenshots are produced through one continuous app session and real UI flows. Panes are created through the New Pane sheet, worktree prompts use real Git worktrees, reordering uses real drag gestures, and terminal attention uses the existing bell handling. The walkthrough does not inject sessions, panes, notification arrays, activity states, or GitHub pull-request data.
 
 ## Workflow integration
 

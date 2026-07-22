@@ -50,6 +50,10 @@ The sidebar shows the pane and tab associated with each pending notification. Cl
 
 _Notifications settings control banners, tool completion alerts, and sidebar behavior._
 
+![Agent Session Manager notification sidebar]({{ '/assets/img/docs/notification-sidebar.png' | relative_url }})
+
+_The sidebar occupies a fixed rail beside the active tab's panes._
+
 ## If it does not work
 
 - If in-app notifications appear but macOS banners do not, allow notifications for the correct Agent Session Manager app in **System Settings → Notifications**.

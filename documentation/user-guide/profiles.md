@@ -46,9 +46,9 @@ The first profile in the list that matches the selected harness is preselected w
 
 The profile appears in **Settings → Profiles** and in the **Profile** picker in **New Pane**. Options marked **Show on new pane** appear for editing; other saved options remain hidden while they are applied.
 
-![Agent Session Manager Profiles settings]({{ '/assets/img/docs/settings-profiles.png' | relative_url }})
+![Agent Session Manager Profiles settings with a saved profile]({{ '/assets/img/docs/settings-profiles.png' | relative_url }})
 
-_Profiles are managed from the Profiles section of Settings._
+_Profiles are managed from the Profiles section of Settings and can be reused in New Pane._
 
 ## If it does not work
 

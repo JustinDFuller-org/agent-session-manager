@@ -43,10 +43,6 @@ The configured rows appear at the bottom of each applicable terminal pane. The o
 
 _Status Line settings control the layout and pull-request tracking options._
 
-![Agent Session Manager pane with a status line]({{ '/assets/img/docs/pane-status-indicators.png' | relative_url }})
-
-_A pane status line displays the configured facts below the terminal._
-
 ## If it does not work
 
 - If an item is missing from **Add Item**, it may not be supported for the selected harness or may already be in a row.

@@ -37,6 +37,10 @@ The close button and terminal body are not drag handles, so closing, selecting t
 
 The tab or pane moves to its new position. Pane reordering changes the grid order but does not move a pane to a different tab.
 
+![Reordered tabs and panes in Agent Session Manager]({{ '/assets/img/docs/reordered-tabs-and-panes.png' | relative_url }})
+
+_The active tab and pane borders make the resulting order visible._
+
 ## If it does not work
 
 - Drag from the tab label or pane header label, not from the close button.

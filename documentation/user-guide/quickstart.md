@@ -33,9 +33,9 @@ Agent Session Manager prepares the working copy and opens a pane for the selecte
 
 _The empty state provides the shortcut for creating the first tab._
 
-![Agent Session Manager New Tab sheet with a name and base branch]({{ '/assets/img/docs/new-tab-sheet-filled.png' | relative_url }})
+![Agent Session Manager New Tab sheet with a project directory and base branch]({{ '/assets/img/docs/new-tab-sheet-filled.png' | relative_url }})
 
-_New Tab accepts the project name and optional base branch before creation._
+_New Tab is ready to create after the project directory and optional base branch are set._
 
 ![Agent Session Manager New Pane sheet]({{ '/assets/img/docs/new-pane-sheet.png' | relative_url }})
 

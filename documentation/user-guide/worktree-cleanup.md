@@ -37,6 +37,10 @@ When **Ask** is selected and you close a managed pane:
 - Choose **Keep Worktree** to close the pane while leaving the working copy available to reopen.
 - Choose **Cancel** to leave the pane open.
 
+![Managed worktree cleanup prompt in Agent Session Manager]({{ '/assets/img/docs/worktree-cleanup-alert.png' | relative_url }})
+
+_Closing a managed pane gives you an explicit choice to keep, delete, or cancel._
+
 ## What you should see
 
 Closing an unmanaged external checkout simply closes the pane. Closing a managed working copy follows the selected cleanup behavior.

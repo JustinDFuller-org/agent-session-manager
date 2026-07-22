@@ -13,14 +13,8 @@ final class ScreenshotTests: BaseTestCase {
     }
 
     override func prepareTestWorkspace() {
-        let workspace = GitUITestWorkspace.directoryURL
-        GitUITestWorkspace.runGitOrFail(["branch", "main"], cwd: workspace)
-        GitUITestWorkspace.runGitOrFail(
-            ["remote", "add", "origin", "https://github.com/test-owner/test-repository.git"],
-            cwd: workspace
-        )
         let support = UITestAppSupport.directory
-        try? Data("{\"isEnabled\":true,\"branchName\":\"main\"}".utf8)
+        try? Data("{\"isEnabled\":true,\"branchName\":\"ui-root\"}".utf8)
             .write(to: support.appending(path: "default-branch.json"))
         try? Data("\"head\"".utf8)
             .write(to: support.appending(path: "worktree-base-ref.json"))
@@ -44,15 +38,35 @@ final class ScreenshotTests: BaseTestCase {
         let baseBranchField = app.textFields["new-tab-base-branch-field"]
         waitFor(baseBranchField)
         baseBranchField.click()
-        baseBranchField.typeText("main")
-        screenshot("new-tab-sheet-filled")
-        baseBranchField.typeKey("a", modifierFlags: .command)
-        baseBranchField.typeKey(.delete, modifierFlags: [])
+        baseBranchField.typeText("ui-root")
         app.buttons["new-tab-choose-dir-button"].click()
-        waitFor(app.buttons["new-tab-create-button"])
-        app.buttons["new-tab-create-button"].click()
+        let createTabButton = app.buttons["new-tab-create-button"]
+        waitFor(createTabButton)
+        screenshot("new-tab-sheet-filled")
+        app.buttons["new-tab-cancel-button"].click()
+        waitForDisappear(app.textFields["new-tab-name-field"])
+        createTab(named: "Alpha")
         waitFor(app.buttons["tab-button-Alpha"].firstMatch)
         screenshot("main-window-tab")
+
+        app.typeKey("p", modifierFlags: .command)
+        let existingWorktreeField = app.textFields["new-pane-name-field"]
+        waitFor(existingWorktreeField)
+        existingWorktreeField.click()
+        existingWorktreeField.typeText("ui-root")
+        app.buttons["new-pane-open-button"].click()
+
+        let takeoverCancel = app.buttons["Cancel"].firstMatch
+        waitFor(takeoverCancel, timeout: 25)
+        screenshot("existing-worktree-prompt")
+        app.buttons["Don't Manage"].firstMatch.click()
+        let primaryPane = app.staticTexts["pane-name-UITestWorkspace"].firstMatch
+        waitFor(primaryPane, timeout: 25)
+        let cancelledPaneClose = app.descendants(matching: .any)
+            .matching(identifier: "pane-close-UITestWorkspace").firstMatch
+        waitFor(cancelledPaneClose, timeout: 10)
+        cancelledPaneClose.click()
+        waitForDisappear(primaryPane, timeout: 10)
 
         app.typeKey("p", modifierFlags: .command)
         waitFor(app.textFields["new-pane-name-field"])
@@ -60,7 +74,38 @@ final class ScreenshotTests: BaseTestCase {
         app.typeKey(.escape, modifierFlags: [])
         waitForDisappear(app.textFields["new-pane-name-field"], timeout: 25)
         createPane(named: "feature-a")
+        createPane(named: "feature-b")
         screenshot("split-panes")
+
+        GitUITestWorkspace.addManagedSecondaryWorktree(
+            folder: "wt-cleanup",
+            newTrackingBranch: "track-wt-cleanup"
+        )
+        createPane(named: "wt-cleanup")
+        app.descendants(matching: .any)
+            .matching(identifier: "pane-close-wt-cleanup").firstMatch.click()
+        let keepWorktree = app.buttons["Keep Worktree"].firstMatch
+        waitFor(keepWorktree, timeout: 10)
+        screenshot("worktree-cleanup-alert")
+        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
+        waitForDisappear(keepWorktree)
+
+        createTab(named: "Beta")
+        let alphaTab = app.buttons["tab-button-Alpha"].firstMatch
+        let betaTab = app.buttons["tab-button-Beta"].firstMatch
+        waitFor(alphaTab)
+        waitFor(betaTab)
+        alphaTab.click(forDuration: 0.5, thenDragTo: betaTab)
+        XCTAssertLessThan(betaTab.frame.minX, alphaTab.frame.minX)
+
+        alphaTab.click()
+        let firstPane = app.staticTexts["pane-name-feature-a"].firstMatch
+        let secondPane = app.staticTexts["pane-name-feature-b"].firstMatch
+        waitFor(firstPane)
+        waitFor(secondPane)
+        firstPane.click(forDuration: 0.5, thenDragTo: secondPane)
+        XCTAssertLessThan(secondPane.frame.minX, firstPane.frame.minX)
+        screenshot("reordered-tabs-and-panes")
 
         captureSettings()
         captureStatusIndicators()
@@ -146,6 +191,15 @@ final class ScreenshotTests: BaseTestCase {
         let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
         waitFor(profilesTab)
         profilesTab.click()
+        let newProfileButton = app.buttons["New Profile"]
+        waitFor(newProfileButton)
+        newProfileButton.click()
+        let profileNameField = app.textFields["profile-editor-name-field"]
+        waitFor(profileNameField)
+        profileNameField.click()
+        profileNameField.typeText("Docs Profile")
+        app.buttons["Save"].click()
+        waitFor(app.staticTexts["Docs Profile"])
         screenshot("settings-profiles")
 
         let toolsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tools").firstMatch
@@ -173,14 +227,24 @@ final class ScreenshotTests: BaseTestCase {
 
     private func captureStatusIndicators() {
         createTab(named: "Status")
-        createPane(named: "running-pane")
+        createPane(named: "idle-pane")
         waitFor(
             app.descendants(matching: .any)
-                .matching(identifier: "pane-activity-idle-running-pane").firstMatch,
+                .matching(identifier: "pane-activity-idle-idle-pane").firstMatch,
             timeout: 15
         )
         waitFor(app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch)
         screenshot("pane-status-indicators")
+
+        let shellName = openShellHere(from: "idle-pane")
+        app.staticTexts["pane-name-\(shellName)"].firstMatch.click()
+        app.typeText("printf '\\a'")
+        app.typeKey(.enter, modifierFlags: [])
+        app.staticTexts["pane-name-idle-pane"].firstMatch.click()
+        let notificationSidebar = app.descendants(matching: .any)
+            .matching(identifier: "notification-sidebar").firstMatch
+        waitFor(notificationSidebar, timeout: 10)
+        screenshot("notification-sidebar")
     }
 
     private func captureFocusedPane() {

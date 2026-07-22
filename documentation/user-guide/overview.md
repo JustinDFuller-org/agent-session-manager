@@ -23,7 +23,7 @@ You need a Mac running macOS 14 or later. To start an agent pane, you also need 
 
 After launch, the main window provides a tab bar and a pane area. When no tab is open, the empty state tells you to press ⌘T to create one.
 
-![Agent Session Manager showing a tab with two panes]({{ '/assets/img/docs/split-panes.png' | relative_url }})
+![Agent Session Manager showing two panes in one tab]({{ '/assets/img/docs/split-panes.png' | relative_url }})
 
 _The main window keeps related agent sessions together in one tab._
 

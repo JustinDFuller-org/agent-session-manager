@@ -27,6 +27,10 @@ Create a tab for the Git repository you want to work in. Decide whether the pane
 
 When the name does not match an existing checkout or ref, Agent Session Manager creates a separate working copy if **Default Branch** is enabled or the tab has a **Base Branch**. It uses the configured **Starting Point** for that new working copy. If neither setting supplies a branch, the name must resolve to an existing checkout or ref.
 
+![Agent Session Manager New Pane sheet]({{ '/assets/img/docs/new-pane-sheet.png' | relative_url }})
+
+_New Pane keeps the harness, worktree name, priority, CLI options, and environment variables in one flow._
+
 ### Open an existing branch or worktree
 
 1. Open **New Pane**.
@@ -51,9 +55,17 @@ In **Settings → Panes → New Pane**, use **If Branch Exists** to decide wheth
 - **Always** takes over management automatically so the worktree can be cleaned up later.
 - **Never** uses the existing worktree as-is and does not offer cleanup for it.
 
+![Existing worktree management prompt in Agent Session Manager]({{ '/assets/img/docs/existing-worktree-prompt.png' | relative_url }})
+
+_When an external checkout already exists, choose whether Agent Session Manager should manage it._
+
 ## What you should see
 
 The pane opens in the selected working copy, and the agent tool starts there. Other panes can use different task working copies while remaining in the same tab.
+
+![Agent Session Manager pane settings]({{ '/assets/img/docs/settings-panes.png' | relative_url }})
+
+_Pane settings control default branches, starting points, existing-branch behavior, and terminal defaults._
 
 ## If it does not work
 

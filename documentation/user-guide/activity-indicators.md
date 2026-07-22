@@ -34,6 +34,10 @@ Focusing a pane clears its notification. A tab shows the strongest state among i
 
 Each tab and pane keeps an indicator, including when it is idle. The focused pane remains identifiable even when Focus Pane hides the other panes.
 
+![Agent Session Manager notification sidebar beside panes]({{ '/assets/img/docs/notification-sidebar.png' | relative_url }})
+
+_The notification sidebar stays aligned with the tab and pane indicators._
+
 ## If it does not work
 
 - If indicators are missing, enable **Show Activity Indicators** in **Settings → Panes → Activity Indicators**.

@@ -48,17 +48,14 @@ ORDER=(
     # 4. Create and use a pane
     new-pane-sheet.png
     split-panes.png
+    existing-worktree-prompt.png
+    worktree-cleanup-alert.png
+    reordered-tabs-and-panes.png
     pane-status-indicators.png
     # 5. Notifications while working
     notification-sidebar.png
-    pr-merged-alert.png
-    activity-indicator-states.png
     focused-pane.png
-    # 6. Diagnostics
-    trace-dashboard.png
-    trace-waterfall.png
-    invariant-dashboard.png
-    # 7. Configure settings
+    # 6. Configure settings
     settings-panes.png
     settings-notifications.png
     settings-profiles.png

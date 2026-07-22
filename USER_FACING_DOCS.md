@@ -185,6 +185,16 @@ Reviewers should verify the copy against the current UI and source, confirm that
 - [x] Document GitHub pull-request resolution actions, polling controls, update reminders, and notification persistence.
 - [x] Correct persisted tab-directory restoration for paths containing spaces and add regression coverage before describing restart restoration as reliable.
 
+### Screenshot audit and maintenance
+
+Public screenshots are selective evidence, not decoration. Keep an image when it helps a reader identify a control, understand the workspace relationship, or recognize a visible result. Prefer tables and symptom-led text for shortcuts, restart behavior, individual tool differences, pull-request prerequisites, and troubleshooting.
+
+- [x] Audit every public screenshot for necessity, relevance, accuracy, and a better text or table representation.
+- [x] Recapture misleading states through `UITests/ScreenshotTests.swift` using real tabs, panes, Git worktrees, drag gestures, and terminal attention events.
+- [x] Keep promoted assets under `assets/img/docs/` with descriptive alt text and captions; remove stale or low-value inline images.
+- [x] Keep the screenshot coverage list, renderer ordering, public image references, and generated PNG names synchronized.
+- [x] Do not add injected activity, notification, session, or pull-request state to documentation screenshots.
+
 ### Current feature inventory
 
 Classification is based on the role of each document in the migration, not on whether the existing file is ready to publish:

@@ -25,6 +25,10 @@ Open **Settings → Panes → Terminal**.
 
 The setting applies immediately to open terminal panes. Values outside the supported range are clamped to the nearest limit.
 
+![Agent Session Manager terminal settings]({{ '/assets/img/docs/settings-panes.png' | relative_url }})
+
+_Scrollback Lines appears in Settings → Panes → Terminal._
+
 ## What you should see
 
 You can scroll farther back through terminal output when the buffer is larger.

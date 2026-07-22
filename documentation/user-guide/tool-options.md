@@ -38,9 +38,9 @@ Text options without presets remain text fields. Options with presets use a sing
 
 Options marked **Show** appear in the selected tool’s **CLI Options** section in **New Pane**. Options marked **Default on** start enabled there. Custom flags and environment variables are saved with the tool configuration and can be included in profiles.
 
-![Agent Session Manager Harnesses settings showing CLI options]({{ '/assets/img/docs/settings-tools.png' | relative_url }})
+![Agent Session Manager New Pane showing harness-specific CLI options]({{ '/assets/img/docs/new-pane-sheet.png' | relative_url }})
 
-_Use the Harnesses settings to control which options appear during pane creation._
+_The selected harness controls which CLI options appear during pane creation._
 
 ## If it does not work
 
