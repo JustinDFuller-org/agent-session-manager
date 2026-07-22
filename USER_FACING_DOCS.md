@@ -172,7 +172,7 @@ Reviewers should verify the copy against the current UI and source, confirm that
 - [x] Add and promote the first durable screenshot set from the real-flow UI tests.
 - [x] Remove internal source paths, schemas, class names, telemetry catalogs, and test commands from public pages.
 - [x] Add link checking and a documented local Jekyll build or equivalent rendered-site check.
-- [ ] Verify the custom-domain deployment and representative user-guide URLs after each migration phase.
+- [x] Verify the custom-domain deployment and representative user-guide URLs after each migration phase. Verified 2026-07-22 against Pages build `3e9f953` at `https://agent-session-manager.justindfuller.com`; the homepage, `/docs/`, representative user-guide pages, CSS, and documentation images returned HTTPS 200 responses, while internal-only paths were excluded by the local rendered-site check.
 - [ ] Recheck README and homepage claims against the current four-tool implementation before publishing changes.
 
 ### Current feature inventory
