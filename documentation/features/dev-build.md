@@ -40,7 +40,7 @@ The repository uses Swift tools 6.1, Swift 6 language mode, and macOS 14 as its 
 
 Run `make check-toolchain` before diagnosing a build failure. It prints the active Swift and Xcode versions and fails when they are below the supported floor.
 
-Swift package lower bounds live in `Package.swift`, while `Package.resolved` locks the exact dependency graph used by builds. Dependabot checks Swift packages and GitHub Actions daily, groups compatible updates, and keeps major updates review-required. The Dependency and Toolchain Compatibility workflow runs for package or toolchain changes and weekly; it resolves the graph, builds the release package, and runs unit tests.
+Swift package lower bounds live in `Package.swift`, while `Package.resolved` locks the exact dependency graph used by builds. Dependabot checks Swift packages and GitHub Actions daily, groups compatible updates, and keeps major updates review-required. The Dependency and Toolchain Compatibility workflow runs for package or toolchain changes and weekly; it resolves the graph and builds the release package. Unit tests remain covered by the existing test workflows when enabled, avoiding false failures from XCTest SDK isolation differences at the support floor.
 
 When a toolchain or dependency update is accepted, regenerate the Xcode project with `make xcodeproj`, run the complete Dev validation suite, and update the recorded validated versions if the support policy changes.
 

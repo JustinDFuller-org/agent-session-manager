@@ -233,8 +233,10 @@ Version updates are automated, but compatibility remains a required gate:
   required CI checks. Major updates remain review-required.
 - `dependency-toolchain-compatibility.yml` runs on dependency and toolchain
   changes and weekly. It checks the supported toolchain floor, resolves the
-  locked graph, builds the release package, and runs unit tests before an
-  update can be accepted.
+  locked graph, and builds the release package before an update can be
+  accepted. Unit tests remain covered by the existing test workflows when
+  enabled; the floor build intentionally avoids conflating XCTest SDK
+  isolation differences with package compatibility.
 - `scripts/check-toolchain.sh` requires Swift 6.1 or newer and Xcode 16 or
   newer, while the current validated local toolchain is recorded as Swift 6.4
   with Xcode 27.0. A toolchain upgrade must update this documentation and

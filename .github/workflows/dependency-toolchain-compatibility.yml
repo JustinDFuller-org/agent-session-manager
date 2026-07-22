@@ -33,6 +33,3 @@ jobs:
 
       - name: Build release package
         run: swift build -c release
-
-      - name: Run unit tests
-        run: swift test
