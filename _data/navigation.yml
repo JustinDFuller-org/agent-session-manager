@@ -18,9 +18,23 @@
       url: /documentation/user-guide/continue-after-restart/
     - title: Reorder Tabs and Panes
       url: /documentation/user-guide/reorder-tabs-and-panes/
+    - title: Focus Pane
+      url: /documentation/user-guide/focus-pane/
 - title: Configure
   items:
     - title: Agent Tools
       url: /documentation/user-guide/agent-tools/
+    - title: Profiles
+      url: /documentation/user-guide/profiles/
+    - title: Tool Options
+      url: /documentation/user-guide/tool-options/
+    - title: Status Line
+      url: /documentation/user-guide/status-line/
+    - title: Notifications
+      url: /documentation/user-guide/notifications/
     - title: Worktree Cleanup
       url: /documentation/user-guide/worktree-cleanup/
+- title: Reference
+  items:
+    - title: Keyboard Shortcuts
+      url: /documentation/user-guide/shortcuts/

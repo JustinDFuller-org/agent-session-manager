@@ -1,0 +1,48 @@
+---
+layout: doc
+title: Tool Options
+description: Choose which CLI options and environment variables appear when you create an agent pane.
+permalink: /documentation/user-guide/tool-options/
+---
+
+## What it is
+
+Tool options are the CLI flags and supported environment variables Agent Session Manager can pass when it starts an agent tool. The available catalog depends on the selected tool.
+
+## Why you might use it
+
+Configure common defaults once, keep the New Pane sheet focused on the choices you make often, and add a custom option when the built-in catalog does not include one you use.
+
+## Before you start
+
+Open **Settings → Harnesses** and enable the tool you want to configure. Agent Session Manager currently supports Claude Code, Cursor, Codex, and OpenCode.
+
+## How to use it
+
+1. Open **Settings** and select **Harnesses**.
+2. Select a tool from the tool picker.
+3. Enable or disable the tool’s options in the **Enabled** and **Not Enabled** sections.
+4. Use **Show** to control whether an option appears in **New Pane**.
+5. Use **Default on** to enable a visible option by default when a pane is created.
+6. For text options, enter a value when the option is shown.
+7. Choose **Add Custom Flag** to add a boolean or text option that is not in the catalog.
+8. For Claude Code or OpenCode, configure supported entries under **Environment Variables** when needed.
+
+The options shown in **New Pane** change when you select a different **Harness**. You can also configure options while editing a profile.
+
+## What you should see
+
+Options marked **Show** appear in the selected tool’s **CLI Options** section in **New Pane**. Options marked **Default on** start enabled there. Custom flags and environment variables are saved with the tool configuration and can be included in profiles.
+
+## If it does not work
+
+- If a tool’s options are unavailable, enable the tool first in **Harnesses**.
+- If an option does not appear in **New Pane**, turn on **Show** for that option.
+- If a custom flag has no effect, confirm that the installed version of the selected tool recognizes it.
+- If an environment variable is not available for editing, it may be controlled by Agent Session Manager for that tool.
+
+## Related tasks
+
+- [Agent Tools](agent-tools/)
+- [Profiles](profiles/)
+- [Quickstart](quickstart/)
