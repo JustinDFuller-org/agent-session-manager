@@ -181,6 +181,9 @@ Reviewers should verify the copy against the current UI and source, confirm that
 ### Post-migration maintenance
 
 - [x] Constrain inline documentation screenshots to the article column so they scale responsively without horizontal page overflow while preserving their aspect ratio.
+- [x] Reconcile advanced user-visible controls with the public guides: starting-point behavior, existing-branch management, process-exit behavior, pane refresh, CLI presets, and priority panes.
+- [x] Document GitHub pull-request resolution actions, polling controls, update reminders, and notification persistence.
+- [x] Correct persisted tab-directory restoration for paths containing spaces and add regression coverage before describing restart restoration as reliable.
 
 ### Current feature inventory
 

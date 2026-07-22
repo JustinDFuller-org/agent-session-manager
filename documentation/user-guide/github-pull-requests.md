@@ -35,6 +35,8 @@ The **PR** item shows the pull-request number and state when a pull request is f
 
 When a tracked pull request changes to merged or closed, the app can add a sidebar notification and show a macOS banner. Selecting the notification opens the related pane and presents the available action prompt.
 
+At the action prompt, choose **Close Pane** to remove the pane and keep its working copy. Choose **Close Pane and Clean Up Worktree** when the pane uses a worktree managed by Agent Session Manager and you also want that working copy removed. Choose **Cancel** to leave the pane open.
+
 ## What you should see
 
 The status line shows the **PR** item when tracking finds a pull request. The pull-request state can also be opened from the status-line item for more information.

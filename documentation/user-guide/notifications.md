@@ -28,6 +28,10 @@ In-app indicators and the notifications sidebar do not require macOS permission.
 
 The sidebar can group priority notifications above other notifications. Priority is selected per pane when **Priority Notifications** is enabled.
 
+To mark a pane as important, enable **Priority Notifications** in Settings, then turn on **Priority Pane** when creating a pane or from the pane's context menu. Priority notifications appear above other notifications and use the priority color.
+
+Pending in-app notifications are saved with the session and restored after relaunch when their pane is restored. macOS banners are not replayed after relaunch.
+
 ### Configure notifications
 
 1. Open **Settings → Notifications**.

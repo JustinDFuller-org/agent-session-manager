@@ -28,11 +28,12 @@ The app restores tabs and panes whose working copies still exist. With **Continu
 
 ## What you should see
 
-The saved tabs reappear, with each restorable pane starting in its saved working copy. Panes whose working copy is missing are left out of the restored session.
+The saved tabs reappear when their project directories can be restored, with each restorable pane starting in its saved working copy. Panes whose project directory or working copy is missing are left out of the restored session.
 
 ## If it does not work
 
 - If a tab or pane is missing, confirm that its project directory and working copy still exist.
+- If the project path contains spaces and the tab does not return, update to a build containing the current session-restore fix or recreate the tab.
 - If the pane reopens but the conversation does not resume, check **Settings → Panes → Continue on Restart** and the selected tool's own session behavior.
 - If you intentionally deleted the working copy, create a new pane from the relevant branch or worktree.
 

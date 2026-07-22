@@ -249,6 +249,11 @@ struct SessionPersistence {
         try? data.write(to: sessionURL)
     }
 
+    static func persistedDirectoryURL(for path: String) -> URL? {
+        guard !path.isEmpty else { return nil }
+        return URL(filePath: path)
+    }
+
     static func restore(into appState: AppState, appSettings: AppSettings) {
         guard
             let data = try? Data(contentsOf: sessionURL),
@@ -256,7 +261,7 @@ struct SessionPersistence {
         else { return }
 
         for persistedTab in session.tabs {
-            guard let dir = URL(string: "file://\(persistedTab.directory)") else { continue }
+            guard let dir = persistedDirectoryURL(for: persistedTab.directory) else { continue }
             let tab = Tab(
                 id: persistedTab.id,
                 name: persistedTab.name,

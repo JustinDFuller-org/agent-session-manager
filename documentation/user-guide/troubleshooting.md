@@ -27,6 +27,10 @@ Choose **Install Update** in **Settings → About**, or select **Update availabl
 
 Open **Settings → About** and follow the displayed source-update instruction. The app must be rebuilt from the updated checkout before the new version is available.
 
+### Control update reminders
+
+In **Settings → About**, use **Update Reminder** to show or hide the tab-bar reminder. For a source-built copy, the reminder reports a newer commit on GitHub `main`; for a release DMG, it reports a newer DMG release.
+
 ## macOS permission prompts
 
 The first pane for a project may cause macOS to ask whether Agent Session Manager can access files in protected locations or data from other apps. Allow access when you want the agent to work with that project. macOS remembers the decision for the app.
@@ -65,6 +69,12 @@ Common causes include a missing branch or ref, a network failure while fetching,
 ### The process exits immediately
 
 When the process-exit controls appear, choose **Restart** to try the same pane again, **Open Shell** to inspect the working copy, or **Close** to remove the pane. If restarting produces the same result, check the selected tool, shell, and tool-specific options.
+
+You can choose the default behavior in **Settings → Panes → Terminal → When Process Exits**:
+
+- **Show Prompt** displays those controls.
+- **Open Shell** replaces the exited process with a live shell.
+- **Close Pane** closes the pane automatically.
 
 ## A checkout conflicts with another task
 

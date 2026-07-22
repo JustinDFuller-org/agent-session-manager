@@ -33,6 +33,8 @@ Facts that are not supported by a pane’s harness are omitted. A supported fact
 
 In **GitHub PR Tracking**, enable **Track pull requests** to show the current pull request status for a pane’s Git branch. This requires the GitHub CLI (`gh`) to be installed and authenticated. The same section controls polling and background refresh.
 
+Use **PR Polling Interval** to control how often foreground checks run, **Request Timeout** to limit an in-flight request, and **Background Refresh** to keep checking while the app is unfocused. **Background Polling Interval** controls the cadence for those background checks.
+
 ## What you should see
 
 The configured rows appear at the bottom of each applicable terminal pane. The order in Settings matches the order in the pane, and custom fields refresh according to their configured interval.

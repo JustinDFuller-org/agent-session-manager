@@ -38,6 +38,19 @@ When the name does not match an existing checkout or ref, Agent Session Manager 
 
 For one tab, enter a branch in **Base Branch** when creating the tab. For the default behavior across new panes, open **Settings → Panes → New Pane**, enable **Default Branch**, and choose the branch name and **Starting Point**.
 
+**Starting Point** controls which commits are available in a newly created working copy:
+
+- **Fresh** fetches from `origin/<default-branch>` for a clean copy that matches the remote.
+- **HEAD** starts from the local `HEAD`, including local commits and the current branch state.
+
+### Choose what happens when a branch already exists
+
+In **Settings → Panes → New Pane**, use **If Branch Exists** to decide whether an existing external worktree should be managed:
+
+- **Ask** shows a choice each time. Choose **Manage** to allow cleanup later, or **Don't Manage** to leave the checkout under your control.
+- **Always** takes over management automatically so the worktree can be cleaned up later.
+- **Never** uses the existing worktree as-is and does not offer cleanup for it.
+
 ## What you should see
 
 The pane opens in the selected working copy, and the agent tool starts there. Other panes can use different task working copies while remaining in the same tab.

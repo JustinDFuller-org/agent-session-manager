@@ -25,10 +25,14 @@ Open **Settings → Harnesses** and enable the tool you want to configure. Agent
 4. Use **Show** to control whether an option appears in **New Pane**.
 5. Use **Default on** to enable a visible option by default when a pane is created.
 6. For text options, enter a value when the option is shown.
-7. Choose **Add Custom Flag** to add a boolean or text option that is not in the catalog.
-8. For Claude Code or OpenCode, configure supported entries under **Environment Variables** when needed.
+7. To turn a text option into a menu, add one or more **Preset values** in its settings row.
+8. Enable **Allow multiple selections** when the option should accept more than one preset.
+9. Choose **Add Custom Flag** to add a boolean or text option that is not in the catalog.
+10. For Claude Code or OpenCode, configure supported entries under **Environment Variables** when needed.
 
 The options shown in **New Pane** change when you select a different **Harness**. You can also configure options while editing a profile.
+
+Text options without presets remain text fields. Options with presets use a single-selection menu unless **Allow multiple selections** is enabled. In either menu, choose **Custom…** or **Add custom…** when you need a value that is not in the preset list.
 
 ## What you should see
 
