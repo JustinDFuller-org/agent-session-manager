@@ -25,7 +25,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
     <li>Download the latest DMG from <a href="https://github.com/{{ site.repository }}/releases">GitHub Releases</a>, mount it, and drag the app to <code>/Applications</code>.</li>
     <li>Launch the app, then create a tab with <kbd>⌘T</kbd> and a pane with <kbd>⌘P</kbd>.</li>
     <li>Choose an agent tool and session name in the <strong>New Pane</strong> sheet.</li>
-    <li>Use <strong>Settings</strong> to configure agent tools, profiles, status information, and notifications.</li>
+    <li>Use <strong>Settings</strong> to configure <strong>Harnesses</strong>, profiles, status information, and notifications.</li>
   </ol>
   <p>Each pane is a separate terminal session inside the tab, so you can work on multiple tasks at the same time.</p>
 </section>
@@ -33,7 +33,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
 <section class="home-section">
   <p class="eyebrow">Supported tools</p>
   <h2>Use the agent tool that fits your workflow</h2>
-  <p>Agent Session Manager supports Claude Code, Cursor, Codex, and OpenCode. Choose the tool for each pane when you create it, then customize its available options in <strong>Settings</strong>.</p>
+  <p>Agent Session Manager supports Claude Code, Codex, Cursor, and OpenCode. Choose the tool for each pane when you create it, then customize its available options in <strong>Settings → Harnesses</strong>.</p>
   <p><a href="{{ '/docs/' | relative_url }}">Browse the user guides</a> for installation, first launch, core concepts, daily work, and tool configuration.</p>
 </section>
 
