@@ -34,7 +34,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
   <p class="eyebrow">Supported tools</p>
   <h2>Use the agent tool that fits your workflow</h2>
   <p>Agent Session Manager supports Claude Code, Cursor, Codex, and OpenCode. Choose the tool for each pane when you create it, then customize its available options in <strong>Settings</strong>.</p>
-  <p><a href="{{ '/docs/' | relative_url }}">Browse the user guides</a> for installation, first launch, core concepts, and the first session workflow.</p>
+  <p><a href="{{ '/docs/' | relative_url }}">Browse the user guides</a> for installation, first launch, core concepts, daily work, and tool configuration.</p>
 </section>
 
 <section class="home-section">

@@ -8,3 +8,19 @@
       url: /documentation/user-guide/quickstart/
     - title: Core Concepts
       url: /documentation/user-guide/core-concepts/
+- title: Daily Work
+  items:
+    - title: Tabs and Panes
+      url: /documentation/user-guide/tabs-and-panes/
+    - title: Project Isolation
+      url: /documentation/user-guide/project-isolation/
+    - title: Continue After Restart
+      url: /documentation/user-guide/continue-after-restart/
+    - title: Reorder Tabs and Panes
+      url: /documentation/user-guide/reorder-tabs-and-panes/
+- title: Configure
+  items:
+    - title: Agent Tools
+      url: /documentation/user-guide/agent-tools/
+    - title: Worktree Cleanup
+      url: /documentation/user-guide/worktree-cleanup/

@@ -40,5 +40,8 @@ The main window shows tabs across the top and panes below them. Creating another
 ## Related tasks
 
 - [Quickstart](quickstart/)
+- [Tabs and Panes](tabs-and-panes/)
+- [Agent Tools](agent-tools/)
+- [Project Isolation](project-isolation/)
 - [Overview](overview/)
 - [Install and First Launch](install/)

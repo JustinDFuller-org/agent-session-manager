@@ -1,0 +1,67 @@
+---
+layout: doc
+title: Tabs and Panes
+description: Organize projects and agent sessions with tabs and panes.
+permalink: /documentation/user-guide/tabs-and-panes/
+---
+
+## What it is
+
+A tab is a project context. A pane is one terminal session inside that tab. You can keep several tasks open in one project tab and create another tab when you switch projects.
+
+## Why you might use it
+
+Tabs keep projects separate, while panes let you work on multiple tasks without opening a separate terminal window for each one.
+
+## Before you start
+
+Create a tab for a Git repository by following the [Quickstart](quickstart/). To create an agent pane, make sure at least one tool is active in [Agent Tools](agent-tools/).
+
+## How to use it
+
+### Create and switch tabs
+
+1. Choose **File → New Tab** or press ⌘T.
+2. In **New Tab**, enter a project name in **Name**.
+3. Choose a project directory with **Choose…**.
+4. Optionally enter a starting branch in **Base Branch**.
+5. Choose **Create**.
+6. Select a tab in the tab bar to switch projects. You can also press ⌘1 through ⌘9 to switch to a tab by position.
+
+### Create a pane
+
+1. Choose **File → New Pane in Current Tab** or press ⌘P.
+2. In **New Pane**, select a tool in **Harness**.
+3. Enter a name, branch, or existing worktree in **Session, branch, or worktree**.
+4. Review any **CLI Options** or **Environment Variables**.
+5. Choose **Create Pane**.
+
+### Open a shell in a pane's working directory
+
+1. Open the pane's context menu.
+2. Choose **Open Shell Here**.
+
+The new shell pane uses the same working directory as the pane you selected.
+
+### Close a pane or tab
+
+Choose the close button in a pane header or press ⌘W to close the active pane. To close the active tab, press ⌘K or use **File → Close Tab**.
+
+If the pane uses a working copy managed by Agent Session Manager, closing it may show cleanup choices. See [Worktree Cleanup](worktree-cleanup/).
+
+## What you should see
+
+The tab bar remains at the top of the window, and panes appear below it in a grid. Adding panes changes the grid layout while keeping each terminal session visible.
+
+## If it does not work
+
+- If **Create** is disabled in **New Tab**, provide both a name and a directory.
+- If **Create Pane** is unavailable, activate at least one tool in **Settings → Harnesses**.
+- If the session field reports an invalid or duplicate name, enter a valid name, branch ref, or existing worktree that is not already open in the tab.
+
+## Related tasks
+
+- [Agent Tools](agent-tools/)
+- [Project Isolation](project-isolation/)
+- [Reorder Tabs and Panes](reorder-tabs-and-panes/)
+- [Continue After Restart](continue-after-restart/)

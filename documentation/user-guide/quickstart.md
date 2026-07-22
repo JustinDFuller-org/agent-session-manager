@@ -38,5 +38,8 @@ Agent Session Manager prepares the working copy and opens a pane for the selecte
 ## Related tasks
 
 - [Core Concepts](core-concepts/)
+- [Tabs and Panes](tabs-and-panes/)
+- [Agent Tools](agent-tools/)
+- [Project Isolation](project-isolation/)
 - [Overview](overview/)
 - [Install and First Launch](install/)
