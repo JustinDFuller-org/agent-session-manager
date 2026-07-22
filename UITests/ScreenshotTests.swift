@@ -132,21 +132,42 @@ final class ScreenshotTests: BaseTestCase {
         XCTAssertEqual(round(settingsWindow.frame.width), 900)
         XCTAssertEqual(round(settingsWindow.frame.height), 584)
 
-        let tabs = [
-            ("settings-sidebar-panes", "settings-panes"),
-            ("settings-sidebar-notifications", "settings-notifications"),
-            ("settings-sidebar-profiles", "settings-profiles"),
-            ("settings-sidebar-tools", "settings-tools"),
-            ("settings-sidebar-shortcuts", "settings-shortcuts"),
-            ("settings-sidebar-status-line", "settings-status-line"),
-            ("settings-sidebar-debug", "settings-debug"),
-        ]
-        for (identifier, screenshotName) in tabs {
-            let tab = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-            waitFor(tab)
-            tab.click()
-            screenshot(screenshotName)
-        }
+        let panesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
+        waitFor(panesTab)
+        panesTab.click()
+        screenshot("settings-panes")
+
+        let notificationsTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-notifications").firstMatch
+        waitFor(notificationsTab)
+        notificationsTab.click()
+        screenshot("settings-notifications")
+
+        let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        profilesTab.click()
+        screenshot("settings-profiles")
+
+        let toolsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-tools").firstMatch
+        waitFor(toolsTab)
+        toolsTab.click()
+        screenshot("settings-tools")
+
+        let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
+        waitFor(shortcutsTab)
+        shortcutsTab.click()
+        screenshot("settings-shortcuts")
+
+        let statusLineTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-status-line").firstMatch
+        waitFor(statusLineTab)
+        statusLineTab.click()
+        screenshot("settings-status-line")
+
+        let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
+        waitFor(debugTab)
+        debugTab.click()
+        screenshot("settings-debug")
         app.typeKey("w", modifierFlags: .command)
     }
 
