@@ -50,7 +50,6 @@ final class StatusLineMonitor {
     private var hookLogOffset: UInt64 = 0
     private var hookLogLineBuffer = Data()
     private var outstandingBackgroundAgents = 0
-    private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
     private var pendingStopWork: DispatchWorkItem?
@@ -273,11 +272,10 @@ final class StatusLineMonitor {
                 let attentionWatcher = DispatchSource.makeFileSystemObjectSource(
                     fileDescriptor: attentionFD,
                     eventMask: [.write, .extend],
-                    queue: .global(qos: .utility)
+                    queue: .main
                 )
                 attentionWatcher.setEventHandler { [weak self] in
                     guard let self else { return }
-                    self.attentionDebounceLock.lock()
                     self.attentionDebounceWork?.cancel()
                     let work = DispatchWorkItem { [weak self] in
                         guard let self,
@@ -287,22 +285,19 @@ final class StatusLineMonitor {
                         var hasher = Hasher()
                         hasher.combine(data)
                         let fingerprint = hasher.finalize()
-                        Task { @MainActor in
-                            guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                            self.lastAttentionPayloadFingerprint = fingerprint
-                            guard let event = PaneAttentionEvent.claudeHook(data) else { return }
-                            TracingService.shared.record(
-                                "statusline.attention.received",
-                                attributes: [
-                                    "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
-                                    "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
-                                    "source": event.source.rawValue, "reason": event.reason,
-                                ])
-                            self.onClaudeHookAttention?(event)
-                        }
+                        guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                        self.lastAttentionPayloadFingerprint = fingerprint
+                        guard let event = PaneAttentionEvent.claudeHook(data) else { return }
+                        TracingService.shared.record(
+                            "statusline.attention.received",
+                            attributes: [
+                                "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
+                                "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
+                                "source": event.source.rawValue, "reason": event.reason,
+                            ])
+                        self.onClaudeHookAttention?(event)
                     }
                     self.attentionDebounceWork = work
-                    self.attentionDebounceLock.unlock()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
                 }
                 attentionWatcher.setCancelHandler { close(attentionFD) }
@@ -384,21 +379,16 @@ final class StatusLineMonitor {
         let newSource = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
             eventMask: [.write, .extend, .delete, .rename, .revoke],
-            queue: .global(qos: .utility)
+            queue: .main
         )
         newSource.setEventHandler { [weak self, weak newSource] in
             guard let self else { return }
             let inodeLost = newSource?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
             if inodeLost {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.startStatusWatcher()
-                    self.applyLatestPayload(reason: "vnode_reopen")
-                }
+                self.startStatusWatcher()
+                self.applyLatestPayload(reason: "vnode_reopen")
             } else {
-                Task { @MainActor [weak self] in
-                    self?.applyLatestPayload(reason: "vnode_write")
-                }
+                self.applyLatestPayload(reason: "vnode_write")
             }
         }
         newSource.setCancelHandler { close(fd) }
@@ -681,10 +671,8 @@ final class StatusLineMonitor {
     }
 
     private func stopAttentionWatcher() {
-        attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
-        attentionDebounceLock.unlock()
         attentionSource?.cancel()
         attentionSource = nil
         lastAttentionPayloadFingerprint = nil
@@ -1060,7 +1048,7 @@ extension StatusLineMonitor {
         let watcher = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
             eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
+            queue: .main
         )
         watcher.setEventHandler { [weak self] in
             self?.readNewHookLogLines()
@@ -1070,7 +1058,7 @@ extension StatusLineMonitor {
         hookLogSource = watcher
     }
 
-    /// Runs on the hook-log watcher's dispatch queue; `hookLogOffset`/`hookLogLineBuffer` are only touched here.
+    /// Runs on the main actor; `hookLogOffset` and `hookLogLineBuffer` remain actor-isolated with the monitor.
     private func readNewHookLogLines() {
         guard let handle = FileHandle(forReadingAtPath: hookLogFilePath) else { return }
         defer { try? handle.close() }

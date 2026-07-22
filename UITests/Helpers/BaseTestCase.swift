@@ -16,18 +16,37 @@ class BaseTestCase: XCTestCase {
 
         app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--uitesting-skip-restore"]
+        addUIInterruptionMonitor(withDescription: "Notification permission") { alert in
+            for label in ["Allow", "Don’t Allow", "Don't Allow"] {
+                let button = alert.buttons[label]
+                if button.exists {
+                    button.click()
+                    return true
+                }
+            }
+            return false
+        }
         app.launch()
         app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15), "The app should reach the foreground")
+        waitFor(app.windows.firstMatch, timeout: 15)
     }
 
     override func tearDown() {
-        if let failureCount = testRun?.failureCount, failureCount > 0 {
+        if let failureCount = testRun?.failureCount,
+            failureCount > 0,
+            app.state != .notRunning,
+            app.windows.firstMatch.exists
+        {
             let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
             attachment.lifetime = .keepAlways
             attachment.name = "\(name)-failure"
             add(attachment)
         }
-        app.terminate()
+        if app.state != .notRunning {
+            app.terminate()
+            _ = app.wait(for: .notRunning, timeout: 10)
+        }
         // Clear state after termination so the next test always starts clean,
         // even if the app saved state during the test.
         clearPersistedState()
