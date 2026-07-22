@@ -213,6 +213,82 @@ Each item is intended to be a separate implementation session.
    - Complete telemetry, failure handling, migration, security, and rollout
      documentation.
 
+### Feasibility spike record
+
+The first implementation session is intentionally research-only. It must not
+add an MCP dependency to the main package, add production control-service code,
+change settings or session schemas, or write repository and global-user MCP
+configuration. Temporary probes belong under an ignored temporary directory and
+must remove their files, processes, and tokens before they finish.
+
+#### Baseline captured on 2026-07-22
+
+| Item | Observed value |
+|---|---|
+| Repository manifest | Swift tools 5.9, macOS 14 minimum |
+| Host toolchain | Swift 6.4, Xcode 27.0 |
+| Swift MCP SDK candidate | 0.12.1; its manifest declares Swift tools 6.1 |
+| Claude Code | 2.1.216 |
+| Codex | 0.144.6 |
+| Cursor Agent | 2026.05.15-3f71873 |
+| OpenCode | 1.18.4 |
+
+The SDK candidate resolved and imported successfully in isolated macOS 14
+packages using both Swift tools 5.9 and 6.1 when compiled by the installed Swift
+6.4 compiler. A Swift 5.9 compiler is not installed in this environment, so
+compatibility with an older compiler remains unverified. Do not treat the
+manifest-level result as permission to raise the repository toolchain or add the
+dependency; that decision belongs in a separate implementation change.
+
+#### Streamable HTTP result
+
+The SDK's conformance server was started on `127.0.0.1:3001` at `/mcp`. The
+[official MCP Inspector](https://github.com/modelcontextprotocol/inspector)
+connected over Streamable HTTP and successfully completed:
+
+- `initialize` and the initialized notification;
+- `tools/list`;
+- `resources/list`;
+- `tools/call` for the harmless `add_numbers` fixture, returning `5`.
+
+This validates the candidate transport and client path, including stateful
+session creation, resource discovery, tool discovery, and a tool result. The
+conformance fixture does not enforce the app's future per-pane bearer-token
+policy, so authentication, token revocation, scope authorization, bounded
+output, cancellation, and audit redaction remain gates for the lifecycle and
+security phase. The MCP transport still requires loopback binding, Origin
+validation, and authentication when used by the app; see the linked transport
+specification above.
+
+#### Harness injection findings
+
+The supported configuration surfaces were confirmed from the installed CLI help
+and official documentation without invoking commands that write user or
+repository configuration:
+
+| Harness | Candidate app-owned injection | Feasibility status |
+|---|---|---|
+| Claude Code | Pass a temporary JSON configuration through `--mcp-config`; compare normal loading with `--strict-mcp-config`. | Supported surface confirmed; isolated end-to-end loading remains part of adapter implementation. |
+| OpenCode | Add a remote MCP entry through app-owned configuration content with a URL and HTTP header. | Supported remote-server shape confirmed; merge and precedence behavior must be tested before implementation. |
+| Codex | Use Streamable HTTP `url` plus `bearer_token_env_var`, supplied through documented config or launch-time overrides. | Supported surface confirmed; exact per-pane preparation must avoid `~/.codex/config.toml` and project config writes. |
+| Cursor | Current documentation exposes project `.cursor/mcp.json` and global `~/.cursor/mcp.json`; the installed Agent CLI exposes no per-pane MCP-config flag. | Isolation remains unresolved. Do not write either location; this harness may remain blocked until a documented per-pane strategy exists. |
+
+The future adapter boundary is therefore documented but not implemented:
+configuration preparation receives the pane identity, endpoint, runtime token,
+working directory, and existing configuration context, then returns launch
+arguments, environment additions, app-owned artifacts, cleanup ownership, or an
+actionable unsupported-configuration error. Tokens remain runtime-only.
+
+#### Exit criteria for this phase
+
+This phase is complete when the SDK and local protocol evidence above is kept in
+this roadmap, each harness has a recorded supported or blocked injection path,
+and no probe has modified the repository or global-user configuration. Phase 2
+may proceed with transport-agnostic policy and persistence types. Phase 3 must
+not start the listener until the authentication, authorization, limits,
+cancellation, revocation, and telemetry gates are implemented. Harness adapter
+work remains ordered Claude Code, OpenCode, Codex, then Cursor.
+
 ## Testing and acceptance
 
 - Unit-test policy resolution, ask defaults, persisted state, scope checks,
