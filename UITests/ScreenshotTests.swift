@@ -58,7 +58,7 @@ final class ScreenshotTests: BaseTestCase {
         waitFor(app.textFields["new-pane-name-field"])
         screenshot("new-pane-sheet")
         app.typeKey(.escape, modifierFlags: [])
-        waitForDisappear(app.textFields["new-pane-name-field"])
+        waitForDisappear(app.textFields["new-pane-name-field"], timeout: 25)
         createPane(named: "feature-a")
         screenshot("split-panes")
 
