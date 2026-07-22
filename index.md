@@ -11,6 +11,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
     <p class="lede">Run multiple AI agent sessions in parallel in a tabbed, multi-pane terminal window, with each pane working in a git worktree context.</p>
     <div class="home-actions">
       <a class="button" href="{{ '/docs/' | relative_url }}">Browse documentation</a>
+      <a class="button button-secondary" href="{{ '/documentation/user-guide/quickstart/' | relative_url }}">Start the quickstart</a>
       <a class="button button-secondary" href="https://github.com/{{ site.repository }}/releases">View releases</a>
     </div>
   </div>
@@ -33,7 +34,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
   <p class="eyebrow">Supported tools</p>
   <h2>Use the agent tool that fits your workflow</h2>
   <p>Agent Session Manager supports Claude Code, Cursor, Codex, and OpenCode. Choose the tool for each pane when you create it, then customize its available options in <strong>Settings</strong>.</p>
-  <p><a href="{{ '/docs/' | relative_url }}">Browse the user guides</a> for setup, daily work, configuration, integrations, troubleshooting, and reference information.</p>
+  <p><a href="{{ '/docs/' | relative_url }}">Browse the user guides</a> for installation, first launch, core concepts, and the first session workflow.</p>
 </section>
 
 <section class="home-section">

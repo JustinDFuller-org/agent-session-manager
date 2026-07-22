@@ -9,7 +9,7 @@ permalink: /docs/
 
 Use these guides to install Agent Session Manager, start an agent session, organize daily work, configure supported tools, and recover from common problems.
 
-New to Agent Session Manager? Start with **Getting Started**, then use the task groups below when you need a specific workflow or setting.
+New to Agent Session Manager? Start with [Overview]({{ '/documentation/user-guide/overview/' | relative_url }}), then follow [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }}) and [Quickstart]({{ '/documentation/user-guide/quickstart/' | relative_url }}).
 
 <label for="doc-search">Search user guides</label>
 <input id="doc-search" class="catalog-search" type="search" placeholder="Filter by section or title" autocomplete="off">

@@ -165,7 +165,7 @@ Reviewers should verify the copy against the current UI and source, confirm that
 - [x] Update Jekyll exclusions so internal documentation and planning artifacts cannot be published.
 - [x] Replace the current mixed-audience navigation with user-guide navigation.
 - [x] Rewrite the homepage and documentation index around user goals.
-- [ ] Write the overview, requirements, quickstart, and core-concepts pages first.
+- [x] Write the overview, requirements, quickstart, and core-concepts pages first.
 - [ ] Migrate tabs, panes, agent-tool selection, project isolation, persistence, and cleanup into task guides.
 - [ ] Migrate profiles, tool options, status information, notifications, focus mode, and shortcuts into task guides.
 - [ ] Add user-facing update, permissions, missing-tool, pane-startup, and checkout-conflict troubleshooting.
