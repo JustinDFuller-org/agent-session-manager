@@ -157,6 +157,33 @@ the pane setup must report an actionable error instead of silently claiming
 that agent control is active. `Never` or a declined ask choice must leave the
 normal pane launch path unaffected.
 
+## Prerequisite: Swift 6 language-mode migration
+
+The Agentic Control implementation is gated on moving the repository to the
+latest Swift language mode supported by the active Xcode toolchain. This is a
+separate workstream from MCP and must land first so the control surface is not
+built on a compatibility mode that we intend to remove.
+
+Plan the migration as its own implementation session:
+
+1. Change the SwiftPM package and generated Xcode targets to Swift 6 language
+   mode while retaining the macOS 14 deployment target.
+2. Build with the active release Xcode toolchain and inventory all new
+   concurrency, isolation, Sendable, and framework-import diagnostics.
+3. Migrate production code and tests in focused groups, preserving existing
+   actor boundaries and adding explicit isolation or Sendable conformances
+   only where they describe the real ownership model.
+4. Run the complete unit, format, SwiftLint, Dev UI, and screenshot validation
+   suite; separate pre-existing test failures from migration regressions.
+5. Record the supported Xcode and Swift versions in the build documentation and
+   CI so future toolchain updates remain intentional.
+
+The prerequisite is complete when the package declares Swift 6 language mode,
+the app and UI-test targets compile in that mode, all required validation is
+green, and no compatibility-only compiler settings remain. Only then should
+the MCP implementation roadmap continue with domain configuration and
+persistence.
+
 ## Implementation roadmap
 
 Each item is intended to be a separate implementation session.
