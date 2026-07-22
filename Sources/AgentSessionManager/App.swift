@@ -189,6 +189,12 @@ struct ContentView: View {
                 {
                     appSettings.updateReminderEnabled = config.enabled
                 }
+                if let config = SettingsPersistence.load(
+                    AgentControlSettings.self, from: "agent-control-settings.json")
+                {
+                    appSettings.agentControlInjectionPolicy = config.injectionPolicy
+                    appSettings.agentControlScope = config.scope
+                }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
                 UpdateCheckCoordinator.shared.start()

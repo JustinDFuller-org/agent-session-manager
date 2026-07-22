@@ -138,6 +138,7 @@ struct SettingsPersistence {
     }
     private static var focusModeSettingsURL: URL { appSupportDir.appending(path: "focus-mode-settings.json") }
     private static var updateCheckSettingsURL: URL { appSupportDir.appending(path: "update-check-settings.json") }
+    private static var agentControlSettingsURL: URL { appSupportDir.appending(path: "agent-control-settings.json") }
 
     static func save<Value: Encodable>(_ value: Value, to filename: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
@@ -408,6 +409,15 @@ struct SettingsPersistence {
         let payload = UpdateCheckSettings(enabled: appSettings.updateReminderEnabled)
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: updateCheckSettingsURL)
+    }
+
+    static func saveAgentControlSettings(appSettings: AppSettings) {
+        let payload = AgentControlSettings(
+            injectionPolicy: appSettings.agentControlInjectionPolicy,
+            scope: appSettings.agentControlScope
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: agentControlSettingsURL)
     }
 
     static func isUpdateReminderEnabled() -> Bool {

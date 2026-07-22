@@ -320,6 +320,24 @@ Each item is intended to be a separate implementation session.
    - Complete telemetry, failure handling, migration, security, and rollout
      documentation.
 
+### Domain configuration and persistence record
+
+Roadmap item 2 is implemented as a transport-independent foundation:
+
+- `AgentControlInjectionPolicy` and `AgentControlScope` use stable Codable raw
+  values and default to `Ask (on by default)` and `Pane`.
+- `agent-control-settings.json` stores the app-level policy and scope through
+  the existing settings persistence path.
+- Pane decisions are persisted in `sessions.json`; legacy panes without the
+  field resolve through the current policy and are migrated on the next save.
+- Settings and New Pane expose the policy, scope, and per-pane ask decision;
+  forced policies expose a read-only state instead of a toggle.
+- Dev reset paths clear the new settings file, and UI coverage uses the real
+  Settings and New Pane flows.
+- Pane-scoped decision telemetry records bounded IDs, policy, scope, source,
+  and the resolved enabled value. No listener, token, MCP dependency, or
+  harness configuration adapter is introduced in this phase.
+
 ### Feasibility spike record
 
 The first implementation session is intentionally research-only. It must not

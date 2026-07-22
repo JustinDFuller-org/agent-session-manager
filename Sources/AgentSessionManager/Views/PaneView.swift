@@ -29,7 +29,7 @@ struct PaneView: View {
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                     HStack(spacing: 8) {
-                        Button("Restart") { pane.tab?.restartPane(pane) }
+                        Button("Restart") { pane.tab?.restartPane(pane, appSettings: appSettings) }
                         Button("Open Shell") { pane.tab?.openShellInPane(pane) }
                         Button("Close") { onClosePane(pane) }
                     }
