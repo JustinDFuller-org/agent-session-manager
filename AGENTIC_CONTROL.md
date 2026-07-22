@@ -113,6 +113,44 @@ Use stable IDs for addressing; names are display values only.
 - Acknowledge a notification atomically by navigating to its pane and removing
   the notification through the same app path used by the UI.
 
+### Diagnostics and observability
+
+Agents should be able to diagnose the pane or workspace they are operating in
+without shelling out to inspect app-support files or asking a human to open a
+dashboard. Expose diagnostics as scoped MCP resources and bounded query tools:
+
+- Provide a diagnostic summary with app mode, build identity, Debug Mode state,
+  active tab and pane IDs, and the scoped session metadata.
+- Provide metadata-aware trace queries over current per-pane JSONL files, with
+  pane or tab IDs, time windows, event-name filters, result limits, truncation,
+  malformed-record, and legacy-file metadata. Read trace metadata rather than
+  deriving identity from sanitized filenames.
+- Provide invariant queries with occurrence IDs, invariant IDs, integrations,
+  severity, timestamps, and bounded context. Preserve repeated occurrences as
+  separate records.
+- Provide unified-log queries over the Agent Session Manager process and
+  subsystem, filtered by time, category, level, and event name. Normalize logs
+  into a bounded, redacted result; never expose terminal content, harness
+  output, secrets, environment values, or arbitrary system logs. The app may
+  use `OSLogStore` for this read path, with date positions and matching
+  predicates as the query primitives.
+- Return availability and capture-state metadata when Debug Mode is disabled.
+  Unified logs remain available because they are always on; existing trace and
+  invariant files remain readable, but no new durable records are captured.
+
+Pane scope may read only records attributable to its source pane. Tab scope may
+read records attributable to panes in that tab. Unscoped global records and
+cross-pane correlation are Global-scope data; they must not be returned to a
+pane- or tab-scoped caller merely because they share a time window. Log
+correlation must use safe structured IDs or an app-owned projection, never
+parsing private message text.
+
+Expose one narrowly scoped `debug.set_mode` tool for enabling or disabling
+Debug Mode. It must persist through the existing debug settings path and reuse
+the existing tracing and invariant reconfiguration behavior. Only a Global-
+scope token may call it. File deletion, retention changes, path changes, and
+diagnostic export are outside this first use-case.
+
 The roadmap should maintain a feature-parity matrix for later capabilities,
 including continue-on-restart, focus mode, activity state, PR tracking,
 worktree policies, diagnostics, and observability.
@@ -213,29 +251,41 @@ Each item is intended to be a separate implementation session.
      status lines, and notifications.
    - Verify structured output, redaction, stale IDs, and scope boundaries.
 
-5. **Harness injection**
+5. **Diagnostics and observability**
+   - Add scoped diagnostic DTOs and resources for summaries, traces, invariants,
+     and unified logs.
+   - Reuse metadata-aware trace and invariant readers; keep legacy files
+     separate and preserve truncation and malformed-record metadata.
+   - Query only the Agent Session Manager process/subsystem through a bounded,
+     redacted `OSLogStore` adapter; never expose terminal or harness output.
+   - Add the Global-scope-only Debug Mode tool and reuse existing persistence
+     and reconfiguration paths.
+   - Protocol-test time windows, filtering, scope boundaries, redaction,
+     disabled capture, cancellation, and output limits.
+
+6. **Harness injection**
    - Implement and test adapters one at a time, starting with Claude Code and
      OpenCode, followed by Codex and Cursor.
    - Verify that disabled or declined injection produces no MCP configuration.
    - Verify that enabled injection is prepared before process launch and does
      not print app plumbing in the terminal.
 
-6. **Tab and pane mutations**
+7. **Tab and pane mutations**
    - Add creation, deletion, focus, restart, and reordering tools.
    - Route worktree resolution and cleanup through existing app services.
    - Return explicit partial-failure results for multi-pane cleanup.
 
-7. **Profiles and harness configuration**
+8. **Profiles and harness configuration**
    - Add profile CRUD and ordering tools.
    - Add harness enablement, option activation, defaults, preset choices, and
      multi-value choice tools.
    - Preserve custom options and redact sensitive values.
 
-8. **Status lines and notifications**
+9. **Status lines and notifications**
    - Add status-line reads and updates for global and profile configuration.
    - Add notification listing and atomic acknowledge/navigation behavior.
 
-9. **Parity, documentation, and hardening**
+10. **Parity, documentation, and hardening**
    - Audit every feature against the parity matrix.
    - Add the user-facing feature guide and feature skill.
    - Complete telemetry, failure handling, migration, security, and rollout
@@ -326,6 +376,11 @@ work remains ordered Claude Code, OpenCode, Codex, then Cursor.
 - Protocol-test initialize, resource/tool discovery, successful calls,
   invalid IDs, unauthorized scope, expired tokens, malformed requests,
   cancellation, and output limits.
+- Protocol-test diagnostic summary, trace, invariant, and unified-log queries
+  with pane/tab/global scope boundaries, time and event filters, redaction,
+  truncation metadata, and Debug Mode disabled.
+- Verify that only Global scope can enable or disable Debug Mode and that the
+  operation persists and reconfigures existing diagnostic writers.
 - Adapter-test all generated harness configuration while preserving existing
   configuration and avoiding repository pollution.
 - Use a real MCP client against the isolated Dev app to create and mutate real
@@ -344,6 +399,10 @@ work remains ordered Claude Code, OpenCode, Codex, then Cursor.
 
 - Injection policy: `Ask (on by default)`.
 - Scope: `Pane`.
+- Debugging reads are available at the caller's configured scope; unscoped
+  global records and Debug Mode mutation require `Global` scope.
+- The first debugging mutation is `debug.set_mode`; clearing, retention,
+  path-management, and export operations are deferred.
 - No extra Agent Session Manager confirmation for authorized MCP mutations.
 - Tokens are runtime-only and never persisted or logged.
 - Profile environment values are write-only or redacted in read resources.
