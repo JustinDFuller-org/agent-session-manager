@@ -34,6 +34,10 @@
       url: /documentation/user-guide/notifications/
     - title: Worktree Cleanup
       url: /documentation/user-guide/worktree-cleanup/
+- title: Troubleshooting
+  items:
+    - title: Troubleshooting
+      url: /documentation/user-guide/troubleshooting/
 - title: Reference
   items:
     - title: Keyboard Shortcuts

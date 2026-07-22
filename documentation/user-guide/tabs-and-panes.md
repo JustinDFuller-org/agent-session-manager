@@ -65,3 +65,4 @@ The tab bar remains at the top of the window, and panes appear below it in a gri
 - [Project Isolation](project-isolation/)
 - [Reorder Tabs and Panes](reorder-tabs-and-panes/)
 - [Continue After Restart](continue-after-restart/)
+- [Troubleshooting](troubleshooting/)

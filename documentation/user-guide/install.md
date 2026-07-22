@@ -43,3 +43,4 @@ If the wizard does not detect a tool, confirm that the tool is installed and ava
 - [Quickstart](quickstart/)
 - [Core Concepts](core-concepts/)
 - [Overview](overview/)
+- [Troubleshooting](troubleshooting/)

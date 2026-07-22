@@ -44,3 +44,4 @@ If the tool is active but a pane cannot start, confirm that the selected shell c
 - [Install and First Launch](install/)
 - [Tabs and Panes](tabs-and-panes/)
 - [Project Isolation](project-isolation/)
+- [Troubleshooting](troubleshooting/)

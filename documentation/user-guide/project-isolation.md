@@ -54,3 +54,4 @@ The pane opens in the selected working copy, and the agent tool starts there. Ot
 - [Tabs and Panes](tabs-and-panes/)
 - [Continue After Restart](continue-after-restart/)
 - [Worktree Cleanup](worktree-cleanup/)
+- [Troubleshooting](troubleshooting/)
