@@ -25,7 +25,7 @@ Create a tab for the Git repository you want to work in. Decide whether the pane
 2. In **Session, branch, or worktree**, enter a simple task name such as `feature-a`.
 3. Choose **Create Pane**.
 
-When the name does not match an existing checkout or ref, Agent Session Manager creates a separate working copy using the configured starting branch.
+When the name does not match an existing checkout or ref, Agent Session Manager creates a separate working copy if **Default Branch** is enabled or the tab has a **Base Branch**. It uses the configured **Starting Point** for that new working copy. If neither setting supplies a branch, the name must resolve to an existing checkout or ref.
 
 ### Open an existing branch or worktree
 
@@ -47,7 +47,7 @@ The pane opens in the selected working copy, and the agent tool starts there. Ot
 - If the entered name is rejected, use only letters, digits, dots, underscores, and dashes for a new task name.
 - If you are opening a branch or ref, enter its full ref when needed, such as `origin/feature`.
 - If a checkout is already open, close the other pane or use the existing pane instead of opening a duplicate task.
-- If a new name cannot be resolved, check **Settings → Panes → New Pane → Default Branch**.
+- If a new name cannot be resolved, check **Settings → Panes → New Pane → Default Branch** or set **Base Branch** on the tab.
 
 ## Related tasks
 

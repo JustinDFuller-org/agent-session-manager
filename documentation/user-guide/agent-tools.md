@@ -29,6 +29,13 @@ Install the tool you want to use and make sure it is available from the shell se
 
 Only active tools appear in the **Harness** picker in **New Pane**. A shell opened with **Open Shell Here** is a plain shell session and does not require an active agent tool.
 
+Use the tool guides for setup details:
+
+- [Claude Code]({{ '/documentation/user-guide/claude-code/' | relative_url }})
+- [Codex]({{ '/documentation/user-guide/codex/' | relative_url }})
+- [Cursor]({{ '/documentation/user-guide/cursor/' | relative_url }})
+- [OpenCode]({{ '/documentation/user-guide/opencode/' | relative_url }})
+
 ## What you should see
 
 The active tools are available as choices in **Harness**. The options shown below the picker change when you select a different tool.
@@ -48,4 +55,5 @@ If the tool is active but a pane cannot start, confirm that the selected shell c
 - [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }})
 - [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }})
 - [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }})
+- [GitHub Pull Requests]({{ '/documentation/user-guide/github-pull-requests/' | relative_url }})
 - [Troubleshooting]({{ '/documentation/user-guide/troubleshooting/' | relative_url }})

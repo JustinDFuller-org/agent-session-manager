@@ -53,6 +53,10 @@ If the pane uses a working copy managed by Agent Session Manager, closing it may
 
 The tab bar remains at the top of the window, and panes appear below it in a grid. Adding panes changes the grid layout while keeping each terminal session visible.
 
+### Session names
+
+For Claude Code panes, **Auto Session Name** can pass the tab and pane names to Claude so the session is easier to find when you resume it. Open **Settings → Panes → Terminal** to enable or disable it. If you add a manual **Session Name** option in **Settings → Harnesses → CLI Options**, the manual value takes precedence.
+
 ![Agent Session Manager with two panes in a tab]({{ '/assets/img/docs/split-panes.png' | relative_url }})
 
 _Each pane has its own header, terminal area, and status line._

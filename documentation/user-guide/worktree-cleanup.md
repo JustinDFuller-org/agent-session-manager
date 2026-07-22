@@ -15,7 +15,7 @@ Delete finished task working copies to keep a repository tidy, or keep them when
 
 ## Before you start
 
-Understand whether the pane uses a working copy created or managed by Agent Session Manager. An existing external checkout is not removed just because its pane is closed.
+Understand whether the pane uses a working copy created or managed by Agent Session Manager. An unmanaged external checkout is not removed just because its pane is closed. An existing checkout can become managed when you choose **Manage** in the existing-worktree prompt.
 
 ## How to use it
 
@@ -39,11 +39,11 @@ When **Ask** is selected and you close a managed pane:
 
 ## What you should see
 
-Closing an externally managed checkout simply closes the pane. Closing a managed working copy follows the selected cleanup behavior.
+Closing an unmanaged external checkout simply closes the pane. Closing a managed working copy follows the selected cleanup behavior.
 
 ## If it does not work
 
-- If no cleanup dialog appears, the pane may use an external checkout or cleanup may be set to **Always Keep** or **Always Delete**.
+- If no cleanup dialog appears, the pane may use an unmanaged external checkout or cleanup may be set to **Always Keep** or **Always Delete**.
 - If a deleted task does not return after relaunch, create a new pane from its branch or ref.
 - If you need the files later, choose **Keep Worktree** before closing the pane.
 

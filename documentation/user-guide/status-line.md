@@ -15,7 +15,7 @@ Choose the information that helps you scan several panes quickly without interru
 
 ## Before you start
 
-Open **Settings** and select **Status Line**. Some facts are available only for particular agent tools, so the available choices can change with the selected harness or pane.
+Open **Settings** and select **Status Line**. The global editor lists the status facts available to the app. Facts that are not supported by a pane's selected tool are filtered out when that pane renders its status line. A profile's custom status line filters its **Add Item** menu to that profile's harness.
 
 ## How to use it
 

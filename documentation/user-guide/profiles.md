@@ -38,7 +38,7 @@ Use **Duplicate** to make a copy, **Delete** to remove a profile, or the up and 
 3. Review any options displayed in the sheet.
 4. Choose **Create Pane**.
 
-The profile selects its harness and applies its saved settings. If you change an option, the profile name is marked **(modified)**. Choose **Save Profile & Create** if you want to save the changed settings before creating the pane.
+The profile selects its harness and applies its saved settings. If you change an option, the profile name is marked **(modified)**. Choose **Save Profile & Create** if you want to save the changed settings before creating the pane; this saves a new profile snapshot with the name you provide and then creates the pane.
 
 The first profile in the list that matches the selected harness is preselected when a new pane opens.
 

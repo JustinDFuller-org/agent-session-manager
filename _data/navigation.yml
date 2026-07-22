@@ -20,14 +20,30 @@
       url: /documentation/user-guide/reorder-tabs-and-panes/
     - title: Focus Pane
       url: /documentation/user-guide/focus-pane/
-- title: Configure
+    - title: Activity Indicators
+      url: /documentation/user-guide/activity-indicators/
+- title: Integrations
   items:
     - title: Agent Tools
       url: /documentation/user-guide/agent-tools/
+    - title: Claude Code
+      url: /documentation/user-guide/claude-code/
+    - title: Codex
+      url: /documentation/user-guide/codex/
+    - title: Cursor
+      url: /documentation/user-guide/cursor/
+    - title: OpenCode
+      url: /documentation/user-guide/opencode/
+    - title: GitHub Pull Requests
+      url: /documentation/user-guide/github-pull-requests/
+- title: Configure
+  items:
     - title: Profiles
       url: /documentation/user-guide/profiles/
     - title: Tool Options
       url: /documentation/user-guide/tool-options/
+    - title: Terminal Scrollback
+      url: /documentation/user-guide/terminal-scrollback/
     - title: Status Line
       url: /documentation/user-guide/status-line/
     - title: Notifications

@@ -21,7 +21,7 @@ In-app indicators and the notifications sidebar do not require macOS permission.
 
 ### Read and clear notifications
 
-- A waiting dot on a pane or tab means that pane needs attention.
+- A waiting dot on a pane or tab means that pane needs attention. A completed Claude turn can instead use the stopped indicator.
 - Open a notification row to switch to its tab and pane.
 - Focusing a pane clears its notification.
 - Use **Clear All** in the sidebar to dismiss all current rows.
@@ -49,7 +49,7 @@ _Notifications settings control banners, tool completion alerts, and sidebar beh
 ## If it does not work
 
 - If in-app notifications appear but macOS banners do not, allow notifications for the correct Agent Session Manager app in **System Settings → Notifications**.
-- If the sidebar is hidden, enable **Always Show Notifications Bar** or wait for a pending notification.
+- If the sidebar is hidden, enable **Always Show Notifications Bar** or wait for a pending notification. If a pane is focused, also check **Settings → Panes → Focus Mode → Hide Notification Sidebar**.
 - If a tool completion alert is missing, check its tool-specific setting in **Settings → Notifications** and reopen the pane after changing hook-related settings.
 
 ## Related tasks
