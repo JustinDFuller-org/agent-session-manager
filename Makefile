@@ -24,6 +24,7 @@ export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 build: build-prd
 
 build-prd:
+	$(MAKE) check-toolchain
 	swift build -c release
 
 app: app-prd
@@ -94,6 +95,7 @@ watch-prd:
 # --- Dev targets ---
 
 build-dev:
+	$(MAKE) check-toolchain
 	swift build -Xswiftc -D -Xswiftc DEV_BUILD
 
 app-dev: build-dev
@@ -158,6 +160,9 @@ watch-dev:
 	done
 
 # --- Shared targets ---
+
+check-toolchain:
+	@scripts/check-toolchain.sh
 
 xcodeproj:
 	xcodegen generate

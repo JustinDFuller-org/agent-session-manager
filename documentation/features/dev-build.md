@@ -34,6 +34,16 @@ This means:
 
 Legacy shortcuts (`make build`, `make run`, `make watch`) still work as production aliases.
 
+## Toolchain and Dependency Maintenance
+
+The repository uses Swift tools 6.1, Swift 6 language mode, and macOS 14 as its deployment floor. Swift 6.1 or newer and Xcode 16 or newer are required for local builds. The currently validated local toolchain is Swift 6.4 with Xcode 27.0.
+
+Run `make check-toolchain` before diagnosing a build failure. It prints the active Swift and Xcode versions and fails when they are below the supported floor.
+
+Swift package lower bounds live in `Package.swift`, while `Package.resolved` locks the exact dependency graph used by builds. Dependabot checks Swift packages and GitHub Actions daily, groups compatible updates, and keeps major updates review-required. The Dependency and Toolchain Compatibility workflow runs for package or toolchain changes and weekly; it resolves the graph, builds the release package, and runs unit tests.
+
+When a toolchain or dependency update is accepted, regenerate the Xcode project with `make xcodeproj`, run the complete Dev validation suite, and update the recorded validated versions if the support policy changes.
+
 Packaged apps always stage into the shared git common root, even when the command runs inside a worktree:
 
 | Build | Canonical bundle |

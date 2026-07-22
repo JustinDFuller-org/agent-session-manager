@@ -593,9 +593,9 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         var onRefreshPane: () -> Void = {}
         var appState: AppState?
         weak var hostWindow: NSWindow?
-        var keyMonitor: Any?
-        var mouseMonitor: Any?
-        var scrollWheelMonitor: Any?
+        nonisolated(unsafe) var keyMonitor: Any?
+        nonisolated(unsafe) var mouseMonitor: Any?
+        nonisolated(unsafe) var scrollWheelMonitor: Any?
 
         deinit {
             if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }

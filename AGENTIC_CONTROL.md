@@ -222,6 +222,33 @@ green, and no compatibility-only compiler settings remain. Only then should
 the MCP implementation roadmap continue with domain configuration and
 persistence.
 
+### Ongoing version maintenance
+
+Version updates are automated, but compatibility remains a required gate:
+
+- `Package.swift` owns direct package lower bounds and the Swift tools/language
+  mode declaration; `Package.resolved` records the exact dependency graph.
+- Dependabot checks Swift packages and GitHub Actions daily, groups compatible
+  updates, and may auto-merge only patch and minor dependency updates after
+  required CI checks. Major updates remain review-required.
+- `dependency-toolchain-compatibility.yml` runs on dependency and toolchain
+  changes and weekly. It checks the supported toolchain floor, resolves the
+  locked graph, builds the release package, and runs unit tests before an
+  update can be accepted.
+- `scripts/check-toolchain.sh` requires Swift 6.1 or newer and Xcode 16 or
+  newer, while the current validated local toolchain is recorded as Swift 6.4
+  with Xcode 27.0. A toolchain upgrade must update this documentation and
+  retain the full compatibility checks.
+- Distributed app versions remain derived from release tags and commit count
+  by `scripts/dist.sh`; dependency or toolchain updates do not silently change
+  the product version.
+
+The maintenance workflow is: accept or review the Dependabot update, inspect
+the resolved graph and release notes, run the compatibility workflow, then
+update the Swift/Xcode baseline only when the supported toolchain policy
+changes. Do not bypass a failed compatibility build with weaker concurrency
+checking or an unreviewed dependency pin.
+
 ## Implementation roadmap
 
 Each item is intended to be a separate implementation session.
@@ -303,7 +330,7 @@ must remove their files, processes, and tokens before they finish.
 
 | Item | Observed value |
 |---|---|
-| Repository manifest | Swift tools 6.1, Swift 5 language mode, macOS 14 minimum |
+| Repository manifest | Swift tools 6.1, Swift 6 language mode, macOS 14 minimum |
 | Host toolchain | Swift 6.4, Xcode 27.0 |
 | Swift MCP SDK candidate | 0.12.1; its manifest declares Swift tools 6.1 |
 | Claude Code | 2.1.216 |
@@ -316,8 +343,9 @@ package using Swift tools 6.1 when compiled by the installed Swift 6.4
 compiler. The repository now matches that requirement without adding the SDK
 dependency yet. SwiftPM's tools version is a manifest compatibility floor; the
 host's installed Swift 6.4 compiler remains the version used to build the
-project. Enabling Swift 6 language mode is deferred because existing tracing
-code currently reports sendability and actor-isolation errors under that mode.
+project. The app and UI-test targets now use Swift 6 language mode. Third-party
+packages continue to compile in their own declared language modes, so package
+updates are validated independently from the app's concurrency migration.
 
 #### Streamable HTTP result
 

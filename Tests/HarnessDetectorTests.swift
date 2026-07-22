@@ -2,6 +2,10 @@ import XCTest
 
 @testable import AgentSessionManager
 
+private final class StringBox: @unchecked Sendable {
+    var value: String?
+}
+
 final class HarnessDetectorTests: XCTestCase {
     func testDetectsInstalledToolsFromFakeRunner() async {
         let installed: Set<String> = ["claude", "codex"]
@@ -63,11 +67,11 @@ final class HarnessDetectorTests: XCTestCase {
     }
 
     func testIsInstalledUsesCorrectCommandDescription() async {
-        var checkedCommand: String?
+        let checkedCommand = StringBox()
         _ = await HarnessDetector.isInstalled(harness: .cursor, shell: "/bin/zsh") { _, command in
-            checkedCommand = command
+            checkedCommand.value = command
             return false
         }
-        XCTAssertEqual(checkedCommand, "agent")
+        XCTAssertEqual(checkedCommand.value, "agent")
     }
 }

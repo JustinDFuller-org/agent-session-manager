@@ -44,7 +44,10 @@ final class GitDiffStatsTests: XCTestCase {
     }
 
     func testComputeInGitDirectory() async {
-        let sourceDir = #file.components(separatedBy: "/Tests/").first ?? "."
+        let sourceDir = URL(filePath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .path
         let result = await GitDiffStats.compute(in: sourceDir)
         XCTAssertNotNil(result, "Should succeed in a valid git directory")
     }

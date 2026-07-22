@@ -18,5 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check supported Swift toolchain
+        run: bash scripts/check-toolchain.sh swift-only
+
       - name: Check formatting
         run: swift format lint --recursive --strict Sources/ Tests/ UITests/

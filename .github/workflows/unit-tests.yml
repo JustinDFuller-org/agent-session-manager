@@ -14,6 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check supported toolchain floor
+        run: bash scripts/check-toolchain.sh
+
       - name: Cache Swift packages
         uses: actions/cache@v6
         with:

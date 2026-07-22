@@ -80,9 +80,8 @@ struct CursorDataProviderTests {
     }
 
     @Test func testHookEntryCommandPointsToScript() {
-        let command = CursorHookSetup.hookEntry["command"] as? String
-        #expect(command != nil)
-        #expect(command?.contains("agent-session-manager-cursor-hook.sh") == true)
+        let command = CursorHookSetup.hookEntry.command
+        #expect(command.contains("agent-session-manager-cursor-hook.sh"))
     }
 
     @MainActor
@@ -110,14 +109,13 @@ struct CursorDataProviderTests {
     }
 
     @Test func testStopHookEntryCommandPointsToStopScript() {
-        let command = CursorHookSetup.stopHookEntry["command"] as? String
-        #expect(command != nil)
-        #expect(command?.contains("agent-session-manager-cursor-stop-hook.sh") == true)
+        let command = CursorHookSetup.stopHookEntry.command
+        #expect(command.contains("agent-session-manager-cursor-stop-hook.sh"))
     }
 
     @Test func testStopHookScriptDiffersFromResponseHookScript() {
         #expect(CursorHookSetup.hookScriptContent != CursorHookSetup.stopHookScriptContent)
-        #expect(CursorHookSetup.hookEntry["command"] as? String != CursorHookSetup.stopHookEntry["command"] as? String)
+        #expect(CursorHookSetup.hookEntry.command != CursorHookSetup.stopHookEntry.command)
     }
 
     @MainActor
@@ -156,11 +154,11 @@ struct CursorDataProviderTests {
         var hooks = config["hooks"] as? [String: Any] ?? [:]
 
         var afterEntries = hooks["afterAgentResponse"] as? [[String: Any]] ?? []
-        afterEntries.append(CursorHookSetup.hookEntry)
+        afterEntries.append(CursorHookSetup.hookEntry.jsonObject)
         hooks["afterAgentResponse"] = afterEntries
 
         var stopEntries = hooks["stop"] as? [[String: Any]] ?? []
-        stopEntries.append(CursorHookSetup.stopHookEntry)
+        stopEntries.append(CursorHookSetup.stopHookEntry.jsonObject)
         hooks["stop"] = stopEntries
 
         config["hooks"] = hooks
@@ -191,8 +189,8 @@ struct CursorDataProviderTests {
         let existing: [String: Any] = [
             "version": 1,
             "hooks": [
-                "afterAgentResponse": [CursorHookSetup.hookEntry],
-                "stop": [CursorHookSetup.stopHookEntry],
+                "afterAgentResponse": [CursorHookSetup.hookEntry.jsonObject],
+                "stop": [CursorHookSetup.stopHookEntry.jsonObject],
                 "afterFileEdit": [["command": "./hooks/format.sh"]],
             ] as [String: Any],
         ]
@@ -248,7 +246,7 @@ struct CursorDataProviderTests {
             ($0["command"] as? String)?.contains("agent-session-manager-cursor-stop-hook.sh") == true
         }
         if !stopInstalled {
-            stopEntries.append(CursorHookSetup.stopHookEntry)
+            stopEntries.append(CursorHookSetup.stopHookEntry.jsonObject)
             hooks["stop"] = stopEntries
         }
         config["hooks"] = hooks

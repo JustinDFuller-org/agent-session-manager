@@ -340,11 +340,11 @@ final class SettingsFlowTests: BaseTestCase {
     }
 
     private func assertOnlySidebarShowsSelectedSectionTitle(_ title: String, in window: XCUIElement) {
-        let predicate = NSPredicate(format: "label == %@", title)
-        let matchingTitles =
-            window.buttons.matching(predicate).count + window.staticTexts.matching(predicate).count
+        let matchingButtons = window.buttons.matching(NSPredicate(format: "label == %@", title)).count
+        let matchingStaticTexts =
+            window.staticTexts.matching(NSPredicate(format: "label == %@", title)).count
         XCTAssertEqual(
-            matchingTitles,
+            matchingButtons + matchingStaticTexts,
             1,
             "Settings should show '\(title)' only in the sidebar, not as a duplicate detail header"
         )

@@ -66,16 +66,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         for (name, event) in notificationsToObserve {
             let token = center.addObserver(forName: name, object: nil, queue: .main) { note in
-                MainActor.assumeIsolated {
-                    let window = note.object as? NSWindow
-                    let extra: [String: String] = [
-                        "subjectTitle": window?.title ?? "",
-                        "subjectClass": window.map { String(describing: type(of: $0)) } ?? "nil",
-                        "subjectID": window.map { String(ObjectIdentifier($0).hashValue, radix: 16) }
-                            ?? "nil",
-                    ]
-                    WindowSnapshot.record(event: event, extra: extra)
-                }
+                let window = note.object as? NSWindow
+                let extra: [String: String] = [
+                    "subjectTitle": window?.title ?? "",
+                    "subjectClass": window.map { String(describing: type(of: $0)) } ?? "nil",
+                    "subjectID": window.map { String(ObjectIdentifier($0).hashValue, radix: 16) }
+                        ?? "nil",
+                ]
+                WindowSnapshot.record(event: event, extra: extra)
             }
             windowLifecycleObservers.append(token)
         }
