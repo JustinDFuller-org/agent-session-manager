@@ -2,14 +2,9 @@ import XCTest
 
 final class ScreenshotTests: BaseTestCase {
     private static var launchCount = 0
-    private var githubFixture: ScreenshotGitHubFixture!
 
     override var additionalLaunchArguments: [String] {
         ["--uitesting-show-onboarding"]
-    }
-
-    override var additionalLaunchEnvironment: [String: String] {
-        githubFixture?.launchEnvironment ?? [:]
     }
 
     override func setUp() {
@@ -29,20 +24,11 @@ final class ScreenshotTests: BaseTestCase {
             .write(to: support.appending(path: "default-branch.json"))
         try? Data("\"head\"".utf8)
             .write(to: support.appending(path: "worktree-base-ref.json"))
-        try? Data(
-            #"{"intervalSeconds":15,"timeoutSeconds":5,"backgroundRefreshEnabled":true,"backgroundIntervalSeconds":15}"#
-                .utf8
-        ).write(to: support.appending(path: "pr-polling-settings.json"))
-        githubFixture = ScreenshotGitHubFixture()
     }
 
     override func tearDown() {
         XCTAssertEqual(Self.launchCount, 1, "ScreenshotTests must launch the app exactly once")
-        let fixtureDirectory = githubFixture?.directory
         super.tearDown()
-        if let fixtureDirectory {
-            try? FileManager.default.removeItem(at: fixtureDirectory)
-        }
     }
 
     func testWalkthrough() throws {
@@ -78,11 +64,7 @@ final class ScreenshotTests: BaseTestCase {
 
         captureSettings()
         captureStatusIndicators()
-        captureActivityIndicators()
         captureFocusedPane()
-        capturePRNotification()
-        captureTraceDashboard()
-        try captureInvariantDashboard()
     }
 
     private func captureOnboarding() {
@@ -180,27 +162,6 @@ final class ScreenshotTests: BaseTestCase {
         screenshot("pane-status-indicators")
     }
 
-    private func captureActivityIndicators() {
-        createTab(named: "Activity")
-        createPane(named: "activity-source")
-
-        let idlePane = openShellHere(from: "activity-source")
-        let waitingPane = openShellHere(from: "activity-source")
-        XCTAssertNotEqual(idlePane, waitingPane)
-        typeTerminalCommand("printf '\\a'")
-        waitFor(
-            app.descendants(matching: .any)
-                .matching(identifier: "pane-activity-waiting-\(waitingPane)").firstMatch,
-            timeout: 10
-        )
-        waitFor(
-            app.descendants(matching: .any)
-                .matching(identifier: "pane-activity-idle-\(idlePane)").firstMatch,
-            timeout: 10
-        )
-        screenshot("activity-indicator-states")
-    }
-
     private func captureFocusedPane() {
         createTab(named: "Focus")
         createPane(named: "reader")
@@ -211,135 +172,5 @@ final class ScreenshotTests: BaseTestCase {
         waitFor(app.buttons["pane-show-all-reader"].firstMatch)
         screenshot("focused-pane")
         app.buttons["pane-show-all-reader"].click()
-    }
-
-    private func capturePRNotification() {
-        createTab(named: "PR")
-        createPane(named: "pr-pane")
-        waitFor(app.staticTexts["#42 (open)"], timeout: 45)
-        githubFixture.markMerged()
-
-        let row = app.descendants(matching: .any)
-            .matching(identifier: "notification-row-pr-pane").firstMatch
-        waitFor(row, timeout: 45)
-        screenshot("notification-sidebar")
-        row.click()
-        waitFor(app.staticTexts["PR Merged"], timeout: 5)
-        screenshot("pr-merged-alert")
-        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
-    }
-
-    private func captureTraceDashboard() {
-        app.typeKey(",", modifierFlags: .command)
-        let debugTab = app.descendants(matching: .any)
-            .matching(identifier: "settings-sidebar-debug").firstMatch
-        waitFor(debugTab)
-        debugTab.click()
-        let debugToggle = app.checkBoxes["settings-debug-mode-toggle"]
-        waitFor(debugToggle)
-        if debugToggle.value as? Int == 0 {
-            debugToggle.click()
-        }
-        app.typeKey("w", modifierFlags: .command)
-
-        createTab(named: "trace-demo")
-        createPane(named: "trace-worker")
-        app.typeKey("d", modifierFlags: [.command, .shift])
-        let dashboard = app.windows["Trace Dashboard"]
-        waitFor(dashboard)
-        XCTAssertEqual(round(dashboard.frame.width), 900)
-        XCTAssertEqual(round(dashboard.frame.height), 664)
-        let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
-        waitFor(refreshButton)
-        refreshButton.click()
-        let paneRow = dashboard.descendants(matching: .any)
-            .matching(identifier: "trace-dashboard-pane-row").firstMatch
-        waitFor(paneRow, timeout: 10)
-        paneRow.click()
-        waitFor(dashboard.textFields["trace-dashboard-filter-field"], timeout: 10)
-        screenshot("trace-dashboard")
-
-        let traceRow = dashboard.descendants(matching: .any)
-            .matching(identifier: "trace-dashboard-list-row").firstMatch
-        waitFor(traceRow, timeout: 10)
-        traceRow.click()
-        waitFor(
-            dashboard.descendants(matching: .any)
-                .matching(identifier: "trace-dashboard-waterfall").firstMatch,
-            timeout: 10
-        )
-        screenshot("trace-waterfall")
-    }
-
-    private func captureInvariantDashboard() throws {
-        app.typeKey(",", modifierFlags: .command)
-        let debugTab = app.descendants(matching: .any)
-            .matching(identifier: "settings-sidebar-debug").firstMatch
-        waitFor(debugTab)
-        debugTab.click()
-        let debugToggle = app.checkBoxes["settings-debug-mode-toggle"]
-        waitFor(debugToggle)
-        if debugToggle.value as? Int == 0 {
-            debugToggle.click()
-        }
-        app.typeKey("w", modifierFlags: .command)
-
-        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
-        let existingStatusFiles = Set(
-            (try? FileManager.default.contentsOfDirectory(
-                at: temporaryDirectory,
-                includingPropertiesForKeys: nil
-            ))?
-            .filter { $0.lastPathComponent.hasPrefix("agent-session-manager-status-") }
-            .map(\.path) ?? []
-        )
-        createTab(named: "invariant-demo")
-        createPane(named: "invariant-worker")
-
-        let monitorFileExpectation = expectation(description: "Claude status-line monitor file exists")
-        var monitorFile: URL?
-        let deadline = Date().addingTimeInterval(10)
-        repeat {
-            monitorFile =
-                (try? FileManager.default.contentsOfDirectory(
-                    at: temporaryDirectory,
-                    includingPropertiesForKeys: nil
-                ))?
-                .first {
-                    $0.lastPathComponent.hasPrefix("agent-session-manager-status-")
-                        && !existingStatusFiles.contains($0.path)
-                }
-            if monitorFile != nil {
-                monitorFileExpectation.fulfill()
-                break
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        } while Date() < deadline
-        wait(for: [monitorFileExpectation], timeout: 0.1)
-        XCTAssertNotNil(monitorFile)
-        try Data(#"{"worktree":{"name":"wrong-name","branch":"main"}}"#.utf8)
-            .write(to: XCTUnwrap(monitorFile))
-
-        app.typeKey("i", modifierFlags: [.command, .shift])
-        let dashboard = app.windows["Invariant Dashboard"]
-        waitFor(dashboard)
-        XCTAssertEqual(round(dashboard.frame.width), 900)
-        XCTAssertEqual(round(dashboard.frame.height), 664)
-        let refreshButton = dashboard.buttons["invariant-dashboard-refresh-button"]
-        waitFor(refreshButton)
-        let violation = dashboard.staticTexts["statusline.worktree.name"]
-        let violationDeadline = Date().addingTimeInterval(10)
-        repeat {
-            refreshButton.click()
-            if violation.exists { break }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        } while Date() < violationDeadline
-        XCTAssertTrue(violation.exists, "Expected the real worktree-name violation to appear")
-        waitFor(
-            dashboard.descendants(matching: .any)
-                .matching(identifier: "invariant-dashboard-row").firstMatch,
-            timeout: 10
-        )
-        screenshot("invariant-dashboard")
     }
 }

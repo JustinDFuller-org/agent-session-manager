@@ -33,6 +33,10 @@ Only active tools appear in the **Harness** picker in **New Pane**. A shell open
 
 The active tools are available as choices in **Harness**. The options shown below the picker change when you select a different tool.
 
+![Agent Session Manager Harnesses settings]({{ '/assets/img/docs/settings-tools.png' | relative_url }})
+
+_Settings → Harnesses controls which tools and options are available in New Pane._
+
 ## If it does not work
 
 If a tool is not listed in **Harnesses**, confirm that it is installed and available from the selected shell. Reopen **Settings → Harnesses** and enable it, then reopen **New Pane**.

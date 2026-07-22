@@ -35,6 +35,10 @@ You can still switch tabs while a pane is focused. Creating a pane, opening a sh
 
 The selected pane fills the tab body and the other panes are hidden from view. The focused pane keeps its activity indicator, name, close button, and status line.
 
+![Agent Session Manager with one focused pane]({{ '/assets/img/docs/focused-pane.png' | relative_url }})
+
+_Focused Pane mode expands the selected terminal while keeping its controls visible._
+
 ## If it does not work
 
 - If **Focus This Pane** is unavailable, create a second pane in the tab.

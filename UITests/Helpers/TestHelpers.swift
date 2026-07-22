@@ -47,11 +47,19 @@ extension BaseTestCase {
         let sourceHeader = app.descendants(matching: .any)
             .matching(identifier: "pane-header-\(paneName)").firstMatch
         waitFor(sourceHeader)
+
+        let baseName = "shell:\(paneName)"
+        var shellName = baseName
+        var suffix = 2
+        while app.staticTexts["pane-name-\(shellName)"].exists {
+            shellName = "\(baseName)-\(suffix)"
+            suffix += 1
+        }
+
         sourceHeader.rightClick()
         let menuItem = app.windows.firstMatch.menuItems["Open Shell Here"]
         waitFor(menuItem)
         menuItem.click()
-        let shellName = "shell:\(paneName)"
         waitFor(app.staticTexts["pane-name-\(shellName)"].firstMatch, timeout: 10)
         return shellName
     }

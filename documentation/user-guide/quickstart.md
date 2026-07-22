@@ -29,6 +29,18 @@ Complete [Install and First Launch](install/) and make sure at least one agent t
 
 Agent Session Manager prepares the working copy and opens a pane for the selected tool. The pane contains the tool's terminal session, and the tab remains available for creating additional panes.
 
+![Agent Session Manager empty state]({{ '/assets/img/docs/empty-state.png' | relative_url }})
+
+_The empty state provides the shortcut for creating the first tab._
+
+![Agent Session Manager New Tab sheet with a name and base branch]({{ '/assets/img/docs/new-tab-sheet-filled.png' | relative_url }})
+
+_New Tab accepts the project name and optional base branch before creation._
+
+![Agent Session Manager New Pane sheet]({{ '/assets/img/docs/new-pane-sheet.png' | relative_url }})
+
+_New Pane combines the harness, session name, CLI options, and environment settings._
+
 ## If it does not work
 
 - If **Create** is disabled in **New Tab**, provide both a name and a directory.

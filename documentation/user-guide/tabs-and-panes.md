@@ -53,6 +53,10 @@ If the pane uses a working copy managed by Agent Session Manager, closing it may
 
 The tab bar remains at the top of the window, and panes appear below it in a grid. Adding panes changes the grid layout while keeping each terminal session visible.
 
+![Agent Session Manager with two panes in a tab]({{ '/assets/img/docs/split-panes.png' | relative_url }})
+
+_Each pane has its own header, terminal area, and status line._
+
 ## If it does not work
 
 - If **Create** is disabled in **New Tab**, provide both a name and a directory.

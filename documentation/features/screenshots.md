@@ -4,7 +4,7 @@ The screenshot walkthrough captures the app in one continuous session for docume
 
 ## Coverage
 
-ScreenshotTests captures all 27 views in order:
+ScreenshotTests captures all 21 views in order:
 
 - onboarding-welcome
 - onboarding-shell
@@ -26,13 +26,7 @@ ScreenshotTests captures all 27 views in order:
 - settings-status-line
 - settings-debug
 - pane-status-indicators
-- activity-indicator-states
 - focused-pane
-- notification-sidebar
-- pr-merged-alert
-- trace-dashboard
-- trace-waterfall
-- invariant-dashboard
 
 The app launches once and terminates once. Each screenshot is captured after the preceding real UI flow has completed, so later images show the same session continuing through the product.
 

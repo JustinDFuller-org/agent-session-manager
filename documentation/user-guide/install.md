@@ -34,6 +34,14 @@ The first-launch setup wizard helps Agent Session Manager prepare the shell and 
 
 The wizard closes and the main window appears. If you have not created a tab yet, the empty state tells you to press ⌘T.
 
+![Agent Session Manager first-launch welcome screen]({{ '/assets/img/docs/onboarding-welcome.png' | relative_url }})
+
+_Choose Set Up to walk through the first-launch choices._
+
+![Agent Session Manager Harnesses setup screen]({{ '/assets/img/docs/onboarding-tools.png' | relative_url }})
+
+_Select the tools you want available when creating panes._
+
 ## If it does not work
 
 If the wizard does not detect a tool, confirm that the tool is installed and available from the selected shell. You can also enable tools later in **Settings → Harnesses**.

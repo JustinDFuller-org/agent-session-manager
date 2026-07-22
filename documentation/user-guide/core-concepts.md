@@ -37,6 +37,10 @@ Tabs keep projects separate. Panes keep tasks within a project separate. Agent t
 
 The main window shows tabs across the top and panes below them. Creating another pane adds another terminal session to the active tab; switching tabs changes the project context and its panes.
 
+![Agent Session Manager main window with an active tab]({{ '/assets/img/docs/main-window-tab.png' | relative_url }})
+
+_A tab identifies the project context shown below the tab bar._
+
 ## Related tasks
 
 - [Quickstart](quickstart/)

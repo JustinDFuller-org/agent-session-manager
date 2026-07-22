@@ -42,6 +42,10 @@ To keep macOS banners visible until dismissed, choose **Open Notification Settin
 
 The sidebar shows the pane and tab associated with each pending notification. Clicking a macOS banner brings Agent Session Manager forward and focuses the related pane.
 
+![Agent Session Manager Notifications settings]({{ '/assets/img/docs/settings-notifications.png' | relative_url }})
+
+_Notifications settings control banners, tool completion alerts, and sidebar behavior._
+
 ## If it does not work
 
 - If in-app notifications appear but macOS banners do not, allow notifications for the correct Agent Session Manager app in **System Settings → Notifications**.

@@ -169,7 +169,7 @@ Reviewers should verify the copy against the current UI and source, confirm that
 - [x] Migrate tabs, panes, agent-tool selection, project isolation, persistence, and cleanup into task guides.
 - [x] Migrate profiles, tool options, status information, notifications, focus mode, and shortcuts into task guides.
 - [x] Add user-facing update, permissions, missing-tool, pane-startup, and checkout-conflict troubleshooting.
-- [ ] Add and promote the first durable screenshot set from the real-flow UI tests.
+- [x] Add and promote the first durable screenshot set from the real-flow UI tests.
 - [ ] Remove internal source paths, schemas, class names, telemetry catalogs, and test commands from public pages.
 - [ ] Add link checking and a documented local Jekyll build or equivalent rendered-site check.
 - [ ] Verify the custom-domain deployment and representative user-guide URLs after each migration phase.
