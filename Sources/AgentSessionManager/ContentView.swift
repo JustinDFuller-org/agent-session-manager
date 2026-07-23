@@ -36,6 +36,7 @@ private struct AppCommands: Commands {
     @AppStorage("keyBinding.newPaneKey") var newPaneKey = "p"
     @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
     @AppStorage("keyBinding.openShellHereKey") var openShellHereKey = "s"
+    @AppStorage("keyBinding.viewPaneSettingsKey") var viewPaneSettingsKey = "i"
     @Environment(\.openWindow) var openWindow
 
     var body: some Commands {
@@ -76,6 +77,12 @@ private struct AppCommands: Commands {
             .keyboardShortcut(KeyEquivalent(Character(openShellHereKey)), modifiers: [.command, .shift])
             .disabled(appState.tabs.isEmpty)
 
+            Button("View Pane Settings") {
+                NotificationCenter.default.post(name: .viewPaneSettings, object: nil)
+            }
+            .keyboardShortcut(KeyEquivalent(Character(viewPaneSettingsKey)), modifiers: .command)
+            .disabled(appState.activeTab?.panes.isEmpty ?? true)
+
             Divider()
 
             Button("Close Tab") {
@@ -94,6 +101,7 @@ extension Notification.Name {
     static let closeTab = Notification.Name("closeTab")
     static let prResolutionActionRequested = Notification.Name("prResolutionActionRequested")
     static let openShellHere = Notification.Name("openShellHere")
+    static let viewPaneSettings = Notification.Name("viewPaneSettings")
     static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
         "agentSessionManagerPRTrackingSettingChanged")
     static let showSettingsSection = Notification.Name("showSettingsSection")

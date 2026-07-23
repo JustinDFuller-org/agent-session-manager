@@ -770,6 +770,7 @@ private struct KeyboardShortcutsContent: View {
     @AppStorage("keyBinding.closeTabKey") var closeTabKey = "k"
     @AppStorage("keyBinding.openShellHereKey") var openShellHereKey = "s"
     @AppStorage("keyBinding.refreshPaneKey") var refreshPaneKey = "r"
+    @AppStorage("keyBinding.viewPaneSettingsKey") var viewPaneSettingsKey = "i"
 
     var body: some View {
         Form {
@@ -800,6 +801,11 @@ private struct KeyboardShortcutsContent: View {
                     label: "Refresh Active Pane",
                     description: "Restart pane with fresh environment",
                     modifier: "⌘", key: $refreshPaneKey)
+                KeyBindingRow(
+                    id: "view-pane-settings",
+                    label: "View Pane Settings",
+                    description: "Show the active pane's configuration",
+                    modifier: "⌘", key: $viewPaneSettingsKey)
             }
             Section(
                 header: Text("Fixed Shortcuts"),
