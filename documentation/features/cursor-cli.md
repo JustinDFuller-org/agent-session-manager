@@ -56,7 +56,7 @@ Cursor-specific flags can be enabled or disabled in **Settings → CLI Tools →
 
 Cursor uses app-owned baseline chips and an `afterAgentResponse` hook for model data. Agent Session Manager installs `~/.cursor/hooks.json` entries and per-pane scripts keyed by `AGENT_SESSION_MANAGER_PANE_ID`. The baseline includes worktree, branch, duration, changed lines, version, profile, and PR data.
 
-Cursor also uses a `stop` hook for attention notifications. Existing Cursor panes do not currently refresh their provider when that setting changes, and quick refresh loses `AGENT_SESSION_MANAGER_PANE_ID`.
+Cursor uses `beforeSubmitPrompt` and `stop` hooks for lifecycle activity state, plus the `stop` hook for attention notifications. Existing Cursor panes refresh their attention watcher when that setting changes.
 
 ## Session Persistence
 

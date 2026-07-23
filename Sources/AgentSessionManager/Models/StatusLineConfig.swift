@@ -279,7 +279,7 @@ struct StatusLineConfig: Codable, Equatable {
                 return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
             }
         rows = [StatusLineRow(items: defaultItems)]
-        factLabelStyle = .labelOnly
+        factLabelStyle = .symbolAndLabel
         rowAlignment = .spaceBetween
         showPercentagesAsText = false
         customFields = []
@@ -291,7 +291,7 @@ struct StatusLineConfig: Codable, Equatable {
             return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
         }
         var config = StatusLineConfig()
-        config.factLabelStyle = .labelOnly
+        config.factLabelStyle = .symbolAndLabel
         config.rowAlignment = .spaceBetween
         config.rows = [
             StatusLineRow(items: [item("pr"), item("profileName"), item("model")]),

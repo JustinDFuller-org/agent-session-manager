@@ -3,9 +3,9 @@ import XCTest
 @testable import AgentSessionManager
 
 final class StatusLineConfigDefaultsTests: XCTestCase {
-    func testDefaultInitProducesLabelOnly() {
+    func testDefaultInitProducesSymbolsAndLabels() {
         let config = StatusLineConfig()
-        XCTAssertEqual(config.factLabelStyle, .labelOnly)
+        XCTAssertEqual(config.factLabelStyle, .symbolAndLabel)
     }
 
     func testDefaultInitProducesSpaceBetween() {

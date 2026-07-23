@@ -19,7 +19,7 @@ A pane is `working` when:
 - Claude Code's `UserPromptSubmit` lifecycle hook has fired without a subsequent `Stop` or `StopFailure`, **or**
 - OpenCode's database-derived session status state is `busy` or `retry`
 
-Codex, Cursor, and shell panes remain idle unless an explicit attention notification exists. PTY reads are intentionally not used for progress detection because terminal output includes echoed keystrokes and other noise that does not mean an agent is working.
+Codex and shell panes remain idle unless an explicit attention notification exists. Cursor uses its `beforeSubmitPrompt` and `stop` hooks for explicit working-state detection. PTY reads are intentionally not used for progress detection because terminal output includes echoed keystrokes and other noise that does not mean an agent is working.
 
 ## Waiting and notifications
 

@@ -971,6 +971,8 @@ struct NotificationsContent: View {
                     .accessibilityIdentifier("settings-cursor-notification-hook-toggle")
                     .onChange(of: appSettings.isCursorNotificationHookAttentionEnabled) {
                         SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                        NotificationCenter.default.post(
+                            name: .agentSessionManagerCursorNotificationSettingChanged, object: nil)
                     }
                 }
             }

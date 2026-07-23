@@ -28,7 +28,7 @@ final class StatusLineConfigWizardDefaultTests: XCTestCase {
 
     func testWizardDefaultFactLabelStyle() {
         let config = StatusLineConfig.wizardDefault()
-        XCTAssertEqual(config.factLabelStyle, .labelOnly)
+        XCTAssertEqual(config.factLabelStyle, .symbolAndLabel)
     }
 
     func testWizardDefaultRowAlignment() {

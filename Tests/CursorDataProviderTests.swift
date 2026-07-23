@@ -120,6 +120,24 @@ struct CursorDataProviderTests {
         #expect(CursorHookSetup.hookEntry["command"] as? String != CursorHookSetup.stopHookEntry["command"] as? String)
     }
 
+    @Test func testLifecycleHookScriptWritesToLifecycleFile() {
+        let content = CursorHookSetup.lifecycleHookScriptContent
+        #expect(content.hasPrefix("#!/bin/bash"))
+        #expect(content.contains("AGENT_SESSION_MANAGER_PANE_ID"))
+        #expect(content.contains("agent-session-manager-cursor-lifecycle-"))
+        #expect(content.contains("exit 0"))
+    }
+
+    @Test func testCursorLifecyclePayloadParsesHookEvent() {
+        let payload = CursorLifecyclePayload.parse(
+            Data(#"{"hook_event_name":"beforeSubmitPrompt","model":"gpt-5"}"#.utf8))
+        #expect(payload?.hookEventName == "beforeSubmitPrompt")
+    }
+
+    @Test func testCursorLifecyclePayloadRejectsMissingHookEvent() {
+        #expect(CursorLifecyclePayload.parse(Data(#"{"model":"gpt-5"}"#.utf8)) == nil)
+    }
+
     @MainActor
     @Test func testAttentionFilePathContainsPaneID() {
         let paneID = UUID()
@@ -278,6 +296,11 @@ struct CursorDataProviderTests {
         #expect(item?.supportedBy(.cursor) == true)
         #expect(item?.supportedBy(.claude) == true)
         #expect(item?.supportedBy(.codex) == true)
+    }
+
+    @Test func testDefaultStatusLineShowsSymbols() {
+        #expect(StatusLineConfig().factLabelStyle == .symbolAndLabel)
+        #expect(StatusLineConfig.wizardDefault().factLabelStyle == .symbolAndLabel)
     }
 
     @Test func testCostStillNotSupportedByCursor() {

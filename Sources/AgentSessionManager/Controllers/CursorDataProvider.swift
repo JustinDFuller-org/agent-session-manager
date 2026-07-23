@@ -15,26 +15,40 @@ final class CursorDataProvider: StatusLineDataProvider {
     let workingDirectory: String
     let processStartTime: Date
     let paneID: UUID
+    let paneName: String
+    let tabID: UUID
+    let tabName: String
     let hookOutputFilePath: String
     let attentionFilePath: String
+    let lifecycleFilePath: String
 
     private var refreshTimer: Timer?
     private var versionFetchedVersion: String?
     private var hookSource: DispatchSourceFileSystemObject?
     private var attentionSource: DispatchSourceFileSystemObject?
+    private var lifecycleSource: DispatchSourceFileSystemObject?
     private var lastHookModel: StatusLineData.Model?
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
+    var onActivityChanged: ((Bool) -> Void)?
 
-    init(workingDirectory: String, paneID: UUID, processStartTime: Date) {
+    init(
+        workingDirectory: String, paneID: UUID, processStartTime: Date,
+        paneName: String = "", tabID: UUID = UUID(), tabName: String = ""
+    ) {
         self.workingDirectory = workingDirectory
         self.paneID = paneID
         self.processStartTime = processStartTime
+        self.paneName = paneName
+        self.tabID = tabID
+        self.tabName = tabName
         self.hookOutputFilePath =
             NSTemporaryDirectory() + "agent-session-manager-cursor-hook-\(paneID.uuidString).json"
         self.attentionFilePath =
             NSTemporaryDirectory() + "agent-session-manager-cursor-attention-\(paneID.uuidString).json"
+        self.lifecycleFilePath =
+            NSTemporaryDirectory() + "agent-session-manager-cursor-lifecycle-\(paneID.uuidString).json"
     }
 
     func start() {
@@ -45,6 +59,9 @@ final class CursorDataProvider: StatusLineDataProvider {
                 at: CursorHookSetup.hookScriptPath, content: CursorHookSetup.hookScriptContent)
             try CursorHookSetup.writeScript(
                 at: CursorHookSetup.stopHookScriptPath, content: CursorHookSetup.stopHookScriptContent)
+            try CursorHookSetup.writeScript(
+                at: CursorHookSetup.lifecycleHookScriptPath,
+                content: CursorHookSetup.lifecycleHookScriptContent)
             let configPath = CursorHookSetup.hooksConfigPath
             var config: [String: Any] = ["version": 1, "hooks": [String: Any]()]
             if let existingData = try? Data(contentsOf: configPath),
@@ -54,6 +71,13 @@ final class CursorDataProvider: StatusLineDataProvider {
             }
             var hooks = config["hooks"] as? [String: Any] ?? [:]
             var needsWrite = false
+            needsWrite =
+                CursorHookSetup.installHookEntry(
+                    into: &hooks,
+                    eventName: "beforeSubmitPrompt",
+                    entry: CursorHookSetup.lifecycleHookEntry,
+                    scriptName: CursorHookSetup.lifecycleHookScriptName
+                ) || needsWrite
             needsWrite =
                 CursorHookSetup.installHookEntry(
                     into: &hooks,
@@ -75,7 +99,9 @@ final class CursorDataProvider: StatusLineDataProvider {
                 try data.write(to: configPath, options: .atomic)
             }
         } catch {
-            // Best-effort; model detection and notifications gracefully degrade if hooks aren't set up.
+            TracingService.shared.record(
+                "statusline.cursor.hook_setup_failed",
+                attributes: cursorTraceAttributes(["error": error.localizedDescription]))
         }
         FileManager.default.createFile(atPath: hookOutputFilePath, contents: nil)
         let hookFD = open(hookOutputFilePath, O_EVTONLY)
@@ -102,44 +128,12 @@ final class CursorDataProvider: StatusLineDataProvider {
             source.resume()
             hookSource = source
         }
-        if SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json")?
-            .isCursorHookAttentionEnabled ?? true
-        {
-            FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
-            let attentionFD = open(attentionFilePath, O_EVTONLY)
-            if attentionFD >= 0 {
-                let source = DispatchSource.makeFileSystemObjectSource(
-                    fileDescriptor: attentionFD,
-                    eventMask: [.write, .extend],
-                    queue: .global(qos: .utility)
-                )
-                source.setEventHandler { [weak self] in
-                    guard let self else { return }
-                    self.attentionDebounceLock.lock()
-                    self.attentionDebounceWork?.cancel()
-                    let work = DispatchWorkItem { [weak self] in
-                        guard let self,
-                            let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
-                            !data.isEmpty
-                        else { return }
-                        var hasher = Hasher()
-                        hasher.combine(data)
-                        let fingerprint = hasher.finalize()
-                        Task { @MainActor in
-                            guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                            self.lastAttentionPayloadFingerprint = fingerprint
-                            self.onAttention?(.cursorStop)
-                        }
-                    }
-                    self.attentionDebounceWork = work
-                    self.attentionDebounceLock.unlock()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
-                }
-                source.setCancelHandler { close(attentionFD) }
-                source.resume()
-                attentionSource = source
-            }
-        }
+        FileManager.default.createFile(atPath: lifecycleFilePath, contents: nil)
+        startLifecycleWatcher()
+        configureAttentionWatcher(
+            enabled: SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json")?
+                .isCursorHookAttentionEnabled ?? true
+        )
         Task { [weak self] in
             guard let self else { return }
             let version = await self.runShell(
@@ -162,6 +156,8 @@ final class CursorDataProvider: StatusLineDataProvider {
         refreshTimer = nil
         hookSource?.cancel()
         hookSource = nil
+        lifecycleSource?.cancel()
+        lifecycleSource = nil
         attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
@@ -171,10 +167,113 @@ final class CursorDataProvider: StatusLineDataProvider {
         lastAttentionPayloadFingerprint = nil
         try? FileManager.default.removeItem(atPath: hookOutputFilePath)
         try? FileManager.default.removeItem(atPath: attentionFilePath)
+        try? FileManager.default.removeItem(atPath: lifecycleFilePath)
+    }
+
+    func configureAttentionWatcher(enabled: Bool) {
+        attentionDebounceLock.lock()
+        attentionDebounceWork?.cancel()
+        attentionDebounceWork = nil
+        attentionDebounceLock.unlock()
+        attentionSource?.cancel()
+        attentionSource = nil
+        lastAttentionPayloadFingerprint = nil
+        guard enabled else { return }
+
+        FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
+        let attentionFD = open(attentionFilePath, O_EVTONLY)
+        guard attentionFD >= 0 else {
+            TracingService.shared.record(
+                "statusline.cursor.attention_watcher.failed",
+                attributes: cursorTraceAttributes(["reason": "open_failed"]))
+            return
+        }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: attentionFD,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            self.attentionDebounceLock.lock()
+            self.attentionDebounceWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self,
+                    let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
+                    !data.isEmpty
+                else { return }
+                var hasher = Hasher()
+                hasher.combine(data)
+                let fingerprint = hasher.finalize()
+                Task { @MainActor in
+                    guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                    self.lastAttentionPayloadFingerprint = fingerprint
+                    TracingService.shared.record(
+                        "statusline.cursor.attention.received",
+                        attributes: self.cursorTraceAttributes([:]))
+                    self.onAttention?(.cursorStop)
+                }
+            }
+            self.attentionDebounceWork = work
+            self.attentionDebounceLock.unlock()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+        }
+        source.setCancelHandler { close(attentionFD) }
+        source.resume()
+        attentionSource = source
+        TracingService.shared.record(
+            "statusline.cursor.attention_watcher.started",
+            attributes: cursorTraceAttributes([:]))
     }
 
     var currentDurationMs: Double {
         max(0, Date().timeIntervalSince(processStartTime)) * 1000
+    }
+
+    private func startLifecycleWatcher() {
+        let lifecycleFD = open(lifecycleFilePath, O_EVTONLY)
+        guard lifecycleFD >= 0 else {
+            TracingService.shared.record(
+                "statusline.cursor.lifecycle_watcher.failed",
+                attributes: cursorTraceAttributes(["reason": "open_failed"]))
+            return
+        }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: lifecycleFD,
+            eventMask: [.write, .extend],
+            queue: .global(qos: .utility)
+        )
+        source.setEventHandler { [weak self] in
+            guard let self,
+                let data = try? Data(contentsOf: URL(filePath: self.lifecycleFilePath)),
+                let payload = CursorLifecyclePayload.parse(data)
+            else { return }
+            Task { @MainActor in
+                let isWorking = payload.hookEventName == "beforeSubmitPrompt"
+                TracingService.shared.record(
+                    "statusline.cursor.lifecycle.received",
+                    attributes: self.cursorTraceAttributes([
+                        "hook_event": payload.hookEventName,
+                        "state": isWorking ? "working" : "stopped",
+                    ]))
+                self.onActivityChanged?(isWorking)
+            }
+        }
+        source.setCancelHandler { close(lifecycleFD) }
+        source.resume()
+        lifecycleSource = source
+        TracingService.shared.record(
+            "statusline.cursor.lifecycle_watcher.started",
+            attributes: cursorTraceAttributes([:]))
+    }
+
+    private func cursorTraceAttributes(_ additional: [String: String]) -> [String: String] {
+        [
+            "pane.id": paneID.uuidString,
+            "pane.name": paneName,
+            "tab.id": tabID.uuidString,
+            "tab.name": tabName,
+        ].merging(additional) { _, new in new }
     }
 
     // MARK: - Periodic Refresh
@@ -266,6 +365,18 @@ struct CursorHookPayload {
     }
 }
 
+struct CursorLifecyclePayload {
+    let hookEventName: String
+
+    static func parse(_ data: Data) -> CursorLifecyclePayload? {
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let hookEventName = dict["hook_event_name"] as? String,
+            !hookEventName.isEmpty
+        else { return nil }
+        return CursorLifecyclePayload(hookEventName: hookEventName)
+    }
+}
+
 // MARK: - Hook Setup
 
 /// Manages the user-level `~/.cursor/hooks.json` to include an `afterAgentResponse` hook
@@ -274,6 +385,7 @@ struct CursorHookPayload {
 enum CursorHookSetup {
     fileprivate static let hookScriptName = "agent-session-manager-cursor-hook.sh"
     fileprivate static let stopHookScriptName = "agent-session-manager-cursor-stop-hook.sh"
+    fileprivate static let lifecycleHookScriptName = "agent-session-manager-cursor-lifecycle-hook.sh"
 
     static var hooksDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -286,6 +398,10 @@ enum CursorHookSetup {
 
     static var stopHookScriptPath: URL {
         hooksDirectory.appending(path: stopHookScriptName)
+    }
+
+    static var lifecycleHookScriptPath: URL {
+        hooksDirectory.appending(path: lifecycleHookScriptName)
     }
 
     static var hooksConfigPath: URL {
@@ -310,7 +426,20 @@ enum CursorHookSetup {
     static let stopHookScriptContent = """
         #!/bin/bash
         if [ -n "$AGENT_SESSION_MANAGER_PANE_ID" ]; then
-          cat > "/tmp/agent-session-manager-cursor-attention-${AGENT_SESSION_MANAGER_PANE_ID}.json"
+          payload="$(cat)"
+          printf '%s' "$payload" > "/tmp/agent-session-manager-cursor-attention-${AGENT_SESSION_MANAGER_PANE_ID}.json"
+          printf '%s' "$payload" > "/tmp/agent-session-manager-cursor-lifecycle-${AGENT_SESSION_MANAGER_PANE_ID}.json"
+        else
+          cat > /dev/null
+        fi
+        exit 0
+
+        """
+
+    static let lifecycleHookScriptContent = """
+        #!/bin/bash
+        if [ -n "$AGENT_SESSION_MANAGER_PANE_ID" ]; then
+          cat > "/tmp/agent-session-manager-cursor-lifecycle-${AGENT_SESSION_MANAGER_PANE_ID}.json"
         else
           cat > /dev/null
         fi
@@ -324,6 +453,10 @@ enum CursorHookSetup {
 
     static let stopHookEntry: [String: Any] = [
         "command": "./hooks/\(stopHookScriptName)"
+    ]
+
+    static let lifecycleHookEntry: [String: Any] = [
+        "command": "./hooks/\(lifecycleHookScriptName)"
     ]
 
     fileprivate static func writeScript(at path: URL, content: String) throws {

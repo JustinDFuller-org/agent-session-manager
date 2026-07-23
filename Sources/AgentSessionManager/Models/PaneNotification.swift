@@ -5,6 +5,7 @@ enum NotificationKind: String, Codable {
     case prMerged
     case prClosed
     case claudeStop
+    case cursorStop
     case opencodeStop
     case opencodePermissionRequest
 }

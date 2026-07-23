@@ -118,6 +118,15 @@ struct PaneView: View {
                 pane.statusLineMonitor?.writeSettingsFile()
             }
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .agentSessionManagerCursorNotificationSettingChanged)
+        ) { _ in
+            if pane.harness == .cursor {
+                pane.statusLineMonitor?.configureCursorAttentionWatcher(
+                    enabled: appSettings.isCursorNotificationHookAttentionEnabled)
+            }
+        }
         .accessibilityElement(children: .contain)
     }
 
@@ -161,7 +170,7 @@ struct PaneView: View {
 
     @ViewBuilder
     private var paneHeaderLabel: some View {
-        let pendingNotification = appState.notifications.first { $0.paneID == pane.id && $0.kind != .claudeStop }
+        let pendingNotification = appState.notifications.first { $0.paneID == pane.id }
         let label = HStack(spacing: 6) {
             let hasNotification = pendingNotification != nil
             let activityState =
@@ -169,8 +178,10 @@ struct PaneView: View {
                 ?? paneActivityState(
                     processState: pane.terminalController?.processState,
                     isWorking: (pane.statusLineMonitor?.isClaudeWorking ?? false)
+                        || (pane.statusLineMonitor?.isCursorWorking ?? false)
                         || (pane.statusLineMonitor?.isOpenCodeWorking ?? false),
-                    isStopped: pane.statusLineMonitor?.isClaudeStopped ?? false,
+                    isStopped: (pane.statusLineMonitor?.isClaudeStopped ?? false)
+                        || (pane.statusLineMonitor?.isCursorStopped ?? false),
                     sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
                     hasNotification: hasNotification
                 )
