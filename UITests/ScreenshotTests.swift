@@ -224,6 +224,7 @@ final class ScreenshotTests: BaseTestCase {
         debugTab.click()
         screenshot("settings-debug")
         app.typeKey("w", modifierFlags: .command)
+        waitForDisappear(settingsWindow)
     }
 
     private func captureStatusIndicators() {
