@@ -122,6 +122,7 @@ final class ScreenshotTests: BaseTestCase {
         waitFor(shellPicker)
         screenshot("onboarding-shell")
         app.buttons["onboarding-shell-continue-button"].click()
+        waitForDisappear(shellPicker, timeout: 10)
 
         let doneButton = app.buttons["onboarding-done-button"]
         waitFor(doneButton, timeout: 10)
