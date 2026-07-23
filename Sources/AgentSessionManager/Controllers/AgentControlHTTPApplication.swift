@@ -290,7 +290,7 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
         return HTTPRequest(
             method: head.method.rawValue,
             headers: headers,
-            body: bytes.map(Data.init),
+            body: bytes.map { Data($0) },
             path: head.uri.split(separator: "?").first.map(String.init)
         )
     }

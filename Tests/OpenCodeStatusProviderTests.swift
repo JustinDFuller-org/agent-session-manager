@@ -80,6 +80,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             (true, "1.17.20"))
         nonisolated(unsafe) var sessions: [OpenCodeSession] = []
         nonisolated(unsafe) var sessionsByID: [String: OpenCodeSession] = [:]
+        nonisolated(unsafe) var sessionRequestCount = 0
         nonisolated(unsafe) var renameRequests: [(id: String, title: String)] = []
         nonisolated(unsafe) var renamedSessions: [String: OpenCodeSession] = [:]
         nonisolated(unsafe) var eventStream: Result<AsyncThrowingStream<OpenCodeEvent, Error>, Error>?
@@ -94,6 +95,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         }
 
         func session(_ id: String) async throws -> OpenCodeSession {
+            sessionRequestCount += 1
             guard let session = sessionsByID[id] else {
                 throw OpenCodeServerClientError.unexpectedStatus(404)
             }
@@ -533,6 +535,8 @@ final class OpenCodeStatusProviderTests: XCTestCase {
 
         wait(for: [expectation], timeout: 5)
         provider.stop()
+
+        XCTAssertGreaterThanOrEqual(client.sessionRequestCount, 2)
     }
 
     func testProviderFiresOnSessionBound() throws {
