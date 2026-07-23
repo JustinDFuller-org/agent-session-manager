@@ -755,6 +755,12 @@ final class Tab: Identifiable {
     }
 
     func closePane(_ pane: Pane) {
+        AgentControlService.shared.revoke(
+            paneID: pane.id,
+            paneName: pane.name,
+            tabID: id,
+            tabName: name
+        )
         if focusedPaneID == pane.id {
             setFocusedPane(id: nil, reason: "focused_pane_closed")
         }

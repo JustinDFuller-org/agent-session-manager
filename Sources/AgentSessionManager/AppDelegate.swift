@@ -46,6 +46,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.showWindow(nil)
         mainWindow = window
         mainWindowController = controller
+        Task { @MainActor in
+            await AgentControlService.shared.start()
+        }
 
         NotificationCenter.default.addObserver(
             forName: .toggleSettings, object: nil, queue: .main
@@ -79,6 +82,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         WindowSnapshot.record(event: "app.did_finish_launching")
         #endif
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task { @MainActor in
+            await AgentControlService.shared.stop()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func focusMainWindow() {

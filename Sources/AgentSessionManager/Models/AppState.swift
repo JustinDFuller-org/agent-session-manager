@@ -55,6 +55,12 @@ final class AppState {
     func closeTab(_ tab: Tab) {
         let paneIDs = Set(tab.panes.map(\.id))
         for pane in tab.panes {
+            AgentControlService.shared.revoke(
+                paneID: pane.id,
+                paneName: pane.name,
+                tabID: tab.id,
+                tabName: tab.name
+            )
             pane.terminalController?.terminate()
             pane.installTerminalController(nil)
             pane.removeStatusLineMonitor()

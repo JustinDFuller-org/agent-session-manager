@@ -1,6 +1,6 @@
 import Foundation
 
-enum AgentControlInjectionPolicy: String, Codable, CaseIterable {
+enum AgentControlInjectionPolicy: String, Codable, CaseIterable, Sendable {
     case always
     case never
     case askOn = "ask_on"
@@ -38,7 +38,7 @@ enum AgentControlInjectionPolicy: String, Codable, CaseIterable {
     }
 }
 
-enum AgentControlScope: String, Codable, CaseIterable {
+enum AgentControlScope: String, Codable, CaseIterable, Sendable {
     case pane
     case tab
     case global

@@ -270,10 +270,10 @@ Each item is intended to be a separate implementation session.
      and isolated Dev reset coverage.
 
 3. **MCP lifecycle and security**
-   - Implement the app-owned listener and service lifecycle.
+   - Implement the app-owned listener and service lifecycle. [in progress]
    - Implement token registration, scope authorization, request validation,
-     bounded output, cancellation, and revocation.
-   - Add MCP protocol tests and runtime telemetry.
+     bounded output, cancellation, and revocation. [in progress]
+   - Add MCP protocol tests and runtime telemetry. [in progress]
 
 4. **Read-only resources**
    - Add scoped snapshots for tabs, panes, profiles, harness settings,
@@ -340,11 +340,10 @@ Roadmap item 2 is implemented as a transport-independent foundation:
 
 ### Feasibility spike record
 
-The first implementation session is intentionally research-only. It must not
-add an MCP dependency to the main package, add production control-service code,
-change settings or session schemas, or write repository and global-user MCP
-configuration. Temporary probes belong under an ignored temporary directory and
-must remove their files, processes, and tokens before they finish.
+The feasibility spike was research-only. Its protocol and toolchain evidence
+is retained below; the implementation that follows is the separate lifecycle
+phase. Temporary probes belong under an ignored temporary directory and must
+remove their files, processes, and tokens before they finish.
 
 #### Baseline captured on 2026-07-22
 
@@ -360,12 +359,38 @@ must remove their files, processes, and tokens before they finish.
 
 The SDK candidate resolved and imported successfully in an isolated macOS 14
 package using Swift tools 6.1 when compiled by the installed Swift 6.4
-compiler. The repository now matches that requirement without adding the SDK
-dependency yet. SwiftPM's tools version is a manifest compatibility floor; the
+compiler. SwiftPM's tools version is a manifest compatibility floor; the
 host's installed Swift 6.4 compiler remains the version used to build the
 project. The app and UI-test targets now use Swift 6 language mode. Third-party
 packages continue to compile in their own declared language modes, so package
 updates are validated independently from the app's concurrency migration.
+
+### MCP lifecycle and security implementation record
+
+The lifecycle phase now has an app-owned baseline implementation:
+
+- Swift MCP 0.12.1 and SwiftNIO are pinned in the package and Xcode project;
+  the listener binds only to an ephemeral port on `127.0.0.1` at `/mcp`.
+- `AgentControlService` owns start, stop, runtime-only credential registration,
+  and shutdown cleanup. The app starts it before session restoration and stops
+  it during application termination.
+- Credentials are 256-bit random bearer tokens. Only SHA-256 hashes are kept
+  in memory, credentials are never persisted, and pane or tab teardown revokes
+  the associated token and MCP sessions.
+- Requests require the exact loopback Host, an exact loopback Origin when an
+  Origin header is supplied, a bearer token, a bounded body, an MCP session
+  binding, and a per-credential concurrency limit. Responses are bounded and
+  requests have a cancellation-aware timeout.
+- Runtime spans cover listener start and stop, credential registration and
+  revocation, timeout, stream failure, and response-limit failures. Tokens,
+  request bodies, and terminal content are excluded from telemetry.
+- Unit and protocol-boundary tests cover concurrency, revocation, host and
+  Origin rejection, loopback binding, and unauthorized initialization.
+
+Scope-aware resources and tools remain the next implementation gate. The
+current service carries the configured scope with each credential and exposes
+the authorization boundary needed by those handlers; no resource or mutation
+endpoint is exposed until its scope checks are implemented and tested.
 
 #### Streamable HTTP result
 
