@@ -12,15 +12,15 @@ final class AgentControlFlowTests: BaseTestCase {
         waitFor(policyPicker)
         waitFor(scopePicker)
 
-        policyPicker.click()
-        let askOff = app.menuItems["Ask (off by default)"]
-        waitFor(askOff)
-        askOff.click()
-
-        scopePicker.click()
-        let tabScope = app.menuItems["Tab"]
+        let tabScope = app.descendants(matching: .any)
+            .matching(identifier: "settings-agent-control-scope-option-tab").firstMatch
         waitFor(tabScope)
         tabScope.click()
+
+        policyPicker.click()
+        let askOff = policyPicker.menuItems["Ask (off by default)"]
+        waitFor(askOff)
+        askOff.click()
         app.typeKey("w", modifierFlags: .command)
 
         createTab(named: "ControlTab")
@@ -53,7 +53,7 @@ final class AgentControlFlowTests: BaseTestCase {
         waitFor(policyPicker)
 
         policyPicker.click()
-        let always = app.menuItems["Always"]
+        let always = policyPicker.menuItems["Always"]
         waitFor(always)
         always.click()
         app.typeKey("w", modifierFlags: .command)

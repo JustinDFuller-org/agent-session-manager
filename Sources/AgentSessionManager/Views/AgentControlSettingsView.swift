@@ -31,7 +31,9 @@ struct AgentControlSettingsSection: View {
             ) {
                 Picker("Scope", selection: $appSettings.agentControlScope) {
                     ForEach(AgentControlScope.allCases, id: \.self) { scope in
-                        Text(scope.displayName).tag(scope)
+                        Text(scope.displayName)
+                            .tag(scope)
+                            .accessibilityIdentifier("settings-agent-control-scope-option-\(scope.rawValue)")
                     }
                 }
                 .pickerStyle(.segmented)
