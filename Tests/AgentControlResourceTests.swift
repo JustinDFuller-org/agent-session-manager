@@ -65,6 +65,109 @@ final class AgentControlResourceTests: XCTestCase {
         XCTAssertFalse(profiles.contains("runtime-secret"))
     }
 
+    func testAllReadOnlyResourcesAndTemplatesRespectScope() async throws {
+        let fixture = makeFixture()
+        defer { stopPanes(in: fixture.state) }
+        fixture.state.notifications = [
+            PaneNotification(
+                paneID: fixture.paneID,
+                paneName: "First Pane",
+                tabID: fixture.tabID,
+                tabName: fixture.firstTabName,
+                isPriority: true,
+                reason: "Needs attention"),
+            PaneNotification(
+                paneID: fixture.otherPaneID,
+                paneName: "Second Pane",
+                tabID: fixture.tabID,
+                tabName: fixture.firstTabName,
+                isPriority: false,
+                reason: "Second attention"),
+        ]
+
+        let sources = [fixture.paneSource, fixture.tabSource, fixture.globalSource]
+        for source in sources {
+            let profiles = try await fixture.router.read(
+                uri: AgentControlResourceURI.profiles.rawValue, source: source)
+            XCTAssertTrue(profiles.contains("Secret Profile"))
+            XCTAssertFalse(profiles.contains("secret-value"))
+            XCTAssertFalse(profiles.contains("runtime-secret"))
+
+            let harnesses = try await fixture.router.read(
+                uri: AgentControlResourceURI.harnesses.rawValue, source: source)
+            let harnessSnapshots = try JSONDecoder().decode(
+                [AgentControlHarnessSnapshot].self, from: Data(harnesses.utf8))
+            XCTAssertEqual(harnessSnapshots.count, Harness.allCases.count)
+            XCTAssertFalse(harnesses.contains("secret-value"))
+
+            let statusLines = try await fixture.router.read(
+                uri: AgentControlResourceURI.statusLines.rawValue, source: source)
+            let statusSnapshot = try JSONDecoder().decode(
+                AgentControlStatusLineSnapshot.self, from: Data(statusLines.utf8))
+            let expectedPaneCount: Int
+            switch source.scope {
+            case .pane: expectedPaneCount = 1
+            case .tab: expectedPaneCount = 2
+            case .global: expectedPaneCount = 3
+            }
+            XCTAssertEqual(statusSnapshot.panes.count, expectedPaneCount)
+
+            let notifications = try await fixture.router.read(
+                uri: AgentControlResourceURI.notifications.rawValue, source: source)
+            let notificationSnapshots = try JSONDecoder().decode(
+                [AgentControlNotificationSnapshot].self, from: Data(notifications.utf8))
+            switch source.scope {
+            case .pane: XCTAssertEqual(notificationSnapshots.count, 1)
+            case .tab, .global: XCTAssertEqual(notificationSnapshots.count, 2)
+            }
+        }
+
+        _ = try await fixture.router.read(
+            uri: AgentControlResourceURI.profile(fixture.profileID).rawValue,
+            source: fixture.paneSource)
+        _ = try await fixture.router.read(
+            uri: AgentControlResourceURI.tab(fixture.tabID).rawValue,
+            source: fixture.paneSource)
+        _ = try await fixture.router.read(
+            uri: AgentControlResourceURI.pane(fixture.otherPaneID).rawValue,
+            source: fixture.tabSource)
+        _ = try await fixture.router.read(
+            uri: AgentControlResourceURI.paneStatus(fixture.otherPaneID).rawValue,
+            source: fixture.tabSource)
+
+        for uri in [
+            AgentControlResourceURI.tab(UUID()).rawValue,
+            AgentControlResourceURI.pane(UUID()).rawValue,
+            AgentControlResourceURI.profile(UUID()).rawValue,
+            AgentControlResourceURI.paneStatus(UUID()).rawValue,
+        ] {
+            do {
+                _ = try await fixture.router.read(uri: uri, source: fixture.globalSource)
+                XCTFail("Stale resource IDs must be rejected: \(uri)")
+            } catch {
+                XCTAssertTrue(error is MCPError)
+            }
+        }
+
+        do {
+            _ = try await fixture.router.read(
+                uri: AgentControlResourceURI.pane(fixture.otherPaneID).rawValue,
+                source: fixture.paneSource)
+            XCTFail("Pane scope must not read another pane's resource")
+        } catch {
+            XCTAssertTrue(error is MCPError)
+        }
+
+        do {
+            _ = try await fixture.router.read(
+                uri: AgentControlResourceURI.paneStatus(fixture.otherPaneID).rawValue,
+                source: fixture.paneSource)
+            XCTFail("Pane scope must not read another pane's status")
+        } catch {
+            XCTAssertTrue(error is MCPError)
+        }
+    }
+
     func testResourceDiscoveryAndReadThroughMCPClient() async throws {
         let fixture = makeFixture()
         defer { stopPanes(in: fixture.state) }
@@ -168,6 +271,7 @@ final class AgentControlResourceTests: XCTestCase {
         let tabID: UUID
         let paneID: UUID
         let otherPaneID: UUID
+        let profileID: UUID
         let firstTabName: String
     }
 
@@ -219,6 +323,7 @@ final class AgentControlResourceTests: XCTestCase {
             tabID: firstTab.id,
             paneID: firstPane.id,
             otherPaneID: secondPane.id,
+            profileID: profile.id,
             firstTabName: firstTab.name)
     }
 

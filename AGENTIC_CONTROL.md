@@ -278,7 +278,7 @@ Each item is intended to be a separate implementation session.
 4. **Read-only resources**
    - Add scoped snapshots for tabs, panes, profiles, harness settings,
      status lines, and notifications.
-   - Verify structured output, redaction, stale IDs, and scope boundaries. [in progress]
+   - Verify structured output, redaction, stale IDs, and scope boundaries. [implemented]
 
 5. **Diagnostics and observability**
    - Add scoped diagnostic DTOs and resources for summaries, traces, invariants,
@@ -521,6 +521,22 @@ Resource discovery, URI parsing, scope filtering, redaction, and an end-to-end
 MCP client read are covered by `AgentControlResourceTests`. Resource reads emit
 bounded `agent_control.resource.read` telemetry with source context and result
 metadata, without request payloads or credentials.
+
+The read-only resource phase is complete:
+
+- Collection resources and stable-ID templates are covered across pane, tab, and
+  global callers, including workspace, profiles, harness catalogs, status lines,
+  notifications, tabs, panes, profiles, and pane status data.
+- Scope enforcement remains in the resource router. Pane callers see only their
+  own pane, tab callers see every pane in their tab, and global callers see the
+  full workspace. Stale and cross-scope IDs return structured MCP errors.
+- Profile and runtime environment values, tokens, terminal content, and harness
+  output are excluded from snapshots and resource-read telemetry.
+- Resource tests cover discovery, MCP-client reads, scope boundaries,
+  redaction, stale IDs, notification visibility, status visibility, and
+  bounded resource-read telemetry. The test bundle compiles successfully with
+  the repository's Swift 6 toolchain; local XCTest execution is currently
+  blocked by the host test runner loading the arm64 bundle as x86_64.
 
 ### Harness injection implementation record
 
