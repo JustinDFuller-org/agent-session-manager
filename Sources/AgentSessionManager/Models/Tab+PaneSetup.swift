@@ -131,6 +131,9 @@ extension Tab {
             controller.terminalView.telemetryTabUUID = self.id
             controller.terminalView.telemetryPaneName = pane.name
             controller.terminalView.telemetryPaneUUID = pane.id
+            guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
+                return
+            }
             pane.installTerminalController(controller)
         }
         pane.setupState = nil

@@ -197,6 +197,8 @@ struct ContentView: View {
                 }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
+                await AgentControlService.shared.configure(appState: appState, appSettings: appSettings)
+                await AgentControlService.shared.start()
                 UpdateCheckCoordinator.shared.start()
                 if let bundleIdentifier = Bundle.main.bundleIdentifier {
                     BundleIdentityVerifier.checkPreferredURL(

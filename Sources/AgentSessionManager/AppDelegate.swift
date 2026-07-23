@@ -46,11 +46,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.showWindow(nil)
         mainWindow = window
         mainWindowController = controller
-        Task { @MainActor in
-            await AgentControlService.shared.configure(appState: appState, appSettings: appSettings)
-            await AgentControlService.shared.start()
-        }
-
         NotificationCenter.default.addObserver(
             forName: .toggleSettings, object: nil, queue: .main
         ) { [weak self] _ in

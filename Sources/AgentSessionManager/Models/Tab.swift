@@ -566,6 +566,10 @@ final class Tab: Identifiable {
                     controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars,
                     resumeSessionID: pane.opencodeSessionID, harness: harness)
             }
+            guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
+                panes.append(pane)
+                return pane
+            }
             pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
             controller.terminalView.telemetryTabUUID = self.id
@@ -607,6 +611,8 @@ final class Tab: Identifiable {
             new.pendingCommandArgs = old.pendingCommandArgs
         }
 
+        guard prepareAgentControl(for: pane, controller: new, appSettings: launchSettings) else { return }
+
         old.terminate()
         pane.installTerminalController(new)
         pane.restartToken = UUID()
@@ -626,6 +632,7 @@ final class Tab: Identifiable {
                 pane.agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
                     persistedDecision: pane.agentControlInjectionEnabled)
             }
+            pane.harness = harness
             old.terminate()
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             let controller = TerminalController()
@@ -681,7 +688,10 @@ final class Tab: Identifiable {
                     resumeSessionID: pane.opencodeSessionID, harness: harness)
             }
 
-            pane.harness = harness
+            guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
+                return
+            }
+
             pane.extraArgs = extraArgs
             pane.extraEnvVars = extraEnvVars
             pane.installTerminalController(controller)
@@ -735,6 +745,7 @@ final class Tab: Identifiable {
                 hookScriptPath: monitor.codexHookScriptFilePath,
                 extraArgs: pane.extraArgs)
         }
+        guard prepareAgentControl(for: pane, controller: new, appSettings: pane.appSettings) else { return }
         pane.installTerminalController(new)
         pane.restartToken = UUID()
     }

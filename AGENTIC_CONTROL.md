@@ -297,7 +297,8 @@ Each item is intended to be a separate implementation session.
      OpenCode, followed by Codex and Cursor.
    - Verify that disabled or declined injection produces no MCP configuration.
    - Verify that enabled injection is prepared before process launch and does
-     not print app plumbing in the terminal.
+     not print app plumbing in the terminal. [implemented for Claude Code,
+     OpenCode, and Codex; Cursor remains explicitly unsupported]
 
 7. **Tab and pane mutations**
    - Add creation, deletion, focus, restart, and reordering tools.
@@ -416,6 +417,33 @@ Resource discovery, URI parsing, scope filtering, redaction, and an end-to-end
 MCP client read are covered by `AgentControlResourceTests`. Resource reads emit
 bounded `agent_control.resource.read` telemetry with source context and result
 metadata, without request payloads or credentials.
+
+### Harness injection implementation record
+
+Harness preparation now runs in the app-owned launch path for pane creation,
+restore, restart, refresh, and continue flows. When injection is enabled, the
+app registers a fresh runtime-only credential, passes the bearer through
+`AGENT_SESSION_MANAGER_MCP_TOKEN`, and revokes the credential if adapter
+preparation fails. The token is never placed in command arguments, persisted
+session state, terminal output, or telemetry.
+
+Claude Code receives an inline HTTP MCP configuration through `--mcp-config`,
+with the bearer header referring to the runtime environment variable. OpenCode
+extends its existing `OPENCODE_CONFIG_CONTENT` JSON with a remote MCP server,
+`oauth: false`, and the same environment reference. Codex receives ephemeral
+`-c` overrides for the URL, enabled state, and bearer environment variable; no
+Codex configuration file is written. Existing OpenCode safety settings and
+user-provided environment values remain in the launch environment.
+
+Cursor injection is intentionally blocked until a supported per-pane
+configuration surface exists. The pane setup error explains how to recover by
+disabling injection or selecting another harness. Disabled injection revokes
+any prior credential and leaves the harness command and environment unchanged.
+
+The shared preparation path emits bounded, pane-scoped
+`agent_control.harness.prepare` telemetry with only harness, result, and
+identity metadata. Adapter serialization and the Cursor unsupported result are
+covered by `AgentControlHarnessInjectionTests`.
 
 ### Diagnostics and observability implementation record
 
