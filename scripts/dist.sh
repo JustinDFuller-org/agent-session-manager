@@ -12,7 +12,8 @@
 # Prerequisites (one-time):
 #   - Developer ID Application certificate installed in Keychain.
 #   - App-specific password created at appleid.apple.com.
-#   - xcrun notarytool store-credentials "AC_NOTARY" --apple-id ... --team-id ... --password ...
+#   - Either a local "AC_NOTARY" keychain profile, or AC_NOTARY_APPLE_ID and
+#     AC_NOTARY_PASSWORD environment variables for CI.
 set -euo pipefail
 
 readonly DEV_IDENTITY="Developer ID Application: Justin Fuller (CX2KMQZQ7X)"
@@ -121,8 +122,18 @@ main() {
     -o "$dmg_path" >/dev/null
 
   info "Submitting DMG to Apple for notarization"
+  local -a notary_credentials
+  if [[ -n "${AC_NOTARY_APPLE_ID:-}" && -n "${AC_NOTARY_PASSWORD:-}" ]]; then
+    notary_credentials=(
+      --apple-id "$AC_NOTARY_APPLE_ID"
+      --team-id "$TEAM_ID"
+      --password "$AC_NOTARY_PASSWORD"
+    )
+  else
+    notary_credentials=(--keychain-profile "$NOTARY_PROFILE")
+  fi
   xcrun notarytool submit "$dmg_path" \
-    --keychain-profile "$NOTARY_PROFILE" \
+    "${notary_credentials[@]}" \
     --wait || die "DMG notarization submission failed"
 
   info "Stapling notarization ticket to DMG"

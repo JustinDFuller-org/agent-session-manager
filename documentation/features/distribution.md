@@ -85,6 +85,8 @@ The release workflow publishes the DMG to GitHub Pages after `make dist` succeed
 
 The Pages deployment contains the latest DMG and the signed Sparkle appcast. DMGs are release artifacts, not tracked Git files or Git LFS objects.
 
+For GitHub Actions releases, configure the `release` environment with `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `DEV_ID_CERTIFICATE_BASE64`, `DEV_ID_CERTIFICATE_PASSWORD`, and `SPARKLE_PRIVATE_KEY`. The Apple app-specific password is created from the Apple Account used for notarization; it is not the normal Apple Account password. Local releases may continue using the `AC_NOTARY` keychain profile.
+
 ## First-Distribution Verification Checklist
 
 - [ ] `make dist` completes without errors.

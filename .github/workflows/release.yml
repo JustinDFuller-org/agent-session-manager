@@ -27,8 +27,8 @@ jobs:
 
       - name: Build and notarize DMG
         env:
-          AC_NOTARY_KEYCHAIN_PROFILE: AC_NOTARY
-          AC_NOTARY_KEYCHAIN_PASSWORD: ${{ secrets.AC_NOTARY_KEYCHAIN_PASSWORD }}
+          AC_NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          AC_NOTARY_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: make dist
 
       - name: Generate signed Pages appcast
