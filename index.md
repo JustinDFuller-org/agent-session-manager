@@ -12,7 +12,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
     <div class="home-actions">
       <a class="button" href="{{ '/docs/' | relative_url }}">Browse documentation</a>
       <a class="button button-secondary" href="{{ '/documentation/user-guide/quickstart/' | relative_url }}">Start the quickstart</a>
-      <a class="button button-secondary" href="https://github.com/{{ site.repository }}/releases">View releases</a>
+      <a class="button button-secondary" href="{{ '/download/' | relative_url }}">Download the app</a>
     </div>
   </div>
   <img class="home-image" src="{{ '/assets/img/hero.png' | relative_url }}" alt="Agent Session Manager window showing tabs and terminal panes">
@@ -22,7 +22,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
   <p class="eyebrow">Start here</p>
   <h2>From download to your first session</h2>
   <ol>
-    <li>Download the latest DMG from <a href="https://github.com/{{ site.repository }}/releases">GitHub Releases</a>, mount it, and drag the app to <code>/Applications</code>.</li>
+    <li><a href="{{ '/download/' | relative_url }}">Download the latest DMG</a>, mount it, and drag the app to <code>/Applications</code>.</li>
     <li>Launch the app, then create a tab with <kbd>⌘T</kbd> and a pane with <kbd>⌘P</kbd>.</li>
     <li>Choose an agent tool and session name in the <strong>New Pane</strong> sheet.</li>
     <li>Use <strong>Settings</strong> to configure <strong>Harnesses</strong>, profiles, status information, and notifications.</li>

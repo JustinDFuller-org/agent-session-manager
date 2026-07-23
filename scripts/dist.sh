@@ -22,6 +22,8 @@ readonly ENTITLEMENTS_FILENAME="AgentSessionManager.entitlements"
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=scripts/release-config.sh
+source "$repo_root/scripts/release-config.sh"
 
 info() { echo "==> $*"; }
 error() { echo "ERROR: $*" >&2; }
@@ -84,7 +86,7 @@ main() {
     local public_key
     public_key=$(cat "$sparkle_public_key_file")
     /usr/libexec/PlistBuddy -c "Delete :SUFeedURL" "$info_plist" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://justinfuller.github.io/agent-session-manager/appcast.xml" "$info_plist"
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $PUBLIC_APPCAST_URL" "$info_plist"
     /usr/libexec/PlistBuddy -c "Delete :SUPublicEdKey" "$info_plist" 2>/dev/null || true
     /usr/libexec/PlistBuddy -c "Add :SUPublicEdKey string $public_key" "$info_plist"
   else
@@ -145,10 +147,6 @@ main() {
   }
 
   hdiutil detach "$mount_point" >/dev/null || die "failed to unmount DMG after validation"
-
-  info "Updating appcast.xml"
-  "$repo_root/scripts/update-appcast.sh" "$dmg_path" "$version_short" "$version_build" || \
-    info "appcast update skipped or failed"
 
   echo
   echo "Distribution ready:"

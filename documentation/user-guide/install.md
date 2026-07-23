@@ -12,7 +12,7 @@ The first-launch setup wizard helps Agent Session Manager prepare the shell and 
 ## Before you start
 
 - Use a Mac running macOS 14 or later.
-- Download a release DMG from [GitHub Releases](https://github.com/JustinDFuller/agent-session-manager/releases).
+- Download the latest DMG from [Download]({{ '/download/' | relative_url }}).
 - Have at least one supported agent tool installed if you want to create an agent pane immediately.
 
 ## How to install it

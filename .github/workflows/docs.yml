@@ -25,3 +25,6 @@ jobs:
 
       - name: Validate documentation
         run: make docs-check
+
+      - name: Validate release publication contract
+        run: scripts/test-release-publishing.sh

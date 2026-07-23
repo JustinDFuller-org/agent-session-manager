@@ -185,6 +185,16 @@ Reviewers should verify the copy against the current UI and source, confirm that
 - [x] Document GitHub pull-request resolution actions, polling controls, update reminders, and notification persistence.
 - [x] Correct persisted tab-directory restoration for paths containing spaces and add regression coverage before describing restart restoration as reliable.
 
+### Public release delivery
+
+The repository is private, so public installation must not depend on GitHub Release pages or authenticated repository access. Release DMGs are staged by GitHub Actions and published through the public GitHub Pages deployment; they are never committed to Git or stored with Git LFS.
+
+- [ ] Publish the latest notarized DMG and signed Sparkle appcast through GitHub Pages.
+- [ ] Add a public download page and remove private GitHub Release links from the homepage and installation guide.
+- [ ] Move Pages publication from the legacy branch source to the GitHub Actions deployment workflow.
+- [ ] Keep documentation-only Pages deployments from removing the current DMG or appcast.
+- [ ] Verify anonymous DMG download, Gatekeeper validation, Sparkle update discovery, and private-repository preservation after a real tagged release.
+
 ### Screenshot audit and maintenance
 
 Public screenshots are selective evidence, not decoration. Keep an image when it helps a reader identify a control, understand the workspace relationship, or recognize a visible result. Prefer tables and symptom-led text for shortcuts, restart behavior, individual tool differences, pull-request prerequisites, and troubleshooting.

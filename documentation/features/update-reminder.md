@@ -30,14 +30,14 @@ The same indicator is also surfaced in Settings → About.
 
 ## DMG Builds
 
-`DMGReleaseDetector` hosts a Sparkle `SPUUpdater`. It reads `SUFeedURL` and `SUFeedPublicEdKey` from `Info.plist` and checks the public `appcast.xml` at the configured GitHub Pages URL.
+`DMGReleaseDetector` hosts a Sparkle `SPUUpdater`. It reads `SUFeedURL` and `SUPublicEdKey` from `Info.plist` and checks the public `appcast.xml` at the configured GitHub Pages URL. Released DMGs do not require access to the private repository.
 
 Release signing uses EdDSA:
 
 - `scripts/generate-sparkle-keys.sh` creates `sparkle_private.pem` and `sparkle_public.pem` once per release machine.
 - `scripts/sign-update.sh` signs the DMG before upload.
-- `scripts/update-appcast.sh` appends the signed item to `appcast.xml`.
-- `scripts/dist.sh` wires all three into `make dist`.
+- `scripts/update-appcast.sh` generates the signed item for the Pages deployment.
+- `.github/workflows/release.yml` publishes the DMG and appcast through GitHub Pages.
 
 Do not commit `sparkle_private.pem`.
 

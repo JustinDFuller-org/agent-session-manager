@@ -17,7 +17,7 @@ Use this guide when Agent Session Manager cannot update, find an agent tool, sta
 2. Choose **Check for Updates**.
 3. If no update is found, confirm that the Mac is connected to the internet and try again later.
 
-The update path depends on how Agent Session Manager was installed. A release DMG can download and install a newer release. A source-built copy reports newer changes from its source checkout and does not install them automatically.
+The update path depends on how Agent Session Manager was installed. A release DMG can download and install a newer release from the public update feed. A source-built copy reports newer changes from its source checkout and does not install them automatically.
 
 ### An update is available for a release DMG
 
@@ -30,6 +30,8 @@ Open **Settings → About** and follow the displayed source-update instruction. 
 ### Control update reminders
 
 In **Settings → About**, use **Update Reminder** to show or hide the tab-bar reminder. For a source-built copy, the reminder reports a newer commit on GitHub `main`; for a release DMG, it reports a newer DMG release.
+
+If you need to install manually, use [Download]({{ '/download/' | relative_url }}).
 
 ## macOS permission prompts
 

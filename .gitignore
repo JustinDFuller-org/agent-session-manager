@@ -150,6 +150,7 @@ AgentSessionManager.app/
 AgentSessionManagerDev.app/
 AgentSessionManager.xcodeproj/
 *.dmg
+# DMGs are release artifacts staged in GitHub Actions and GitHub Pages, never Git files.
 
 # macOS
 .DS_Store

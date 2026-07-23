@@ -11,6 +11,7 @@ bundle exec jekyll build --destination "$site_dir" --trace
 
 bundle exec htmlproofer "$site_dir" \
   --disable-external \
+  --ignore-urls '/downloads/AgentSessionManager-latest.dmg' \
   --directory-index-file index.html
 
 external_urls=$(rg -g '*.html' -o --no-filename 'https?://[^"< ]+' "$site_dir" 2>/dev/null | sed 's/[),.]$//' | sort -u || true)

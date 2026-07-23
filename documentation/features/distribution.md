@@ -1,6 +1,6 @@
 # Distribution
 
-Agent Session Manager is distributed as a **notarized Developer ID-signed DMG** hosted on GitHub Releases. It is not distributed through the Mac App Store or TestFlight for macOS.
+Agent Session Manager is distributed as a **notarized Developer ID-signed DMG** hosted on the public GitHub Pages site. A private GitHub Release is also created for maintainer archives. It is not distributed through the Mac App Store or TestFlight for macOS.
 
 ## Why Not the Mac App Store or TestFlight
 
@@ -77,17 +77,13 @@ Before the first `make dist`, set up:
 
 These credentials are stored locally and never committed to the repository.
 
-## Releasing to Friends
+## Publishing a Release
 
-After `make dist` succeeds:
+The release workflow publishes the DMG to GitHub Pages after `make dist` succeeds. It also creates a private GitHub Release for maintainers. The public download page is:
 
-```bash
-git tag v0.0.1
-git push origin v0.0.1
-gh release create v0.0.1 AgentSessionManager-0.0.1-*.dmg --generate-notes
-```
+[https://agent-session-manager.justindfuller.com/download/](https://agent-session-manager.justindfuller.com/download/)
 
-Send your friends the GitHub Release URL. They can download the DMG, mount it, drag the app to `/Applications`, and double-click to launch with no Gatekeeper warning.
+The Pages deployment contains the latest DMG and the signed Sparkle appcast. DMGs are release artifacts, not tracked Git files or Git LFS objects.
 
 ## First-Distribution Verification Checklist
 
@@ -106,8 +102,8 @@ Released DMG builds check for new versions using Sparkle against a public `appca
 
 - Strips `ASMSource*` keys from `Info.plist` and writes `ASMDistributionChannel` = `dmg`.
 - Injects the public Sparkle EdDSA key into `Info.plist` as `SUFeedPublicEdKey`.
-- Writes the Sparkle feed URL into `Info.plist` as `SUFeedURL`.
-- Signs the release DMG with the private EdDSA key and appends the resulting item to `appcast.xml`.
+- Writes the public Pages feed URL into `Info.plist` as `SUFeedURL`.
+- The release workflow signs the DMG with the private EdDSA key and publishes the resulting item to the Pages-hosted `appcast.xml`.
 
 Source / development builds never set `ASMDistributionChannel`, so `UpdateCheckCoordinator` routes them to `MainBranchUpdateDetector` and `DMGReleaseDetector` is never initialized.
 
