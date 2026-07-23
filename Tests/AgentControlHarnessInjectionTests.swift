@@ -42,7 +42,8 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
     }
 
     func testOpenCodeMergesRemoteServerIntoExistingInlineConfig() throws {
-        let existing = "{\"share\":\"manual\",\"permission\":{\"*\":\"ask\"}}"
+        let existing =
+            "{\"share\":\"manual\",\"permission\":{\"*\":\"ask\"},\"mcp\":{\"local-server\":{\"type\":\"remote\",\"url\":\"http://127.0.0.1:9999/mcp\"}}}"
         let context = AgentControlHarnessLaunchContext(
             endpoint: endpoint,
             tokenEnvironmentKey: tokenKey,
@@ -60,6 +61,8 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertEqual(mcp["type"] as? String, "remote")
         XCTAssertEqual(mcp["oauth"] as? Bool, false)
         XCTAssertTrue((mcp["headers"] as! [String: String])["Authorization"]!.contains(tokenKey))
+        let existingMCP = (config["mcp"] as! [String: Any])["local-server"] as! [String: Any]
+        XCTAssertEqual(existingMCP["url"] as? String, "http://127.0.0.1:9999/mcp")
         XCTAssertEqual(config["share"] as? String, "manual")
     }
 

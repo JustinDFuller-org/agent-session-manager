@@ -360,10 +360,12 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                 context.flush()
             }
             var responseBytes = 0
+            var responseTooLarge = false
             do {
                 for try await chunk in stream {
                     responseBytes += chunk.count
                     guard responseBytes <= limits.maxResponseBodyBytes else {
+                        responseTooLarge = true
                         TracingService.shared.record(
                             "agent_control.request.response_too_large", attributes: ["result": "rejected"])
                         break
@@ -381,7 +383,14 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                 TracingService.shared.record(
                     "agent_control.request.stream_failed", attributes: ["result": "failed"])
             }
-            eventLoop.execute { context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil) }
+            let streamExceededLimit = responseTooLarge
+            eventLoop.execute {
+                if streamExceededLimit {
+                    context.close(promise: nil)
+                } else {
+                    context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
+                }
+            }
         default:
             let responseBody = response.bodyData
             let responseTooLarge = responseBody.map { $0.count > limits.maxResponseBodyBytes } ?? false

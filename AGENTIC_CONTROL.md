@@ -423,6 +423,43 @@ mutation router:
   shared notification acknowledgement behavior, tool discovery, and sidebar
   acknowledgement.
 
+### Parity, documentation, and hardening record
+
+Roadmap item 10 is implemented as the parity and hardening closeout:
+
+- `documentation/features/agentic-control.md` documents the app-owned MCP
+  surface, policy and scope behavior, supported harness adapters, security
+  guarantees, diagnostics, and Dev troubleshooting.
+- `.agents/skills/feature-agentic-control/SKILL.md` and the `AGENTS.md` feature
+  entry make the guide discoverable for future Agent Session Manager work.
+- `agent-harness-feature-matrix.md` now audits Agent Control across harnesses,
+  including the intentionally unsupported Cursor injection path.
+- The tracing span catalog includes resource reads, mutations, and harness
+  preparation alongside the existing lifecycle, authorization, and diagnostic
+  events.
+- OpenCode injection merges the app-owned MCP server into the existing inline
+  MCP map without removing user-configured servers. A malformed existing MCP
+  value remains an actionable configuration error.
+- Streaming responses that exceed the configured limit close without emitting a
+  successful HTTP end marker, so clients observe a transport failure instead of
+  accepting an incomplete response as successful.
+
+Cursor injection remains unsupported until a documented per-pane configuration
+surface exists. Existing local XCTest execution may remain unavailable on hosts
+where the test runner architecture does not match the generated arm64 bundle;
+compatible CI or Dev build validation is required in that environment.
+
+Validation for this closeout:
+
+- `swift build` passed with the Agent Control changes.
+- `swift test --filter AgentControlHarnessInjectionTests` compiled the test
+  bundle but could not execute it because the host requested x86_64 while the
+  generated bundle was arm64.
+- `git diff --check` passed. Local `make lint` and SwiftLint execution were
+  unavailable because `swift-format` is not installed and SwiftLint could not
+  load `sourcekitdInProc.framework`; run both checks in the supported CI/Xcode
+  environment.
+
 ### Feasibility spike record
 
 The feasibility spike was research-only. Its protocol and toolchain evidence

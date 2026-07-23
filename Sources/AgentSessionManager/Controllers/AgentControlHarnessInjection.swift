@@ -82,17 +82,25 @@ struct OpenCodeAgentControlAdapter: AgentControlHarnessAdapter {
         guard var config = try JSONSerialization.jsonObject(with: Data(current.utf8)) as? [String: Any] else {
             throw AgentControlHarnessInjectionError.invalidConfiguration(.opencode)
         }
-        config["mcp"] = [
-            "agent-session-manager": [
-                "type": "remote",
-                "url": context.endpoint.absoluteString,
-                "headers": [
-                    "Authorization": "Bearer {env:\(context.tokenEnvironmentKey)}"
-                ],
-                "oauth": false,
-                "enabled": true,
-            ]
+        var mcp: [String: Any]
+        if let existing = config["mcp"] {
+            guard let existingMCP = existing as? [String: Any] else {
+                throw AgentControlHarnessInjectionError.invalidConfiguration(.opencode)
+            }
+            mcp = existingMCP
+        } else {
+            mcp = [:]
+        }
+        mcp["agent-session-manager"] = [
+            "type": "remote",
+            "url": context.endpoint.absoluteString,
+            "headers": [
+                "Authorization": "Bearer {env:\(context.tokenEnvironmentKey)}"
+            ],
+            "oauth": false,
+            "enabled": true,
         ]
+        config["mcp"] = mcp
         guard let data = try? JSONSerialization.data(withJSONObject: config, options: []) else {
             throw AgentControlHarnessInjectionError.invalidConfiguration(.opencode)
         }
@@ -104,6 +112,7 @@ struct OpenCodeAgentControlAdapter: AgentControlHarnessAdapter {
             environment: environment
         )
     }
+
 }
 
 struct CursorAgentControlAdapter: AgentControlHarnessAdapter {
