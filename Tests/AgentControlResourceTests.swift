@@ -98,7 +98,7 @@ final class AgentControlResourceTests: XCTestCase {
         let templates = try await client.listResourceTemplates()
         XCTAssertEqual(templates.templates.count, 4)
         let tools = try await client.listTools()
-        XCTAssertEqual(tools.tools.count, 4)
+        XCTAssertEqual(tools.tools.count, 13)
 
         let contents = try await client.readResource(uri: AgentControlResourceURI.workspace.rawValue)
         XCTAssertEqual(contents.count, 1)

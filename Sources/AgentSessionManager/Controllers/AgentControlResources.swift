@@ -220,11 +220,13 @@ final class AgentControlResourceRouter {
     private let appState: AppState
     private let appSettings: AppSettings
     private let diagnostics: AgentControlDiagnosticsRouter
+    private let mutations: AgentControlMutationRouter
 
     init(appState: AppState, appSettings: AppSettings) {
         self.appState = appState
         self.appSettings = appSettings
         diagnostics = AgentControlDiagnosticsRouter(appState: appState, appSettings: appSettings)
+        mutations = AgentControlMutationRouter(appState: appState, appSettings: appSettings)
     }
 
     func resources() -> [Resource] {
@@ -258,13 +260,16 @@ final class AgentControlResourceRouter {
     }
 
     func tools() -> [Tool] {
-        diagnostics.tools()
+        diagnostics.tools() + mutations.tools()
     }
 
     func callTool(
         name: String, arguments: [String: Value]?, source: AgentControlSource
     ) async throws -> CallTool.Result {
-        try await diagnostics.callTool(name: name, arguments: arguments, source: source)
+        if mutations.handles(name) {
+            return try await mutations.callTool(name: name, arguments: arguments, source: source)
+        }
+        return try await diagnostics.callTool(name: name, arguments: arguments, source: source)
     }
 
     func resourceTemplates() -> [Resource.Template] {

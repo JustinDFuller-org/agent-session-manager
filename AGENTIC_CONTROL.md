@@ -303,7 +303,7 @@ Each item is intended to be a separate implementation session.
 7. **Tab and pane mutations**
    - Add creation, deletion, focus, restart, and reordering tools.
    - Route worktree resolution and cleanup through existing app services.
-   - Return explicit partial-failure results for multi-pane cleanup.
+   - Return explicit partial-failure results for multi-pane cleanup. [implemented]
 
 8. **Profiles and harness configuration**
    - Add profile CRUD and ordering tools.
@@ -338,6 +338,33 @@ Roadmap item 2 is implemented as a transport-independent foundation:
 - Pane-scoped decision telemetry records bounded IDs, policy, scope, source,
   and the resolved enabled value. No listener, token, MCP dependency, or
   harness configuration adapter is introduced in this phase.
+
+### Tab and pane mutations record
+
+Roadmap item 7 is implemented through the app-owned MCP router:
+
+- `tabs.create`, `tabs.delete`, `tabs.focus`, and `tabs.reorder` expose global
+  tab lifecycle operations with stable IDs, active-state results, and ordered
+  tab IDs.
+- `panes.create`, `panes.delete`, `panes.focus`, `panes.restart`, and
+  `panes.reorder` use hierarchical pane and tab scope authorization. Pane
+  creation awaits existing worktree resolution, duplicate detection, profile
+  and option validation, external-worktree management, and launch preparation.
+- Profile options and environment values seed pane creation, while explicit
+  values override profile values. App-controlled environment variables are
+  rejected, runtime environment values are not persisted, and Cursor remains
+  unsupported for Agent Control injection.
+- Worktree cleanup honors the persisted Keep, Delete, or Ask policy. Ask
+  requires an explicit keep/delete input, and destructive cleanup reports one
+  result per pane with `partial_failure` when removal completes but cleanup
+  fails.
+- Every mutation is recorded in `agent_control.mutation` with bounded source,
+  target, scope, and result metadata; values, environment contents, tokens,
+  and terminal output are excluded.
+- Unit and protocol coverage verifies scope boundaries, stateful focus and
+  ordering, tab creation, cleanup policy enforcement, and partial-failure
+  reporting. Profile CRUD, harness configuration mutation, cross-tab pane
+  moves, shell panes, and Cursor injection remain outside this item.
 
 ### Feasibility spike record
 
