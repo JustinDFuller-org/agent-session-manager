@@ -176,6 +176,13 @@ final class AgentControlTokenStore: @unchecked Sendable {
         }
     }
 
+    func source(forSessionID sessionID: String) -> AgentControlSource? {
+        lock.withLock {
+            guard let paneID = sessionToPane[sessionID] else { return nil }
+            return registrations[paneID]?.source
+        }
+    }
+
     func revoke(paneID: UUID) {
         lock.withLock {
             guard let registration = registrations.removeValue(forKey: paneID) else { return }
@@ -265,6 +272,7 @@ final class AgentControlService {
     private let tokenStore: AgentControlTokenStore
     private let limits: AgentControlLimits
     private let httpApplication: AgentControlHTTPApplication
+    private var resourceRouter: AgentControlResourceRouter?
     private(set) var state: AgentControlServerState = .stopped
     private(set) var endpoint: URL?
 
@@ -294,6 +302,12 @@ final class AgentControlService {
                 attributes: ["result": "failed", "error": error.localizedDescription]
             )
         }
+    }
+
+    func configure(appState: AppState, appSettings: AppSettings) async {
+        let router = AgentControlResourceRouter(appState: appState, appSettings: appSettings)
+        resourceRouter = router
+        await httpApplication.setResourceRouter(router)
     }
 
     func stop() async {

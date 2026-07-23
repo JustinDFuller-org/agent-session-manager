@@ -20,14 +20,24 @@ actor AgentControlHTTPApplication {
     private let endpointPath = "/mcp"
     private let tokenStore: AgentControlTokenStore
     private let limits: AgentControlLimits
+    private var resourceRouter: AgentControlResourceRouter?
     private var channel: Channel?
     private var group: MultiThreadedEventLoopGroup?
     private var sessions: [String: SessionContext] = [:]
     private var boundPort: Int?
 
-    init(tokenStore: AgentControlTokenStore, limits: AgentControlLimits) {
+    init(
+        tokenStore: AgentControlTokenStore,
+        limits: AgentControlLimits,
+        resourceRouter: AgentControlResourceRouter? = nil
+    ) {
         self.tokenStore = tokenStore
         self.limits = limits
+        self.resourceRouter = resourceRouter
+    }
+
+    func setResourceRouter(_ router: AgentControlResourceRouter?) {
+        resourceRouter = router
     }
 
     func start() async throws -> Int {
@@ -143,10 +153,25 @@ actor AgentControlHTTPApplication {
         let server = Server(
             name: "Agent Session Manager",
             version: "1.0",
-            capabilities: .init(),
+            capabilities: .init(resources: .init(subscribe: false, listChanged: false)),
             configuration: .strict
         )
         do {
+            let router = resourceRouter
+            let tokenStore = self.tokenStore
+            await server.withMethodHandler(ListResources.self) { _ in
+                .init(resources: await router?.resources() ?? [])
+            }
+            await server.withMethodHandler(ListResourceTemplates.self) { _ in
+                .init(templates: await router?.resourceTemplates() ?? [])
+            }
+            await server.withMethodHandler(ReadResource.self) { params in
+                guard let router, let source = tokenStore.source(forSessionID: newSessionID) else {
+                    throw MCPError.invalidRequest("Agent Session Manager resource session is unavailable")
+                }
+                let content = try await router.read(uri: params.uri, source: source)
+                return .init(contents: [.text(content, uri: params.uri, mimeType: "application/json")])
+            }
             try await server.start(transport: transport)
             let response = await transport.handleRequest(request)
             guard response.statusCode < 400 else {
@@ -180,7 +205,6 @@ actor AgentControlHTTPApplication {
         }
         return String(authorization.dropFirst("Bearer ".count))
     }
-
 }
 
 private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked Sendable {

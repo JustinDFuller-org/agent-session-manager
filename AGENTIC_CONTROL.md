@@ -278,7 +278,7 @@ Each item is intended to be a separate implementation session.
 4. **Read-only resources**
    - Add scoped snapshots for tabs, panes, profiles, harness settings,
      status lines, and notifications.
-   - Verify structured output, redaction, stale IDs, and scope boundaries.
+   - Verify structured output, redaction, stale IDs, and scope boundaries. [in progress]
 
 5. **Diagnostics and observability**
    - Add scoped diagnostic DTOs and resources for summaries, traces, invariants,
@@ -387,10 +387,35 @@ The lifecycle phase now has an app-owned baseline implementation:
 - Unit and protocol-boundary tests cover concurrency, revocation, host and
   Origin rejection, loopback binding, and unauthorized initialization.
 
-Scope-aware resources and tools remain the next implementation gate. The
-current service carries the configured scope with each credential and exposes
-the authorization boundary needed by those handlers; no resource or mutation
-endpoint is exposed until its scope checks are implemented and tested.
+The service now carries the configured scope with each credential and routes
+authenticated resource reads through the app-owned snapshot router. Mutation
+endpoints, diagnostics, subscriptions, and harness injection remain outside
+this phase.
+
+### Read-only resources implementation record
+
+The read-only resource phase now exposes stable, JSON-encoded snapshots through
+the app-owned MCP listener:
+
+- Collection resources cover the workspace, profiles, harness catalogs,
+  status-line configuration, and notifications.
+- ID-based templates cover individual tabs, panes, profiles, and pane status
+  data. Names remain display values and are never used as resource addresses.
+- Pane scope sees its own pane, its parent tab, and global catalogs. Tab scope
+  sees every pane in its tab and the same catalogs. Global scope sees all tabs,
+  panes, profiles, harnesses, status lines, and notifications.
+- Reads are resolved from live `@MainActor` `AppState` and `AppSettings` state;
+  no parallel control-specific model or persistence path is introduced.
+- Profile and pane environment values, bearer tokens, terminal contents,
+  harness output, and other secret material are omitted or represented only by
+  non-sensitive metadata.
+- Resource subscriptions, writes, diagnostics, and harness configuration are
+  intentionally not exposed yet.
+
+Resource discovery, URI parsing, scope filtering, redaction, and an end-to-end
+MCP client read are covered by `AgentControlResourceTests`. Resource reads emit
+bounded `agent_control.resource.read` telemetry with source context and result
+metadata, without request payloads or credentials.
 
 #### Streamable HTTP result
 
