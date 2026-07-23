@@ -314,6 +314,7 @@ Each item is intended to be a separate implementation session.
 9. **Status lines and notifications**
    - Add status-line reads and updates for global and profile configuration.
    - Add notification listing and atomic acknowledge/navigation behavior.
+   [implemented]
 
 10. **Parity, documentation, and hardening**
    - Audit every feature against the parity matrix.
@@ -390,8 +391,37 @@ Roadmap item 8 is implemented through the app-owned MCP mutation router:
   and do not restart or alter already-running panes.
 - `AgentControlMutationTests` covers lifecycle, ordering, scope rejection,
   validation, redaction, persistence-backed configuration, telemetry, preset
-  normalization, and custom-option preservation. Status-line mutation remains
-  part of roadmap item 9.
+  normalization, and custom-option preservation.
+
+### Status lines and notifications record
+
+Roadmap item 9 is implemented through the existing resources and app-owned
+mutation router:
+
+- Global-scope `status_lines.update_global` replaces and persists the global
+  `StatusLineConfig`. Global-scope `status_lines.update_profile` replaces a
+  profile override, while `status_lines.clear_profile_override` removes only
+  that override. Configurations are semantically validated before mutation,
+  including built-in and custom item IDs, custom-field identity, required
+  labels and commands, duplicate items, and duplicate custom fields.
+- Global status-line persistence uses an atomic write and profile mutations
+  roll back in-memory state when persistence fails. Mutation results return the
+  applied global configuration or updated profile snapshot without exposing
+  unrelated settings.
+- The existing `agent-session-manager://notifications` resource remains the
+  notification listing surface. Global, tab, and pane callers can use
+  `notifications.acknowledge` only for visible notifications within their
+  scope. Acknowledgement resolves the stable notification ID, navigates using
+  the shared `AppState` path, removes the notification and delivered macOS
+  notification, and preserves PR-resolution actions.
+- Status-line updates and notification acknowledgement emit bounded
+  `agent_control.mutation` telemetry with operation, scope, target IDs, and
+  outcome metadata. Notification text, configuration payloads, secrets, and
+  terminal output are excluded.
+- Unit, resource, telemetry, and real-flow UI coverage verifies validation,
+  persistence, profile override clearing, scope enforcement, stale targets,
+  shared notification acknowledgement behavior, tool discovery, and sidebar
+  acknowledgement.
 
 ### Feasibility spike record
 

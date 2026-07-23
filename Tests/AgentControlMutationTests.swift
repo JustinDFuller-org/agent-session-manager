@@ -245,6 +245,172 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertFalse(fixture.settings.profiles.contains { $0.id == profileID })
     }
 
+    func testGlobalStatusLineMutationPersistsAndReturnsConfiguration() async throws {
+        let fixture = makeFixture()
+        var configuration = StatusLineConfig()
+        configuration.rows = [
+            StatusLineRow(items: [
+                StatusLineItem(id: "model", label: "Model", sfSymbol: "cpu"),
+                StatusLineItem(id: "worktree", label: "Worktree", sfSymbol: "folder.badge.gearshape"),
+            ])
+        ]
+
+        let response = try await fixture.router.callTool(
+            name: "status_lines.update_global",
+            arguments: ["configuration": try value(for: configuration)],
+            source: fixture.globalSource)
+        let result = try decodeMutationResult(response)
+
+        XCTAssertEqual(result.status, "succeeded")
+        XCTAssertEqual(result.statusLineConfiguration, configuration)
+        XCTAssertEqual(fixture.settings.statusLineConfig, configuration)
+        XCTAssertEqual(
+            SettingsPersistence.load(StatusLineConfig.self, from: "statusline-settings.json"), configuration)
+    }
+
+    func testProfileStatusLineMutationUpdatesAndClearsOnlyTheOverride() async throws {
+        let fixture = makeFixture()
+        var profile = Profile(name: "Status Profile", harness: .claude)
+        profile.cliOptions = [ProfileCLIOption(id: "--model", isEnabled: true, value: "opus")]
+        profile.envVars = [ProfileEnvVar(id: "API_KEY", isEnabled: true, value: "secret")]
+        fixture.settings.profiles = [profile]
+
+        var configuration = StatusLineConfig()
+        configuration.rows = [
+            StatusLineRow(items: [
+                StatusLineItem(id: "context", label: "Context Used", sfSymbol: "gauge.with.needle")
+            ])
+        ]
+        let update = try await fixture.router.callTool(
+            name: "status_lines.update_profile",
+            arguments: [
+                "profileID": .string(profile.id.uuidString),
+                "configuration": try value(for: configuration),
+            ],
+            source: fixture.globalSource)
+        let updated = try decodeMutationResult(update)
+
+        XCTAssertEqual(updated.profile?.statusLineConfig, configuration)
+        XCTAssertEqual(updated.profile?.cliOptions.first?.value, "opus")
+        XCTAssertEqual(updated.profile?.environment.first?.isConfigured, true)
+
+        let cleared = try await fixture.router.callTool(
+            name: "status_lines.clear_profile_override",
+            arguments: ["profileID": .string(profile.id.uuidString)],
+            source: fixture.globalSource)
+        XCTAssertNil(try decodeMutationResult(cleared).profile?.statusLineConfig)
+        XCTAssertNil(fixture.settings.profiles.first?.statusLineConfig)
+    }
+
+    func testStatusLineMutationsRejectInvalidConfigurationsAndNonGlobalScope() async throws {
+        let fixture = makeFixture()
+        let previousConfiguration = fixture.settings.statusLineConfig
+        var duplicate = StatusLineConfig()
+        duplicate.rows = [
+            StatusLineRow(items: [
+                StatusLineItem(id: "model", label: "Model", sfSymbol: "cpu"),
+                StatusLineItem(id: "model", label: "Model", sfSymbol: "cpu"),
+            ])
+        ]
+
+        do {
+            _ = try await fixture.router.callTool(
+                name: "status_lines.update_global",
+                arguments: ["configuration": try value(for: duplicate)],
+                source: fixture.globalSource)
+            XCTFail("Duplicate status-line items must be rejected")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("appears more than once"))
+        }
+
+        do {
+            _ = try await fixture.router.callTool(
+                name: "status_lines.update_global",
+                arguments: ["configuration": try value(for: StatusLineConfig())],
+                source: fixture.tabSource)
+            XCTFail("Status-line mutations must require Global scope")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("Global scope"))
+        }
+        XCTAssertEqual(fixture.settings.statusLineConfig, previousConfiguration)
+    }
+
+    func testNotificationAcknowledgementNavigatesAndRemovesThroughAppStatePath() async throws {
+        let fixture = makeFixture()
+        let notification = PaneNotification(
+            paneID: fixture.otherPane.id, paneName: fixture.otherPane.name,
+            tabID: fixture.tab.id, tabName: fixture.tab.name, isPriority: true)
+        fixture.state.notifications = [notification]
+
+        let response = try await fixture.router.callTool(
+            name: "notifications.acknowledge",
+            arguments: ["notificationID": .string(notification.id.uuidString)],
+            source: fixture.tabSource)
+        let result = try decodeMutationResult(response)
+
+        XCTAssertEqual(result.status, "succeeded")
+        XCTAssertEqual(result.acknowledgedNotificationID, notification.id)
+        XCTAssertEqual(result.activeTabID, fixture.tab.id)
+        XCTAssertEqual(result.activePaneID, fixture.otherPane.id)
+        XCTAssertTrue(fixture.state.notifications.isEmpty)
+        XCTAssertNil(fixture.tab.focusedPaneID)
+    }
+
+    func testNotificationAcknowledgementRejectsOutOfScopeAndStaleTargets() async throws {
+        let fixture = makeFixture()
+        let otherTabNotification = PaneNotification(
+            paneID: fixture.secondTabPane.id, paneName: fixture.secondTabPane.name,
+            tabID: fixture.secondTab.id, tabName: fixture.secondTab.name, isPriority: false)
+        fixture.state.notifications = [otherTabNotification]
+
+        do {
+            _ = try await fixture.router.callTool(
+                name: "notifications.acknowledge",
+                arguments: ["notificationID": .string(otherTabNotification.id.uuidString)],
+                source: fixture.tabSource)
+            XCTFail("Tab scope must not acknowledge another tab's notification")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("outside scope"))
+        }
+        XCTAssertEqual(fixture.state.notifications.count, 1)
+
+        let stale = PaneNotification(
+            paneID: UUID(), paneName: "stale", tabID: fixture.tab.id, tabName: fixture.tab.name, isPriority: false)
+        fixture.state.notifications = [stale]
+        do {
+            _ = try await fixture.router.callTool(
+                name: "notifications.acknowledge",
+                arguments: ["notificationID": .string(stale.id.uuidString)],
+                source: fixture.globalSource)
+            XCTFail("Stale notification targets must be rejected")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("no longer exists"))
+        }
+        XCTAssertEqual(fixture.state.notifications.map(\.id), [stale.id])
+    }
+
+    func testNotificationAcknowledgementTelemetryContainsIDWithoutContent() async throws {
+        let fixture = makeFixture()
+        let notification = PaneNotification(
+            paneID: fixture.otherPane.id, paneName: fixture.otherPane.name,
+            tabID: fixture.tab.id, tabName: fixture.tab.name, isPriority: true)
+        fixture.state.notifications = [notification]
+        TracingService.shared.enableTestCapture()
+
+        _ = try await fixture.router.callTool(
+            name: "notifications.acknowledge",
+            arguments: ["notificationID": .string(notification.id.uuidString)],
+            source: fixture.tabSource)
+
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.mutation" && $0.attributes["tool"] == "notifications.acknowledge"
+            })
+        XCTAssertEqual(event.attributes["notification.id"], notification.id.uuidString)
+        XCTAssertNil(event.attributes["notification.text"])
+        XCTAssertNil(event.attributes["payload"])
+    }
+
     func testProfileAndHarnessConfigurationRequireGlobalScope() async throws {
         let fixture = makeFixture()
 
@@ -386,5 +552,11 @@ final class AgentControlMutationTests: XCTestCase {
         try JSONDecoder().decode(
             AgentControlMutationResult.self,
             from: Data(try XCTUnwrap(toolText(response.content)).utf8))
+    }
+
+    private func value<T: Encodable>(for value: T) throws -> MCP.Value {
+        try JSONDecoder().decode(
+            MCP.Value.self,
+            from: JSONEncoder().encode(value))
     }
 }

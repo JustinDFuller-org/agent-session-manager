@@ -260,9 +260,15 @@ struct SettingsPersistence {
         } catch { return false }
     }
 
-    static func saveStatusLine(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.statusLineConfig) else { return }
-        try? data.write(to: statusLineSettingsURL)
+    @discardableResult
+    static func saveStatusLine(appSettings: AppSettings) -> Bool {
+        guard let data = try? JSONEncoder().encode(appSettings.statusLineConfig) else { return false }
+        do {
+            try data.write(to: statusLineSettingsURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
     static func saveDefaultBranch(appSettings: AppSettings) {

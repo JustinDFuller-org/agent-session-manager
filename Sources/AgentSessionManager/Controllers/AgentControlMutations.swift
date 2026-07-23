@@ -67,6 +67,19 @@ struct AgentControlCLIOptionConfigArguments: Codable, Sendable {
     let allowsMultipleValues: Bool?
 }
 
+struct AgentControlGlobalStatusLineArguments: Codable {
+    let configuration: StatusLineConfig
+}
+
+struct AgentControlProfileStatusLineArguments: Codable {
+    let profileID: String
+    let configuration: StatusLineConfig
+}
+
+struct AgentControlNotificationAckArguments: Codable, Sendable {
+    let notificationID: String
+}
+
 struct AgentControlTabCreateArguments: Codable, Sendable {
     let name: String
     let directory: String
@@ -139,18 +152,22 @@ struct AgentControlMutationResult: Codable, Sendable {
     let profileOrder: [UUID]?
     let harness: AgentControlHarnessSnapshot?
     let activeHarnesses: [Harness]?
+    let statusLineConfiguration: StatusLineConfig?
+    let acknowledgedNotificationID: UUID?
     let error: String?
 }
 
 @MainActor
 final class AgentControlMutationRouter {
-    private let appState: AppState
-    private let appSettings: AppSettings
+    let appState: AppState
+    let appSettings: AppSettings
 
     private static let mutationNames: Set<String> = [
         "tabs.create", "tabs.delete", "tabs.focus", "tabs.reorder",
         "panes.create", "panes.delete", "panes.focus", "panes.restart", "panes.reorder",
         "profiles.create", "profiles.update", "profiles.delete", "profiles.reorder",
+        "status_lines.update_global", "status_lines.update_profile", "status_lines.clear_profile_override",
+        "notifications.acknowledge",
         "harnesses.set_enabled", "harnesses.configure_cli_option",
     ]
 
@@ -282,6 +299,32 @@ final class AgentControlMutationRouter {
                         "destinationIndex": .object(["type": .string("integer")]),
                     ], required: ["profileID", "destinationIndex"])),
             Tool(
+                name: "status_lines.update_global",
+                description: "Replace the global status-line configuration. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: ["configuration": .object(["type": .string("object")])],
+                    required: ["configuration"])),
+            Tool(
+                name: "status_lines.update_profile",
+                description: "Replace a profile's custom status-line configuration. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: [
+                        "profileID": .object(["type": .string("string")]),
+                        "configuration": .object(["type": .string("object")]),
+                    ], required: ["profileID", "configuration"])),
+            Tool(
+                name: "status_lines.clear_profile_override",
+                description: "Restore a profile's status line to the global configuration. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: ["profileID": .object(["type": .string("string")])],
+                    required: ["profileID"])),
+            Tool(
+                name: "notifications.acknowledge",
+                description: "Navigate to and acknowledge a visible notification.",
+                inputSchema: Self.objectSchema(
+                    properties: ["notificationID": .object(["type": .string("string")])],
+                    required: ["notificationID"])),
+            Tool(
                 name: "harnesses.set_enabled",
                 description: "Enable or disable a harness for future pane creation. Global scope required.",
                 inputSchema: Self.objectSchema(
@@ -355,6 +398,21 @@ final class AgentControlMutationRouter {
                 try requireGlobal(source, name: name)
                 value = try reorderProfile(
                     decode(AgentControlProfileReorderArguments.self, arguments: arguments), source: source)
+            case "status_lines.update_global":
+                try requireGlobal(source, name: name)
+                value = try updateGlobalStatusLine(
+                    decode(AgentControlGlobalStatusLineArguments.self, arguments: arguments), source: source)
+            case "status_lines.update_profile":
+                try requireGlobal(source, name: name)
+                value = try updateProfileStatusLine(
+                    decode(AgentControlProfileStatusLineArguments.self, arguments: arguments), source: source)
+            case "status_lines.clear_profile_override":
+                try requireGlobal(source, name: name)
+                value = try clearProfileStatusLine(
+                    decode(AgentControlProfileIDArguments.self, arguments: arguments), source: source)
+            case "notifications.acknowledge":
+                value = try acknowledgeNotification(
+                    decode(AgentControlNotificationAckArguments.self, arguments: arguments), source: source)
             case "harnesses.set_enabled":
                 try requireGlobal(source, name: name)
                 value = try setHarnessEnabled(
@@ -925,7 +983,7 @@ final class AgentControlMutationRouter {
         }
     }
 
-    private func profileMutationResult(
+    func profileMutationResult(
         operation: String, status: String, profile: Profile
     ) -> AgentControlMutationResult {
         let resources = AgentControlResourceRouter(appState: appState, appSettings: appSettings)
@@ -1059,7 +1117,7 @@ final class AgentControlMutationRouter {
         AgentControlResourceRouter(appState: appState, appSettings: appSettings).paneSnapshot(pane)
     }
 
-    private func mutationResult(
+    func mutationResult(
         operation: String,
         status: String,
         tabID: UUID? = nil,
@@ -1077,6 +1135,8 @@ final class AgentControlMutationRouter {
         profile: AgentControlProfileSnapshot? = nil,
         harness: AgentControlHarnessSnapshot? = nil,
         activeHarnesses: [Harness]? = nil,
+        statusLineConfiguration: StatusLineConfig? = nil,
+        acknowledgedNotificationID: UUID? = nil,
         error: String? = nil
     ) -> AgentControlMutationResult {
         AgentControlMutationResult(
@@ -1085,6 +1145,8 @@ final class AgentControlMutationRouter {
             activeTabID: activeTabID, activePaneID: activePaneID, focusedPaneID: focusedPaneID,
             tabOrder: tabOrder, paneOrder: paneOrder, cleanup: cleanup, tab: tab, pane: pane,
             profile: profile, profileOrder: profileOrder, harness: harness, activeHarnesses: activeHarnesses,
+            statusLineConfiguration: statusLineConfiguration,
+            acknowledgedNotificationID: acknowledgedNotificationID,
             error: error)
     }
 
@@ -1100,9 +1162,10 @@ final class AgentControlMutationRouter {
             structuredContent: value)
     }
 
-    private func record(
+    func record(
         name: String, source: AgentControlSource, result: String, tabID: UUID? = nil, paneID: UUID? = nil,
-        profileID: UUID? = nil, harness: Harness? = nil, optionID: String? = nil
+        profileID: UUID? = nil, harness: Harness? = nil, optionID: String? = nil,
+        notificationID: UUID? = nil
     ) {
         var attributes = [
             "tool": name,
@@ -1116,6 +1179,7 @@ final class AgentControlMutationRouter {
         if let profileID { attributes["target.profile.id"] = profileID.uuidString }
         if let harness { attributes["harness"] = harness.rawValue }
         if let optionID { attributes["option.id"] = optionID }
+        if let notificationID { attributes["notification.id"] = notificationID.uuidString }
         TracingService.shared.record("agent_control.mutation", attributes: attributes)
     }
 

@@ -253,7 +253,15 @@ final class AppState {
         SessionPersistence.save(appState: self)
     }
 
-    func navigateTo(notification: PaneNotification) {
+    @discardableResult
+    func acknowledgeNotification(id: UUID) -> PaneNotification? {
+        guard let notification = notifications.first(where: { $0.id == id }),
+            let tab = tabs.first(where: { $0.id == notification.tabID }),
+            tab.panes.contains(where: { $0.id == notification.paneID })
+        else {
+            return nil
+        }
+
         TracingService.shared.record(
             "pane.notification.cleared",
             attributes: [
@@ -277,6 +285,8 @@ final class AppState {
                 ]
             )
         }
+
+        return notification
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {
