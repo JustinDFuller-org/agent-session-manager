@@ -13,13 +13,13 @@ jobs:
     name: swift test
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
 
       - name: Check supported toolchain floor
         run: bash scripts/check-toolchain.sh
 
       - name: Cache Swift packages
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: .build/checkouts
           key: swift-packages-${{ hashFiles('Package.resolved') }}
