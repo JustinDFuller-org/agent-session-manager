@@ -7,6 +7,10 @@ enum AgentControlResourceURI: Equatable {
     case harnesses
     case statusLines
     case notifications
+    case diagnosticSummary
+    case diagnosticTraces
+    case diagnosticInvariants
+    case diagnosticLogs
     case tab(UUID)
     case pane(UUID)
     case profile(UUID)
@@ -19,6 +23,17 @@ enum AgentControlResourceURI: Equatable {
 
         let components = url.path.split(separator: "/").map(String.init)
         guard components.allSatisfy({ !$0.isEmpty }) else { return nil }
+        if host == "diagnostics" {
+            guard components.count == 1 else { return nil }
+            switch components[0] {
+            case "summary": self = .diagnosticSummary
+            case "traces": self = .diagnosticTraces
+            case "invariants": self = .diagnosticInvariants
+            case "logs": self = .diagnosticLogs
+            default: return nil
+            }
+            return
+        }
         if components.isEmpty {
             switch host {
             case "workspace": self = .workspace
@@ -55,6 +70,10 @@ enum AgentControlResourceURI: Equatable {
         case .harnesses: return "agent-session-manager://harnesses"
         case .statusLines: return "agent-session-manager://status-lines"
         case .notifications: return "agent-session-manager://notifications"
+        case .diagnosticSummary: return "agent-session-manager://diagnostics/summary"
+        case .diagnosticTraces: return "agent-session-manager://diagnostics/traces"
+        case .diagnosticInvariants: return "agent-session-manager://diagnostics/invariants"
+        case .diagnosticLogs: return "agent-session-manager://diagnostics/logs"
         case .tab(let id): return "agent-session-manager://tabs/\(id.uuidString)"
         case .pane(let id): return "agent-session-manager://panes/\(id.uuidString)"
         case .profile(let id): return "agent-session-manager://profiles/\(id.uuidString)"
@@ -69,6 +88,10 @@ enum AgentControlResourceURI: Equatable {
         case .harnesses: return "harnesses"
         case .statusLines, .paneStatus: return "status_lines"
         case .notifications: return "notifications"
+        case .diagnosticSummary: return "diagnostic_summary"
+        case .diagnosticTraces: return "diagnostic_traces"
+        case .diagnosticInvariants: return "diagnostic_invariants"
+        case .diagnosticLogs: return "diagnostic_logs"
         case .tab: return "tab"
         case .pane: return "pane"
         }
@@ -196,10 +219,12 @@ struct AgentControlNotificationSnapshot: Codable {
 final class AgentControlResourceRouter {
     private let appState: AppState
     private let appSettings: AppSettings
+    private let diagnostics: AgentControlDiagnosticsRouter
 
     init(appState: AppState, appSettings: AppSettings) {
         self.appState = appState
         self.appSettings = appSettings
+        diagnostics = AgentControlDiagnosticsRouter(appState: appState, appSettings: appSettings)
     }
 
     func resources() -> [Resource] {
@@ -229,7 +254,17 @@ final class AgentControlResourceRouter {
                 uri: AgentControlResourceURI.notifications.rawValue,
                 description: "Scoped pane notifications.",
                 mimeType: "application/json"),
-        ]
+        ] + diagnostics.resources()
+    }
+
+    func tools() -> [Tool] {
+        diagnostics.tools()
+    }
+
+    func callTool(
+        name: String, arguments: [String: Value]?, source: AgentControlSource
+    ) throws -> CallTool.Result {
+        try diagnostics.callTool(name: name, arguments: arguments, source: source)
     }
 
     func resourceTemplates() -> [Resource.Template] {
@@ -276,6 +311,10 @@ final class AgentControlResourceRouter {
                 data = try JSONEncoder().encode(statusLineSnapshot(source: source))
             case .notifications:
                 data = try JSONEncoder().encode(notificationSnapshots(source: source))
+            case .diagnosticSummary, .diagnosticTraces, .diagnosticInvariants, .diagnosticLogs:
+                let diagnostic = try diagnostics.read(uri: resource, source: source)
+                recordRead(uri: uri, source: source, kind: resource.kind, result: "success")
+                return diagnostic
             case .tab(let id):
                 guard let tab = visibleTabs(source: source).first(where: { $0.id == id }) else {
                     throw MCPError.invalidParams("Agent Session Manager resource not found")

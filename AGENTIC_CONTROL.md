@@ -282,15 +282,15 @@ Each item is intended to be a separate implementation session.
 
 5. **Diagnostics and observability**
    - Add scoped diagnostic DTOs and resources for summaries, traces, invariants,
-     and unified logs.
+     and unified logs. [implemented]
    - Reuse metadata-aware trace and invariant readers; keep legacy files
-     separate and preserve truncation and malformed-record metadata.
+     separate and preserve truncation and malformed-record metadata. [implemented]
    - Query only the Agent Session Manager process/subsystem through a bounded,
-     redacted `OSLogStore` adapter; never expose terminal or harness output.
+     redacted `OSLogStore` adapter; never expose terminal or harness output. [implemented]
    - Add the Global-scope-only Debug Mode tool and reuse existing persistence
-     and reconfiguration paths.
+     and reconfiguration paths. [implemented]
    - Protocol-test time windows, filtering, scope boundaries, redaction,
-     disabled capture, cancellation, and output limits.
+     disabled capture, cancellation, and output limits. [in progress]
 
 6. **Harness injection**
    - Implement and test adapters one at a time, starting with Claude Code and
@@ -409,13 +409,38 @@ the app-owned MCP listener:
 - Profile and pane environment values, bearer tokens, terminal contents,
   harness output, and other secret material are omitted or represented only by
   non-sensitive metadata.
-- Resource subscriptions, writes, diagnostics, and harness configuration are
-  intentionally not exposed yet.
+- Resource subscriptions, writes, and harness configuration are intentionally
+  not exposed yet.
 
 Resource discovery, URI parsing, scope filtering, redaction, and an end-to-end
 MCP client read are covered by `AgentControlResourceTests`. Resource reads emit
 bounded `agent_control.resource.read` telemetry with source context and result
 metadata, without request payloads or credentials.
+
+### Diagnostics and observability implementation record
+
+The first diagnostics slice now exposes the four planned diagnostic resources:
+
+- `agent-session-manager://diagnostics/summary`
+- `agent-session-manager://diagnostics/traces`
+- `agent-session-manager://diagnostics/invariants`
+- `agent-session-manager://diagnostics/logs`
+
+The corresponding bounded tools are `diagnostics.query_traces`,
+`diagnostics.query_invariants`, `diagnostics.query_logs`, and the
+Global-scope-only `debug.set_mode`. Trace and invariant readers use JSONL
+metadata for identity, preserve malformed-line and source-truncation metadata,
+keep legacy files separate, and apply the same pane/tab/global scope model as
+other resources. Diagnostic attributes and contexts are projected through a
+deny-by-default sensitive-field redactor; unified-log reads are restricted to
+the app's own process and subsystem and return structured fields only.
+
+`debug.set_mode` persists through `SettingsPersistence` and reuses the existing
+`TracingService` and `InvariantReporter` configuration path. URI parsing,
+metadata identity, scope filtering, repeated invariant occurrences, redaction,
+and Global-only mutation behavior are covered by
+`AgentControlDiagnosticsTests`; MCP resource discovery now includes the
+diagnostic resources and tools.
 
 #### Streamable HTTP result
 

@@ -1,0 +1,690 @@
+import Foundation
+import MCP
+import OSLog
+
+struct AgentControlDiagnosticQuery: Codable, Sendable {
+    var sinceEpochMs: Int64?
+    var untilEpochMs: Int64?
+    var limit: Int?
+
+    init(sinceEpochMs: Int64? = nil, untilEpochMs: Int64? = nil, limit: Int? = nil) {
+        self.sinceEpochMs = sinceEpochMs
+        self.untilEpochMs = untilEpochMs
+        self.limit = limit
+    }
+
+    func resolved(now: Date = Date()) throws -> AgentControlResolvedDiagnosticQuery {
+        let until = untilEpochMs ?? Int64(now.timeIntervalSince1970 * 1000)
+        let since = sinceEpochMs ?? until - 3_600_000
+        guard since <= until else {
+            throw MCPError.invalidParams("Diagnostic query start must not be later than its end")
+        }
+        let resolvedLimit = min(max(limit ?? 100, 1), 200)
+        return AgentControlResolvedDiagnosticQuery(
+            sinceEpochMs: since, untilEpochMs: until, limit: resolvedLimit)
+    }
+}
+
+struct AgentControlTraceQueryArguments: Codable, Sendable {
+    var sinceEpochMs: Int64?
+    var untilEpochMs: Int64?
+    var limit: Int?
+    var tabID: String?
+    var paneID: String?
+    var eventNames: [String]?
+}
+
+struct AgentControlInvariantQueryArguments: Codable, Sendable {
+    var sinceEpochMs: Int64?
+    var untilEpochMs: Int64?
+    var limit: Int?
+    var tabID: String?
+    var paneID: String?
+    var invariantIDs: [String]?
+    var integrations: [String]?
+    var severities: [String]?
+}
+
+struct AgentControlLogQueryArguments: Codable, Sendable {
+    var sinceEpochMs: Int64?
+    var untilEpochMs: Int64?
+    var limit: Int?
+    var categories: [String]?
+    var levels: [String]?
+    var eventNames: [String]?
+}
+
+struct AgentControlDebugModeArguments: Codable, Sendable {
+    let enabled: Bool
+}
+
+struct AgentControlResolvedDiagnosticQuery: Codable, Sendable {
+    let sinceEpochMs: Int64
+    let untilEpochMs: Int64
+    let limit: Int
+}
+
+struct AgentControlDiagnosticAvailability: Codable, Sendable {
+    let debugModeEnabled: Bool
+    let tracesReadable: Bool
+    let invariantsReadable: Bool
+    let unifiedLogsAlwaysOn: Bool
+    let unscopedRecordsRequireGlobalScope: Bool
+}
+
+struct AgentControlDiagnosticFileInfo: Codable, Sendable {
+    let logicalPath: String
+    let exists: Bool
+    let byteCount: Int64
+}
+
+struct AgentControlDiagnosticQueryMetadata: Codable, Sendable {
+    let query: AgentControlResolvedDiagnosticQuery
+    let returnedCount: Int
+    let limitTruncated: Bool
+    let sourceTruncated: Bool
+    let malformedLines: Int
+    let legacyFiles: [AgentControlDiagnosticFileInfo]
+}
+
+struct AgentControlTraceDiagnosticRecord: Codable, Sendable {
+    let file: AgentControlTraceFileMetadata
+    let name: String
+    let traceID: String
+    let spanID: String
+    let parentSpanID: String?
+    let startEpochMs: Int64
+    let endEpochMs: Int64
+    let durationMs: Int64
+    let attributes: [String: String]
+}
+
+struct AgentControlTraceFileMetadata: Codable, Sendable, Equatable {
+    let paneID: String
+    let paneName: String
+    let tabID: String
+    let tabName: String
+    let createdAt: String
+}
+
+struct AgentControlTraceQueryResult: Codable, Sendable {
+    let availability: AgentControlDiagnosticAvailability
+    let metadata: AgentControlDiagnosticQueryMetadata
+    let files: [AgentControlTraceFileMetadata]
+    let records: [AgentControlTraceDiagnosticRecord]
+}
+
+struct AgentControlInvariantDiagnosticRecord: Codable, Sendable {
+    let id: UUID
+    let invariantID: String
+    let integration: String
+    let severity: Invariant.Severity
+    let description: String
+    let timestamp: Date
+    let context: [String: String]
+}
+
+struct AgentControlInvariantQueryResult: Codable, Sendable {
+    let availability: AgentControlDiagnosticAvailability
+    let metadata: AgentControlDiagnosticQueryMetadata
+    let records: [AgentControlInvariantDiagnosticRecord]
+}
+
+struct AgentControlUnifiedLogDiagnosticRecord: Codable, Sendable {
+    let timestamp: Date
+    let subsystem: String
+    let category: String
+    let level: String
+    let eventName: String?
+}
+
+struct AgentControlLogQueryResult: Codable, Sendable {
+    let availability: AgentControlDiagnosticAvailability
+    let metadata: AgentControlDiagnosticQueryMetadata
+    let records: [AgentControlUnifiedLogDiagnosticRecord]
+}
+
+struct AgentControlDiagnosticSummary: Codable, Sendable {
+    let appMode: String
+    let bundleIdentifier: String
+    let shortVersion: String
+    let buildVersion: String
+    let availability: AgentControlDiagnosticAvailability
+    let workspace: AgentControlWorkspaceSnapshot
+    let legacyFiles: [AgentControlDiagnosticFileInfo]
+}
+
+struct AgentControlDebugModeResult: Codable, Sendable {
+    let enabled: Bool
+    let persisted: Bool
+    let tracesCapturing: Bool
+    let invariantsCapturing: Bool
+}
+
+private struct DiagnosticFileReadResult<Record> {
+    var records: [Record] = []
+    var files: [AgentControlTraceFileMetadata] = []
+    var sourceTruncated = false
+    var malformedLines = 0
+}
+
+enum AgentControlDiagnosticRedactor {
+    private static let blockedKeyFragments = [
+        "token", "secret", "password", "authorization", "environment", "env", "command", "args",
+        "path", "directory", "cwd", "working", "executable", "terminal", "output", "content",
+        "prompt", "transcript", "payload", "error", "url", "value",
+    ]
+
+    static func redact(_ attributes: [String: String]) -> [String: String] {
+        attributes.reduce(into: [:]) { result, item in
+            let key = item.key.lowercased()
+            guard !blockedKeyFragments.contains(where: key.contains), item.value.count <= 256 else { return }
+            result[item.key] = item.value
+        }
+    }
+}
+
+@MainActor
+final class AgentControlDiagnosticsRouter {
+    private let appState: AppState
+    private let appSettings: AppSettings
+
+    init(appState: AppState, appSettings: AppSettings) {
+        self.appState = appState
+        self.appSettings = appSettings
+    }
+
+    func resources() -> [Resource] {
+        [
+            Resource(
+                name: "Agent Session Manager diagnostic summary",
+                uri: AgentControlResourceURI.diagnosticSummary.rawValue,
+                description: "Scoped app, build, capture, and session diagnostics.",
+                mimeType: "application/json"),
+            Resource(
+                name: "Agent Session Manager traces",
+                uri: AgentControlResourceURI.diagnosticTraces.rawValue,
+                description: "Recent scoped trace records with metadata and truncation state.",
+                mimeType: "application/json"),
+            Resource(
+                name: "Agent Session Manager invariants",
+                uri: AgentControlResourceURI.diagnosticInvariants.rawValue,
+                description: "Recent scoped invariant occurrences.",
+                mimeType: "application/json"),
+            Resource(
+                name: "Agent Session Manager unified logs",
+                uri: AgentControlResourceURI.diagnosticLogs.rawValue,
+                description: "Recent bounded unified-log event metadata.",
+                mimeType: "application/json"),
+        ]
+    }
+
+    func tools() -> [Tool] {
+        [
+            Tool(
+                name: "diagnostics.query_traces",
+                description: "Query scoped trace records by time, IDs, and event names.",
+                inputSchema: Self.querySchema(properties: [
+                    "tabID": .string("Optional tab UUID"),
+                    "paneID": .string("Optional pane UUID"),
+                    "eventNames": .array([.string("Exact event name")]),
+                ])),
+            Tool(
+                name: "diagnostics.query_invariants",
+                description: "Query scoped invariant occurrences with bounded context.",
+                inputSchema: Self.querySchema(properties: [
+                    "tabID": .string("Optional tab UUID"),
+                    "paneID": .string("Optional pane UUID"),
+                    "invariantIDs": .array([.string("Invariant ID")]),
+                    "integrations": .array([.string("Integration name")]),
+                    "severities": .array([.string("warning or error")]),
+                ])),
+            Tool(
+                name: "diagnostics.query_logs",
+                description: "Query Global-scope unified-log event metadata.",
+                inputSchema: Self.querySchema(properties: [
+                    "categories": .array([.string("Logger category")]),
+                    "levels": .array([.string("Log level")]),
+                    "eventNames": .array([.string("Exact event name")]),
+                ])),
+            Tool(
+                name: "debug.set_mode",
+                description: "Enable or disable durable trace and invariant capture. Global scope required.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "additionalProperties": .bool(false),
+                    "properties": .object(["enabled": .object(["type": .string("boolean")])]),
+                    "required": .array([.string("enabled")]),
+                ])),
+        ]
+    }
+
+    func read(uri: AgentControlResourceURI, source: AgentControlSource) throws -> String {
+        let data: Data
+        switch uri {
+        case .diagnosticSummary:
+            data = try JSONEncoder().encode(summary(source: source))
+        case .diagnosticTraces:
+            data = try JSONEncoder().encode(traceResult(source: source, arguments: nil))
+        case .diagnosticInvariants:
+            data = try JSONEncoder().encode(invariantResult(source: source, arguments: nil))
+        case .diagnosticLogs:
+            data = try JSONEncoder().encode(try logResult(source: source, arguments: nil))
+        default:
+            throw MCPError.invalidParams("Not an Agent Session Manager diagnostic resource")
+        }
+        guard let value = String(data: data, encoding: .utf8) else {
+            throw MCPError.internalError("Unable to encode diagnostic resource")
+        }
+        return value
+    }
+
+    func callTool(
+        name: String, arguments: [String: Value]?, source: AgentControlSource
+    ) throws -> CallTool.Result {
+        switch name {
+        case "diagnostics.query_traces":
+            let decoded = try decode(AgentControlTraceQueryArguments.self, arguments: arguments)
+            return try result(traceResult(source: source, arguments: decoded))
+        case "diagnostics.query_invariants":
+            let decoded = try decode(AgentControlInvariantQueryArguments.self, arguments: arguments)
+            return try result(invariantResult(source: source, arguments: decoded))
+        case "diagnostics.query_logs":
+            guard source.scope == .global else {
+                recordAuthorizationDenied(name: name, source: source)
+                throw MCPError.invalidRequest("Global scope is required for unified-log queries")
+            }
+            let decoded = try decode(AgentControlLogQueryArguments.self, arguments: arguments)
+            return try result(try logResult(source: source, arguments: decoded))
+        case "debug.set_mode":
+            guard source.scope == .global else {
+                recordAuthorizationDenied(name: name, source: source)
+                throw MCPError.invalidRequest("Global scope is required to change Debug Mode")
+            }
+            let decoded = try decode(AgentControlDebugModeArguments.self, arguments: arguments)
+            return try result(setDebugMode(decoded.enabled, source: source))
+        default:
+            throw MCPError.invalidParams("Unknown Agent Session Manager diagnostic tool")
+        }
+    }
+
+    func summary(source: AgentControlSource) -> AgentControlDiagnosticSummary {
+        let bundle = Bundle.main
+        return AgentControlDiagnosticSummary(
+            appMode: PersistenceHelpers.appSupportSubdirectory,
+            bundleIdentifier: bundle.bundleIdentifier ?? "unknown",
+            shortVersion: bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+            buildVersion: bundle.infoDictionary?["CFBundleVersion"] as? String ?? "unknown",
+            availability: availability(),
+            workspace: AgentControlResourceRouter(appState: appState, appSettings: appSettings)
+                .workspaceSnapshot(source: source),
+            legacyFiles: legacyFiles())
+    }
+
+    private func traceResult(
+        source: AgentControlSource, arguments: AgentControlTraceQueryArguments?
+    ) throws -> AgentControlTraceQueryResult {
+        let query = try AgentControlDiagnosticQuery(
+            sinceEpochMs: arguments?.sinceEpochMs,
+            untilEpochMs: arguments?.untilEpochMs,
+            limit: arguments?.limit
+        ).resolved()
+        try validateSelectors(tabID: arguments?.tabID, paneID: arguments?.paneID, source: source)
+        let eventNames = Set(arguments?.eventNames ?? [])
+        var result = readTraces(
+            query: query, source: source, tabID: arguments?.tabID, paneID: arguments?.paneID)
+        result.records = result.records.filter { eventNames.isEmpty || eventNames.contains($0.name) }
+        let records = result.records
+        let limited = Array(records.suffix(query.limit))
+        let metadata = AgentControlDiagnosticQueryMetadata(
+            query: query,
+            returnedCount: limited.count,
+            limitTruncated: records.count > limited.count,
+            sourceTruncated: result.sourceTruncated,
+            malformedLines: result.malformedLines,
+            legacyFiles: legacyFiles())
+        recordQuery(name: "traces", source: source, metadata: metadata)
+        return AgentControlTraceQueryResult(
+            availability: availability(), metadata: metadata, files: result.files, records: limited)
+    }
+
+    private func invariantResult(
+        source: AgentControlSource, arguments: AgentControlInvariantQueryArguments?
+    ) throws -> AgentControlInvariantQueryResult {
+        let query = try AgentControlDiagnosticQuery(
+            sinceEpochMs: arguments?.sinceEpochMs,
+            untilEpochMs: arguments?.untilEpochMs,
+            limit: arguments?.limit
+        ).resolved()
+        try validateSelectors(tabID: arguments?.tabID, paneID: arguments?.paneID, source: source)
+        let result = readInvariants(
+            query: query, source: source, tabID: arguments?.tabID, paneID: arguments?.paneID,
+            invariantIDs: Set(arguments?.invariantIDs ?? []), integrations: Set(arguments?.integrations ?? []),
+            severities: Set(arguments?.severities ?? []))
+        let limited = Array(result.records.suffix(query.limit))
+        let metadata = AgentControlDiagnosticQueryMetadata(
+            query: query,
+            returnedCount: limited.count,
+            limitTruncated: result.records.count > limited.count,
+            sourceTruncated: result.sourceTruncated,
+            malformedLines: result.malformedLines,
+            legacyFiles: legacyFiles())
+        recordQuery(name: "invariants", source: source, metadata: metadata)
+        return AgentControlInvariantQueryResult(availability: availability(), metadata: metadata, records: limited)
+    }
+
+    private func logResult(
+        source: AgentControlSource, arguments: AgentControlLogQueryArguments?
+    ) throws -> AgentControlLogQueryResult {
+        guard source.scope == .global else {
+            recordAuthorizationDenied(name: "diagnostics.logs", source: source)
+            throw MCPError.invalidRequest("Global scope is required for unified-log queries")
+        }
+        let query = try AgentControlDiagnosticQuery(
+            sinceEpochMs: arguments?.sinceEpochMs,
+            untilEpochMs: arguments?.untilEpochMs,
+            limit: arguments?.limit
+        ).resolved()
+        let categoryFilter = Set(arguments?.categories ?? [])
+        let levelFilter = Set(arguments?.levels ?? [])
+        let eventFilter = Set(arguments?.eventNames ?? [])
+        let records = readLogs(query: query).filter {
+            (categoryFilter.isEmpty || categoryFilter.contains($0.category))
+                && (levelFilter.isEmpty || levelFilter.contains($0.level))
+                && (eventFilter.isEmpty || ($0.eventName.map(eventFilter.contains) ?? false))
+        }
+        let limited = Array(records.suffix(query.limit))
+        let metadata = AgentControlDiagnosticQueryMetadata(
+            query: query,
+            returnedCount: limited.count,
+            limitTruncated: records.count > limited.count,
+            sourceTruncated: false,
+            malformedLines: 0,
+            legacyFiles: legacyFiles())
+        recordQuery(name: "logs", source: source, metadata: metadata)
+        return AgentControlLogQueryResult(availability: availability(), metadata: metadata, records: limited)
+    }
+
+    private func setDebugMode(_ enabled: Bool, source: AgentControlSource) throws -> AgentControlDebugModeResult {
+        guard SettingsPersistence.saveDebugSettings(enabled: enabled) else {
+            throw MCPError.internalError("Unable to persist Debug Mode")
+        }
+        appSettings.debugModeEnabled = enabled
+        TracingService.shared.configure(from: appSettings)
+        InvariantReporter.shared.configure(from: appSettings)
+        let attributes = sourceAttributes(source).merging(
+            ["enabled": String(enabled), "result": "updated"], uniquingKeysWith: { _, new in new })
+        TracingService.shared.record("agent_control.debug_mode.changed", attributes: attributes)
+        return AgentControlDebugModeResult(
+            enabled: enabled,
+            persisted: true,
+            tracesCapturing: TracingService.shared.isEnabled,
+            invariantsCapturing: enabled)
+    }
+
+    private func readTraces(
+        query: AgentControlResolvedDiagnosticQuery, source: AgentControlSource, tabID: String?, paneID: String?
+    ) -> DiagnosticFileReadResult<AgentControlTraceDiagnosticRecord> {
+        var result = DiagnosticFileReadResult<AgentControlTraceDiagnosticRecord>()
+        let directory = appSettings.resolvedTracingDirectoryURL
+        guard let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) else {
+            return result
+        }
+        while let url = enumerator.nextObject() as? URL {
+            guard url.pathExtension == "jsonl" else { continue }
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            let lines = content.split(whereSeparator: \.isNewline).map(String.init)
+            guard let first = lines.first, let metadata = traceMetadata(first) else {
+                result.malformedLines += lines.isEmpty ? 0 : 1
+                continue
+            }
+            guard traceFileAllowed(metadata, source: source, tabID: tabID, paneID: paneID) else { continue }
+            result.files.append(metadata)
+            for line in lines.dropFirst() {
+                if line == "--- [truncated older trace entries] ---" {
+                    result.sourceTruncated = true
+                    continue
+                }
+                guard let object = jsonObject(line), let name = object["name"] as? String,
+                    let traceID = object["traceId"] as? String, let spanID = object["spanId"] as? String,
+                    let start = integer(object["startEpochMs"]), let end = integer(object["endEpochMs"])
+                else {
+                    result.malformedLines += 1
+                    continue
+                }
+                guard start >= query.sinceEpochMs && start <= query.untilEpochMs else { continue }
+                let attributes = AgentControlDiagnosticRedactor.redact(object["attributes"] as? [String: String] ?? [:])
+                result.records.append(
+                    AgentControlTraceDiagnosticRecord(
+                        file: metadata,
+                        name: name,
+                        traceID: traceID,
+                        spanID: spanID,
+                        parentSpanID: object["parentSpanId"] as? String,
+                        startEpochMs: start,
+                        endEpochMs: end,
+                        durationMs: integer(object["durationMs"]) ?? end - start,
+                        attributes: attributes))
+            }
+        }
+        result.records.sort { $0.startEpochMs < $1.startEpochMs }
+        return result
+    }
+
+    private func readInvariants(
+        query: AgentControlResolvedDiagnosticQuery,
+        source: AgentControlSource,
+        tabID: String?,
+        paneID: String?,
+        invariantIDs: Set<String>,
+        integrations: Set<String>,
+        severities: Set<String>
+    ) -> DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord> {
+        var result = DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord>()
+        let url = appSettings.resolvedInvariantDirectoryURL.appending(path: "invariants.jsonl")
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return result }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for line in content.split(whereSeparator: \.isNewline).map(String.init) {
+            if line == InvariantLogWriter.truncationMarker {
+                result.sourceTruncated = true
+                continue
+            }
+            guard let data = line.data(using: .utf8),
+                let violation = try? decoder.decode(InvariantViolation.self, from: data)
+            else {
+                if !(line.contains("\"_type\":\"metadata\"") || line.isEmpty) { result.malformedLines += 1 }
+                continue
+            }
+            guard violation.timestamp.timeIntervalSince1970 * 1000 >= Double(query.sinceEpochMs),
+                violation.timestamp.timeIntervalSince1970 * 1000 <= Double(query.untilEpochMs),
+                invariantIDs.isEmpty || invariantIDs.contains(violation.invariantID),
+                integrations.isEmpty || integrations.contains(violation.integration),
+                severities.isEmpty || severities.contains(violation.severity.rawValue),
+                invariantAllowed(violation, source: source, tabID: tabID, paneID: paneID)
+            else { continue }
+            result.records.append(
+                AgentControlInvariantDiagnosticRecord(
+                    id: violation.id,
+                    invariantID: violation.invariantID,
+                    integration: violation.integration,
+                    severity: violation.severity,
+                    description: violation.description,
+                    timestamp: violation.timestamp,
+                    context: AgentControlDiagnosticRedactor.redact(violation.context)))
+        }
+        result.records.sort { $0.timestamp < $1.timestamp }
+        return result
+    }
+
+    private func readLogs(query: AgentControlResolvedDiagnosticQuery) -> [AgentControlUnifiedLogDiagnosticRecord] {
+        guard let store = try? OSLogStore.local() else { return [] }
+        let start = Date(timeIntervalSince1970: Double(query.sinceEpochMs) / 1000)
+        let subsystem = Bundle.main.bundleIdentifier ?? "com.justinfuller.agent-session-manager"
+        let predicate = NSPredicate(
+            format: "subsystem == %@ AND processIdentifier == %d", subsystem, getpid())
+        guard let entries = try? store.getEntries(with: [], at: store.position(date: start), matching: predicate)
+        else { return [] }
+        var result: [AgentControlUnifiedLogDiagnosticRecord] = []
+        for entry in entries {
+            guard let log = entry as? OSLogEntryLog, log.date.timeIntervalSince1970 * 1000 <= Double(query.untilEpochMs)
+            else { continue }
+            let eventName = log.composedMessage.split(separator: " ").first.map(String.init)
+            result.append(
+                AgentControlUnifiedLogDiagnosticRecord(
+                    timestamp: log.date,
+                    subsystem: subsystem,
+                    category: log.category,
+                    level: String(describing: log.level),
+                    eventName: eventName))
+            if result.count >= 1_000 { break }
+        }
+        return result.sorted { $0.timestamp < $1.timestamp }
+    }
+
+    private func validateSelectors(tabID: String?, paneID: String?, source: AgentControlSource) throws {
+        if source.scope == .pane {
+            guard tabID == nil || tabID?.caseInsensitiveCompare(source.tabID.uuidString) == .orderedSame,
+                paneID == nil || paneID?.caseInsensitiveCompare(source.paneID.uuidString) == .orderedSame
+            else { throw MCPError.invalidRequest("Diagnostic selector is outside pane scope") }
+        } else if source.scope == .tab {
+            guard tabID == nil || tabID?.caseInsensitiveCompare(source.tabID.uuidString) == .orderedSame else {
+                throw MCPError.invalidRequest("Diagnostic selector is outside tab scope")
+            }
+            if let paneID,
+                !appState.tabs.contains(where: {
+                    $0.id == source.tabID
+                        && $0.panes.contains { $0.id.uuidString.caseInsensitiveCompare(paneID) == .orderedSame }
+                })
+            {
+                throw MCPError.invalidRequest("Diagnostic selector is outside tab scope")
+            }
+        }
+    }
+
+    private func traceFileAllowed(
+        _ metadata: AgentControlTraceFileMetadata, source: AgentControlSource, tabID: String?, paneID: String?
+    ) -> Bool {
+        if metadata.paneID == "_global" { return source.scope == .global }
+        if let tabID, metadata.tabID.caseInsensitiveCompare(tabID) != .orderedSame { return false }
+        if let paneID, metadata.paneID.caseInsensitiveCompare(paneID) != .orderedSame { return false }
+        switch source.scope {
+        case .global: return true
+        case .tab: return metadata.tabID.caseInsensitiveCompare(source.tabID.uuidString) == .orderedSame
+        case .pane: return metadata.paneID.caseInsensitiveCompare(source.paneID.uuidString) == .orderedSame
+        }
+    }
+
+    private func invariantAllowed(
+        _ violation: InvariantViolation, source: AgentControlSource, tabID: String?, paneID: String?
+    ) -> Bool {
+        let contextPane = violation.context["pane.id"]
+        let contextTab = violation.context["tab.id"]
+        if let paneID, contextPane?.caseInsensitiveCompare(paneID) != .orderedSame { return false }
+        if let tabID, contextTab?.caseInsensitiveCompare(tabID) != .orderedSame { return false }
+        guard let contextPane else { return source.scope == .global }
+        switch source.scope {
+        case .global: return true
+        case .pane: return contextPane.caseInsensitiveCompare(source.paneID.uuidString) == .orderedSame
+        case .tab:
+            return appState.tabs.contains {
+                $0.id == source.tabID
+                    && $0.panes.contains { $0.id.uuidString.caseInsensitiveCompare(contextPane) == .orderedSame }
+            }
+        }
+    }
+
+    private func availability() -> AgentControlDiagnosticAvailability {
+        AgentControlDiagnosticAvailability(
+            debugModeEnabled: appSettings.debugModeEnabled,
+            tracesReadable: FileManager.default.fileExists(atPath: appSettings.resolvedTracingDirectoryURL.path),
+            invariantsReadable: FileManager.default.fileExists(atPath: appSettings.resolvedInvariantDirectoryURL.path),
+            unifiedLogsAlwaysOn: true,
+            unscopedRecordsRequireGlobalScope: true)
+    }
+
+    private func legacyFiles() -> [AgentControlDiagnosticFileInfo] {
+        let support = appSettings.resolvedTracingDirectoryURL.deletingLastPathComponent()
+        return ["debug-trace.log", "traces.jsonl"].map { name in
+            let url = support.appending(path: name)
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+            return AgentControlDiagnosticFileInfo(
+                logicalPath: name, exists: FileManager.default.fileExists(atPath: url.path), byteCount: size)
+        }
+    }
+
+    private func traceMetadata(_ line: String) -> AgentControlTraceFileMetadata? {
+        guard let object = jsonObject(line), object["_type"] as? String == "metadata",
+            let paneID = object["paneId"] as? String, let paneName = object["paneName"] as? String,
+            let tabID = object["tabId"] as? String, let tabName = object["tabName"] as? String,
+            let createdAt = object["createdAt"] as? String
+        else { return nil }
+        return AgentControlTraceFileMetadata(
+            paneID: paneID, paneName: paneName, tabID: tabID, tabName: tabName, createdAt: createdAt)
+    }
+
+    private func jsonObject(_ line: String) -> [String: Any]? {
+        guard let data = line.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    private func integer(_ value: Any?) -> Int64? {
+        if let value = value as? Int64 { return value }
+        if let value = value as? Int { return Int64(value) }
+        if let value = value as? Double { return Int64(value) }
+        if let value = value as? NSNumber { return value.int64Value }
+        return nil
+    }
+
+    private func sourceAttributes(_ source: AgentControlSource) -> [String: String] {
+        [
+            "pane.id": source.paneID.uuidString,
+            "pane.name": source.paneName,
+            "tab.id": source.tabID.uuidString,
+            "tab.name": source.tabName,
+            "scope": source.scope.rawValue,
+        ]
+    }
+
+    private func recordQuery(name: String, source: AgentControlSource, metadata: AgentControlDiagnosticQueryMetadata) {
+        var attributes = sourceAttributes(source)
+        attributes["query.kind"] = name
+        attributes["result.count"] = String(metadata.returnedCount)
+        attributes["result.truncated"] = String(metadata.limitTruncated || metadata.sourceTruncated)
+        TracingService.shared.record("agent_control.diagnostic.query", attributes: attributes)
+    }
+
+    private func recordAuthorizationDenied(name: String, source: AgentControlSource) {
+        var attributes = sourceAttributes(source)
+        attributes["tool"] = name
+        attributes["result"] = "scope_denied"
+        TracingService.shared.record("agent_control.tool.authorization_denied", attributes: attributes)
+    }
+
+    private func decode<T: Decodable>(_ type: T.Type, arguments: [String: Value]?) throws -> T {
+        let data = try JSONEncoder().encode(arguments ?? [:])
+        return try JSONDecoder().decode(type, from: data)
+    }
+
+    private func result<T: Codable>(_ value: T) throws -> CallTool.Result {
+        let data = try JSONEncoder().encode(value)
+        let text = String(decoding: data, as: UTF8.self)
+        return try CallTool.Result(
+            content: [.text(text: text, annotations: nil, _meta: nil)],
+            structuredContent: value)
+    }
+
+    private static func querySchema(properties: [String: Value]) -> Value {
+        var fields: [String: Value] = [
+            "sinceEpochMs": .object(["type": .string("integer")]),
+            "untilEpochMs": .object(["type": .string("integer")]),
+            "limit": .object(["type": .string("integer"), "maximum": .int(200)]),
+        ]
+        fields.merge(properties, uniquingKeysWith: { _, new in new })
+        return .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(fields),
+        ])
+    }
+}

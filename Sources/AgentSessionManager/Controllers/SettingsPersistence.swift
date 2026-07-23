@@ -145,6 +145,18 @@ struct SettingsPersistence {
         try? data.write(to: appSupportDir.appending(path: filename))
     }
 
+    static func saveDebugSettings(enabled: Bool) -> Bool {
+        guard let data = try? JSONEncoder().encode(DebugSettings(schemaVersion: 1, enabled: enabled)) else {
+            return false
+        }
+        do {
+            try data.write(to: debugSettingsURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     nonisolated static func load<Value: Decodable>(_ type: Value.Type, from filename: String) -> Value? {
         guard let data = try? Data(contentsOf: appSupportDir.appending(path: filename)) else { return nil }
         return try? JSONDecoder().decode(type, from: data)

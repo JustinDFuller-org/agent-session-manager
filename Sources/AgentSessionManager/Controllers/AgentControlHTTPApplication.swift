@@ -153,7 +153,9 @@ actor AgentControlHTTPApplication {
         let server = Server(
             name: "Agent Session Manager",
             version: "1.0",
-            capabilities: .init(resources: .init(subscribe: false, listChanged: false)),
+            capabilities: .init(
+                resources: .init(subscribe: false, listChanged: false),
+                tools: .init(listChanged: false)),
             configuration: .strict
         )
         do {
@@ -165,12 +167,22 @@ actor AgentControlHTTPApplication {
             await server.withMethodHandler(ListResourceTemplates.self) { _ in
                 .init(templates: await router?.resourceTemplates() ?? [])
             }
+            await server.withMethodHandler(ListTools.self) { _ in
+                .init(tools: await router?.tools() ?? [])
+            }
             await server.withMethodHandler(ReadResource.self) { params in
                 guard let router, let source = tokenStore.source(forSessionID: newSessionID) else {
                     throw MCPError.invalidRequest("Agent Session Manager resource session is unavailable")
                 }
                 let content = try await router.read(uri: params.uri, source: source)
                 return .init(contents: [.text(content, uri: params.uri, mimeType: "application/json")])
+            }
+            await server.withMethodHandler(CallTool.self) { params in
+                guard let router, let source = tokenStore.source(forSessionID: newSessionID) else {
+                    throw MCPError.invalidRequest("Agent Session Manager tool session is unavailable")
+                }
+                return try await router.callTool(
+                    name: params.name, arguments: params.arguments, source: source)
             }
             try await server.start(transport: transport)
             let response = await transport.handleRequest(request)

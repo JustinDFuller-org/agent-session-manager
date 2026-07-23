@@ -90,9 +90,11 @@ final class AgentControlResourceTests: XCTestCase {
 
         try await client.connect(transport: transport)
         let resources = try await client.listResources()
-        XCTAssertEqual(resources.resources.count, 5)
+        XCTAssertEqual(resources.resources.count, 9)
         let templates = try await client.listResourceTemplates()
         XCTAssertEqual(templates.templates.count, 4)
+        let tools = try await client.listTools()
+        XCTAssertEqual(tools.tools.count, 4)
 
         let contents = try await client.readResource(uri: AgentControlResourceURI.workspace.rawValue)
         XCTAssertEqual(contents.count, 1)
