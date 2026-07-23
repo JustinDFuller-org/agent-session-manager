@@ -26,6 +26,8 @@ extension BaseTestCase {
         app.buttons["new-tab-choose-dir-button"].click()
         let createBtn = app.buttons["new-tab-create-button"]
         waitFor(createBtn)
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: createBtn)
+        wait(for: [enabled], timeout: 15)
         XCTAssertTrue(createBtn.isEnabled, "Create button should be enabled after choosing directory")
         createBtn.click()
         waitFor(app.buttons["tab-button-\(name)"].firstMatch)
