@@ -66,6 +66,29 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertEqual(config["share"] as? String, "manual")
     }
 
+    func testOpenCodeRejectsMissingOrMalformedConfiguration() {
+        let missing = AgentControlHarnessLaunchContext(
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["opencode"],
+            environment: [])
+        XCTAssertThrowsError(try OpenCodeAgentControlAdapter().prepare(missing))
+
+        let malformed = AgentControlHarnessLaunchContext(
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["opencode"],
+            environment: ["OPENCODE_CONFIG_CONTENT=not-json"])
+        XCTAssertThrowsError(try OpenCodeAgentControlAdapter().prepare(malformed))
+
+        let invalidMCP = AgentControlHarnessLaunchContext(
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["opencode"],
+            environment: ["OPENCODE_CONFIG_CONTENT={\"mcp\":true}"])
+        XCTAssertThrowsError(try OpenCodeAgentControlAdapter().prepare(invalidMCP))
+    }
+
     func testCursorReportsActionableUnsupportedError() {
         let context = AgentControlHarnessLaunchContext(
             endpoint: endpoint, tokenEnvironmentKey: tokenKey, commandArguments: ["agent"], environment: []

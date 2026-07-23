@@ -93,12 +93,22 @@ final class AgentControlResourceTests: XCTestCase {
             XCTAssertFalse(profiles.contains("secret-value"))
             XCTAssertFalse(profiles.contains("runtime-secret"))
 
-            let harnesses = try await fixture.router.read(
-                uri: AgentControlResourceURI.harnesses.rawValue, source: source)
-            let harnessSnapshots = try JSONDecoder().decode(
-                [AgentControlHarnessSnapshot].self, from: Data(harnesses.utf8))
-            XCTAssertEqual(harnessSnapshots.count, Harness.allCases.count)
-            XCTAssertFalse(harnesses.contains("secret-value"))
+            if source.scope == .global {
+                let harnesses = try await fixture.router.read(
+                    uri: AgentControlResourceURI.harnesses.rawValue, source: source)
+                let harnessSnapshots = try JSONDecoder().decode(
+                    [AgentControlHarnessSnapshot].self, from: Data(harnesses.utf8))
+                XCTAssertEqual(harnessSnapshots.count, Harness.allCases.count)
+                XCTAssertFalse(harnesses.contains("secret-value"))
+            } else {
+                do {
+                    _ = try await fixture.router.read(
+                        uri: AgentControlResourceURI.harnesses.rawValue, source: source)
+                    XCTFail("Non-global scopes must not read harness catalogs")
+                } catch {
+                    XCTAssertTrue(error is MCPError)
+                }
+            }
 
             let statusLines = try await fixture.router.read(
                 uri: AgentControlResourceURI.statusLines.rawValue, source: source)
@@ -111,6 +121,7 @@ final class AgentControlResourceTests: XCTestCase {
             case .global: expectedPaneCount = 3
             }
             XCTAssertEqual(statusSnapshot.panes.count, expectedPaneCount)
+            XCTAssertEqual(statusSnapshot.globalConfiguration != nil, source.scope == .global)
 
             let notifications = try await fixture.router.read(
                 uri: AgentControlResourceURI.notifications.rawValue, source: source)

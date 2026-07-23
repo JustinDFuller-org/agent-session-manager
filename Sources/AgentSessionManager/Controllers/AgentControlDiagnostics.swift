@@ -449,7 +449,7 @@ final class AgentControlDiagnosticsRouter {
             try Task.checkCancellation()
             await Task.yield()
             guard url.pathExtension == "jsonl" else { continue }
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            guard let content = try? boundedUTF8Contents(at: url) else { continue }
             let lines = content.split(whereSeparator: \.isNewline).map(String.init)
             guard let first = lines.first, let metadata = traceMetadata(first) else {
                 result.malformedLines += lines.isEmpty ? 0 : 1
@@ -504,7 +504,7 @@ final class AgentControlDiagnosticsRouter {
     ) async throws -> DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord> {
         var result = DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord>()
         let url = appSettings.resolvedInvariantDirectoryURL.appending(path: "invariants.jsonl")
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return result }
+        guard let content = try? boundedUTF8Contents(at: url) else { return result }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         for (index, line) in content.split(whereSeparator: \.isNewline).map(String.init).enumerated() {
@@ -708,7 +708,32 @@ final class AgentControlDiagnosticsRouter {
 
     private func decode<T: Decodable>(_ type: T.Type, arguments: [String: Value]?) throws -> T {
         let data = try JSONEncoder().encode(arguments ?? [:])
+        guard data.count <= 64 * 1024 else {
+            throw MCPError.invalidParams("Diagnostic query arguments are too large")
+        }
         return try JSONDecoder().decode(type, from: data)
+    }
+
+    private func boundedUTF8Contents(at url: URL) throws -> String {
+        let maxBytes = 8 * 1024 * 1024
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let fileSize = (attributes[.size] as? NSNumber)?.intValue ?? 0
+        guard fileSize > maxBytes else {
+            return String(decoding: try handle.readToEnd() ?? Data(), as: UTF8.self)
+        }
+
+        let prefixSize = 4096
+        let suffixSize = maxBytes - prefixSize
+        let prefix = try handle.read(upToCount: prefixSize) ?? Data()
+        try handle.seek(toOffset: UInt64(fileSize - suffixSize))
+        let suffix = try handle.read(upToCount: suffixSize) ?? Data()
+        var bounded = Data()
+        bounded.append(prefix)
+        bounded.append(Data("\n".utf8))
+        bounded.append(suffix)
+        return String(decoding: bounded, as: UTF8.self)
     }
 
     private func result<T: Codable>(_ value: T) throws -> CallTool.Result {

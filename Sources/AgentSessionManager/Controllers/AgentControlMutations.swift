@@ -351,6 +351,7 @@ final class AgentControlMutationRouter {
         name: String, arguments: [String: Value]?, source: AgentControlSource
     ) async throws -> CallTool.Result {
         do {
+            try Task.checkCancellation()
             let value: AgentControlMutationResult
             switch name {
             case "tabs.create":
@@ -517,8 +518,10 @@ final class AgentControlMutationRouter {
         let worktreeRef = args.worktreeRef.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !worktreeRef.isEmpty else { throw MCPError.invalidParams("Worktree reference must not be empty") }
 
+        try Task.checkCancellation()
         let resolved = try await tab.resolveOrAttachWorktree(
             userRef: worktreeRef, defaultBranch: defaultBranch, baseRef: baseRef)
+        try Task.checkCancellation()
         let inUse = appState.isCheckoutInUse(
             directory: tab.directory, checkout: resolved.checkoutURL)
         guard !inUse else { throw MCPError.invalidRequest("A pane with this worktree is already open") }
@@ -641,6 +644,7 @@ final class AgentControlMutationRouter {
         guard let tab = pane.tab else { throw MCPError.internalError("Pane has no parent tab") }
         let cleanup = try cleanupDecision(args.cleanup, panes: [pane])
         let paneID = pane.id
+        try Task.checkCancellation()
         tab.closePane(pane)
         SessionPersistence.save(appState: appState)
         let cleanupResults = await cleanupWorktrees(cleanup, panes: [pane], tab: tab)

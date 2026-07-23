@@ -32,6 +32,11 @@ Read-only resources provide scoped snapshots for:
 - diagnostic summary, current per-pane traces, invariant occurrences, and
   app-owned unified logs.
 
+Profile resources contain only profiles referenced by panes visible to the
+caller. Harness catalogs and global status-line configuration require Global
+scope; pane- and tab-scoped status-line responses include only visible pane
+data and profile overrides.
+
 Mutation tools provide narrowly scoped operations for:
 
 - tab and pane creation, deletion, focus, restart, and reordering;
@@ -66,8 +71,9 @@ declined injection leaves the normal pane launch path unchanged.
 The server binds only to `127.0.0.1` on an ephemeral port. Requests require the
 exact loopback host, an optional origin must match the loopback origin, and a
 valid bearer token bound to an MCP session. Request bodies, responses,
-concurrency, and execution time are bounded; cancellation and token revocation
-close active work.
+concurrency, execution time, and sessions per credential are bounded. Session
+replacement, deletion, pane teardown, and token revocation release both
+transport and authorization state.
 
 Diagnostic responses are metadata-first and redacted. They do not expose
 terminal content, harness output, secrets, environment values, or arbitrary

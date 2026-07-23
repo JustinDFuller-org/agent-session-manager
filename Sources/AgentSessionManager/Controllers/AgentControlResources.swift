@@ -190,7 +190,7 @@ struct AgentControlPaneStatusSnapshot: Codable {
 }
 
 struct AgentControlStatusLineSnapshot: Codable {
-    let globalConfiguration: StatusLineConfig
+    let globalConfiguration: StatusLineConfig?
     let profileConfigurations: [AgentControlProfileStatusSnapshot]
     let panes: [AgentControlPaneStatusSnapshot]
 }
@@ -309,8 +309,11 @@ final class AgentControlResourceRouter {
             case .workspace:
                 data = try JSONEncoder().encode(workspaceSnapshot(source: source))
             case .profiles:
-                data = try JSONEncoder().encode(profileSnapshots())
+                data = try JSONEncoder().encode(profileSnapshots(source: source))
             case .harnesses:
+                guard source.scope == .global else {
+                    throw MCPError.invalidRequest("Global scope is required for harness catalogs")
+                }
                 data = try JSONEncoder().encode(harnessSnapshots())
             case .statusLines:
                 data = try JSONEncoder().encode(statusLineSnapshot(source: source))
@@ -331,7 +334,7 @@ final class AgentControlResourceRouter {
                 }
                 data = try JSONEncoder().encode(paneSnapshot(pane))
             case .profile(let id):
-                guard let profile = appSettings.profiles.first(where: { $0.id == id }) else {
+                guard let profile = visibleProfiles(source: source).first(where: { $0.id == id }) else {
                     throw MCPError.invalidParams("Agent Session Manager resource not found")
                 }
                 data = try JSONEncoder().encode(profileSnapshot(profile))
@@ -417,8 +420,8 @@ final class AgentControlResourceRouter {
             statusLineConfig: profile?.statusLineConfig ?? appSettings.statusLineConfig)
     }
 
-    func profileSnapshots() -> [AgentControlProfileSnapshot] {
-        appSettings.profiles.map(profileSnapshot)
+    func profileSnapshots(source: AgentControlSource) -> [AgentControlProfileSnapshot] {
+        visibleProfiles(source: source).map(profileSnapshot)
     }
 
     func profileSnapshot(_ profile: Profile) -> AgentControlProfileSnapshot {
@@ -485,7 +488,7 @@ final class AgentControlResourceRouter {
     }
 
     func statusLineSnapshot(source: AgentControlSource) -> AgentControlStatusLineSnapshot {
-        let profiles = appSettings.profiles.map {
+        let profiles = visibleProfiles(source: source).map {
             AgentControlProfileStatusSnapshot(
                 profileID: $0.id, profileName: $0.name, configuration: $0.statusLineConfig)
         }
@@ -493,9 +496,20 @@ final class AgentControlResourceRouter {
             source.scope != .pane || $0.id == source.paneID
         }.map(paneStatusSnapshot)
         return AgentControlStatusLineSnapshot(
-            globalConfiguration: appSettings.statusLineConfig,
+            globalConfiguration: source.scope == .global ? appSettings.statusLineConfig : nil,
             profileConfigurations: profiles,
             panes: panes)
+    }
+
+    func visibleProfiles(source: AgentControlSource) -> [Profile] {
+        guard source.scope != .global else { return appSettings.profiles }
+        let profileIDs = Set(
+            visibleTabs(source: source)
+                .flatMap(\.panes)
+                .filter { source.scope != .pane || $0.id == source.paneID }
+                .compactMap(\.profileID)
+        )
+        return appSettings.profiles.filter { profileIDs.contains($0.id) }
     }
 
     func paneStatusSnapshot(_ pane: Pane) -> AgentControlPaneStatusSnapshot {

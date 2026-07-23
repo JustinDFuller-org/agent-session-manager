@@ -19,7 +19,8 @@ final class AgentControlLifecycleTests: XCTestCase {
             maxResponseBodyBytes: 1_024,
             maxConcurrentRequestsPerCredential: 1,
             requestTimeout: .seconds(1),
-            maxRegisteredCredentials: 1
+            maxRegisteredCredentials: 1,
+            maxSessionsPerCredential: 1
         )
         let credential = try store.register(source: source, limits: limits)
 
@@ -43,6 +44,35 @@ final class AgentControlLifecycleTests: XCTestCase {
             store.source(for: credential.bearerToken, sessionID: nil, limits: limits),
             .failure(.invalidToken)
         )
+    }
+
+    func testTokenStoreLimitsSessionsPerCredentialAndUpdatesScope() throws {
+        let store = AgentControlTokenStore()
+        let source = AgentControlSource(
+            paneID: UUID(), paneName: "Pane", tabID: UUID(), tabName: "Tab", scope: .global)
+        var limits = AgentControlLimits.default
+        limits = AgentControlLimits(
+            maxRequestBodyBytes: limits.maxRequestBodyBytes,
+            maxResponseBodyBytes: limits.maxResponseBodyBytes,
+            maxConcurrentRequestsPerCredential: limits.maxConcurrentRequestsPerCredential,
+            requestTimeout: limits.requestTimeout,
+            maxRegisteredCredentials: limits.maxRegisteredCredentials,
+            maxSessionsPerCredential: 1)
+        let credential = try store.register(source: source, limits: limits)
+
+        XCTAssertTrue(store.bind(sessionID: "first", token: credential.bearerToken, limits: limits))
+        XCTAssertFalse(store.bind(sessionID: "second", token: credential.bearerToken, limits: limits))
+
+        store.updateScope(.pane)
+        XCTAssertEqual(
+            store.source(for: credential.bearerToken, sessionID: "first", limits: limits),
+            .success(
+                AgentControlSource(
+                    paneID: source.paneID,
+                    paneName: source.paneName,
+                    tabID: source.tabID,
+                    tabName: source.tabName,
+                    scope: .pane)))
     }
 
     func testValidatorRejectsUntrustedHostAndOrigin() throws {
@@ -102,7 +132,8 @@ final class AgentControlLifecycleTests: XCTestCase {
             maxResponseBodyBytes: 1_024,
             maxConcurrentRequestsPerCredential: 1,
             requestTimeout: .seconds(1),
-            maxRegisteredCredentials: 1)
+            maxRegisteredCredentials: 1,
+            maxSessionsPerCredential: 1)
         let credential = try store.register(source: source, limits: limits)
         let validator = AgentControlRequestValidator(
             tokenStore: store,

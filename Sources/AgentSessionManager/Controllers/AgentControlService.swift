@@ -9,13 +9,31 @@ struct AgentControlLimits: Sendable, Equatable {
     let maxConcurrentRequestsPerCredential: Int
     let requestTimeout: Duration
     let maxRegisteredCredentials: Int
+    let maxSessionsPerCredential: Int
+
+    init(
+        maxRequestBodyBytes: Int,
+        maxResponseBodyBytes: Int,
+        maxConcurrentRequestsPerCredential: Int,
+        requestTimeout: Duration,
+        maxRegisteredCredentials: Int,
+        maxSessionsPerCredential: Int = 8
+    ) {
+        self.maxRequestBodyBytes = maxRequestBodyBytes
+        self.maxResponseBodyBytes = maxResponseBodyBytes
+        self.maxConcurrentRequestsPerCredential = maxConcurrentRequestsPerCredential
+        self.requestTimeout = requestTimeout
+        self.maxRegisteredCredentials = maxRegisteredCredentials
+        self.maxSessionsPerCredential = maxSessionsPerCredential
+    }
 
     static let `default` = AgentControlLimits(
         maxRequestBodyBytes: 1_048_576,
         maxResponseBodyBytes: 1_048_576,
         maxConcurrentRequestsPerCredential: 4,
         requestTimeout: .seconds(30),
-        maxRegisteredCredentials: 256
+        maxRegisteredCredentials: 256,
+        maxSessionsPerCredential: 8
     )
 }
 
@@ -165,10 +183,13 @@ final class AgentControlTokenStore: @unchecked Sendable {
         }
     }
 
-    func bind(sessionID: String, token: String) -> Bool {
+    func bind(sessionID: String, token: String, limits: AgentControlLimits) -> Bool {
         let tokenHash = Self.hash(token)
         return lock.withLock {
             guard let paneID = tokenToPane[tokenHash], var registration = registrations[paneID] else { return false }
+            guard sessionToPane[sessionID] == nil,
+                registration.sessionIDs.count < limits.maxSessionsPerCredential
+            else { return false }
             sessionToPane[sessionID] = paneID
             registration.sessionIDs.insert(sessionID)
             registrations[paneID] = registration
@@ -180,6 +201,16 @@ final class AgentControlTokenStore: @unchecked Sendable {
         lock.withLock {
             guard let paneID = sessionToPane[sessionID] else { return nil }
             return registrations[paneID]?.source
+        }
+    }
+
+    func unbind(sessionID: String) {
+        lock.withLock {
+            guard let paneID = sessionToPane.removeValue(forKey: sessionID),
+                var registration = registrations[paneID]
+            else { return }
+            registration.sessionIDs.remove(sessionID)
+            registrations[paneID] = registration
         }
     }
 
@@ -324,6 +355,9 @@ final class AgentControlService {
             throw NSError(
                 domain: "AgentControlService", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Agent Session Manager control server is unavailable."])
+        }
+        Task {
+            await httpApplication.disconnectSessions(forPaneID: source.paneID)
         }
         let credential = try tokenStore.register(source: source, limits: limits)
         let resolved = AgentControlCredential(endpoint: endpoint, bearerToken: credential.bearerToken, source: source)

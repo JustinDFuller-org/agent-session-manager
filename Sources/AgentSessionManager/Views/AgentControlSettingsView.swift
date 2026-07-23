@@ -42,6 +42,7 @@ struct AgentControlSettingsSection: View {
                 .accessibilityIdentifier("settings-agent-control-scope-picker")
                 .onChange(of: appSettings.agentControlScope) {
                     SettingsPersistence.saveAgentControlSettings(appSettings: appSettings)
+                    AgentControlService.shared.updateScope(appSettings.agentControlScope)
                 }
             }
         }

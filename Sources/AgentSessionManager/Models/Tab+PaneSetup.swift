@@ -82,60 +82,58 @@ extension Tab {
             pane.installStatusLineMonitor(monitor)
         }
 
-        if !AgentSessionManagerApp.isUITesting {
-            let controller = TerminalController()
-            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
-            controller.pendingDirectory = cwd
-            controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
+        let controller = TerminalController()
+        controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
+        controller.pendingDirectory = cwd
+        controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
 
-            switch pane.harness {
-            case .shell:
-                controller.pendingCommandArgs = nil
-            case .claude:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingCommandArgs = Tab.buildClaudeCommand(
-                    settingsPath: pane.statusLineMonitor!.settingsFilePath,
-                    extraArgs: effectiveExtraArgs
-                )
-            case .codex:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                pane.statusLineMonitor?.writeCodexHookScript()
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + [
-                        "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
-                        "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
-                        "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(pane.statusLineMonitor!.codexHookRecordFilePath)",
-                    ]
-                controller.pendingCommandArgs = Tab.buildCodexCommand(
-                    hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
-                    extraArgs: effectiveExtraArgs)
-            case .cursor:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommandArgs = ["agent"] + effectiveExtraArgs
-            case .opencode:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(
-                    controller, pane: pane, extraArgs: effectiveExtraArgs, extraEnvVars: extraEnvVars,
-                    resumeSessionID: pane.opencodeSessionID)
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, paneName: pane.name,
-                    workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
-                pane.installStatusLineMonitor(monitor)
-            }
-            controller.terminalView.telemetryTabName = self.name
-            controller.terminalView.telemetryTabUUID = self.id
-            controller.terminalView.telemetryPaneName = pane.name
-            controller.terminalView.telemetryPaneUUID = pane.id
-            guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
-                return
-            }
-            pane.installTerminalController(controller)
+        switch pane.harness {
+        case .shell:
+            controller.pendingCommandArgs = nil
+        case .claude:
+            applyExtraEnvVars(extraEnvVars, to: controller)
+            controller.pendingCommandArgs = Tab.buildClaudeCommand(
+                settingsPath: pane.statusLineMonitor!.settingsFilePath,
+                extraArgs: effectiveExtraArgs
+            )
+        case .codex:
+            applyExtraEnvVars(extraEnvVars, to: controller)
+            pane.statusLineMonitor?.writeCodexHookScript()
+            controller.pendingEnvironment =
+                (controller.pendingEnvironment ?? [])
+                + [
+                    "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
+                    "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
+                    "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(pane.statusLineMonitor!.codexHookRecordFilePath)",
+                ]
+            controller.pendingCommandArgs = Tab.buildCodexCommand(
+                hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
+                extraArgs: effectiveExtraArgs)
+        case .cursor:
+            applyExtraEnvVars(extraEnvVars, to: controller)
+            controller.pendingEnvironment =
+                (controller.pendingEnvironment ?? [])
+                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+            controller.pendingCommandArgs = ["agent"] + effectiveExtraArgs
+        case .opencode:
+            applyExtraEnvVars(extraEnvVars, to: controller)
+            configureOpenCodeController(
+                controller, pane: pane, extraArgs: effectiveExtraArgs, extraEnvVars: extraEnvVars,
+                resumeSessionID: pane.opencodeSessionID)
+            let monitor = StatusLineMonitor(
+                paneID: pane.id, paneName: pane.name,
+                workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
+            pane.installStatusLineMonitor(monitor)
         }
+        controller.terminalView.telemetryTabName = self.name
+        controller.terminalView.telemetryTabUUID = self.id
+        controller.terminalView.telemetryPaneName = pane.name
+        controller.terminalView.telemetryPaneUUID = pane.id
+        guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
+            return
+        }
+        pane.installTerminalController(controller)
         pane.setupState = nil
     }
 }

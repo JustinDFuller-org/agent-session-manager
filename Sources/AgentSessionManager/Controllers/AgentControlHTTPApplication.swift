@@ -134,6 +134,7 @@ actor AgentControlHTTPApplication {
             let response = await session.transport.handleRequest(request)
             if request.method.uppercased() == "DELETE", response.statusCode == 200 {
                 sessions.removeValue(forKey: sessionID)
+                tokenStore.unbind(sessionID: sessionID)
             }
             return response
         }
@@ -165,12 +166,12 @@ actor AgentControlHTTPApplication {
         do {
             let source: AgentControlSource
             guard let token = bearerToken(from: request),
-                  case .success(let resolvedSource) = tokenStore.source(
-                      for: token,
-                      sessionID: nil,
-                      limits: limits,
-                      tracksConcurrency: false
-                  )
+                case .success(let resolvedSource) = tokenStore.source(
+                    for: token,
+                    sessionID: nil,
+                    limits: limits,
+                    tracksConcurrency: false
+                )
             else {
                 await transport.disconnect()
                 return .error(statusCode: 401, .invalidRequest("Unable to resolve MCP session source"))
@@ -208,7 +209,9 @@ actor AgentControlHTTPApplication {
                 await transport.disconnect()
                 return response
             }
-            guard let token = bearerToken(from: request), tokenStore.bind(sessionID: newSessionID, token: token) else {
+            guard let token = bearerToken(from: request),
+                tokenStore.bind(sessionID: newSessionID, token: token, limits: limits)
+            else {
                 await server.stop()
                 await transport.disconnect()
                 return .error(statusCode: 401, .invalidRequest("Unable to bind MCP session"))
@@ -239,12 +242,13 @@ actor AgentControlHTTPApplication {
     func disconnectSessions(forPaneID paneID: UUID?) async {
         let sessionIDs: [String] = sessions.keys.compactMap { (sessionID: String) -> String? in
             guard let session = sessions[sessionID],
-                  paneID == nil || session.paneID == paneID
+                paneID == nil || session.paneID == paneID
             else { return nil }
             return sessionID
         }
         for sessionID in sessionIDs {
             guard let session = sessions.removeValue(forKey: sessionID) else { continue }
+            tokenStore.unbind(sessionID: sessionID)
             await session.server.stop()
             await session.transport.disconnect()
             TracingService.shared.record(
@@ -281,6 +285,7 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
     private var head: HTTPRequestHead?
     private var body = ByteBuffer()
     private var bodyTooLarge = false
+    private var responseInFlight = false
 
     init(application: AgentControlHTTPApplication, limits: AgentControlLimits) {
         self.application = application
@@ -290,6 +295,11 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         switch unwrapInboundIn(data) {
         case .head(let head):
+            guard !responseInFlight else {
+                context.close(promise: nil)
+                return
+            }
+            responseInFlight = true
             self.head = head
             body = context.channel.allocator.buffer(capacity: 0)
             bodyTooLarge = false
@@ -386,8 +396,10 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
             let streamExceededLimit = responseTooLarge
             eventLoop.execute {
                 if streamExceededLimit {
+                    self.responseInFlight = false
                     context.close(promise: nil)
                 } else {
+                    self.responseInFlight = false
                     context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
                 }
             }
@@ -413,6 +425,7 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                     context.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
                 }
                 context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
+                self.responseInFlight = false
             }
         }
     }
