@@ -343,6 +343,9 @@ final class AgentControlService {
 
     func revoke(paneID: UUID, paneName: String? = nil, tabID: UUID? = nil, tabName: String? = nil) {
         tokenStore.revoke(paneID: paneID)
+        Task {
+            await httpApplication.disconnectSessions(forPaneID: paneID)
+        }
         guard let paneName, let tabID, let tabName else { return }
         TracingService.shared.record(
             "agent_control.credential.revoked",

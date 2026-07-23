@@ -270,10 +270,10 @@ Each item is intended to be a separate implementation session.
      and isolated Dev reset coverage.
 
 3. **MCP lifecycle and security**
-   - Implement the app-owned listener and service lifecycle. [in progress]
+   - Implement the app-owned listener and service lifecycle. [implemented]
    - Implement token registration, scope authorization, request validation,
-     bounded output, cancellation, and revocation. [in progress]
-   - Add MCP protocol tests and runtime telemetry. [in progress]
+     bounded output, cancellation, and revocation. [implemented]
+   - Add MCP protocol tests and runtime telemetry. [implemented]
 
 4. **Read-only resources**
    - Add scoped snapshots for tabs, panes, profiles, harness settings,
@@ -476,6 +476,26 @@ The service now carries the configured scope with each credential and routes
 authenticated resource reads through the app-owned snapshot router. Mutation
 endpoints, diagnostics, subscriptions, and harness injection remain outside
 this phase.
+
+Lifecycle cleanup and security hardening now complete the phase:
+
+- Each live MCP session retains its source pane identity, allowing pane
+  credential revocation to disconnect the associated server and transport
+  instead of only removing token-store mappings.
+- Server shutdown disconnects every live session before closing the listener,
+  while pane revocation invalidates the credential immediately and performs
+  idempotent session cleanup asynchronously.
+- Authorization failures, session binding and closure, stream cancellation,
+  timeout, stream failure, and response-limit outcomes emit bounded telemetry.
+  Authentication material, request bodies, and terminal content remain
+  excluded.
+- Lifecycle tests cover authenticated MCP sessions, revocation cleanup,
+  authorization telemetry redaction, loopback and origin validation, request
+  limits, concurrency, and unauthorized initialization.
+- Request timeout task groups cancel the in-flight MCP operation, and
+  cancellation is distinguished from stream failure in telemetry. The
+  transport remains local-only, bearer credentials remain runtime-only, and
+  all output limits remain enforced.
 
 ### Read-only resources implementation record
 

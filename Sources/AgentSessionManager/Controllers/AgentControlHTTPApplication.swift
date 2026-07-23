@@ -6,6 +6,7 @@ import MCP
 
 actor AgentControlHTTPApplication {
     private struct SessionContext {
+        let paneID: UUID
         let server: Server
         let transport: StatefulHTTPServerTransport
     }
@@ -75,11 +76,7 @@ actor AgentControlHTTPApplication {
     }
 
     func stop() async {
-        for session in sessions.values {
-            await session.server.stop()
-            await session.transport.disconnect()
-        }
-        sessions.removeAll()
+        await disconnectSessions(forPaneID: nil)
         try? await channel?.close()
         channel = nil
         boundPort = nil
@@ -118,6 +115,13 @@ actor AgentControlHTTPApplication {
                 isInitializationRequest: isInitialization
             )
         ) {
+            TracingService.shared.record(
+                "agent_control.request.authorization_failed",
+                attributes: [
+                    "status": String(error.statusCode),
+                    "result": "rejected",
+                ]
+            )
             return error
         }
         let requestToken = bearerToken(from: request)
@@ -159,6 +163,19 @@ actor AgentControlHTTPApplication {
             configuration: .strict
         )
         do {
+            let source: AgentControlSource
+            guard let token = bearerToken(from: request),
+                  case .success(let resolvedSource) = tokenStore.source(
+                      for: token,
+                      sessionID: nil,
+                      limits: limits,
+                      tracksConcurrency: false
+                  )
+            else {
+                await transport.disconnect()
+                return .error(statusCode: 401, .invalidRequest("Unable to resolve MCP session source"))
+            }
+            source = resolvedSource
             let router = resourceRouter
             let tokenStore = self.tokenStore
             await server.withMethodHandler(ListResources.self) { _ in
@@ -196,11 +213,47 @@ actor AgentControlHTTPApplication {
                 await transport.disconnect()
                 return .error(statusCode: 401, .invalidRequest("Unable to bind MCP session"))
             }
-            sessions[newSessionID] = SessionContext(server: server, transport: transport)
+            sessions[newSessionID] = SessionContext(
+                paneID: source.paneID,
+                server: server,
+                transport: transport
+            )
+            TracingService.shared.record(
+                "agent_control.session.bound",
+                attributes: [
+                    "pane.id": source.paneID.uuidString,
+                    "pane.name": source.paneName,
+                    "tab.id": source.tabID.uuidString,
+                    "tab.name": source.tabName,
+                    "scope": source.scope.rawValue,
+                    "result": "bound",
+                ]
+            )
             return response
         } catch {
             await transport.disconnect()
             return .error(statusCode: 500, .internalError("Unable to start MCP session"))
+        }
+    }
+
+    func disconnectSessions(forPaneID paneID: UUID?) async {
+        let sessionIDs: [String] = sessions.keys.compactMap { (sessionID: String) -> String? in
+            guard let session = sessions[sessionID],
+                  paneID == nil || session.paneID == paneID
+            else { return nil }
+            return sessionID
+        }
+        for sessionID in sessionIDs {
+            guard let session = sessions.removeValue(forKey: sessionID) else { continue }
+            await session.server.stop()
+            await session.transport.disconnect()
+            TracingService.shared.record(
+                "agent_control.session.closed",
+                attributes: [
+                    "pane.id": session.paneID.uuidString,
+                    "result": paneID == nil ? "server_stopped" : "credential_revoked",
+                ]
+            )
         }
     }
 
@@ -321,6 +374,9 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                         context.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
                     }
                 }
+            } catch is CancellationError {
+                TracingService.shared.record(
+                    "agent_control.request.cancelled", attributes: ["result": "cancelled"])
             } catch {
                 TracingService.shared.record(
                     "agent_control.request.stream_failed", attributes: ["result": "failed"])

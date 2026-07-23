@@ -142,4 +142,82 @@ final class AgentControlLifecycleTests: XCTestCase {
 
         XCTAssertEqual(response.statusCode, 401)
     }
+
+    func testAuthenticatedMCPSessionIsDisconnectedWhenCredentialIsRevoked() async throws {
+        let store = AgentControlTokenStore()
+        let source = AgentControlSource(
+            paneID: UUID(),
+            paneName: "Pane",
+            tabID: UUID(),
+            tabName: "Tab",
+            scope: .pane
+        )
+        let application = AgentControlHTTPApplication(tokenStore: store, limits: .default)
+        let port = try await application.start()
+        let credential = try store.register(source: source, limits: .default)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpAdditionalHeaders = [
+            "Authorization": "Bearer \(credential.bearerToken)"
+        ]
+        let transport = HTTPClientTransport(
+            endpoint: URL(string: "http://127.0.0.1:\(port)/mcp")!,
+            configuration: configuration
+        )
+        let client = Client(name: "AgentControlLifecycleTests", version: "1.0")
+        defer {
+            Task {
+                await client.disconnect()
+                await application.stop()
+            }
+        }
+
+        try await client.connect(transport: transport)
+        _ = try await client.listResources()
+
+        store.revoke(paneID: source.paneID)
+        await application.disconnectSessions(forPaneID: source.paneID)
+
+        do {
+            _ = try await client.listResources()
+            XCTFail("A revoked credential must not retain an active MCP session")
+        } catch {
+            XCTAssertNotNil(error)
+        }
+    }
+
+    func testAuthorizationFailureTelemetryIsBoundedAndRedacted() async throws {
+        let store = AgentControlTokenStore()
+        let application = AgentControlHTTPApplication(tokenStore: store, limits: .default)
+        let port = try await application.start()
+        defer {
+            Task { await application.stop() }
+        }
+        TracingService.shared.enableTestCapture()
+        defer { TracingService.shared.resetForTesting() }
+
+        let response = await application.handle(
+            request: HTTPRequest(
+                method: "POST",
+                headers: [
+                    HTTPHeaderName.host: "127.0.0.1:\(port)",
+                    HTTPHeaderName.authorization: "Bearer secret-token",
+                ],
+                body: Data("{\"method\":\"initialize\",\"secret\":\"payload\"}".utf8),
+                path: "/mcp"
+            )
+        )
+
+        XCTAssertEqual(response.statusCode, 401)
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.request.authorization_failed"
+            }
+        )
+        XCTAssertEqual(event.attributes["status"], "401")
+        XCTAssertEqual(event.attributes["result"], "rejected")
+        XCTAssertNil(event.attributes["token"])
+        XCTAssertNil(event.attributes["body"])
+        XCTAssertFalse(event.attributes.values.contains("secret-token"))
+        XCTAssertFalse(event.attributes.values.contains("payload"))
+    }
 }
