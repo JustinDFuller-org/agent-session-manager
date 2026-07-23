@@ -14,6 +14,59 @@ struct AgentControlEnvironmentInput: Codable, Sendable {
     let value: String
 }
 
+struct AgentControlProfileOptionPatch: Codable, Sendable {
+    let id: String
+    let enabled: Bool
+    let value: String?
+    let values: [String]?
+    let showOnPaneCreate: Bool?
+}
+
+struct AgentControlProfileEnvironmentPatch: Codable, Sendable {
+    let id: String
+    let enabled: Bool
+    let value: String?
+    let showOnPaneCreate: Bool?
+}
+
+struct AgentControlProfileCreateArguments: Codable, Sendable {
+    let name: String
+    let harness: Harness
+    let cliOptions: [AgentControlProfileOptionPatch]?
+    let environment: [AgentControlProfileEnvironmentPatch]?
+}
+
+struct AgentControlProfileUpdateArguments: Codable, Sendable {
+    let profileID: String
+    let name: String?
+    let harness: Harness?
+    let cliOptions: [AgentControlProfileOptionPatch]?
+    let environment: [AgentControlProfileEnvironmentPatch]?
+}
+
+struct AgentControlProfileIDArguments: Codable, Sendable {
+    let profileID: String
+}
+
+struct AgentControlProfileReorderArguments: Codable, Sendable {
+    let profileID: String
+    let destinationIndex: Int
+}
+
+struct AgentControlHarnessEnabledArguments: Codable, Sendable {
+    let harness: Harness
+    let enabled: Bool
+}
+
+struct AgentControlCLIOptionConfigArguments: Codable, Sendable {
+    let harness: Harness
+    let optionID: String
+    let isAvailable: Bool?
+    let isDefaultEnabled: Bool?
+    let presetValues: [String]?
+    let allowsMultipleValues: Bool?
+}
+
 struct AgentControlTabCreateArguments: Codable, Sendable {
     let name: String
     let directory: String
@@ -73,6 +126,7 @@ struct AgentControlMutationResult: Codable, Sendable {
     let status: String
     let tabID: UUID?
     let paneID: UUID?
+    let profileID: UUID?
     let activeTabID: UUID?
     let activePaneID: UUID?
     let focusedPaneID: UUID?
@@ -81,6 +135,10 @@ struct AgentControlMutationResult: Codable, Sendable {
     let cleanup: [AgentControlCleanupResult]
     let tab: AgentControlTabSnapshot?
     let pane: AgentControlPaneSnapshot?
+    let profile: AgentControlProfileSnapshot?
+    let profileOrder: [UUID]?
+    let harness: AgentControlHarnessSnapshot?
+    let activeHarnesses: [Harness]?
     let error: String?
 }
 
@@ -92,6 +150,8 @@ final class AgentControlMutationRouter {
     private static let mutationNames: Set<String> = [
         "tabs.create", "tabs.delete", "tabs.focus", "tabs.reorder",
         "panes.create", "panes.delete", "panes.focus", "panes.restart", "panes.reorder",
+        "profiles.create", "profiles.update", "profiles.delete", "profiles.reorder",
+        "harnesses.set_enabled", "harnesses.configure_cli_option",
     ]
 
     init(appState: AppState, appSettings: AppSettings) {
@@ -187,6 +247,60 @@ final class AgentControlMutationRouter {
                         "paneID": .object(["type": .string("string")]),
                         "destinationIndex": .object(["type": .string("integer")]),
                     ], required: ["paneID", "destinationIndex"])),
+            Tool(
+                name: "profiles.create",
+                description: "Create a reusable harness profile. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: [
+                        "name": .object(["type": .string("string")]),
+                        "harness": .object(["type": .string("string")]),
+                        "cliOptions": .object(["type": .string("array")]),
+                        "environment": .object(["type": .string("array")]),
+                    ], required: ["name", "harness"])),
+            Tool(
+                name: "profiles.update",
+                description: "Patch a reusable harness profile. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: [
+                        "profileID": .object(["type": .string("string")]),
+                        "name": .object(["type": .string("string")]),
+                        "harness": .object(["type": .string("string")]),
+                        "cliOptions": .object(["type": .string("array")]),
+                        "environment": .object(["type": .string("array")]),
+                    ], required: ["profileID"])),
+            Tool(
+                name: "profiles.delete",
+                description: "Delete a reusable harness profile. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: ["profileID": .object(["type": .string("string")])], required: ["profileID"])),
+            Tool(
+                name: "profiles.reorder",
+                description: "Move a profile to an insertion index. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: [
+                        "profileID": .object(["type": .string("string")]),
+                        "destinationIndex": .object(["type": .string("integer")]),
+                    ], required: ["profileID", "destinationIndex"])),
+            Tool(
+                name: "harnesses.set_enabled",
+                description: "Enable or disable a harness for future pane creation. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: [
+                        "harness": .object(["type": .string("string")]),
+                        "enabled": .object(["type": .string("boolean")]),
+                    ], required: ["harness", "enabled"])),
+            Tool(
+                name: "harnesses.configure_cli_option",
+                description: "Update one harness CLI option catalog entry. Global scope required.",
+                inputSchema: Self.objectSchema(
+                    properties: [
+                        "harness": .object(["type": .string("string")]),
+                        "optionID": .object(["type": .string("string")]),
+                        "isAvailable": .object(["type": .string("boolean")]),
+                        "isDefaultEnabled": .object(["type": .string("boolean")]),
+                        "presetValues": .object(["type": .string("array")]),
+                        "allowsMultipleValues": .object(["type": .string("boolean")]),
+                    ], required: ["harness", "optionID"])),
         ]
     }
 
@@ -225,6 +339,30 @@ final class AgentControlMutationRouter {
             case "panes.reorder":
                 value = try reorderPane(
                     decode(AgentControlPaneReorderArguments.self, arguments: arguments), source: source)
+            case "profiles.create":
+                try requireGlobal(source, name: name)
+                value = try createProfile(
+                    decode(AgentControlProfileCreateArguments.self, arguments: arguments), source: source)
+            case "profiles.update":
+                try requireGlobal(source, name: name)
+                value = try updateProfile(
+                    decode(AgentControlProfileUpdateArguments.self, arguments: arguments), source: source)
+            case "profiles.delete":
+                try requireGlobal(source, name: name)
+                value = try deleteProfile(
+                    decode(AgentControlProfileIDArguments.self, arguments: arguments), source: source)
+            case "profiles.reorder":
+                try requireGlobal(source, name: name)
+                value = try reorderProfile(
+                    decode(AgentControlProfileReorderArguments.self, arguments: arguments), source: source)
+            case "harnesses.set_enabled":
+                try requireGlobal(source, name: name)
+                value = try setHarnessEnabled(
+                    decode(AgentControlHarnessEnabledArguments.self, arguments: arguments), source: source)
+            case "harnesses.configure_cli_option":
+                try requireGlobal(source, name: name)
+                value = try configureCLIOption(
+                    decode(AgentControlCLIOptionConfigArguments.self, arguments: arguments), source: source)
             default:
                 throw MCPError.invalidParams("Unknown Agent Session Manager mutation tool")
             }
@@ -521,6 +659,281 @@ final class AgentControlMutationRouter {
         return profile
     }
 
+    private func createProfile(
+        _ args: AgentControlProfileCreateArguments, source: AgentControlSource
+    ) throws -> AgentControlMutationResult {
+        let name = args.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw MCPError.invalidParams("Profile name must not be empty") }
+
+        var profile = Profile(name: name, harness: args.harness)
+        profile.cliOptions = defaultProfileCLIOptions(for: args.harness)
+        profile.envVars = defaultProfileEnvironment(for: args.harness)
+        try applyOptionPatches(args.cliOptions, to: &profile.cliOptions, harness: args.harness)
+        try applyEnvironmentPatches(args.environment, to: &profile.envVars, harness: args.harness)
+
+        appSettings.profiles.append(profile)
+        guard SettingsPersistence.saveProfiles(appSettings: appSettings) else {
+            appSettings.profiles.removeAll { $0.id == profile.id }
+            throw MCPError.internalError("Profile could not be persisted")
+        }
+
+        record(name: "profiles.create", source: source, result: "succeeded", profileID: profile.id)
+        return profileMutationResult(
+            operation: "profiles.create", status: "succeeded", profile: profile)
+    }
+
+    private func updateProfile(
+        _ args: AgentControlProfileUpdateArguments, source: AgentControlSource
+    ) throws -> AgentControlMutationResult {
+        guard let profileID = UUID(uuidString: args.profileID),
+            let index = appSettings.profiles.firstIndex(where: { $0.id == profileID })
+        else { throw MCPError.invalidParams("Profile was not found") }
+
+        let previous = appSettings.profiles[index]
+        var updated = previous
+        if let name = args.name {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { throw MCPError.invalidParams("Profile name must not be empty") }
+            updated.name = trimmed
+        }
+
+        let harnessChanged = args.harness.map { $0 != previous.harness } ?? false
+        if let harness = args.harness {
+            updated.harness = harness
+            if harnessChanged {
+                updated.cliOptions = defaultProfileCLIOptions(for: harness)
+                updated.envVars = defaultProfileEnvironment(for: harness)
+            }
+        }
+        try applyOptionPatches(args.cliOptions, to: &updated.cliOptions, harness: updated.harness)
+        try applyEnvironmentPatches(args.environment, to: &updated.envVars, harness: updated.harness)
+
+        appSettings.profiles[index] = updated
+        guard SettingsPersistence.saveProfiles(appSettings: appSettings) else {
+            appSettings.profiles[index] = previous
+            throw MCPError.internalError("Profile could not be persisted")
+        }
+
+        record(name: "profiles.update", source: source, result: "succeeded", profileID: profileID)
+        return profileMutationResult(
+            operation: "profiles.update", status: "succeeded", profile: updated)
+    }
+
+    private func deleteProfile(
+        _ args: AgentControlProfileIDArguments, source: AgentControlSource
+    ) throws -> AgentControlMutationResult {
+        guard let profileID = UUID(uuidString: args.profileID),
+            let index = appSettings.profiles.firstIndex(where: { $0.id == profileID })
+        else { throw MCPError.invalidParams("Profile was not found") }
+
+        let removed = appSettings.profiles.remove(at: index)
+        guard SettingsPersistence.saveProfiles(appSettings: appSettings) else {
+            appSettings.profiles.insert(removed, at: index)
+            throw MCPError.internalError("Profile could not be persisted")
+        }
+
+        record(name: "profiles.delete", source: source, result: "succeeded", profileID: profileID)
+        return mutationResult(
+            operation: "profiles.delete", status: "succeeded", profileID: profileID,
+            profileOrder: appSettings.profiles.map(\.id))
+    }
+
+    private func reorderProfile(
+        _ args: AgentControlProfileReorderArguments, source: AgentControlSource
+    ) throws -> AgentControlMutationResult {
+        guard let profileID = UUID(uuidString: args.profileID),
+            let sourceIndex = appSettings.profiles.firstIndex(where: { $0.id == profileID })
+        else { throw MCPError.invalidParams("Profile was not found") }
+        guard (0..<appSettings.profiles.count).contains(args.destinationIndex) else {
+            throw MCPError.invalidParams("Profile destination index is out of range")
+        }
+
+        let previous = appSettings.profiles
+        let profile = appSettings.profiles.remove(at: sourceIndex)
+        appSettings.profiles.insert(profile, at: args.destinationIndex)
+        guard SettingsPersistence.saveProfiles(appSettings: appSettings) else {
+            appSettings.profiles = previous
+            throw MCPError.internalError("Profile order could not be persisted")
+        }
+
+        record(name: "profiles.reorder", source: source, result: "succeeded", profileID: profileID)
+        return mutationResult(
+            operation: "profiles.reorder", status: "succeeded", profileID: profileID,
+            profileOrder: appSettings.profiles.map(\.id))
+    }
+
+    private func setHarnessEnabled(
+        _ args: AgentControlHarnessEnabledArguments, source: AgentControlSource
+    ) throws -> AgentControlMutationResult {
+        let previous = appSettings.activeTools
+        appSettings.setActive(args.harness, args.enabled)
+        guard SettingsPersistence.saveActiveTools(appSettings: appSettings) else {
+            appSettings.activeTools = previous
+            throw MCPError.internalError("Harness availability could not be persisted")
+        }
+
+        record(name: "harnesses.set_enabled", source: source, result: "succeeded", harness: args.harness)
+        return mutationResult(
+            operation: "harnesses.set_enabled", status: "succeeded",
+            harness: AgentControlResourceRouter(appState: appState, appSettings: appSettings)
+                .harnessSnapshots().first { $0.harness == args.harness },
+            activeHarnesses: appSettings.activeHarnesses)
+    }
+
+    private func configureCLIOption(
+        _ args: AgentControlCLIOptionConfigArguments, source: AgentControlSource
+    ) throws -> AgentControlMutationResult {
+        guard args.harness != .shell else { throw MCPError.invalidParams("Shell has no CLI option catalog") }
+        let previous = optionCatalog(for: args.harness)
+        var updated = previous
+        guard let index = updated.firstIndex(where: { $0.id == args.optionID }) else {
+            throw MCPError.invalidParams("CLI option was not found")
+        }
+
+        if let isAvailable = args.isAvailable { updated[index].isAvailable = isAvailable }
+        if let isDefaultEnabled = args.isDefaultEnabled { updated[index].isDefaultEnabled = isDefaultEnabled }
+        if let presetValues = args.presetValues {
+            updated[index].presetValues = CLIOptionConfig.normalizedPresetValues(presetValues)
+        }
+        if let allowsMultipleValues = args.allowsMultipleValues {
+            updated[index].allowsMultipleValues = allowsMultipleValues
+        }
+
+        let persisted: Bool
+        switch args.harness {
+        case .claude:
+            appSettings.cliOptions = updated
+            persisted = SettingsPersistence.save(appSettings: appSettings)
+        case .codex:
+            appSettings.codexCliOptions = updated
+            persisted = SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+        case .cursor:
+            appSettings.cursorCliOptions = updated
+            persisted = SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+        case .opencode:
+            appSettings.opencodeCliOptions = updated
+            persisted = SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+        case .shell:
+            persisted = false
+        }
+        guard persisted else {
+            setOptionCatalog(previous, for: args.harness)
+            throw MCPError.internalError("CLI option configuration could not be persisted")
+        }
+
+        record(
+            name: "harnesses.configure_cli_option", source: source, result: "succeeded",
+            harness: args.harness, optionID: args.optionID)
+        return mutationResult(
+            operation: "harnesses.configure_cli_option", status: "succeeded",
+            harness: AgentControlResourceRouter(appState: appState, appSettings: appSettings)
+                .harnessSnapshots().first { $0.harness == args.harness })
+    }
+
+    private func defaultProfileCLIOptions(for harness: Harness) -> [ProfileCLIOption] {
+        optionCatalog(for: harness).filter { $0.isAvailable }.map {
+            ProfileCLIOption(id: $0.id, isEnabled: $0.isDefaultEnabled)
+        }
+    }
+
+    private func defaultProfileEnvironment(for harness: Harness) -> [ProfileEnvVar] {
+        environmentCatalog(for: harness).filter { !$0.isAppControlled && $0.isAvailable }.map {
+            ProfileEnvVar(id: $0.id, isEnabled: $0.isDefaultEnabled, value: $0.defaultValue)
+        }
+    }
+
+    private func applyOptionPatches(
+        _ patches: [AgentControlProfileOptionPatch]?, to options: inout [ProfileCLIOption], harness: Harness
+    ) throws {
+        guard let patches else { return }
+        var seen = Set<String>()
+        let catalog = optionCatalog(for: harness)
+        for patch in patches {
+            guard seen.insert(patch.id).inserted else {
+                throw MCPError.invalidParams("CLI option was specified more than once: \(patch.id)")
+            }
+            guard let config = catalog.first(where: { $0.id == patch.id }) else {
+                throw MCPError.invalidParams("Unknown CLI option: \(patch.id)")
+            }
+            let value = patch.value?.trimmingCharacters(in: .whitespaces)
+            let values = patch.values?.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            switch config.optionType {
+            case .boolean:
+                guard value == nil || value?.isEmpty == true, values?.isEmpty != false else {
+                    throw MCPError.invalidParams("Boolean CLI option cannot have a value: \(patch.id)")
+                }
+            case .string:
+                guard config.allowsMultipleValues || values?.count ?? 0 <= 1 else {
+                    throw MCPError.invalidParams("CLI option does not accept multiple values: \(patch.id)")
+                }
+            }
+            let normalizedValue: String?
+            let normalizedValues: [String]?
+            if config.allowsMultipleValues {
+                normalizedValue = value?.isEmpty == true ? nil : value
+                normalizedValues = values?.isEmpty == true ? nil : values
+            } else {
+                normalizedValue = value?.isEmpty == true ? values?.first : value
+                normalizedValues = nil
+            }
+            let existingIndex = options.firstIndex(where: { $0.id == patch.id })
+            let current = existingIndex.map { options[$0] }
+            let next = ProfileCLIOption(
+                id: patch.id,
+                isEnabled: patch.enabled,
+                value: normalizedValue ?? current?.value,
+                values: normalizedValues ?? current?.values,
+                showOnPaneCreate: patch.showOnPaneCreate ?? current?.showOnPaneCreate ?? false)
+            if let existingIndex { options[existingIndex] = next } else { options.append(next) }
+        }
+    }
+
+    private func applyEnvironmentPatches(
+        _ patches: [AgentControlProfileEnvironmentPatch]?, to environment: inout [ProfileEnvVar], harness: Harness
+    ) throws {
+        guard let patches else { return }
+        var seen = Set<String>()
+        let catalog = environmentCatalog(for: harness)
+        for patch in patches {
+            guard seen.insert(patch.id).inserted else {
+                throw MCPError.invalidParams("Environment variable was specified more than once: \(patch.id)")
+            }
+            guard let config = catalog.first(where: { $0.id == patch.id }) else {
+                throw MCPError.invalidParams("Unknown environment variable: \(patch.id)")
+            }
+            guard !config.isAppControlled else {
+                throw MCPError.invalidRequest("App-controlled environment variables cannot be changed")
+            }
+            let existingIndex = environment.firstIndex(where: { $0.id == patch.id })
+            let current = existingIndex.map { environment[$0] }
+            let next = ProfileEnvVar(
+                id: patch.id,
+                isEnabled: patch.enabled,
+                value: patch.value ?? current?.value ?? "",
+                showOnPaneCreate: patch.showOnPaneCreate ?? current?.showOnPaneCreate ?? false)
+            if let existingIndex { environment[existingIndex] = next } else { environment.append(next) }
+        }
+    }
+
+    private func setOptionCatalog(_ options: [CLIOptionConfig], for harness: Harness) {
+        switch harness {
+        case .claude: appSettings.cliOptions = options
+        case .codex: appSettings.codexCliOptions = options
+        case .cursor: appSettings.cursorCliOptions = options
+        case .opencode: appSettings.opencodeCliOptions = options
+        case .shell: break
+        }
+    }
+
+    private func profileMutationResult(
+        operation: String, status: String, profile: Profile
+    ) -> AgentControlMutationResult {
+        let resources = AgentControlResourceRouter(appState: appState, appSettings: appSettings)
+        return mutationResult(
+            operation: operation, status: status, profileID: profile.id,
+            profileOrder: appSettings.profiles.map(\.id), profile: resources.profileSnapshot(profile))
+    }
+
     private func resolveOptions(
         _ inputs: [AgentControlCLIOptionInput]?, profile: Profile?, harness: Harness
     ) throws -> [String] {
@@ -659,12 +1072,20 @@ final class AgentControlMutationRouter {
         cleanup: [AgentControlCleanupResult] = [],
         tab: AgentControlTabSnapshot? = nil,
         pane: AgentControlPaneSnapshot? = nil,
+        profileID: UUID? = nil,
+        profileOrder: [UUID]? = nil,
+        profile: AgentControlProfileSnapshot? = nil,
+        harness: AgentControlHarnessSnapshot? = nil,
+        activeHarnesses: [Harness]? = nil,
         error: String? = nil
     ) -> AgentControlMutationResult {
         AgentControlMutationResult(
             operation: operation, status: status, tabID: tabID, paneID: paneID,
+            profileID: profileID,
             activeTabID: activeTabID, activePaneID: activePaneID, focusedPaneID: focusedPaneID,
-            tabOrder: tabOrder, paneOrder: paneOrder, cleanup: cleanup, tab: tab, pane: pane, error: error)
+            tabOrder: tabOrder, paneOrder: paneOrder, cleanup: cleanup, tab: tab, pane: pane,
+            profile: profile, profileOrder: profileOrder, harness: harness, activeHarnesses: activeHarnesses,
+            error: error)
     }
 
     private func decode<T: Decodable>(_ type: T.Type, arguments: [String: Value]?) throws -> T {
@@ -680,7 +1101,8 @@ final class AgentControlMutationRouter {
     }
 
     private func record(
-        name: String, source: AgentControlSource, result: String, tabID: UUID? = nil, paneID: UUID? = nil
+        name: String, source: AgentControlSource, result: String, tabID: UUID? = nil, paneID: UUID? = nil,
+        profileID: UUID? = nil, harness: Harness? = nil, optionID: String? = nil
     ) {
         var attributes = [
             "tool": name,
@@ -691,6 +1113,9 @@ final class AgentControlMutationRouter {
         ]
         if let tabID { attributes["target.tab.id"] = tabID.uuidString }
         if let paneID { attributes["target.pane.id"] = paneID.uuidString }
+        if let profileID { attributes["target.profile.id"] = profileID.uuidString }
+        if let harness { attributes["harness"] = harness.rawValue }
+        if let optionID { attributes["option.id"] = optionID }
         TracingService.shared.record("agent_control.mutation", attributes: attributes)
     }
 

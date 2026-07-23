@@ -6,6 +6,21 @@ import XCTest
 
 @MainActor
 final class AgentControlMutationTests: XCTestCase {
+    private let testDirectory = "agent-control-mutation-tests-\(UUID().uuidString)"
+
+    override func setUp() {
+        super.setUp()
+        PersistenceHelpers.overrideAppSupportSubdirectory = testDirectory
+    }
+
+    override func tearDown() {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(at: base.appending(path: testDirectory))
+        PersistenceHelpers.overrideAppSupportSubdirectory = nil
+        TracingService.shared.resetForTesting()
+        super.tearDown()
+    }
+
     func testPaneScopeCannotMutateAnotherPaneOrCreatePane() async throws {
         let fixture = makeFixture()
 
@@ -161,8 +176,165 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertNil(event.attributes["token"])
     }
 
+    func testGlobalScopeCanCreateUpdateReorderAndDeleteProfiles() async throws {
+        let fixture = makeFixture()
+        let response = try await fixture.router.callTool(
+            name: "profiles.create",
+            arguments: [
+                "name": .string("Review Profile"),
+                "harness": .string("claude"),
+                "cliOptions": .array([
+                    .object([
+                        "id": .string("--continue"),
+                        "enabled": .bool(false),
+                        "showOnPaneCreate": .bool(true),
+                    ])
+                ]),
+                "environment": .array([
+                    .object([
+                        "id": .string("ANTHROPIC_API_KEY"),
+                        "enabled": .bool(true),
+                        "value": .string("secret-value"),
+                    ])
+                ]),
+            ],
+            source: fixture.globalSource)
+        let result = try decodeMutationResult(response)
+        XCTAssertEqual(result.status, "succeeded")
+        XCTAssertEqual(result.profile?.name, "Review Profile")
+        XCTAssertEqual(result.profile?.environment.first?.isConfigured, true)
+        let profileID = try XCTUnwrap(result.profileID)
+
+        let update = try await fixture.router.callTool(
+            name: "profiles.update",
+            arguments: [
+                "profileID": .string(profileID.uuidString),
+                "name": .string("Updated Profile"),
+                "environment": .array([
+                    .object([
+                        "id": .string("ANTHROPIC_API_KEY"),
+                        "enabled": .bool(false),
+                    ])
+                ]),
+            ],
+            source: fixture.globalSource)
+        let updated = try decodeMutationResult(update)
+        XCTAssertEqual(updated.profile?.name, "Updated Profile")
+        XCTAssertEqual(updated.profile?.environment.first?.isConfigured, true)
+        XCTAssertEqual(fixture.state.tabs.count, 2)
+
+        let second = try await fixture.router.callTool(
+            name: "profiles.create",
+            arguments: ["name": .string("Second Profile"), "harness": .string("codex")],
+            source: fixture.globalSource)
+        let secondID = try XCTUnwrap(decodeMutationResult(second).profileID)
+        let reorder = try await fixture.router.callTool(
+            name: "profiles.reorder",
+            arguments: [
+                "profileID": .string(secondID.uuidString),
+                "destinationIndex": .int(0),
+            ],
+            source: fixture.globalSource)
+        XCTAssertEqual(try decodeMutationResult(reorder).profileOrder?.first, secondID)
+
+        let deletion = try await fixture.router.callTool(
+            name: "profiles.delete",
+            arguments: ["profileID": .string(profileID.uuidString)],
+            source: fixture.globalSource)
+        XCTAssertEqual(try decodeMutationResult(deletion).profileID, profileID)
+        XCTAssertFalse(fixture.settings.profiles.contains { $0.id == profileID })
+    }
+
+    func testProfileAndHarnessConfigurationRequireGlobalScope() async throws {
+        let fixture = makeFixture()
+
+        for name in ["profiles.create", "harnesses.set_enabled", "harnesses.configure_cli_option"] {
+            do {
+                _ = try await fixture.router.callTool(
+                    name: name,
+                    arguments: name == "profiles.create"
+                        ? ["name": .string("Denied"), "harness": .string("claude")]
+                        : ["harness": .string("codex"), "enabled": .bool(true)],
+                    source: fixture.paneSource)
+                XCTFail("\(name) must require Global scope")
+            } catch let error as MCPError {
+                XCTAssertTrue(String(describing: error).contains("Global scope"))
+            }
+        }
+        XCTAssertTrue(fixture.settings.profiles.isEmpty)
+    }
+
+    func testHarnessConfigurationPreservesCustomOptionsAndNormalizesPresets() async throws {
+        let fixture = makeFixture()
+        let custom = CLIOptionConfig(
+            id: "--custom-review", label: "Custom Review", description: "Test option", isAvailable: true,
+            isDefaultEnabled: false, isUserAdded: true, customIsStringType: true)
+        fixture.settings.cliOptions.append(custom)
+
+        let response = try await fixture.router.callTool(
+            name: "harnesses.configure_cli_option",
+            arguments: [
+                "harness": .string("claude"),
+                "optionID": .string("--continue"),
+                "isAvailable": .bool(true),
+                "isDefaultEnabled": .bool(true),
+                "presetValues": .array([.string(" high "), .string(""), .string("high"), .string("low")]),
+                "allowsMultipleValues": .bool(true),
+            ],
+            source: fixture.globalSource)
+        let result = try decodeMutationResult(response)
+        let option = result.harness?.cliOptions.first { $0.id == "--continue" }
+        XCTAssertEqual(option?.isAvailable, true)
+        XCTAssertEqual(option?.isDefaultEnabled, true)
+        XCTAssertEqual(option?.presetValues, ["high", "low"])
+        XCTAssertEqual(option?.allowsMultipleValues, true)
+        XCTAssertTrue(fixture.settings.cliOptions.contains { $0.id == custom.id && $0.isUserAdded })
+    }
+
+    func testProfileValidationRejectsUnknownOptionsAndControlledEnvironment() async throws {
+        let fixture = makeFixture()
+
+        do {
+            _ = try await fixture.router.callTool(
+                name: "profiles.create",
+                arguments: [
+                    "name": .string("Invalid"),
+                    "harness": .string("claude"),
+                    "cliOptions": .array([
+                        .object(["id": .string("--not-a-real-option"), "enabled": .bool(true)])
+                    ]),
+                ],
+                source: fixture.globalSource)
+            XCTFail("Unknown options must be rejected")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("Unknown CLI option"))
+        }
+
+        do {
+            _ = try await fixture.router.callTool(
+                name: "profiles.create",
+                arguments: [
+                    "name": .string("Invalid Environment"),
+                    "harness": .string("opencode"),
+                    "environment": .array([
+                        .object([
+                            "id": .string("OPENCODE_CONFIG_CONTENT"),
+                            "enabled": .bool(true),
+                            "value": .string("{}"),
+                        ])
+                    ]),
+                ],
+                source: fixture.globalSource)
+            XCTFail("App-controlled environment variables must be rejected")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("controlled"))
+        }
+        XCTAssertTrue(fixture.settings.profiles.isEmpty)
+    }
+
     private struct Fixture {
         let state: AppState
+        let settings: AppSettings
         let router: AgentControlMutationRouter
         let tab: Tab
         let firstPane: Pane
@@ -200,7 +372,7 @@ final class AgentControlMutationTests: XCTestCase {
         let globalSource = AgentControlSource(
             paneID: firstPane.id, paneName: firstPane.name, tabID: tab.id, tabName: tab.name, scope: .global)
         return Fixture(
-            state: state, router: router, tab: tab, firstPane: firstPane, otherPane: otherPane,
+            state: state, settings: settings, router: router, tab: tab, firstPane: firstPane, otherPane: otherPane,
             secondTab: secondTab, secondTabPane: secondTabPane, paneSource: paneSource,
             tabSource: tabSource, globalSource: globalSource)
     }
@@ -208,5 +380,11 @@ final class AgentControlMutationTests: XCTestCase {
     private func toolText(_ content: [Tool.Content]) -> String? {
         guard case .text(let text, _, _) = content.first else { return nil }
         return text
+    }
+
+    private func decodeMutationResult(_ response: CallTool.Result) throws -> AgentControlMutationResult {
+        try JSONDecoder().decode(
+            AgentControlMutationResult.self,
+            from: Data(try XCTUnwrap(toolText(response.content)).utf8))
     }
 }

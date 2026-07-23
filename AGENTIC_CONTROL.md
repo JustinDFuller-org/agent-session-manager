@@ -308,7 +308,7 @@ Each item is intended to be a separate implementation session.
 8. **Profiles and harness configuration**
    - Add profile CRUD and ordering tools.
    - Add harness enablement, option activation, defaults, preset choices, and
-     multi-value choice tools.
+     multi-value choice tools. [implemented]
    - Preserve custom options and redact sensitive values.
 
 9. **Status lines and notifications**
@@ -363,8 +363,35 @@ Roadmap item 7 is implemented through the app-owned MCP router:
   and terminal output are excluded.
 - Unit and protocol coverage verifies scope boundaries, stateful focus and
   ordering, tab creation, cleanup policy enforcement, and partial-failure
-  reporting. Profile CRUD, harness configuration mutation, cross-tab pane
-  moves, shell panes, and Cursor injection remain outside this item.
+  reporting. Cross-tab pane moves, shell panes, and Cursor injection remain
+  outside this item.
+
+### Profiles and harness configuration record
+
+Roadmap item 8 is implemented through the app-owned MCP mutation router:
+
+- Global-scope `profiles.create`, `profiles.update`, `profiles.delete`, and
+  `profiles.reorder` tools manage the existing ordered profile store using
+  stable profile IDs.
+- Profile creation seeds the selected harness defaults. Updates use keyed
+  patches for CLI options and environment variables, so redacted environment
+  values never need to be read back. Harness changes reset configuration to the
+  new harness defaults before applying supplied patches.
+- Profile option inputs are validated against the selected harness catalog,
+  including boolean, single-value, and multi-value rules. App-controlled
+  environment variables cannot be changed, and profile mutation results expose
+  only redacted environment metadata.
+- Global-scope `harnesses.set_enabled` and
+  `harnesses.configure_cli_option` tools update the existing harness and CLI
+  option settings. Preset values are normalized, and user-added catalog
+  entries remain intact.
+- Mutations persist through the existing settings files, roll back in-memory
+  state when persistence fails, emit bounded `agent_control.mutation` records,
+  and do not restart or alter already-running panes.
+- `AgentControlMutationTests` covers lifecycle, ordering, scope rejection,
+  validation, redaction, persistence-backed configuration, telemetry, preset
+  normalization, and custom-option preservation. Status-line mutation remains
+  part of roadmap item 9.
 
 ### Feasibility spike record
 

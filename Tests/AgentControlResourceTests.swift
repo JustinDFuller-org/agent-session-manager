@@ -98,7 +98,9 @@ final class AgentControlResourceTests: XCTestCase {
         let templates = try await client.listResourceTemplates()
         XCTAssertEqual(templates.templates.count, 4)
         let tools = try await client.listTools()
-        XCTAssertEqual(tools.tools.count, 13)
+        XCTAssertEqual(tools.tools.count, 19)
+        XCTAssertTrue(tools.tools.contains { $0.name == "profiles.create" })
+        XCTAssertTrue(tools.tools.contains { $0.name == "harnesses.configure_cli_option" })
 
         let contents = try await client.readResource(uri: AgentControlResourceURI.workspace.rawValue)
         XCTAssertEqual(contents.count, 1)
