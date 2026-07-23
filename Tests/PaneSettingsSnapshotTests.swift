@@ -18,19 +18,21 @@ struct PaneSettingsSnapshotTests {
         opencodeSessionID: String? = nil
     ) -> PaneSettingsSnapshot {
         PaneSettingsSheet.buildSnapshot(
-            paneName: "auth-refactor",
-            harness: .claude,
-            extraArgs: extraArgs,
-            extraEnvVars: extraEnvVars,
-            workingDirectory: workingDirectory,
-            worktreeIsManaged: worktreeIsManaged,
-            shell: shell,
-            fullCommand: fullCommand,
-            processStateDescription: "Running (pid 123)",
-            profileID: profileID,
-            profiles: profiles,
-            opencodePort: opencodePort,
-            opencodeSessionID: opencodeSessionID
+            .init(
+                paneName: "auth-refactor",
+                harness: .claude,
+                extraArgs: extraArgs,
+                extraEnvVars: extraEnvVars,
+                workingDirectory: workingDirectory,
+                worktreeIsManaged: worktreeIsManaged,
+                shell: shell,
+                fullCommand: fullCommand,
+                processStateDescription: "Running (pid 123)",
+                profileID: profileID,
+                opencodePort: opencodePort,
+                opencodeSessionID: opencodeSessionID
+            ),
+            profiles: profiles
         )
     }
 

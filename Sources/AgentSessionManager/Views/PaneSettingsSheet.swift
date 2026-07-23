@@ -17,24 +17,25 @@ struct PaneSettingsSnapshot {
 }
 
 enum PaneSettingsSheet {
-    static func buildSnapshot(
-        paneName: String,
-        harness: Harness,
-        extraArgs: [String],
-        extraEnvVars: [String: String],
-        workingDirectory: String?,
-        worktreeIsManaged: Bool,
-        shell: String?,
-        fullCommand: [String]?,
-        processStateDescription: String,
-        profileID: UUID?,
-        profiles: [Profile],
-        opencodePort: Int?,
-        opencodeSessionID: String?
-    ) -> PaneSettingsSnapshot {
+    struct Input {
+        let paneName: String
+        let harness: Harness
+        let extraArgs: [String]
+        let extraEnvVars: [String: String]
+        let workingDirectory: String?
+        let worktreeIsManaged: Bool
+        let shell: String?
+        let fullCommand: [String]?
+        let processStateDescription: String
+        let profileID: UUID?
+        let opencodePort: Int?
+        let opencodeSessionID: String?
+    }
+
+    static func buildSnapshot(_ input: Input, profiles: [Profile]) -> PaneSettingsSnapshot {
         let profileName: String?
         let profileMissing: Bool
-        if let profileID {
+        if let profileID = input.profileID {
             let profile = profiles.first { $0.id == profileID }
             profileName = profile?.name
             profileMissing = profile == nil
@@ -44,19 +45,19 @@ enum PaneSettingsSheet {
         }
 
         return PaneSettingsSnapshot(
-            paneName: paneName,
-            harness: harness,
-            workingDirectory: workingDirectory ?? "\u{2014}",
-            shell: shell ?? "$SHELL",
-            processStateDescription: processStateDescription,
-            worktreeIsManaged: worktreeIsManaged,
+            paneName: input.paneName,
+            harness: input.harness,
+            workingDirectory: input.workingDirectory ?? "\u{2014}",
+            shell: input.shell ?? "$SHELL",
+            processStateDescription: input.processStateDescription,
+            worktreeIsManaged: input.worktreeIsManaged,
             profileName: profileName,
             profileMissing: profileMissing,
-            configuredArgs: extraArgs,
-            fullCommand: fullCommand,
-            environmentVariables: extraEnvVars.sorted { $0.key < $1.key }.map { (key: $0.key, value: $0.value) },
-            opencodePort: opencodePort,
-            opencodeSessionID: opencodeSessionID
+            configuredArgs: input.extraArgs,
+            fullCommand: input.fullCommand,
+            environmentVariables: input.extraEnvVars.sorted { $0.key < $1.key }.map { (key: $0.key, value: $0.value) },
+            opencodePort: input.opencodePort,
+            opencodeSessionID: input.opencodeSessionID
         )
     }
 }
@@ -73,19 +74,22 @@ extension Pane {
             processStateDescription = code.map { "Exited (code \($0))" } ?? "Exited"
         }
         return PaneSettingsSheet.buildSnapshot(
-            paneName: name,
-            harness: harness,
-            extraArgs: extraArgs,
-            extraEnvVars: extraEnvVars,
-            workingDirectory: terminalController?.pendingDirectory ?? worktreeDirectory?.path ?? tab?.directory.path,
-            worktreeIsManaged: worktreeIsManaged,
-            shell: terminalController?.pendingShell,
-            fullCommand: terminalController?.pendingCommandArgs,
-            processStateDescription: processStateDescription,
-            profileID: profileID,
-            profiles: profiles,
-            opencodePort: opencodePort,
-            opencodeSessionID: opencodeSessionID
+            .init(
+                paneName: name,
+                harness: harness,
+                extraArgs: extraArgs,
+                extraEnvVars: extraEnvVars,
+                workingDirectory: terminalController?.pendingDirectory ?? worktreeDirectory?.path
+                    ?? tab?.directory.path,
+                worktreeIsManaged: worktreeIsManaged,
+                shell: terminalController?.pendingShell,
+                fullCommand: terminalController?.pendingCommandArgs,
+                processStateDescription: processStateDescription,
+                profileID: profileID,
+                opencodePort: opencodePort,
+                opencodeSessionID: opencodeSessionID
+            ),
+            profiles: profiles
         )
     }
 }
