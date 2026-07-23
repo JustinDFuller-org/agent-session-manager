@@ -19,14 +19,14 @@ final class AgentControlResourceTests: XCTestCase {
         XCTAssertNil(AgentControlResourceURI("https://example.com/panes/\(id.uuidString)"))
     }
 
-    func testScopeFilteringAndProfileEnvironmentRedaction() throws {
+    func testScopeFilteringAndProfileEnvironmentRedaction() async throws {
         let fixture = makeFixture()
         defer { stopPanes(in: fixture.state) }
 
         let paneWorkspace = try JSONDecoder().decode(
             AgentControlWorkspaceSnapshot.self,
             from: Data(
-                fixture.router.read(
+                try await fixture.router.read(
                     uri: AgentControlResourceURI.workspace.rawValue, source: fixture.paneSource
                 ).utf8))
         XCTAssertEqual(paneWorkspace.tabs.count, 1)
@@ -35,7 +35,7 @@ final class AgentControlResourceTests: XCTestCase {
         let tabWorkspace = try JSONDecoder().decode(
             AgentControlWorkspaceSnapshot.self,
             from: Data(
-                fixture.router.read(
+                try await fixture.router.read(
                     uri: AgentControlResourceURI.workspace.rawValue, source: fixture.tabSource
                 ).utf8))
         XCTAssertEqual(tabWorkspace.tabs.count, 1)
@@ -44,17 +44,21 @@ final class AgentControlResourceTests: XCTestCase {
         let globalWorkspace = try JSONDecoder().decode(
             AgentControlWorkspaceSnapshot.self,
             from: Data(
-                fixture.router.read(
+                try await fixture.router.read(
                     uri: AgentControlResourceURI.workspace.rawValue, source: fixture.globalSource
                 ).utf8))
         XCTAssertEqual(globalWorkspace.tabs.count, 2)
 
-        XCTAssertThrowsError(
-            try fixture.router.read(
+        do {
+            _ = try await fixture.router.read(
                 uri: AgentControlResourceURI.pane(fixture.otherPaneID).rawValue,
-                source: fixture.paneSource))
+                source: fixture.paneSource)
+            XCTFail("Pane scope must not read another pane")
+        } catch {
+            XCTAssertTrue(error is MCPError)
+        }
 
-        let profiles = try fixture.router.read(
+        let profiles = try await fixture.router.read(
             uri: AgentControlResourceURI.profiles.rawValue, source: fixture.paneSource)
         XCTAssertTrue(profiles.contains("Secret Profile"))
         XCTAssertFalse(profiles.contains("secret-value"))
@@ -100,15 +104,44 @@ final class AgentControlResourceTests: XCTestCase {
         XCTAssertEqual(contents.count, 1)
         XCTAssertEqual(contents.first?.mimeType, "application/json")
         XCTAssertTrue(contents.first?.text?.contains(fixture.firstTabName) == true)
+
+        for resource in [
+            AgentControlResourceURI.diagnosticSummary,
+            AgentControlResourceURI.diagnosticTraces,
+            AgentControlResourceURI.diagnosticInvariants,
+            AgentControlResourceURI.diagnosticLogs,
+        ] {
+            let diagnosticContents = try await client.readResource(uri: resource.rawValue)
+            XCTAssertEqual(diagnosticContents.count, 1)
+            XCTAssertEqual(diagnosticContents.first?.mimeType, "application/json")
+            XCTAssertTrue(diagnosticContents.first?.text?.contains("availability") == true)
+        }
+
+        let traceQuery = try await client.callTool(
+            name: "diagnostics.query_traces",
+            arguments: ["limit": .int(1)])
+        XCTAssertNil(traceQuery.isError)
+        XCTAssertTrue(toolText(traceQuery.content)?.contains("records") == true)
+
+        let logQuery = try await client.callTool(
+            name: "diagnostics.query_logs",
+            arguments: ["limit": .int(1)])
+        XCTAssertNil(logQuery.isError)
+        XCTAssertTrue(toolText(logQuery.content)?.contains("records") == true)
+
+        let debugModeResult = try await client.callTool(
+            name: "debug.set_mode",
+            arguments: ["enabled": .bool(false)])
+        XCTAssertNil(debugModeResult.isError)
     }
 
-    func testResourceReadTelemetryContainsContextButNoPayload() throws {
+    func testResourceReadTelemetryContainsContextButNoPayload() async throws {
         let fixture = makeFixture()
         defer { stopPanes(in: fixture.state) }
         TracingService.shared.enableTestCapture()
         defer { TracingService.shared.resetForTesting() }
 
-        _ = try fixture.router.read(
+        _ = try await fixture.router.read(
             uri: AgentControlResourceURI.workspace.rawValue, source: fixture.paneSource)
 
         let event = try XCTUnwrap(
@@ -189,5 +222,10 @@ final class AgentControlResourceTests: XCTestCase {
         for pane in state.tabs.flatMap(\.panes) {
             pane.terminalController?.terminate()
         }
+    }
+
+    private func toolText(_ content: [Tool.Content]) -> String? {
+        guard case .text(let text, _, _) = content.first(where: { _ in true }) else { return nil }
+        return text
     }
 }

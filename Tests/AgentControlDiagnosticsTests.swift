@@ -34,7 +34,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         XCTAssertNil(AgentControlResourceURI("agent-session-manager://diagnostics/unknown"))
     }
 
-    func testTraceDiagnosticsUseMetadataAndRedactSensitiveAttributes() throws {
+    func testTraceDiagnosticsUseMetadataAndRedactSensitiveAttributes() async throws {
         let fixture = makeFixture()
         let now = Int64(Date().timeIntervalSince1970 * 1000)
         let traces = supportDirectory.appending(path: "traces/sanitized-tab/sanitized-pane.jsonl")
@@ -49,7 +49,8 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         try metadata.write(to: traces, atomically: true, encoding: .utf8)
 
         let result = try decodeTraceResult(
-            fixture.router.read(uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource))
+            try await fixture.router.read(
+                uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource))
         XCTAssertEqual(result.files.first?.paneID, fixture.paneID.uuidString)
         XCTAssertEqual(result.records.count, 1)
         XCTAssertEqual(result.records.first?.attributes["safe"], "visible")
@@ -59,7 +60,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         XCTAssertEqual(result.metadata.malformedLines, 1)
     }
 
-    func testTraceDiagnosticsRespectPaneAndGlobalScope() throws {
+    func testTraceDiagnosticsRespectPaneAndGlobalScope() async throws {
         let fixture = makeFixture()
         let now = Int64(Date().timeIntervalSince1970 * 1000)
         try writeTrace(
@@ -75,15 +76,133 @@ final class AgentControlDiagnosticsTests: XCTestCase {
             eventName: "global.event", start: now)
 
         let paneResult = try decodeTraceResult(
-            fixture.router.read(uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource))
+            try await fixture.router.read(
+                uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource))
         XCTAssertEqual(paneResult.records.map(\.name), ["pane.event"])
 
         let globalResult = try decodeTraceResult(
-            fixture.router.read(uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.globalSource))
+            try await fixture.router.read(
+                uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.globalSource))
         XCTAssertEqual(Set(globalResult.records.map(\.name)), ["pane.event", "global.event"])
     }
 
-    func testInvariantDiagnosticsPreserveOccurrencesAndRedactContext() throws {
+    func testTraceQueriesApplyWindowEventFilterAndLimit() async throws {
+        let fixture = makeFixture()
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        try writeTrace(
+            path: "traces/filter/pane.jsonl",
+            metadata: [
+                "paneId": fixture.paneID.uuidString, "paneName": "Pane",
+                "tabId": fixture.tabID.uuidString, "tabName": "Tab",
+            ],
+            eventName: "old.event", start: now - 5_000)
+        try writeTrace(
+            path: "traces/filter/pane-2.jsonl",
+            metadata: [
+                "paneId": fixture.paneID.uuidString, "paneName": "Pane",
+                "tabId": fixture.tabID.uuidString, "tabName": "Tab",
+            ],
+            eventName: "target.event", start: now - 1_000)
+
+        let result = try await fixture.router.callTool(
+            name: "diagnostics.query_traces",
+            arguments: [
+                "sinceEpochMs": .int(Int(now - 2_000)),
+                "untilEpochMs": .int(Int(now)),
+                "limit": .int(1),
+                "eventNames": .array([.string("target.event")]),
+            ],
+            source: fixture.paneSource)
+        let decoded = try decodeTraceResult(try textContent(result))
+        XCTAssertEqual(decoded.records.map { $0.name }, ["target.event"])
+        XCTAssertEqual(decoded.metadata.returnedCount, 1)
+        XCTAssertFalse(decoded.metadata.limitTruncated)
+    }
+
+    func testDiagnosticSelectorsRejectMalformedUUIDs() async throws {
+        let fixture = makeFixture()
+        do {
+            _ = try await fixture.router.callTool(
+                name: "diagnostics.query_traces",
+                arguments: ["paneID": .string("not-a-uuid")],
+                source: fixture.globalSource)
+            XCTFail("Malformed selectors must be rejected")
+        } catch {
+            XCTAssertTrue(error is MCPError)
+        }
+    }
+
+    func testDiagnosticsRemainReadableWhenDebugModeIsDisabled() async throws {
+        let fixture = makeFixture()
+        fixture.settings.debugModeEnabled = false
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        try writeTrace(
+            path: "traces/disabled/pane.jsonl",
+            metadata: [
+                "paneId": fixture.paneID.uuidString, "paneName": "Pane",
+                "tabId": fixture.tabID.uuidString, "tabName": "Tab",
+            ],
+            eventName: "existing.event", start: now)
+
+        let result = try await fixture.router.read(
+            uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource)
+        let decoded = try decodeTraceResult(result)
+        XCTAssertFalse(decoded.availability.debugModeEnabled)
+        XCTAssertEqual(decoded.records.map(\.name), ["existing.event"])
+    }
+
+    func testDiagnosticQueryTelemetryIncludesOutcomeAndScopeContext() async throws {
+        let fixture = makeFixture()
+        TracingService.shared.enableTestCapture()
+        defer { TracingService.shared.resetForTesting() }
+
+        _ = try await fixture.router.read(
+            uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource)
+
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.diagnostic.query"
+            })
+        XCTAssertEqual(event.attributes["result"], "success")
+        XCTAssertEqual(event.attributes["pane.id"], fixture.paneID.uuidString)
+        XCTAssertEqual(event.attributes["tab.id"], fixture.tabID.uuidString)
+        XCTAssertNil(event.attributes["token"])
+    }
+
+    func testDiagnosticQueryObservesCancellation() async throws {
+        let fixture = makeFixture()
+        let traces = supportDirectory.appending(path: "traces/cancel/pane.jsonl")
+        try FileManager.default.createDirectory(
+            at: traces.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let metadata = String(
+            decoding: try JSONSerialization.data(withJSONObject: [
+                "_type": "metadata", "paneId": fixture.paneID.uuidString, "paneName": "Pane",
+                "tabId": fixture.tabID.uuidString, "tabName": "Tab", "createdAt": "2026-07-23T00:00:00Z",
+            ]),
+            as: UTF8.self)
+        let event = String(
+            decoding: try JSONSerialization.data(withJSONObject: [
+                "name": "cancel.event", "traceId": "trace", "spanId": "span",
+                "startEpochMs": 1, "endEpochMs": 1, "durationMs": 0, "attributes": [:],
+            ]),
+            as: UTF8.self)
+        try (metadata + "\n" + String(repeating: event + "\n", count: 5_000))
+            .write(to: traces, atomically: true, encoding: .utf8)
+
+        let task = Task {
+            try await fixture.router.read(
+                uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource)
+        }
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("Cancelled diagnostic query must not return a result")
+        } catch is CancellationError {
+            XCTAssertTrue(true)
+        }
+    }
+
+    func testInvariantDiagnosticsPreserveOccurrencesAndRedactContext() async throws {
         let fixture = makeFixture()
         let directory = supportDirectory.appending(path: "invariants")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -103,17 +222,18 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         try content.write(to: directory.appending(path: "invariants.jsonl"), atomically: true, encoding: .utf8)
 
         let result = try decodeInvariantResult(
-            fixture.router.read(uri: AgentControlResourceURI.diagnosticInvariants.rawValue, source: fixture.paneSource))
+            try await fixture.router.read(
+                uri: AgentControlResourceURI.diagnosticInvariants.rawValue, source: fixture.paneSource))
         XCTAssertEqual(result.records.count, 1)
         XCTAssertEqual(result.records.first?.context["reported_added"], "4")
         XCTAssertNil(result.records.first?.context["secret"])
         XCTAssertNil(result.records.first?.context["path"])
     }
 
-    func testGlobalScopeCanChangeDebugModeAndPersistsIt() throws {
+    func testGlobalScopeCanChangeDebugModeAndPersistsIt() async throws {
         let fixture = makeFixture()
         let router = fixture.router
-        let result = try router.callTool(
+        let result = try await router.callTool(
             name: "debug.set_mode",
             arguments: ["enabled": .bool(true)],
             source: fixture.globalSource)
@@ -123,19 +243,23 @@ final class AgentControlDiagnosticsTests: XCTestCase {
                 == true)
         XCTAssertTrue(fixture.settings.debugModeEnabled)
 
-        _ = try router.callTool(
+        _ = try await router.callTool(
             name: "debug.set_mode",
             arguments: ["enabled": .bool(false)],
             source: fixture.globalSource)
     }
 
-    func testLowerScopeCannotChangeDebugMode() throws {
+    func testLowerScopeCannotChangeDebugMode() async throws {
         let fixture = makeFixture()
-        XCTAssertThrowsError(
-            try fixture.router.callTool(
+        do {
+            _ = try await fixture.router.callTool(
                 name: "debug.set_mode",
                 arguments: ["enabled": .bool(true)],
-                source: fixture.paneSource))
+                source: fixture.paneSource)
+            XCTFail("Pane scope must not change Debug Mode")
+        } catch {
+            XCTAssertTrue(error is MCPError)
+        }
     }
 
     private struct Fixture {
@@ -193,5 +317,12 @@ final class AgentControlDiagnosticsTests: XCTestCase {
 
     private func decodeInvariantResult(_ string: String) throws -> AgentControlInvariantQueryResult {
         try JSONDecoder().decode(AgentControlInvariantQueryResult.self, from: Data(string.utf8))
+    }
+
+    private func textContent(_ result: CallTool.Result) throws -> String {
+        guard case .text(let text, _, _) = result.content.first else {
+            throw NSError(domain: "AgentControlDiagnosticsTests", code: 1)
+        }
+        return text
     }
 }

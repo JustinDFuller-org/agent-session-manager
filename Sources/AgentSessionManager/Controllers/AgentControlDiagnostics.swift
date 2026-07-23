@@ -259,52 +259,62 @@ final class AgentControlDiagnosticsRouter {
         ]
     }
 
-    func read(uri: AgentControlResourceURI, source: AgentControlSource) throws -> String {
-        let data: Data
-        switch uri {
-        case .diagnosticSummary:
-            data = try JSONEncoder().encode(summary(source: source))
-        case .diagnosticTraces:
-            data = try JSONEncoder().encode(traceResult(source: source, arguments: nil))
-        case .diagnosticInvariants:
-            data = try JSONEncoder().encode(invariantResult(source: source, arguments: nil))
-        case .diagnosticLogs:
-            data = try JSONEncoder().encode(try logResult(source: source, arguments: nil))
-        default:
-            throw MCPError.invalidParams("Not an Agent Session Manager diagnostic resource")
+    func read(uri: AgentControlResourceURI, source: AgentControlSource) async throws -> String {
+        do {
+            let data: Data
+            switch uri {
+            case .diagnosticSummary:
+                data = try JSONEncoder().encode(summary(source: source))
+            case .diagnosticTraces:
+                data = try JSONEncoder().encode(try await traceResult(source: source, arguments: nil))
+            case .diagnosticInvariants:
+                data = try JSONEncoder().encode(try await invariantResult(source: source, arguments: nil))
+            case .diagnosticLogs:
+                data = try JSONEncoder().encode(try await logResult(source: source, arguments: nil))
+            default:
+                throw MCPError.invalidParams("Not an Agent Session Manager diagnostic resource")
+            }
+            guard let value = String(data: data, encoding: .utf8) else {
+                throw MCPError.internalError("Unable to encode diagnostic resource")
+            }
+            return value
+        } catch is CancellationError {
+            recordDiagnosticCancellation(name: "resource.read", source: source)
+            throw CancellationError()
         }
-        guard let value = String(data: data, encoding: .utf8) else {
-            throw MCPError.internalError("Unable to encode diagnostic resource")
-        }
-        return value
     }
 
     func callTool(
         name: String, arguments: [String: Value]?, source: AgentControlSource
-    ) throws -> CallTool.Result {
-        switch name {
-        case "diagnostics.query_traces":
-            let decoded = try decode(AgentControlTraceQueryArguments.self, arguments: arguments)
-            return try result(traceResult(source: source, arguments: decoded))
-        case "diagnostics.query_invariants":
-            let decoded = try decode(AgentControlInvariantQueryArguments.self, arguments: arguments)
-            return try result(invariantResult(source: source, arguments: decoded))
-        case "diagnostics.query_logs":
-            guard source.scope == .global else {
-                recordAuthorizationDenied(name: name, source: source)
-                throw MCPError.invalidRequest("Global scope is required for unified-log queries")
+    ) async throws -> CallTool.Result {
+        do {
+            switch name {
+            case "diagnostics.query_traces":
+                let decoded = try decode(AgentControlTraceQueryArguments.self, arguments: arguments)
+                return try result(try await traceResult(source: source, arguments: decoded))
+            case "diagnostics.query_invariants":
+                let decoded = try decode(AgentControlInvariantQueryArguments.self, arguments: arguments)
+                return try result(try await invariantResult(source: source, arguments: decoded))
+            case "diagnostics.query_logs":
+                guard source.scope == .global else {
+                    recordAuthorizationDenied(name: name, source: source)
+                    throw MCPError.invalidRequest("Global scope is required for unified-log queries")
+                }
+                let decoded = try decode(AgentControlLogQueryArguments.self, arguments: arguments)
+                return try result(try await logResult(source: source, arguments: decoded))
+            case "debug.set_mode":
+                guard source.scope == .global else {
+                    recordAuthorizationDenied(name: name, source: source)
+                    throw MCPError.invalidRequest("Global scope is required to change Debug Mode")
+                }
+                let decoded = try decode(AgentControlDebugModeArguments.self, arguments: arguments)
+                return try result(setDebugMode(decoded.enabled, source: source))
+            default:
+                throw MCPError.invalidParams("Unknown Agent Session Manager diagnostic tool")
             }
-            let decoded = try decode(AgentControlLogQueryArguments.self, arguments: arguments)
-            return try result(try logResult(source: source, arguments: decoded))
-        case "debug.set_mode":
-            guard source.scope == .global else {
-                recordAuthorizationDenied(name: name, source: source)
-                throw MCPError.invalidRequest("Global scope is required to change Debug Mode")
-            }
-            let decoded = try decode(AgentControlDebugModeArguments.self, arguments: arguments)
-            return try result(setDebugMode(decoded.enabled, source: source))
-        default:
-            throw MCPError.invalidParams("Unknown Agent Session Manager diagnostic tool")
+        } catch is CancellationError {
+            recordDiagnosticCancellation(name: name, source: source)
+            throw CancellationError()
         }
     }
 
@@ -323,7 +333,7 @@ final class AgentControlDiagnosticsRouter {
 
     private func traceResult(
         source: AgentControlSource, arguments: AgentControlTraceQueryArguments?
-    ) throws -> AgentControlTraceQueryResult {
+    ) async throws -> AgentControlTraceQueryResult {
         let query = try AgentControlDiagnosticQuery(
             sinceEpochMs: arguments?.sinceEpochMs,
             untilEpochMs: arguments?.untilEpochMs,
@@ -331,7 +341,7 @@ final class AgentControlDiagnosticsRouter {
         ).resolved()
         try validateSelectors(tabID: arguments?.tabID, paneID: arguments?.paneID, source: source)
         let eventNames = Set(arguments?.eventNames ?? [])
-        var result = readTraces(
+        var result = try await readTraces(
             query: query, source: source, tabID: arguments?.tabID, paneID: arguments?.paneID)
         result.records = result.records.filter { eventNames.isEmpty || eventNames.contains($0.name) }
         let records = result.records
@@ -350,14 +360,14 @@ final class AgentControlDiagnosticsRouter {
 
     private func invariantResult(
         source: AgentControlSource, arguments: AgentControlInvariantQueryArguments?
-    ) throws -> AgentControlInvariantQueryResult {
+    ) async throws -> AgentControlInvariantQueryResult {
         let query = try AgentControlDiagnosticQuery(
             sinceEpochMs: arguments?.sinceEpochMs,
             untilEpochMs: arguments?.untilEpochMs,
             limit: arguments?.limit
         ).resolved()
         try validateSelectors(tabID: arguments?.tabID, paneID: arguments?.paneID, source: source)
-        let result = readInvariants(
+        let result = try await readInvariants(
             query: query, source: source, tabID: arguments?.tabID, paneID: arguments?.paneID,
             invariantIDs: Set(arguments?.invariantIDs ?? []), integrations: Set(arguments?.integrations ?? []),
             severities: Set(arguments?.severities ?? []))
@@ -375,7 +385,7 @@ final class AgentControlDiagnosticsRouter {
 
     private func logResult(
         source: AgentControlSource, arguments: AgentControlLogQueryArguments?
-    ) throws -> AgentControlLogQueryResult {
+    ) async throws -> AgentControlLogQueryResult {
         guard source.scope == .global else {
             recordAuthorizationDenied(name: "diagnostics.logs", source: source)
             throw MCPError.invalidRequest("Global scope is required for unified-log queries")
@@ -388,7 +398,7 @@ final class AgentControlDiagnosticsRouter {
         let categoryFilter = Set(arguments?.categories ?? [])
         let levelFilter = Set(arguments?.levels ?? [])
         let eventFilter = Set(arguments?.eventNames ?? [])
-        let records = readLogs(query: query).filter {
+        let records = try await readLogs(query: query).filter {
             (categoryFilter.isEmpty || categoryFilter.contains($0.category))
                 && (levelFilter.isEmpty || levelFilter.contains($0.level))
                 && (eventFilter.isEmpty || ($0.eventName.map(eventFilter.contains) ?? false))
@@ -407,6 +417,10 @@ final class AgentControlDiagnosticsRouter {
 
     private func setDebugMode(_ enabled: Bool, source: AgentControlSource) throws -> AgentControlDebugModeResult {
         guard SettingsPersistence.saveDebugSettings(enabled: enabled) else {
+            var attributes = sourceAttributes(source)
+            attributes["enabled"] = String(enabled)
+            attributes["result"] = "persist_failed"
+            TracingService.shared.record("agent_control.debug_mode.changed", attributes: attributes)
             throw MCPError.internalError("Unable to persist Debug Mode")
         }
         appSettings.debugModeEnabled = enabled
@@ -424,13 +438,16 @@ final class AgentControlDiagnosticsRouter {
 
     private func readTraces(
         query: AgentControlResolvedDiagnosticQuery, source: AgentControlSource, tabID: String?, paneID: String?
-    ) -> DiagnosticFileReadResult<AgentControlTraceDiagnosticRecord> {
+    ) async throws -> DiagnosticFileReadResult<AgentControlTraceDiagnosticRecord> {
         var result = DiagnosticFileReadResult<AgentControlTraceDiagnosticRecord>()
         let directory = appSettings.resolvedTracingDirectoryURL
         guard let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) else {
             return result
         }
+        var lineNumber = 0
         while let url = enumerator.nextObject() as? URL {
+            try Task.checkCancellation()
+            await Task.yield()
             guard url.pathExtension == "jsonl" else { continue }
             guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
             let lines = content.split(whereSeparator: \.isNewline).map(String.init)
@@ -441,6 +458,11 @@ final class AgentControlDiagnosticsRouter {
             guard traceFileAllowed(metadata, source: source, tabID: tabID, paneID: paneID) else { continue }
             result.files.append(metadata)
             for line in lines.dropFirst() {
+                lineNumber += 1
+                if lineNumber.isMultiple(of: 64) {
+                    try Task.checkCancellation()
+                    await Task.yield()
+                }
                 if line == "--- [truncated older trace entries] ---" {
                     result.sourceTruncated = true
                     continue
@@ -479,13 +501,17 @@ final class AgentControlDiagnosticsRouter {
         invariantIDs: Set<String>,
         integrations: Set<String>,
         severities: Set<String>
-    ) -> DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord> {
+    ) async throws -> DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord> {
         var result = DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord>()
         let url = appSettings.resolvedInvariantDirectoryURL.appending(path: "invariants.jsonl")
         guard let content = try? String(contentsOf: url, encoding: .utf8) else { return result }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        for line in content.split(whereSeparator: \.isNewline).map(String.init) {
+        for (index, line) in content.split(whereSeparator: \.isNewline).map(String.init).enumerated() {
+            if index.isMultiple(of: 64) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
             if line == InvariantLogWriter.truncationMarker {
                 result.sourceTruncated = true
                 continue
@@ -517,7 +543,9 @@ final class AgentControlDiagnosticsRouter {
         return result
     }
 
-    private func readLogs(query: AgentControlResolvedDiagnosticQuery) -> [AgentControlUnifiedLogDiagnosticRecord] {
+    private func readLogs(
+        query: AgentControlResolvedDiagnosticQuery
+    ) async throws -> [AgentControlUnifiedLogDiagnosticRecord] {
         guard let store = try? OSLogStore.local() else { return [] }
         let start = Date(timeIntervalSince1970: Double(query.sinceEpochMs) / 1000)
         let subsystem = Bundle.main.bundleIdentifier ?? "com.justinfuller.agent-session-manager"
@@ -526,7 +554,11 @@ final class AgentControlDiagnosticsRouter {
         guard let entries = try? store.getEntries(with: [], at: store.position(date: start), matching: predicate)
         else { return [] }
         var result: [AgentControlUnifiedLogDiagnosticRecord] = []
-        for entry in entries {
+        for (index, entry) in entries.enumerated() {
+            if index.isMultiple(of: 64) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
             guard let log = entry as? OSLogEntryLog, log.date.timeIntervalSince1970 * 1000 <= Double(query.untilEpochMs)
             else { continue }
             let eventName = log.composedMessage.split(separator: " ").first.map(String.init)
@@ -537,12 +569,17 @@ final class AgentControlDiagnosticsRouter {
                     category: log.category,
                     level: String(describing: log.level),
                     eventName: eventName))
-            if result.count >= 1_000 { break }
         }
         return result.sorted { $0.timestamp < $1.timestamp }
     }
 
     private func validateSelectors(tabID: String?, paneID: String?, source: AgentControlSource) throws {
+        if let tabID, UUID(uuidString: tabID) == nil {
+            throw MCPError.invalidParams("Diagnostic tab selector is not a UUID")
+        }
+        if let paneID, UUID(uuidString: paneID) == nil {
+            throw MCPError.invalidParams("Diagnostic pane selector is not a UUID")
+        }
         if source.scope == .pane {
             guard tabID == nil || tabID?.caseInsensitiveCompare(source.tabID.uuidString) == .orderedSame,
                 paneID == nil || paneID?.caseInsensitiveCompare(source.paneID.uuidString) == .orderedSame
@@ -651,6 +688,14 @@ final class AgentControlDiagnosticsRouter {
         attributes["query.kind"] = name
         attributes["result.count"] = String(metadata.returnedCount)
         attributes["result.truncated"] = String(metadata.limitTruncated || metadata.sourceTruncated)
+        attributes["result"] = "success"
+        TracingService.shared.record("agent_control.diagnostic.query", attributes: attributes)
+    }
+
+    private func recordDiagnosticCancellation(name: String, source: AgentControlSource) {
+        var attributes = sourceAttributes(source)
+        attributes["query.kind"] = name
+        attributes["result"] = "cancelled"
         TracingService.shared.record("agent_control.diagnostic.query", attributes: attributes)
     }
 

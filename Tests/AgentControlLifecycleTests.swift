@@ -93,6 +93,36 @@ final class AgentControlLifecycleTests: XCTestCase {
         )
     }
 
+    func testValidatorUsesConfiguredRequestBodyLimit() throws {
+        let store = AgentControlTokenStore()
+        let source = AgentControlSource(
+            paneID: UUID(), paneName: "Pane", tabID: UUID(), tabName: "Tab", scope: .pane)
+        let limits = AgentControlLimits(
+            maxRequestBodyBytes: 1,
+            maxResponseBodyBytes: 1_024,
+            maxConcurrentRequestsPerCredential: 1,
+            requestTimeout: .seconds(1),
+            maxRegisteredCredentials: 1)
+        let credential = try store.register(source: source, limits: limits)
+        let validator = AgentControlRequestValidator(
+            tokenStore: store,
+            expectedHost: "127.0.0.1:1234",
+            expectedOrigin: "http://127.0.0.1:1234",
+            limits: limits)
+
+        let response = validator.validate(
+            HTTPRequest(
+                method: "POST",
+                headers: [
+                    HTTPHeaderName.host: "127.0.0.1:1234",
+                    HTTPHeaderName.authorization: "Bearer \(credential.bearerToken)",
+                ],
+                body: Data("{}".utf8),
+                path: "/mcp"),
+            context: .init(httpMethod: "POST", sessionID: nil, isInitializationRequest: true))
+        XCTAssertEqual(response?.statusCode, 413)
+    }
+
     func testHTTPApplicationBindsLoopbackEndpointAndRejectsUnauthorizedRequest() async throws {
         let store = AgentControlTokenStore()
         let application = AgentControlHTTPApplication(tokenStore: store, limits: .default)

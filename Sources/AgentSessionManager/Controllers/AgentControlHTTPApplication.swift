@@ -241,7 +241,7 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
             body = context.channel.allocator.buffer(capacity: 0)
             bodyTooLarge = false
         case .body(var buffer):
-            if body.readableBytes + buffer.readableBytes > AgentControlLimits.default.maxRequestBodyBytes {
+            if body.readableBytes + buffer.readableBytes > limits.maxRequestBodyBytes {
                 bodyTooLarge = true
             } else if !bodyTooLarge {
                 body.writeBuffer(&buffer)
@@ -267,7 +267,8 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                             } catch {
                                 return .error(statusCode: 499, .invalidRequest("Request cancelled"))
                             }
-                            TracingService.shared.record("agent_control.request.timed_out")
+                            TracingService.shared.record(
+                                "agent_control.request.timed_out", attributes: ["result": "timed_out"])
                             return .error(statusCode: 504, .internalError("Request timed out"))
                         }
                         let response = await group.next()!
@@ -310,7 +311,8 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                 for try await chunk in stream {
                     responseBytes += chunk.count
                     guard responseBytes <= limits.maxResponseBodyBytes else {
-                        TracingService.shared.record("agent_control.request.response_too_large")
+                        TracingService.shared.record(
+                            "agent_control.request.response_too_large", attributes: ["result": "rejected"])
                         break
                     }
                     eventLoop.execute {
@@ -320,7 +322,8 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                     }
                 }
             } catch {
-                TracingService.shared.record("agent_control.request.stream_failed")
+                TracingService.shared.record(
+                    "agent_control.request.stream_failed", attributes: ["result": "failed"])
             }
             eventLoop.execute { context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil) }
         default:
@@ -328,7 +331,8 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
             let responseTooLarge = responseBody.map { $0.count > limits.maxResponseBodyBytes } ?? false
             let bodyData: Data?
             if responseTooLarge {
-                TracingService.shared.record("agent_control.request.response_too_large")
+                TracingService.shared.record(
+                    "agent_control.request.response_too_large", attributes: ["result": "rejected"])
                 bodyData = Data("Response exceeds the configured limit".utf8)
             } else {
                 bodyData = responseBody

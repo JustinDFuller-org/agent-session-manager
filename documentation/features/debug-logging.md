@@ -68,9 +68,10 @@ scope; unified-log queries and Debug Mode changes require Global scope.
 
 Diagnostic output is metadata-first and redacted before it crosses the MCP
 boundary. Terminal content, harness output, secrets, environment values, and
-arbitrary system logs are not returned. When Debug Mode is disabled, existing
-durable trace and invariant files remain readable while new durable capture is
-disabled; unified logs remain available because they are always on.
+arbitrary system logs are not returned. Queries use bounded limits and
+cooperative cancellation. When Debug Mode is disabled, existing durable trace
+and invariant files remain readable while new durable capture is disabled;
+unified logs remain available because they are always on.
 
 Top-level `debug-trace.log` and `traces.jsonl` files are stale legacy formats when present. Report them separately from current per-pane traces.
 

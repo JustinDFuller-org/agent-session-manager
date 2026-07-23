@@ -263,8 +263,8 @@ final class AgentControlResourceRouter {
 
     func callTool(
         name: String, arguments: [String: Value]?, source: AgentControlSource
-    ) throws -> CallTool.Result {
-        try diagnostics.callTool(name: name, arguments: arguments, source: source)
+    ) async throws -> CallTool.Result {
+        try await diagnostics.callTool(name: name, arguments: arguments, source: source)
     }
 
     func resourceTemplates() -> [Resource.Template] {
@@ -292,7 +292,7 @@ final class AgentControlResourceRouter {
         ]
     }
 
-    func read(uri: String, source: AgentControlSource) throws -> String {
+    func read(uri: String, source: AgentControlSource) async throws -> String {
         guard let resource = AgentControlResourceURI(uri) else {
             recordRead(uri: uri, source: source, kind: "unknown", result: "invalid_uri")
             throw MCPError.invalidParams("Unknown Agent Session Manager resource")
@@ -312,7 +312,7 @@ final class AgentControlResourceRouter {
             case .notifications:
                 data = try JSONEncoder().encode(notificationSnapshots(source: source))
             case .diagnosticSummary, .diagnosticTraces, .diagnosticInvariants, .diagnosticLogs:
-                let diagnostic = try diagnostics.read(uri: resource, source: source)
+                let diagnostic = try await diagnostics.read(uri: resource, source: source)
                 recordRead(uri: uri, source: source, kind: resource.kind, result: "success")
                 return diagnostic
             case .tab(let id):
@@ -341,6 +341,8 @@ final class AgentControlResourceRouter {
             }
             recordRead(uri: uri, source: source, kind: resource.kind, result: "success")
             return result
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as MCPError {
             recordRead(uri: uri, source: source, kind: resource.kind, result: "rejected")
             throw error

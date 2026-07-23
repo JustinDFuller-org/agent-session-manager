@@ -290,7 +290,7 @@ Each item is intended to be a separate implementation session.
    - Add the Global-scope-only Debug Mode tool and reuse existing persistence
      and reconfiguration paths. [implemented]
    - Protocol-test time windows, filtering, scope boundaries, redaction,
-     disabled capture, cancellation, and output limits. [in progress]
+     disabled capture, cancellation, and output limits. [implemented]
 
 6. **Harness injection**
    - Implement and test adapters one at a time, starting with Claude Code and
@@ -441,6 +441,16 @@ metadata identity, scope filtering, repeated invariant occurrences, redaction,
 and Global-only mutation behavior are covered by
 `AgentControlDiagnosticsTests`; MCP resource discovery now includes the
 diagnostic resources and tools.
+
+Diagnostic reads are cooperative async operations. Trace and invariant scans
+validate UUID selectors; all diagnostic scans yield while scanning, observe
+task cancellation, and never return a partial result after cancellation. Query
+limits remain bounded to 200 records, HTTP request-body limits use the active
+server configuration, and query telemetry records source scope, result counts,
+truncation, cancellation, and persistence failures without credentials or
+diagnostic payloads. Existing durable files remain readable while Debug Mode is
+disabled, and the unified-log path remains restricted to this process and its
+subsystem.
 
 #### Streamable HTTP result
 
