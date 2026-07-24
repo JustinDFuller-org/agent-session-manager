@@ -79,7 +79,7 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 |---|---|---|---|---|---|
 | BEL handling | Implemented | Implemented | Implemented | Implemented | Shared terminal parser path. |
 | OSC 777 handling | Implemented | Implemented | Implemented | Implemented | Shared `ESC]777;notify;title;body BEL` handler. |
-| Native hook attention | Implemented | Implemented | Missing | Implemented | Claude `Notification` hook and Cursor `stop` hook are refreshed for existing panes when toggled. Cursor also reports `beforeSubmitPrompt`/`stop` lifecycle state for activity indicators. OpenCode uses SSE `session.idle` and `permission.asked` events with a 15-second polling fallback. |
+| Native hook attention | Implemented | Implemented | Missing | Implemented | Claude `Notification` hook and Cursor `stop` hook are refreshed for every live pane when toggled. Cursor stores hook output in private per-pane directories and reports `beforeSubmitPrompt`/`stop` lifecycle state for activity indicators. OpenCode uses SSE `session.idle` and `permission.asked` events with a 15-second polling fallback. |
 | Background-agent completion gating (`SubagentStop`) | Implemented | N/A | N/A | N/A | Claude registers `SubagentStop` and a `PreToolUse` matcher for `Task\|Agent`; the outstanding-agent count derived from those hooks suppresses the false "Claude finished" `Stop` notification while background agents (e.g. plan-mode Explore agents) are still running. |
 | Sidebar and pane/tab indicators | Partial | Implemented | Partial | Partial | Cursor lifecycle and attention callbacks drive working, stopped, and waiting states. |
 | macOS banners | Partial | Partial | Partial | Partial | Uses the same callback path as sidebar delivery. |

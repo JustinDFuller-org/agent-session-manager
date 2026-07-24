@@ -393,6 +393,11 @@ final class StatusLineMonitor {
         provider.configureAttentionWatcher(enabled: enabled)
     }
 
+    var cursorHookEnvironmentVariables: [String: String] {
+        guard let provider = agnosticProvider as? CursorDataProvider else { return [:] }
+        return provider.hookEnvironmentVariables
+    }
+
     private func applyCursorActivity(isWorking: Bool) {
         cursorLifecycle = isWorking ? .working : .stopped
     }

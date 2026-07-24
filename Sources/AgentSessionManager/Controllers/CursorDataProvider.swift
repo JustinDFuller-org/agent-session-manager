@@ -18,6 +18,7 @@ final class CursorDataProvider: StatusLineDataProvider {
     let paneName: String
     let tabID: UUID
     let tabName: String
+    let hookDirectoryPath: String
     let hookOutputFilePath: String
     let attentionFilePath: String
     let lifecycleFilePath: String
@@ -43,16 +44,25 @@ final class CursorDataProvider: StatusLineDataProvider {
         self.paneName = paneName
         self.tabID = tabID
         self.tabName = tabName
+        self.hookDirectoryPath =
+            NSTemporaryDirectory() + "agent-session-manager-cursor-\(UUID().uuidString)"
         self.hookOutputFilePath =
-            NSTemporaryDirectory() + "agent-session-manager-cursor-hook-\(paneID.uuidString).json"
+            hookDirectoryPath + "/hook.json"
         self.attentionFilePath =
-            NSTemporaryDirectory() + "agent-session-manager-cursor-attention-\(paneID.uuidString).json"
+            hookDirectoryPath + "/attention.json"
         self.lifecycleFilePath =
-            NSTemporaryDirectory() + "agent-session-manager-cursor-lifecycle-\(paneID.uuidString).json"
+            hookDirectoryPath + "/lifecycle.json"
     }
 
     func start() {
         do {
+            try FileManager.default.createDirectory(
+                atPath: hookDirectoryPath,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700], ofItemAtPath: hookDirectoryPath)
             try FileManager.default.createDirectory(
                 at: CursorHookSetup.hooksDirectory, withIntermediateDirectories: true)
             try CursorHookSetup.writeScript(
@@ -102,8 +112,14 @@ final class CursorDataProvider: StatusLineDataProvider {
             TracingService.shared.record(
                 "statusline.cursor.hook_setup_failed",
                 attributes: cursorTraceAttributes(["error": error.localizedDescription]))
+            return
         }
         FileManager.default.createFile(atPath: hookOutputFilePath, contents: nil)
+        FileManager.default.createFile(atPath: lifecycleFilePath, contents: nil)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o600], ofItemAtPath: hookOutputFilePath)
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o600], ofItemAtPath: lifecycleFilePath)
         let hookFD = open(hookOutputFilePath, O_EVTONLY)
         if hookFD >= 0 {
             let source = DispatchSource.makeFileSystemObjectSource(
@@ -128,7 +144,6 @@ final class CursorDataProvider: StatusLineDataProvider {
             source.resume()
             hookSource = source
         }
-        FileManager.default.createFile(atPath: lifecycleFilePath, contents: nil)
         startLifecycleWatcher()
         configureAttentionWatcher(
             enabled: SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json")?
@@ -168,6 +183,11 @@ final class CursorDataProvider: StatusLineDataProvider {
         try? FileManager.default.removeItem(atPath: hookOutputFilePath)
         try? FileManager.default.removeItem(atPath: attentionFilePath)
         try? FileManager.default.removeItem(atPath: lifecycleFilePath)
+        try? FileManager.default.removeItem(atPath: hookDirectoryPath)
+    }
+
+    var hookEnvironmentVariables: [String: String] {
+        ["AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR": hookDirectoryPath]
     }
 
     func configureAttentionWatcher(enabled: Bool) {
@@ -410,11 +430,11 @@ enum CursorHookSetup {
     }
 
     /// The hook script reads stdin (the JSON payload from Cursor) and writes it to a
-    /// temp file keyed by the AGENT_SESSION_MANAGER_PANE_ID env var.
+    /// private per-pane directory passed through the environment.
     static let hookScriptContent = """
         #!/bin/bash
-        if [ -n "$AGENT_SESSION_MANAGER_PANE_ID" ]; then
-          cat > "/tmp/agent-session-manager-cursor-hook-${AGENT_SESSION_MANAGER_PANE_ID}.json"
+        if [ -n "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR" ]; then
+          cat > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/hook.json"
         else
           cat > /dev/null
         fi
@@ -425,10 +445,10 @@ enum CursorHookSetup {
     /// The stop hook writes its payload to the per-pane attention file, triggering a notification.
     static let stopHookScriptContent = """
         #!/bin/bash
-        if [ -n "$AGENT_SESSION_MANAGER_PANE_ID" ]; then
+        if [ -n "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR" ]; then
           payload="$(cat)"
-          printf '%s' "$payload" > "/tmp/agent-session-manager-cursor-attention-${AGENT_SESSION_MANAGER_PANE_ID}.json"
-          printf '%s' "$payload" > "/tmp/agent-session-manager-cursor-lifecycle-${AGENT_SESSION_MANAGER_PANE_ID}.json"
+          printf '%s' "$payload" > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/attention.json"
+          printf '%s' "$payload" > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/lifecycle.json"
         else
           cat > /dev/null
         fi
@@ -438,8 +458,8 @@ enum CursorHookSetup {
 
     static let lifecycleHookScriptContent = """
         #!/bin/bash
-        if [ -n "$AGENT_SESSION_MANAGER_PANE_ID" ]; then
-          cat > "/tmp/agent-session-manager-cursor-lifecycle-${AGENT_SESSION_MANAGER_PANE_ID}.json"
+        if [ -n "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR" ]; then
+          cat > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/lifecycle.json"
         else
           cat > /dev/null
         fi

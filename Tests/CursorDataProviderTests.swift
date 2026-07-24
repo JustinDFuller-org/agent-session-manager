@@ -74,8 +74,8 @@ struct CursorDataProviderTests {
     @Test func testHookScriptContentIsValidBash() {
         let content = CursorHookSetup.hookScriptContent
         #expect(content.hasPrefix("#!/bin/bash"))
-        #expect(content.contains("AGENT_SESSION_MANAGER_PANE_ID"))
-        #expect(content.contains("agent-session-manager-cursor-hook-"))
+        #expect(content.contains("AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR"))
+        #expect(content.contains("/hook.json"))
         #expect(content.contains("exit 0"))
     }
 
@@ -86,12 +86,13 @@ struct CursorDataProviderTests {
     }
 
     @MainActor
-    @Test func testHookOutputFilePathContainsPaneID() {
+    @Test func testHookOutputFilePathUsesPrivateDirectory() {
         let paneID = UUID()
         let provider = CursorDataProvider(
             workingDirectory: "/tmp/test", paneID: paneID, processStartTime: Date())
-        #expect(provider.hookOutputFilePath.contains(paneID.uuidString))
-        #expect(provider.hookOutputFilePath.contains("agent-session-manager-cursor-hook-"))
+        #expect(provider.hookDirectoryPath != NSTemporaryDirectory())
+        #expect(provider.hookDirectoryPath.contains("agent-session-manager-cursor-"))
+        #expect(provider.hookOutputFilePath.hasSuffix("/hook.json"))
     }
 
     // MARK: - CursorHookSetup (stop hook for notifications)
@@ -99,14 +100,43 @@ struct CursorDataProviderTests {
     @Test func testStopHookScriptContentIsValidBash() {
         let content = CursorHookSetup.stopHookScriptContent
         #expect(content.hasPrefix("#!/bin/bash"))
-        #expect(content.contains("AGENT_SESSION_MANAGER_PANE_ID"))
-        #expect(content.contains("agent-session-manager-cursor-attention-"))
+        #expect(content.contains("AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR"))
+        #expect(content.contains("/attention.json"))
+        #expect(content.contains("/lifecycle.json"))
         #expect(content.contains("exit 0"))
     }
 
     @Test func testStopHookScriptWritesToAttentionFile() {
         let content = CursorHookSetup.stopHookScriptContent
-        #expect(content.contains("/tmp/agent-session-manager-cursor-attention-${AGENT_SESSION_MANAGER_PANE_ID}.json"))
+        #expect(content.contains("$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/attention.json"))
+    }
+
+    @Test func testStopHookScriptWritesAttentionAndLifecycleFiles() throws {
+        let directory = NSTemporaryDirectory() + "cursor-hook-script-\(UUID().uuidString)"
+        let scriptPath = directory + "/stop.sh"
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+        try CursorHookSetup.stopHookScriptContent.write(
+            to: URL(filePath: scriptPath), atomically: true, encoding: .utf8)
+
+        let process = Process()
+        let input = Pipe()
+        process.executableURL = URL(filePath: "/bin/bash")
+        process.arguments = [scriptPath]
+        process.environment = ["AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR": directory]
+        process.standardInput = input
+        try process.run()
+        input.fileHandleForWriting.write(Data(#"{"hook_event_name":"stop"}"#.utf8))
+        try input.fileHandleForWriting.close()
+        process.waitUntilExit()
+
+        #expect(process.terminationStatus == 0)
+        #expect(
+            try String(contentsOf: URL(filePath: directory + "/attention.json"), encoding: .utf8)
+                == #"{"hook_event_name":"stop"}"#)
+        #expect(
+            try String(contentsOf: URL(filePath: directory + "/lifecycle.json"), encoding: .utf8)
+                == #"{"hook_event_name":"stop"}"#)
     }
 
     @Test func testStopHookEntryCommandPointsToStopScript() {
@@ -123,8 +153,8 @@ struct CursorDataProviderTests {
     @Test func testLifecycleHookScriptWritesToLifecycleFile() {
         let content = CursorHookSetup.lifecycleHookScriptContent
         #expect(content.hasPrefix("#!/bin/bash"))
-        #expect(content.contains("AGENT_SESSION_MANAGER_PANE_ID"))
-        #expect(content.contains("agent-session-manager-cursor-lifecycle-"))
+        #expect(content.contains("AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR"))
+        #expect(content.contains("$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/lifecycle.json"))
         #expect(content.contains("exit 0"))
     }
 
@@ -139,12 +169,12 @@ struct CursorDataProviderTests {
     }
 
     @MainActor
-    @Test func testAttentionFilePathContainsPaneID() {
+    @Test func testAttentionFilePathUsesPrivateDirectory() {
         let paneID = UUID()
         let provider = CursorDataProvider(
             workingDirectory: "/tmp/test", paneID: paneID, processStartTime: Date())
-        #expect(provider.attentionFilePath.contains(paneID.uuidString))
-        #expect(provider.attentionFilePath.contains("agent-session-manager-cursor-attention-"))
+        #expect(provider.attentionFilePath.contains(provider.hookDirectoryPath))
+        #expect(provider.attentionFilePath.hasSuffix("/attention.json"))
     }
 
     @MainActor
@@ -153,6 +183,9 @@ struct CursorDataProviderTests {
         let provider = CursorDataProvider(
             workingDirectory: "/tmp/test", paneID: paneID, processStartTime: Date())
         #expect(provider.attentionFilePath != provider.hookOutputFilePath)
+        #expect(
+            provider.hookEnvironmentVariables["AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR"]
+                == provider.hookDirectoryPath)
     }
 
     // MARK: - Hooks config merging
@@ -168,10 +201,10 @@ struct CursorDataProviderTests {
         let bareData = try JSONSerialization.data(withJSONObject: bare, options: .prettyPrinted)
         try bareData.write(to: URL(filePath: configPath))
 
-        var config =
+        let config =
             try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: configPath)))
             as! [String: Any]
-        var hooks = config["hooks"] as? [String: Any] ?? [:]
+        let hooks = config["hooks"] as? [String: Any] ?? [:]
 
         var afterEntries = hooks["afterAgentResponse"] as? [[String: Any]] ?? []
         afterEntries.append(CursorHookSetup.hookEntry)

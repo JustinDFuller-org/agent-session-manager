@@ -34,6 +34,9 @@ final class TabExtraEnvVarsPlumbingTests: XCTestCase {
         XCTAssertTrue(
             pane.terminalController?.pendingEnvironment?
                 .contains("AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)") == true)
+        XCTAssertTrue(
+            pane.terminalController?.pendingEnvironment?
+                .contains(where: { $0.hasPrefix("AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR=") }) == true)
     }
 
     func testAddPaneInjectsExtraEnvVarsForOpenCode() {

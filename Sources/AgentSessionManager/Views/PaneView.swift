@@ -118,15 +118,6 @@ struct PaneView: View {
                 pane.statusLineMonitor?.writeSettingsFile()
             }
         }
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: .agentSessionManagerCursorNotificationSettingChanged)
-        ) { _ in
-            if pane.harness == .cursor {
-                pane.statusLineMonitor?.configureCursorAttentionWatcher(
-                    enabled: appSettings.isCursorNotificationHookAttentionEnabled)
-            }
-        }
         .accessibilityElement(children: .contain)
     }
 
