@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Provides status line data for Cursor CLI panes by combining two data sources:
@@ -29,6 +30,8 @@ final class CursorDataProvider: StatusLineDataProvider {
     private var attentionSource: DispatchSourceFileSystemObject?
     private var lifecycleSource: DispatchSourceFileSystemObject?
     private var lastHookModel: StatusLineData.Model?
+    private var activeConversationID: String?
+    private var activeGenerationID: String?
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
@@ -55,6 +58,9 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 
     func start() {
+        activeConversationID = nil
+        activeGenerationID = nil
+        var hookSetupError: Error?
         do {
             try FileManager.default.createDirectory(
                 atPath: hookDirectoryPath,
@@ -63,87 +69,34 @@ final class CursorDataProvider: StatusLineDataProvider {
             )
             try FileManager.default.setAttributes(
                 [.posixPermissions: 0o700], ofItemAtPath: hookDirectoryPath)
-            try FileManager.default.createDirectory(
-                at: CursorHookSetup.hooksDirectory, withIntermediateDirectories: true)
-            try CursorHookSetup.writeScript(
-                at: CursorHookSetup.hookScriptPath, content: CursorHookSetup.hookScriptContent)
-            try CursorHookSetup.writeScript(
-                at: CursorHookSetup.stopHookScriptPath, content: CursorHookSetup.stopHookScriptContent)
-            try CursorHookSetup.writeScript(
-                at: CursorHookSetup.lifecycleHookScriptPath,
-                content: CursorHookSetup.lifecycleHookScriptContent)
-            let configPath = CursorHookSetup.hooksConfigPath
-            var config: [String: Any] = ["version": 1, "hooks": [String: Any]()]
-            if let existingData = try? Data(contentsOf: configPath),
-                let existing = try? JSONSerialization.jsonObject(with: existingData) as? [String: Any]
-            {
-                config = existing
-            }
-            var hooks = config["hooks"] as? [String: Any] ?? [:]
-            var needsWrite = false
-            needsWrite =
-                CursorHookSetup.installHookEntry(
-                    into: &hooks,
-                    eventName: "beforeSubmitPrompt",
-                    entry: CursorHookSetup.lifecycleHookEntry,
-                    scriptName: CursorHookSetup.lifecycleHookScriptName
-                ) || needsWrite
-            needsWrite =
-                CursorHookSetup.installHookEntry(
-                    into: &hooks,
-                    eventName: "afterAgentResponse",
-                    entry: CursorHookSetup.hookEntry,
-                    scriptName: CursorHookSetup.hookScriptName
-                ) || needsWrite
-            needsWrite =
-                CursorHookSetup.installHookEntry(
-                    into: &hooks,
-                    eventName: "stop",
-                    entry: CursorHookSetup.stopHookEntry,
-                    scriptName: CursorHookSetup.stopHookScriptName
-                ) || needsWrite
-            if needsWrite {
-                config["hooks"] = hooks
-                if config["version"] == nil { config["version"] = 1 }
-                let data = try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
-                try data.write(to: configPath, options: .atomic)
-            }
         } catch {
+            hookSetupError = error
+        }
+        if hookSetupError == nil {
+            do {
+                try CursorHookSetup.acquire(owner: paneID)
+            } catch {
+                hookSetupError = error
+            }
+        }
+        if let hookSetupError {
             TracingService.shared.record(
                 "statusline.cursor.hook_setup_failed",
-                attributes: cursorTraceAttributes(["error": error.localizedDescription]))
-            return
+                attributes: cursorTraceAttributes([
+                    "error": hookSetupError.localizedDescription,
+                    "result": "degraded",
+                ]))
         }
         FileManager.default.createFile(atPath: hookOutputFilePath, contents: nil)
+        FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
         FileManager.default.createFile(atPath: lifecycleFilePath, contents: nil)
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o600], ofItemAtPath: hookOutputFilePath)
         try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o600], ofItemAtPath: attentionFilePath)
+        try? FileManager.default.setAttributes(
             [.posixPermissions: 0o600], ofItemAtPath: lifecycleFilePath)
-        let hookFD = open(hookOutputFilePath, O_EVTONLY)
-        if hookFD >= 0 {
-            let source = DispatchSource.makeFileSystemObjectSource(
-                fileDescriptor: hookFD,
-                eventMask: [.write, .extend],
-                queue: .global(qos: .utility)
-            )
-            source.setEventHandler { [weak self] in
-                guard let self,
-                    let data = try? Data(contentsOf: URL(filePath: self.hookOutputFilePath)),
-                    !data.isEmpty,
-                    let parsed = CursorHookPayload.parse(data)
-                else { return }
-                let model = StatusLineData.Model(id: parsed.model, displayName: parsed.model)
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.lastHookModel = model
-                    self.refreshNow()
-                }
-            }
-            source.setCancelHandler { close(hookFD) }
-            source.resume()
-            hookSource = source
-        }
+        startHookWatcher()
         startLifecycleWatcher()
         configureAttentionWatcher(
             enabled: SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json")?
@@ -173,6 +126,7 @@ final class CursorDataProvider: StatusLineDataProvider {
         hookSource = nil
         lifecycleSource?.cancel()
         lifecycleSource = nil
+        CursorHookSetup.release(owner: paneID)
         attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
@@ -184,6 +138,8 @@ final class CursorDataProvider: StatusLineDataProvider {
         try? FileManager.default.removeItem(atPath: attentionFilePath)
         try? FileManager.default.removeItem(atPath: lifecycleFilePath)
         try? FileManager.default.removeItem(atPath: hookDirectoryPath)
+        activeConversationID = nil
+        activeGenerationID = nil
     }
 
     var hookEnvironmentVariables: [String: String] {
@@ -210,33 +166,23 @@ final class CursorDataProvider: StatusLineDataProvider {
         }
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: attentionFD,
-            eventMask: [.write, .extend],
+            eventMask: [.write, .extend, .delete, .rename, .revoke],
             queue: .global(qos: .utility)
         )
-        source.setEventHandler { [weak self] in
+        source.setEventHandler { [weak self, weak source] in
             guard let self else { return }
-            self.attentionDebounceLock.lock()
-            self.attentionDebounceWork?.cancel()
-            let work = DispatchWorkItem { [weak self] in
-                guard let self,
-                    let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
-                    !data.isEmpty
-                else { return }
-                var hasher = Hasher()
-                hasher.combine(data)
-                let fingerprint = hasher.finalize()
-                Task { @MainActor in
-                    guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                    self.lastAttentionPayloadFingerprint = fingerprint
-                    TracingService.shared.record(
-                        "statusline.cursor.attention.received",
-                        attributes: self.cursorTraceAttributes([:]))
-                    self.onAttention?(.cursorStop)
+            let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
+            if inodeLost {
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.configureAttentionWatcher(enabled: true)
+                    self.scheduleAttentionPayloadRead()
                 }
+                return
             }
-            self.attentionDebounceWork = work
-            self.attentionDebounceLock.unlock()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+            Task { @MainActor [weak self] in
+                self?.scheduleAttentionPayloadRead()
+            }
         }
         source.setCancelHandler { close(attentionFD) }
         source.resume()
@@ -246,11 +192,38 @@ final class CursorDataProvider: StatusLineDataProvider {
             attributes: cursorTraceAttributes([:]))
     }
 
+    private func scheduleAttentionPayloadRead() {
+        attentionDebounceLock.lock()
+        attentionDebounceWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self,
+                let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
+                !data.isEmpty
+            else { return }
+            var hasher = Hasher()
+            hasher.combine(data)
+            let fingerprint = hasher.finalize()
+            Task { @MainActor in
+                guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                self.lastAttentionPayloadFingerprint = fingerprint
+                TracingService.shared.record(
+                    "statusline.cursor.attention.received",
+                    attributes: self.cursorTraceAttributes([:]))
+                self.onAttention?(.cursorStop)
+            }
+        }
+        attentionDebounceWork = work
+        attentionDebounceLock.unlock()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    }
+
     var currentDurationMs: Double {
         max(0, Date().timeIntervalSince(processStartTime)) * 1000
     }
 
     private func startLifecycleWatcher() {
+        lifecycleSource?.cancel()
+        lifecycleSource = nil
         let lifecycleFD = open(lifecycleFilePath, O_EVTONLY)
         guard lifecycleFD >= 0 else {
             TracingService.shared.record(
@@ -260,23 +233,22 @@ final class CursorDataProvider: StatusLineDataProvider {
         }
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: lifecycleFD,
-            eventMask: [.write, .extend],
+            eventMask: [.write, .extend, .delete, .rename, .revoke],
             queue: .global(qos: .utility)
         )
-        source.setEventHandler { [weak self] in
-            guard let self,
-                let data = try? Data(contentsOf: URL(filePath: self.lifecycleFilePath)),
-                let payload = CursorLifecyclePayload.parse(data)
-            else { return }
-            Task { @MainActor in
-                let isWorking = payload.hookEventName == "beforeSubmitPrompt"
-                TracingService.shared.record(
-                    "statusline.cursor.lifecycle.received",
-                    attributes: self.cursorTraceAttributes([
-                        "hook_event": payload.hookEventName,
-                        "state": isWorking ? "working" : "stopped",
-                    ]))
-                self.onActivityChanged?(isWorking)
+        source.setEventHandler { [weak self, weak source] in
+            guard let self else { return }
+            let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
+            if inodeLost {
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.startLifecycleWatcher()
+                    self.readLifecyclePayload()
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.readLifecyclePayload()
+                }
             }
         }
         source.setCancelHandler { close(lifecycleFD) }
@@ -285,6 +257,99 @@ final class CursorDataProvider: StatusLineDataProvider {
         TracingService.shared.record(
             "statusline.cursor.lifecycle_watcher.started",
             attributes: cursorTraceAttributes([:]))
+    }
+
+    private func startHookWatcher() {
+        hookSource?.cancel()
+        hookSource = nil
+        let hookFD = open(hookOutputFilePath, O_EVTONLY)
+        guard hookFD >= 0 else {
+            TracingService.shared.record(
+                "statusline.cursor.hook_watcher.failed",
+                attributes: cursorTraceAttributes(["reason": "open_failed"]))
+            return
+        }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: hookFD,
+            eventMask: [.write, .extend, .delete, .rename, .revoke],
+            queue: .global(qos: .utility)
+        )
+        source.setEventHandler { [weak self, weak source] in
+            guard let self else { return }
+            let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
+            if inodeLost {
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.startHookWatcher()
+                    self.readHookPayload()
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.readHookPayload()
+                }
+            }
+        }
+        source.setCancelHandler { close(hookFD) }
+        source.resume()
+        hookSource = source
+    }
+
+    private func readHookPayload() {
+        guard let data = try? Data(contentsOf: URL(filePath: hookOutputFilePath)),
+            !data.isEmpty,
+            let parsed = CursorHookPayload.parse(data)
+        else { return }
+        let model = StatusLineData.Model(id: parsed.model, displayName: parsed.model)
+        lastHookModel = model
+        refreshNow()
+    }
+
+    private func readLifecyclePayload() {
+        guard let data = try? Data(contentsOf: URL(filePath: lifecycleFilePath)),
+            let payload = CursorLifecyclePayload.parse(data)
+        else { return }
+        applyLifecyclePayload(payload)
+    }
+
+    func applyLifecyclePayload(_ payload: CursorLifecyclePayload) {
+        let isWorking = payload.hookEventName == "beforeSubmitPrompt"
+        if isWorking {
+            activeConversationID = payload.conversationID
+            activeGenerationID = payload.generationID
+        } else {
+            if let activeConversationID, let eventConversationID = payload.conversationID,
+                activeConversationID != eventConversationID
+            {
+                recordIgnoredLifecycle(payload, reason: "conversation_mismatch")
+                return
+            }
+            if let activeGenerationID, let eventGenerationID = payload.generationID,
+                activeGenerationID != eventGenerationID
+            {
+                recordIgnoredLifecycle(payload, reason: "generation_mismatch")
+                return
+            }
+        }
+        TracingService.shared.record(
+            "statusline.cursor.lifecycle.received",
+            attributes: cursorTraceAttributes([
+                "hook_event": payload.hookEventName,
+                "state": isWorking ? "working" : "stopped",
+                "conversation_id_prefix": payload.conversationID.map { String($0.prefix(12)) } ?? "nil",
+                "generation_id_prefix": payload.generationID.map { String($0.prefix(12)) } ?? "nil",
+            ]))
+        onActivityChanged?(isWorking)
+    }
+
+    private func recordIgnoredLifecycle(_ payload: CursorLifecyclePayload, reason: String) {
+        TracingService.shared.record(
+            "statusline.cursor.lifecycle.ignored",
+            attributes: cursorTraceAttributes([
+                "hook_event": payload.hookEventName,
+                "reason": reason,
+                "conversation_id_prefix": payload.conversationID.map { String($0.prefix(12)) } ?? "nil",
+                "generation_id_prefix": payload.generationID.map { String($0.prefix(12)) } ?? "nil",
+            ]))
     }
 
     private func cursorTraceAttributes(_ additional: [String: String]) -> [String: String] {
@@ -387,13 +452,19 @@ struct CursorHookPayload {
 
 struct CursorLifecyclePayload {
     let hookEventName: String
+    let conversationID: String?
+    let generationID: String?
 
     static func parse(_ data: Data) -> CursorLifecyclePayload? {
         guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let hookEventName = dict["hook_event_name"] as? String,
             !hookEventName.isEmpty
         else { return nil }
-        return CursorLifecyclePayload(hookEventName: hookEventName)
+        return CursorLifecyclePayload(
+            hookEventName: hookEventName,
+            conversationID: dict["conversation_id"] as? String,
+            generationID: dict["generation_id"] as? String
+        )
     }
 }
 
@@ -429,12 +500,23 @@ enum CursorHookSetup {
             .appending(path: ".cursor/hooks.json")
     }
 
+    static var hooksLockPath: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: ".cursor/agent-session-manager-hooks.lock")
+    }
+
     /// The hook script reads stdin (the JSON payload from Cursor) and writes it to a
     /// private per-pane directory passed through the environment.
     static let hookScriptContent = """
         #!/bin/bash
+        umask 077
         if [ -n "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR" ]; then
-          cat > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/hook.json"
+          temporary="$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/.hook.json.$$"
+          if cat > "$temporary"; then
+            mv -f "$temporary" "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/hook.json"
+          else
+            rm -f "$temporary"
+          fi
         else
           cat > /dev/null
         fi
@@ -445,10 +527,18 @@ enum CursorHookSetup {
     /// The stop hook writes its payload to the per-pane attention file, triggering a notification.
     static let stopHookScriptContent = """
         #!/bin/bash
+        umask 077
         if [ -n "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR" ]; then
-          payload="$(cat)"
-          printf '%s' "$payload" > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/attention.json"
-          printf '%s' "$payload" > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/lifecycle.json"
+          temporary="$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/.stop.json.$$"
+          attentionTemporary="$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/.attention.json.$$"
+          lifecycleTemporary="$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/.lifecycle.json.$$"
+          if cat > "$temporary" \
+            && cp "$temporary" "$attentionTemporary" \
+            && cp "$temporary" "$lifecycleTemporary"; then
+            mv -f "$attentionTemporary" "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/attention.json"
+            mv -f "$lifecycleTemporary" "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/lifecycle.json"
+          fi
+          rm -f "$temporary" "$attentionTemporary" "$lifecycleTemporary"
         else
           cat > /dev/null
         fi
@@ -458,8 +548,14 @@ enum CursorHookSetup {
 
     static let lifecycleHookScriptContent = """
         #!/bin/bash
+        umask 077
         if [ -n "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR" ]; then
-          cat > "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/lifecycle.json"
+          temporary="$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/.lifecycle.json.$$"
+          if cat > "$temporary"; then
+            mv -f "$temporary" "$AGENT_SESSION_MANAGER_CURSOR_HOOK_DIR/lifecycle.json"
+          else
+            rm -f "$temporary"
+          fi
         else
           cat > /dev/null
         fi
@@ -478,6 +574,153 @@ enum CursorHookSetup {
     static let lifecycleHookEntry: [String: Any] = [
         "command": "./hooks/\(lifecycleHookScriptName)"
     ]
+
+    private static let ownershipLock = NSLock()
+    private static var activeOwners = Set<UUID>()
+
+    static func acquire(owner: UUID) throws {
+        ownershipLock.lock()
+        defer { ownershipLock.unlock() }
+        guard !activeOwners.contains(owner) else { return }
+
+        if activeOwners.isEmpty {
+            try FileManager.default.createDirectory(
+                at: hooksDirectory, withIntermediateDirectories: true)
+            let lockFD = open(hooksLockPath.path, O_CREAT | O_RDWR, 0o600)
+            guard lockFD >= 0 else {
+                throw NSError(
+                    domain: "CursorHookSetup", code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not open Cursor hooks lock"])
+            }
+            guard flock(lockFD, LOCK_EX) == 0 else {
+                close(lockFD)
+                throw NSError(
+                    domain: "CursorHookSetup", code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not lock Cursor hooks configuration"])
+            }
+            defer {
+                flock(lockFD, LOCK_UN)
+                close(lockFD)
+            }
+            try writeScript(at: hookScriptPath, content: hookScriptContent)
+            try writeScript(at: stopHookScriptPath, content: stopHookScriptContent)
+            try writeScript(at: lifecycleHookScriptPath, content: lifecycleHookScriptContent)
+
+            var config: [String: Any] = ["version": 1, "hooks": [String: Any]()]
+            if let existingData = try? Data(contentsOf: hooksConfigPath) {
+                guard let existing = try? JSONSerialization.jsonObject(with: existingData) as? [String: Any]
+                else {
+                    throw NSError(
+                        domain: "CursorHookSetup", code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Cursor hooks configuration is not valid JSON"])
+                }
+                config = existing
+            }
+            var hooks = config["hooks"] as? [String: Any] ?? [:]
+            var needsWrite = false
+            needsWrite =
+                installHookEntry(
+                    into: &hooks,
+                    eventName: "beforeSubmitPrompt",
+                    entry: lifecycleHookEntry,
+                    scriptName: lifecycleHookScriptName
+                ) || needsWrite
+            needsWrite =
+                installHookEntry(
+                    into: &hooks,
+                    eventName: "afterAgentResponse",
+                    entry: hookEntry,
+                    scriptName: hookScriptName
+                ) || needsWrite
+            needsWrite =
+                installHookEntry(
+                    into: &hooks,
+                    eventName: "stop",
+                    entry: stopHookEntry,
+                    scriptName: stopHookScriptName
+                ) || needsWrite
+            if needsWrite {
+                config["hooks"] = hooks
+                if config["version"] == nil { config["version"] = 1 }
+                let data = try JSONSerialization.data(
+                    withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+                try data.write(to: hooksConfigPath, options: .atomic)
+            }
+        }
+        activeOwners.insert(owner)
+        TracingService.shared.record(
+            "statusline.cursor.hooks.owner_acquired",
+            attributes: ["owner_count": "\(activeOwners.count)"])
+    }
+
+    static func release(owner: UUID) {
+        ownershipLock.lock()
+        defer { ownershipLock.unlock() }
+        guard activeOwners.remove(owner) != nil, activeOwners.isEmpty else { return }
+
+        do {
+            let lockFD = open(hooksLockPath.path, O_CREAT | O_RDWR, 0o600)
+            guard lockFD >= 0 else {
+                throw NSError(
+                    domain: "CursorHookSetup", code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not open Cursor hooks lock"])
+            }
+            guard flock(lockFD, LOCK_EX) == 0 else {
+                close(lockFD)
+                throw NSError(
+                    domain: "CursorHookSetup", code: 5,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not lock Cursor hooks configuration"])
+            }
+            defer {
+                flock(lockFD, LOCK_UN)
+                close(lockFD)
+            }
+            var config =
+                try JSONSerialization.jsonObject(with: Data(contentsOf: hooksConfigPath)) as? [String: Any] ?? [:]
+            var hooks = config["hooks"] as? [String: Any] ?? [:]
+            var needsWrite = false
+            for (eventName, scriptName) in [
+                ("beforeSubmitPrompt", lifecycleHookScriptName),
+                ("afterAgentResponse", hookScriptName),
+                ("stop", stopHookScriptName),
+            ] {
+                guard var entries = hooks[eventName] as? [[String: Any]] else { continue }
+                let filtered = entries.filter {
+                    ($0["command"] as? String) != "./hooks/\(scriptName)"
+                }
+                if filtered.count != entries.count {
+                    entries = filtered
+                    hooks[eventName] = entries
+                    needsWrite = true
+                }
+            }
+            if needsWrite {
+                config["hooks"] = hooks
+                let data = try JSONSerialization.data(
+                    withJSONObject: config, options: [.prettyPrinted, .sortedKeys])
+                try data.write(to: hooksConfigPath, options: .atomic)
+            }
+            for (path, content) in [
+                (hookScriptPath, hookScriptContent),
+                (stopHookScriptPath, stopHookScriptContent),
+                (lifecycleHookScriptPath, lifecycleHookScriptContent),
+            ] {
+                if let existing = try? String(contentsOf: path, encoding: .utf8), existing == content {
+                    try? FileManager.default.removeItem(at: path)
+                }
+            }
+            TracingService.shared.record(
+                "statusline.cursor.hooks.released",
+                attributes: ["owner_count": "0"])
+        } catch {
+            TracingService.shared.record(
+                "statusline.cursor.hooks.release_failed",
+                attributes: [
+                    "owner_count": "0",
+                    "error": error.localizedDescription,
+                ])
+        }
+    }
 
     fileprivate static func writeScript(at path: URL, content: String) throws {
         let currentContent = try? String(contentsOf: path, encoding: .utf8)

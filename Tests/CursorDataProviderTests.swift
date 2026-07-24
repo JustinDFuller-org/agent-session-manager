@@ -160,8 +160,15 @@ struct CursorDataProviderTests {
 
     @Test func testCursorLifecyclePayloadParsesHookEvent() {
         let payload = CursorLifecyclePayload.parse(
-            Data(#"{"hook_event_name":"beforeSubmitPrompt","model":"gpt-5"}"#.utf8))
+            Data(
+                """
+                {"hook_event_name":"beforeSubmitPrompt","model":"gpt-5","conversation_id":"conversation-1",
+                 "generation_id":"generation-1"}
+                """.utf8
+            ))
         #expect(payload?.hookEventName == "beforeSubmitPrompt")
+        #expect(payload?.conversationID == "conversation-1")
+        #expect(payload?.generationID == "generation-1")
     }
 
     @Test func testCursorLifecyclePayloadRejectsMissingHookEvent() {
@@ -188,6 +195,35 @@ struct CursorDataProviderTests {
                 == provider.hookDirectoryPath)
     }
 
+    @MainActor
+    @Test func testCursorLifecycleIgnoresStaleGenerationStop() {
+        let provider = CursorDataProvider(
+            workingDirectory: "/tmp/test", paneID: UUID(), processStartTime: Date())
+        var states: [Bool] = []
+        provider.onActivityChanged = { states.append($0) }
+
+        provider.applyLifecyclePayload(
+            CursorLifecyclePayload(
+                hookEventName: "beforeSubmitPrompt",
+                conversationID: "conversation-1",
+                generationID: "generation-1"
+            ))
+        provider.applyLifecyclePayload(
+            CursorLifecyclePayload(
+                hookEventName: "beforeSubmitPrompt",
+                conversationID: "conversation-1",
+                generationID: "generation-2"
+            ))
+        provider.applyLifecyclePayload(
+            CursorLifecyclePayload(
+                hookEventName: "stop",
+                conversationID: "conversation-1",
+                generationID: "generation-1"
+            ))
+
+        #expect(states == [true, true])
+    }
+
     // MARK: - Hooks config merging
 
     @Test func testMergeHooksConfigIntoBareConfig() throws {
@@ -201,10 +237,10 @@ struct CursorDataProviderTests {
         let bareData = try JSONSerialization.data(withJSONObject: bare, options: .prettyPrinted)
         try bareData.write(to: URL(filePath: configPath))
 
-        let config =
+        var config =
             try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: configPath)))
             as! [String: Any]
-        let hooks = config["hooks"] as? [String: Any] ?? [:]
+        var hooks = config["hooks"] as? [String: Any] ?? [:]
 
         var afterEntries = hooks["afterAgentResponse"] as? [[String: Any]] ?? []
         afterEntries.append(CursorHookSetup.hookEntry)
@@ -250,10 +286,10 @@ struct CursorDataProviderTests {
         let data = try JSONSerialization.data(withJSONObject: existing, options: .prettyPrinted)
         try data.write(to: URL(filePath: configPath))
 
-        var config =
+        let config =
             try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: configPath)))
             as! [String: Any]
-        var hooks = config["hooks"] as? [String: Any] ?? [:]
+        let hooks = config["hooks"] as? [String: Any] ?? [:]
 
         let afterEntries = hooks["afterAgentResponse"] as? [[String: Any]] ?? []
         let afterInstalled = afterEntries.contains {
