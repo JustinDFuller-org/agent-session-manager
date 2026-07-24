@@ -56,7 +56,7 @@ final class AgentControlMutationTests: XCTestCase {
             name: "panes.focus",
             arguments: ["paneID": .string(fixture.otherPane.id.uuidString)],
             source: fixture.tabSource)
-        XCTAssertNotEqual(focus.isError, true)
+        XCTAssertNil(focus.isError)
         XCTAssertEqual(fixture.state.activePaneID, fixture.otherPane.id)
         XCTAssertEqual(fixture.tab.focusedPaneID, fixture.otherPane.id)
 
@@ -67,7 +67,7 @@ final class AgentControlMutationTests: XCTestCase {
                 "destinationIndex": .int(2),
             ],
             source: fixture.tabSource)
-        XCTAssertNotEqual(reorder.isError, true)
+        XCTAssertNil(reorder.isError)
         XCTAssertEqual(fixture.tab.panes.map(\.id), [fixture.otherPane.id, fixture.firstPane.id])
 
         do {
@@ -88,7 +88,7 @@ final class AgentControlMutationTests: XCTestCase {
             name: "tabs.focus",
             arguments: ["tabID": .string(fixture.secondTab.id.uuidString)],
             source: fixture.globalSource)
-        XCTAssertNotEqual(focus.isError, true)
+        XCTAssertNil(focus.isError)
         XCTAssertEqual(fixture.state.activeTabID, fixture.secondTab.id)
 
         let reorder = try await fixture.router.callTool(
@@ -98,7 +98,7 @@ final class AgentControlMutationTests: XCTestCase {
                 "destinationIndex": .int(0),
             ],
             source: fixture.globalSource)
-        XCTAssertNotEqual(reorder.isError, true)
+        XCTAssertNil(reorder.isError)
         XCTAssertEqual(fixture.state.tabs.map(\.id), [fixture.secondTab.id, fixture.tab.id])
     }
 
@@ -114,10 +114,34 @@ final class AgentControlMutationTests: XCTestCase {
             ],
             source: fixture.globalSource)
 
-        XCTAssertNotEqual(response.isError, true)
+        XCTAssertNil(response.isError)
         XCTAssertEqual(fixture.state.tabs.count, 3)
         XCTAssertEqual(fixture.state.tabs.last?.name, "Created Tab")
         XCTAssertEqual(fixture.state.activeTabID, fixture.state.tabs.last?.id)
+    }
+
+    func testGlobalScopeCanToggleHarnessAvailability() async throws {
+        let fixture = makeFixture()
+        let response = try await fixture.router.callTool(
+            name: "harnesses.set_enabled",
+            arguments: [
+                "harness": .string("codex"),
+                "enabled": .bool(false),
+            ],
+            source: fixture.globalSource)
+
+        XCTAssertNil(response.isError)
+        XCTAssertFalse(fixture.settings.isActive(.codex))
+
+        let restored = try await fixture.router.callTool(
+            name: "harnesses.set_enabled",
+            arguments: [
+                "harness": .string("codex"),
+                "enabled": .bool(true),
+            ],
+            source: fixture.globalSource)
+        XCTAssertNil(restored.isError)
+        XCTAssertTrue(fixture.settings.isActive(.codex))
     }
 
     func testCleanupPolicyRequiresChoiceAndReportsPartialFailures() async throws {
@@ -151,7 +175,7 @@ final class AgentControlMutationTests: XCTestCase {
                 "cleanup": .string("delete"),
             ],
             source: source)
-        XCTAssertNotEqual(response.isError, true)
+        XCTAssertNil(response.isError)
         XCTAssertTrue(toolText(response.content)?.contains("partial_failure") == true)
         XCTAssertTrue(toolText(response.content)?.contains("failed") == true)
         XCTAssertTrue(state.tabs.isEmpty)

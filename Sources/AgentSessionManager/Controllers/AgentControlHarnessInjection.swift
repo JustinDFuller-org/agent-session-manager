@@ -123,7 +123,7 @@ struct CursorAgentControlAdapter: AgentControlHarnessAdapter {
 
 @MainActor
 enum AgentControlHarnessInjection {
-    static let tokenEnvironmentKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
+    nonisolated static let tokenEnvironmentKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
 
     static func prepare(
         pane: Pane,
@@ -132,10 +132,14 @@ enum AgentControlHarnessInjection {
         environment: [String],
         appSettings: AppSettings?
     ) throws -> ([String]?, [String]) {
+        let sanitizedCommandArguments = commandArguments.map {
+            removingControlArguments(from: $0, harness: pane.harness)
+        }
+        let sanitizedEnvironment = removingControlToken(from: environment)
         guard pane.harness != .shell, pane.agentControlInjectionEnabled, appSettings != nil else {
             AgentControlService.shared.revoke(paneID: pane.id)
             recordPreparation(pane: pane, tab: tab, result: "disabled")
-            return (commandArguments, environment)
+            return (sanitizedCommandArguments, sanitizedEnvironment)
         }
         let settings = appSettings!
         let source = AgentControlSource(
@@ -150,8 +154,8 @@ enum AgentControlHarnessInjection {
             let context = AgentControlHarnessLaunchContext(
                 endpoint: credential.endpoint,
                 tokenEnvironmentKey: tokenEnvironmentKey,
-                commandArguments: commandArguments ?? [],
-                environment: environment + ["\(tokenEnvironmentKey)=\(credential.bearerToken)"]
+                commandArguments: sanitizedCommandArguments ?? [],
+                environment: sanitizedEnvironment + ["\(tokenEnvironmentKey)=\(credential.bearerToken)"]
             )
             let adapter: any AgentControlHarnessAdapter
             switch pane.harness {
@@ -170,6 +174,35 @@ enum AgentControlHarnessInjection {
             recordPreparation(pane: pane, tab: tab, result: "failed", error: error.localizedDescription)
             throw error
         }
+    }
+
+    nonisolated static func removingControlToken(from environment: [String]) -> [String] {
+        environment.filter { !$0.hasPrefix("\(tokenEnvironmentKey)=") }
+    }
+
+    nonisolated static func removingControlArguments(from arguments: [String], harness: Harness) -> [String] {
+        var sanitized: [String] = []
+        var index = 0
+        while index < arguments.count {
+            let argument = arguments[index]
+            if harness == .claude, argument == "--mcp-config",
+                index + 1 < arguments.count,
+                arguments[index + 1].contains("agent-session-manager")
+            {
+                index += 2
+                continue
+            }
+            if harness == .codex, argument == "-c",
+                index + 1 < arguments.count,
+                arguments[index + 1].hasPrefix("mcp_servers.agent_session_manager.")
+            {
+                index += 2
+                continue
+            }
+            sanitized.append(argument)
+            index += 1
+        }
+        return sanitized
     }
 
     private static func recordPreparation(

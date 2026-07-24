@@ -146,6 +146,14 @@ final class AgentControlTokenStore: @unchecked Sendable {
         return credential
     }
 
+    func tokenHash(forPaneID paneID: UUID) -> Data? {
+        lock.withLock { registrations[paneID]?.tokenHash }
+    }
+
+    func tokenHash(for token: String) -> Data {
+        Self.hash(token)
+    }
+
     func source(
         for token: String,
         sessionID: String?,
@@ -356,10 +364,14 @@ final class AgentControlService {
                 domain: "AgentControlService", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Agent Session Manager control server is unavailable."])
         }
-        Task {
-            await httpApplication.disconnectSessions(forPaneID: source.paneID)
-        }
+        let previousTokenHash = tokenStore.tokenHash(forPaneID: source.paneID)
         let credential = try tokenStore.register(source: source, limits: limits)
+        if let previousTokenHash {
+            Task {
+                await httpApplication.disconnectSessions(
+                    forPaneID: source.paneID, tokenHash: previousTokenHash)
+            }
+        }
         let resolved = AgentControlCredential(endpoint: endpoint, bearerToken: credential.bearerToken, source: source)
         TracingService.shared.record(
             "agent_control.credential.registered",

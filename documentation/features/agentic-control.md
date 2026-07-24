@@ -16,7 +16,9 @@ Open **Settings** and choose:
 For an ask policy, the New Pane sheet shows the resolved Agent Session Manager
 control toggle. The decision is persisted with the pane. Policy changes apply
 to future launches, restores, and restarts; an already-running harness must be
-restarted to receive a changed environment.
+restarted to receive a changed environment. Restarts replace injected control
+configuration rather than accumulating arguments or credentials. Converting a
+pane to a shell removes the control credential before the shell starts.
 
 `Pane` scope is the default and permits access only to the source pane.
 `Tab` scope includes the source tab and its panes. `Global` scope includes the
@@ -35,7 +37,8 @@ Read-only resources provide scoped snapshots for:
 Profile resources contain only profiles referenced by panes visible to the
 caller. Harness catalogs and global status-line configuration require Global
 scope; pane- and tab-scoped status-line responses include only visible pane
-data and profile overrides.
+data and profile overrides. Pane command arguments are field-redacted before
+they leave the app.
 
 Mutation tools provide narrowly scoped operations for:
 
@@ -73,9 +76,13 @@ exact loopback host, an optional origin must match the loopback origin, and a
 valid bearer token bound to an MCP session. Request bodies, responses,
 concurrency, execution time, and sessions per credential are bounded. Session
 replacement, deletion, pane teardown, and token revocation release both
-transport and authorization state.
+transport and authorization state. Replacing a pane credential disconnects only
+sessions bound to the replaced credential, so a cleanup task cannot close a
+newly registered session. Requests return at the configured deadline;
+cancelled Git operations terminate their subprocesses where possible.
 
-Diagnostic responses are metadata-first and redacted. They do not expose
+Diagnostic responses are metadata-first, incrementally bounded, and redacted.
+They do not expose
 terminal content, harness output, secrets, environment values, or arbitrary
 system logs. Trace and invariant files remain readable when Debug Mode is
 disabled, but new durable capture is disabled; unified logs remain available.

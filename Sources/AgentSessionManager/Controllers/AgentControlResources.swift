@@ -381,7 +381,7 @@ final class AgentControlResourceRouter {
         let tabs = visibleTabs(source: source).map { tabSnapshot($0, source: source) }
         let activeTabID = tabs.contains { $0.id == appState.activeTabID } ? appState.activeTabID : nil
         let activePaneID =
-            tabs.flatMap(\.panes).contains { $0.id == appState.activePaneID }
+            tabs.filter { $0.id == activeTabID }.flatMap(\.panes).contains { $0.id == appState.activePaneID }
             ? appState.activePaneID : nil
         return AgentControlWorkspaceSnapshot(activeTabID: activeTabID, activePaneID: activePaneID, tabs: tabs)
     }
@@ -414,7 +414,11 @@ final class AgentControlResourceRouter {
             worktreeIsManaged: pane.worktreeIsManaged,
             profileID: pane.profileID,
             profileName: profile?.name,
-            extraArgs: pane.extraArgs,
+            extraArgs: pane.extraArgs.map { argument in
+                guard argument.hasPrefix("-") else { return "<redacted>" }
+                guard let equals = argument.firstIndex(of: "=") else { return argument }
+                return "\(argument[..<equals])=<redacted>"
+            },
             agentControlInjectionEnabled: pane.agentControlInjectionEnabled,
             statusData: monitor?.currentData,
             statusLineConfig: profile?.statusLineConfig ?? appSettings.statusLineConfig)

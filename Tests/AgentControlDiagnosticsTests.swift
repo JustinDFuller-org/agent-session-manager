@@ -11,7 +11,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         supportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "agent-control-diagnostics-tests-(UUID().uuidString)")
+            .appending(path: "agent-control-diagnostics-tests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: supportDirectory, withIntermediateDirectories: true)
         PersistenceHelpers.overrideAppSupportSubdirectory = supportDirectory.lastPathComponent
     }
@@ -193,6 +193,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
             try await fixture.router.read(
                 uri: AgentControlResourceURI.diagnosticTraces.rawValue, source: fixture.paneSource)
         }
+        await Task.yield()
         task.cancel()
         do {
             _ = try await task.value

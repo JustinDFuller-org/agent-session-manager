@@ -55,6 +55,8 @@ struct ResolvedWorktree: Equatable {
     var checkoutURL: URL
     /// Whether this is an existing worktree outside `.agent-session-manager/worktrees/`.
     var isExternalTakeover: Bool
+    /// Whether this resolution created a new managed worktree during the request.
+    var wasCreated: Bool = false
 }
 
 @Observable
@@ -286,7 +288,7 @@ final class Tab: Identifiable {
                 throw error
             }
 
-            return resolvedManaged(shortName: targetName)
+            return resolvedManaged(shortName: targetName, wasCreated: true)
         }
 
         guard let branch = defaultBranch else {
@@ -334,13 +336,17 @@ final class Tab: Identifiable {
             throw error
         }
 
-        return resolvedManaged(shortName: targetName)
+        return resolvedManaged(shortName: targetName, wasCreated: true)
     }
 
-    private func resolvedManaged(shortName: String) -> ResolvedWorktree {
+    private func resolvedManaged(shortName: String, wasCreated: Bool = false) -> ResolvedWorktree {
         let checkout = Tab.worktreeDirectoryURL(repoRoot: directory, name: shortName).standardizedFileURL
         return ResolvedWorktree(
-            paneTitle: shortName, processDirectory: checkout, checkoutURL: checkout, isExternalTakeover: false)
+            paneTitle: shortName,
+            processDirectory: checkout,
+            checkoutURL: checkout,
+            isExternalTakeover: false,
+            wasCreated: wasCreated)
     }
 
     /// Paths from `git worktree list` are authoritative (includes main checkout with a `.git` directory).
@@ -390,33 +396,41 @@ final class Tab: Identifiable {
             "tab.git.command",
             attributes: ["cwd": cwd, "args": args.joined(separator: " ")]
         ) {
-            try await withCheckedThrowingContinuation { continuation in
-                let process = Process()
-                let outPipe = Pipe()
-                let errPipe = Pipe()
-                process.executableURL = URL(filePath: "/usr/bin/git")
-                process.arguments = args
-                process.currentDirectoryURL = self.directory
-                process.standardOutput = outPipe
-                process.standardError = errPipe
-                process.terminationHandler = { proc in
-                    let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                    if proc.terminationStatus == 0 {
-                        continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
-                    } else {
-                        let stderr = String(data: errData, encoding: .utf8) ?? ""
-                        continuation.resume(
-                            throwing: GitCommandError(
-                                arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+            let process = Process()
+            let output = try await withTaskCancellationHandler(
+                operation: {
+                    try await withCheckedThrowingContinuation { continuation in
+                        let outPipe = Pipe()
+                        let errPipe = Pipe()
+                        process.executableURL = URL(filePath: "/usr/bin/git")
+                        process.arguments = args
+                        process.currentDirectoryURL = self.directory
+                        process.standardOutput = outPipe
+                        process.standardError = errPipe
+                        process.terminationHandler = { proc in
+                            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                            if proc.terminationStatus == 0 {
+                                continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
+                            } else {
+                                let stderr = String(data: errData, encoding: .utf8) ?? ""
+                                continuation.resume(
+                                    throwing: GitCommandError(
+                                        arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+                            }
+                        }
+                        do {
+                            try process.run()
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     }
-                }
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+                },
+                onCancel: {
+                    if process.isRunning { process.terminate() }
+                })
+            try Task.checkCancellation()
+            return output
         }
     }
 
@@ -426,31 +440,38 @@ final class Tab: Identifiable {
             "tab.git.command",
             attributes: ["cwd": cwd, "args": args.joined(separator: " ")]
         ) {
-            try await withCheckedThrowingContinuation { continuation in
-                let process = Process()
-                let errPipe = Pipe()
-                process.executableURL = URL(filePath: "/usr/bin/git")
-                process.arguments = args
-                process.currentDirectoryURL = self.directory
-                process.standardOutput = FileHandle.nullDevice
-                process.standardError = errPipe
-                process.terminationHandler = { proc in
-                    let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                    let stderr = String(data: errData, encoding: .utf8) ?? ""
-                    if proc.terminationStatus == 0 {
-                        continuation.resume()
-                    } else {
-                        continuation.resume(
-                            throwing: GitCommandError(
-                                arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+            let process = Process()
+            try await withTaskCancellationHandler(
+                operation: {
+                    try await withCheckedThrowingContinuation { continuation in
+                        let errPipe = Pipe()
+                        process.executableURL = URL(filePath: "/usr/bin/git")
+                        process.arguments = args
+                        process.currentDirectoryURL = self.directory
+                        process.standardOutput = FileHandle.nullDevice
+                        process.standardError = errPipe
+                        process.terminationHandler = { proc in
+                            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                            let stderr = String(data: errData, encoding: .utf8) ?? ""
+                            if proc.terminationStatus == 0 {
+                                continuation.resume()
+                            } else {
+                                continuation.resume(
+                                    throwing: GitCommandError(
+                                        arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+                            }
+                        }
+                        do {
+                            try process.run()
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     }
-                }
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+                },
+                onCancel: {
+                    if process.isRunning { process.terminate() }
+                })
+            try Task.checkCancellation()
         }
     }
 
@@ -582,7 +603,9 @@ final class Tab: Identifiable {
 
     /// Restarts a pane by replacing its terminal controller with a new one running the same command.
     func restartPane(_ pane: Pane, appSettings: AppSettings? = nil) {
-        guard let old = pane.terminalController else { return }
+        guard !pane.isRestarting, let old = pane.terminalController else { return }
+        pane.isRestarting = true
+        defer { pane.isRestarting = false }
         let launchSettings = appSettings ?? pane.appSettings
         if let launchSettings {
             pane.agentControlInjectionEnabled = launchSettings.resolvedAgentControlInjectionDecision(
@@ -590,7 +613,9 @@ final class Tab: Identifiable {
         }
         let new = TerminalController()
         new.pendingDirectory = old.pendingDirectory
-        new.pendingEnvironment = old.pendingEnvironment
+        new.pendingEnvironment = old.pendingEnvironment.map {
+            AgentControlHarnessInjection.removingControlToken(from: $0)
+        }
         new.pendingShell = old.pendingShell
 
         if pane.harness == .opencode {
@@ -608,7 +633,9 @@ final class Tab: Identifiable {
                 opencodeEnvironment: pane.extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         } else {
-            new.pendingCommandArgs = old.pendingCommandArgs
+            new.pendingCommandArgs = old.pendingCommandArgs.map {
+                AgentControlHarnessInjection.removingControlArguments(from: $0, harness: pane.harness)
+            }
         }
 
         guard prepareAgentControl(for: pane, controller: new, appSettings: launchSettings) else { return }
@@ -756,7 +783,9 @@ final class Tab: Identifiable {
         let new = TerminalController()
         new.pendingCommandArgs = nil
         new.pendingDirectory = old.pendingDirectory
-        new.pendingEnvironment = old.pendingEnvironment
+        new.pendingEnvironment = old.pendingEnvironment.map {
+            AgentControlHarnessInjection.removingControlToken(from: $0)
+        }
         new.pendingShell = old.pendingShell
         old.terminate()
         pane.removeStatusLineMonitor()
@@ -784,6 +813,11 @@ final class Tab: Identifiable {
 
     func cleanupWorktree(for pane: Pane) async throws {
         guard pane.worktreeIsManaged, let path = pane.worktreeDirectory else { return }
+        guard FileManager.default.fileExists(atPath: path.path) else { return }
+        try await runGit(["worktree", "remove", path.path])
+    }
+
+    func cleanupManagedWorktree(at path: URL) async throws {
         guard FileManager.default.fileExists(atPath: path.path) else { return }
         try await runGit(["worktree", "remove", path.path])
     }

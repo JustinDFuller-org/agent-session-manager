@@ -7,6 +7,7 @@ import MCP
 actor AgentControlHTTPApplication {
     private struct SessionContext {
         let paneID: UUID
+        let tokenHash: Data
         let server: Server
         let transport: StatefulHTTPServerTransport
     }
@@ -218,6 +219,7 @@ actor AgentControlHTTPApplication {
             }
             sessions[newSessionID] = SessionContext(
                 paneID: source.paneID,
+                tokenHash: tokenStore.tokenHash(for: token),
                 server: server,
                 transport: transport
             )
@@ -239,10 +241,11 @@ actor AgentControlHTTPApplication {
         }
     }
 
-    func disconnectSessions(forPaneID paneID: UUID?) async {
+    func disconnectSessions(forPaneID paneID: UUID?, tokenHash: Data? = nil) async {
         let sessionIDs: [String] = sessions.keys.compactMap { (sessionID: String) -> String? in
             guard let session = sessions[sessionID],
-                paneID == nil || session.paneID == paneID
+                paneID == nil || session.paneID == paneID,
+                tokenHash == nil || session.tokenHash == tokenHash
             else { return nil }
             return sessionID
         }
@@ -320,23 +323,30 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                 if requestTooLarge {
                     response = .error(statusCode: 413, .invalidRequest("Request body exceeds the configured limit"))
                 } else {
-                    response = await withTaskGroup(of: HTTPResponse.self) { group in
-                        group.addTask {
-                            await self.application.handle(request: request)
-                        }
-                        group.addTask {
-                            do {
-                                try await Task.sleep(for: self.limits.requestTimeout)
-                            } catch {
-                                return .error(statusCode: 499, .invalidRequest("Request cancelled"))
-                            }
+                    let operation = Task { await self.application.handle(request: request) }
+                    let timeout = Task { () -> HTTPResponse? in
+                        do {
+                            try await Task.sleep(for: self.limits.requestTimeout)
                             TracingService.shared.record(
                                 "agent_control.request.timed_out", attributes: ["result": "timed_out"])
                             return .error(statusCode: 504, .internalError("Request timed out"))
+                        } catch {
+                            return nil
                         }
-                        let response = await group.next()!
-                        group.cancelAll()
-                        return response
+                    }
+                    let race = HTTPResponseRace()
+                    response = await withCheckedContinuation { continuation in
+                        Task {
+                            if race.complete(await operation.value, continuation: continuation) {
+                                timeout.cancel()
+                            }
+                        }
+                        Task {
+                            guard let timedOut = await timeout.value else { return }
+                            if race.complete(timedOut, continuation: continuation) {
+                                operation.cancel()
+                            }
+                        }
                     }
                 }
                 await write(response, version: head.version, context: context)
@@ -427,6 +437,23 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                 context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
                 self.responseInFlight = false
             }
+        }
+    }
+}
+
+private final class HTTPResponseRace: @unchecked Sendable {
+    private let lock = NSLock()
+    private var hasCompleted = false
+
+    func complete(
+        _ response: HTTPResponse,
+        continuation: CheckedContinuation<HTTPResponse, Never>
+    ) -> Bool {
+        lock.withLock {
+            guard !hasCompleted else { return false }
+            hasCompleted = true
+            continuation.resume(returning: response)
+            return true
         }
     }
 }

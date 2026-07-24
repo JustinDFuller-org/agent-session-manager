@@ -60,6 +60,7 @@ final class Pane: Identifiable {
     var extraEnvVars: [String: String] = [:]
     var setupState: PaneSetupState?
     var agentControlInjectionEnabled: Bool
+    var isRestarting = false
     weak var appSettings: AppSettings?
     var uiTestActivityStateOverride: PaneActivityState?
     var opencodeRaceLossRestarted = false

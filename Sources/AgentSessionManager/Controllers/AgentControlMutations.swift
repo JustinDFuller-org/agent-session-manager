@@ -521,10 +521,25 @@ final class AgentControlMutationRouter {
         try Task.checkCancellation()
         let resolved = try await tab.resolveOrAttachWorktree(
             userRef: worktreeRef, defaultBranch: defaultBranch, baseRef: baseRef)
-        try Task.checkCancellation()
+        do {
+            try Task.checkCancellation()
+        } catch is CancellationError {
+            if resolved.wasCreated {
+                try? await tab.cleanupManagedWorktree(at: resolved.checkoutURL)
+            }
+            throw CancellationError()
+        }
         let inUse = appState.isCheckoutInUse(
             directory: tab.directory, checkout: resolved.checkoutURL)
         guard !inUse else { throw MCPError.invalidRequest("A pane with this worktree is already open") }
+        do {
+            try Task.checkCancellation()
+        } catch is CancellationError {
+            if resolved.wasCreated {
+                try? await tab.cleanupManagedWorktree(at: resolved.checkoutURL)
+            }
+            throw CancellationError()
+        }
 
         let managed: Bool
         if resolved.isExternalTakeover {

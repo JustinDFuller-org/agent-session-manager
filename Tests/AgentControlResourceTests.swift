@@ -31,6 +31,18 @@ final class AgentControlResourceTests: XCTestCase {
                 ).utf8))
         XCTAssertEqual(paneWorkspace.tabs.count, 1)
         XCTAssertEqual(paneWorkspace.tabs.first?.panes.map(\.id), [fixture.paneID])
+        let paneSnapshot = try XCTUnwrap(paneWorkspace.tabs.first?.panes.first)
+        XCTAssertEqual(
+            paneSnapshot.extraArgs,
+            ["--api-key=<redacted>", "--prompt", "<redacted>"])
+        fixture.state.activePaneID = fixture.otherPaneID
+        let scopedActivePane = try JSONDecoder().decode(
+            AgentControlWorkspaceSnapshot.self,
+            from: Data(
+                try await fixture.router.read(
+                    uri: AgentControlResourceURI.workspace.rawValue, source: fixture.paneSource
+                ).utf8))
+        XCTAssertNil(scopedActivePane.activePaneID)
 
         let tabWorkspace = try JSONDecoder().decode(
             AgentControlWorkspaceSnapshot.self,
@@ -303,6 +315,7 @@ final class AgentControlResourceTests: XCTestCase {
             extraEnvVars: ["API_KEY": "runtime-secret"],
             profileID: profile.id,
             appSettings: settings)
+        firstPane.extraArgs = ["--api-key=secret", "--prompt", "sensitive prompt"]
         let secondPane = firstTab.addPane(
             name: "Second Pane",
             harness: .codex,

@@ -25,4 +25,4 @@ jobs:
           key: swift-packages-${{ hashFiles('Package.resolved') }}
 
       - name: Run unit tests
-        run: swift test
+        run: swift test --triple "$(uname -m)-apple-macosx14.0" --enable-code-coverage

@@ -164,6 +164,7 @@ struct AgentControlDebugModeResult: Codable, Sendable {
 private struct DiagnosticFileReadResult<Record> {
     var records: [Record] = []
     var files: [AgentControlTraceFileMetadata] = []
+    var limitTruncated = false
     var sourceTruncated = false
     var malformedLines = 0
 }
@@ -341,15 +342,15 @@ final class AgentControlDiagnosticsRouter {
         ).resolved()
         try validateSelectors(tabID: arguments?.tabID, paneID: arguments?.paneID, source: source)
         let eventNames = Set(arguments?.eventNames ?? [])
-        var result = try await readTraces(
-            query: query, source: source, tabID: arguments?.tabID, paneID: arguments?.paneID)
-        result.records = result.records.filter { eventNames.isEmpty || eventNames.contains($0.name) }
+        let result = try await readTraces(
+            query: query, source: source, tabID: arguments?.tabID, paneID: arguments?.paneID,
+            eventNames: eventNames)
         let records = result.records
         let limited = Array(records.suffix(query.limit))
         let metadata = AgentControlDiagnosticQueryMetadata(
             query: query,
             returnedCount: limited.count,
-            limitTruncated: records.count > limited.count,
+            limitTruncated: result.limitTruncated || records.count > limited.count,
             sourceTruncated: result.sourceTruncated,
             malformedLines: result.malformedLines,
             legacyFiles: legacyFiles())
@@ -375,7 +376,7 @@ final class AgentControlDiagnosticsRouter {
         let metadata = AgentControlDiagnosticQueryMetadata(
             query: query,
             returnedCount: limited.count,
-            limitTruncated: result.records.count > limited.count,
+            limitTruncated: result.limitTruncated || result.records.count > limited.count,
             sourceTruncated: result.sourceTruncated,
             malformedLines: result.malformedLines,
             legacyFiles: legacyFiles())
@@ -398,18 +399,15 @@ final class AgentControlDiagnosticsRouter {
         let categoryFilter = Set(arguments?.categories ?? [])
         let levelFilter = Set(arguments?.levels ?? [])
         let eventFilter = Set(arguments?.eventNames ?? [])
-        let records = try await readLogs(query: query).filter {
-            (categoryFilter.isEmpty || categoryFilter.contains($0.category))
-                && (levelFilter.isEmpty || levelFilter.contains($0.level))
-                && (eventFilter.isEmpty || ($0.eventName.map(eventFilter.contains) ?? false))
-        }
-        let limited = Array(records.suffix(query.limit))
+        let result = try await readLogs(
+            query: query, categoryFilter: categoryFilter, levelFilter: levelFilter, eventFilter: eventFilter)
+        let limited = Array(result.records.suffix(query.limit))
         let metadata = AgentControlDiagnosticQueryMetadata(
             query: query,
             returnedCount: limited.count,
-            limitTruncated: records.count > limited.count,
+            limitTruncated: result.limitTruncated || result.records.count > limited.count,
             sourceTruncated: false,
-            malformedLines: 0,
+            malformedLines: result.malformedLines,
             legacyFiles: legacyFiles())
         recordQuery(name: "logs", source: source, metadata: metadata)
         return AgentControlLogQueryResult(availability: availability(), metadata: metadata, records: limited)
@@ -437,7 +435,11 @@ final class AgentControlDiagnosticsRouter {
     }
 
     private func readTraces(
-        query: AgentControlResolvedDiagnosticQuery, source: AgentControlSource, tabID: String?, paneID: String?
+        query: AgentControlResolvedDiagnosticQuery,
+        source: AgentControlSource,
+        tabID: String?,
+        paneID: String?,
+        eventNames: Set<String>
     ) async throws -> DiagnosticFileReadResult<AgentControlTraceDiagnosticRecord> {
         var result = DiagnosticFileReadResult<AgentControlTraceDiagnosticRecord>()
         let directory = appSettings.resolvedTracingDirectoryURL
@@ -475,6 +477,7 @@ final class AgentControlDiagnosticsRouter {
                     continue
                 }
                 guard start >= query.sinceEpochMs && start <= query.untilEpochMs else { continue }
+                guard eventNames.isEmpty || eventNames.contains(name) else { continue }
                 let attributes = AgentControlDiagnosticRedactor.redact(object["attributes"] as? [String: String] ?? [:])
                 result.records.append(
                     AgentControlTraceDiagnosticRecord(
@@ -487,6 +490,10 @@ final class AgentControlDiagnosticsRouter {
                         endEpochMs: end,
                         durationMs: integer(object["durationMs"]) ?? end - start,
                         attributes: attributes))
+                if result.records.count > query.limit {
+                    result.records.removeFirst()
+                    result.limitTruncated = true
+                }
             }
         }
         result.records.sort { $0.startEpochMs < $1.startEpochMs }
@@ -538,22 +545,29 @@ final class AgentControlDiagnosticsRouter {
                     description: violation.description,
                     timestamp: violation.timestamp,
                     context: AgentControlDiagnosticRedactor.redact(violation.context)))
+            if result.records.count > query.limit {
+                result.records.removeFirst()
+                result.limitTruncated = true
+            }
         }
         result.records.sort { $0.timestamp < $1.timestamp }
         return result
     }
 
     private func readLogs(
-        query: AgentControlResolvedDiagnosticQuery
-    ) async throws -> [AgentControlUnifiedLogDiagnosticRecord] {
-        guard let store = try? OSLogStore.local() else { return [] }
+        query: AgentControlResolvedDiagnosticQuery,
+        categoryFilter: Set<String>,
+        levelFilter: Set<String>,
+        eventFilter: Set<String>
+    ) async throws -> DiagnosticFileReadResult<AgentControlUnifiedLogDiagnosticRecord> {
+        var result = DiagnosticFileReadResult<AgentControlUnifiedLogDiagnosticRecord>()
+        guard let store = try? OSLogStore.local() else { return result }
         let start = Date(timeIntervalSince1970: Double(query.sinceEpochMs) / 1000)
         let subsystem = Bundle.main.bundleIdentifier ?? "com.justinfuller.agent-session-manager"
         let predicate = NSPredicate(
             format: "subsystem == %@ AND processIdentifier == %d", subsystem, getpid())
         guard let entries = try? store.getEntries(with: [], at: store.position(date: start), matching: predicate)
-        else { return [] }
-        var result: [AgentControlUnifiedLogDiagnosticRecord] = []
+        else { return result }
         for (index, entry) in entries.enumerated() {
             if index.isMultiple(of: 64) {
                 try Task.checkCancellation()
@@ -562,15 +576,24 @@ final class AgentControlDiagnosticsRouter {
             guard let log = entry as? OSLogEntryLog, log.date.timeIntervalSince1970 * 1000 <= Double(query.untilEpochMs)
             else { continue }
             let eventName = log.composedMessage.split(separator: " ").first.map(String.init)
-            result.append(
+            guard categoryFilter.isEmpty || categoryFilter.contains(log.category),
+                levelFilter.isEmpty || levelFilter.contains(String(describing: log.level)),
+                eventFilter.isEmpty || (eventName.map(eventFilter.contains) ?? false)
+            else { continue }
+            result.records.append(
                 AgentControlUnifiedLogDiagnosticRecord(
                     timestamp: log.date,
                     subsystem: subsystem,
                     category: log.category,
                     level: String(describing: log.level),
                     eventName: eventName))
+            if result.records.count > query.limit {
+                result.records.removeFirst()
+                result.limitTruncated = true
+            }
         }
-        return result.sorted { $0.timestamp < $1.timestamp }
+        result.records.sort { $0.timestamp < $1.timestamp }
+        return result
     }
 
     private func validateSelectors(tabID: String?, paneID: String?, source: AgentControlSource) throws {
