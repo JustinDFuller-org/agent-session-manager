@@ -87,6 +87,114 @@ The Pages deployment contains the latest DMG and the signed Sparkle appcast. DMG
 
 For GitHub Actions releases, configure the `release` environment with `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `DEV_ID_CERTIFICATE_BASE64`, `DEV_ID_CERTIFICATE_PASSWORD`, and `SPARKLE_PRIVATE_KEY`. The Apple app-specific password is created from the Apple Account used for notarization; it is not the normal Apple Account password. Local releases may continue using the `AC_NOTARY` keychain profile.
 
+### Publishing Locally When Actions Are Unavailable
+
+The normal release workflow deploys a Pages artifact through GitHub Actions. There is no supported local command that uploads that workflow artifact directly. When Actions minutes are unavailable, publish a prebuilt static site from a dedicated `gh-pages` branch instead.
+
+GitHub Pages must be configured to deploy from the `gh-pages` branch at the repository root. The branch contains only the rendered site, the signed appcast, and release DMGs. The `.nojekyll` marker tells Pages that the site has already been built locally.
+
+Before the first local publication:
+
+1. In **Settings → Pages**, select **Deploy from a branch**, choose `gh-pages`, choose `/(root)`, and save.
+2. Keep the custom domain `agent-session-manager.justindfuller.com` and HTTPS enforcement enabled.
+3. Disable the repository's Pages deployment workflows after the branch source is active so an Actions deployment cannot overwrite a local publication.
+4. Confirm the local release credentials without printing their values:
+
+   ```bash
+   security find-identity -v -p codesigning
+   xcrun notarytool history --keychain-profile AC_NOTARY
+   test -f .sparkle/sparkle-private.pem
+   gh auth status
+   ```
+
+The Sparkle private key is required to sign the appcast. It must never be committed:
+
+```bash
+export SPARKLE_PRIVATE_KEY="$(cat .sparkle/sparkle-private.pem)"
+```
+
+For each local publication, build and notarize the DMG first:
+
+```bash
+make dist
+```
+
+Set `dmg_path` to the resulting `AgentSessionManager-<short-version>-<build-number>.dmg`. Then render the site, generate the signed appcast, and stage the release assets:
+
+```bash
+set -euo pipefail
+
+publish_root=$(mktemp -d -t agent-session-manager-pages.XXXXXX)
+site_dir="$publish_root/site"
+base_appcast="$publish_root/base-appcast.xml"
+release_appcast="$publish_root/release-appcast.xml"
+dmg_path="/absolute/path/to/AgentSessionManager-<short-version>-<build-number>.dmg"
+
+source scripts/release-config.sh
+bundle exec jekyll build --destination "$site_dir" --trace
+
+if ! curl --fail --silent --show-error --location \
+    "$PUBLIC_APPCAST_URL" --output "$base_appcast"; then
+    cp appcast.xml "$base_appcast"
+fi
+
+dmg_name=$(basename "$dmg_path")
+version_short=${dmg_name#AgentSessionManager-}
+version_short=${version_short%-*.dmg}
+version_build=${dmg_name#AgentSessionManager-${version_short}-}
+version_build=${version_build%.dmg}
+
+APPCAST_BASE="$base_appcast" \
+APPCAST_OUTPUT="$release_appcast" \
+    scripts/update-appcast.sh "$dmg_path" "$version_short" "$version_build"
+
+scripts/stage-pages-assets.sh \
+    "$site_dir" release "$dmg_path" "$release_appcast"
+cp CNAME "$site_dir/CNAME"
+touch "$site_dir/.nojekyll"
+```
+
+Use a temporary checkout of `gh-pages` for publication so the source checkout is not changed. If the branch already exists, preserve its `downloads/` directory so older appcast entries continue to resolve:
+
+```bash
+remote_url=$(git remote get-url origin)
+branch_dir="$publish_root/branch"
+
+if git ls-remote --exit-code --heads "$remote_url" gh-pages >/dev/null 2>&1; then
+    git clone --branch gh-pages --single-branch "$remote_url" "$branch_dir"
+    if test -d "$branch_dir/downloads"; then
+        cp -R "$branch_dir/downloads" "$site_dir/downloads"
+    fi
+else
+    mkdir -p "$branch_dir"
+    git -C "$branch_dir" init
+    git -C "$branch_dir" branch -M gh-pages
+    git -C "$branch_dir" remote add origin "$remote_url"
+fi
+
+find "$branch_dir" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+cp -R "$site_dir"/. "$branch_dir"/
+
+git -C "$branch_dir" add --all
+git -C "$branch_dir" commit -m "Publish Agent Session Manager $version_short"
+git -C "$branch_dir" push origin gh-pages
+```
+
+Verify the publication before sharing it:
+
+```bash
+gh api repos/JustinDFuller/agent-session-manager/pages \
+    --jq '{build_type,source,cname,https_enforced}'
+gh api repos/JustinDFuller/agent-session-manager/pages/builds/latest \
+    --jq '{status,commit,updated_at}'
+curl --fail --location --head \
+    https://agent-session-manager.justindfuller.com/downloads/AgentSessionManager-latest.dmg
+curl --fail --silent \
+    https://agent-session-manager.justindfuller.com/appcast.xml
+```
+
+The Pages source should report the `gh-pages` branch and `/` path. The latest DMG, its versioned filename, and every appcast enclosure should return successfully. Keep the branch below GitHub Pages' published-site size limit, and prune obsolete versioned DMGs if the release history grows substantially.
+
 ## First-Distribution Verification Checklist
 
 - [ ] `make dist` completes without errors.
