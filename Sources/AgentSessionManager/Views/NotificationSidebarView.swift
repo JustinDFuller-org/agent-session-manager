@@ -88,7 +88,7 @@ struct NotificationSidebarView: View {
 
     private func notificationRow(_ notification: PaneNotification) -> some View {
         Button {
-            appState.navigateTo(notification: notification)
+            appState.acknowledgeNotification(id: notification.id)
         } label: {
             HStack(spacing: 8) {
                 if notification.kind == .prMerged {

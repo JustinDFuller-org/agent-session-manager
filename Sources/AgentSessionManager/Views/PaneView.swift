@@ -9,6 +9,7 @@ struct PaneView: View {
     let canFocus: Bool
     let onClosePane: (Pane) -> Void
     let onRefreshPane: (Pane) -> Void
+    let onViewPaneSettings: (Pane) -> Void
 
     var body: some View {
         @Bindable var appState = appState
@@ -29,7 +30,7 @@ struct PaneView: View {
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                     HStack(spacing: 8) {
-                        Button("Restart") { pane.tab?.restartPane(pane) }
+                        Button("Restart") { pane.tab?.restartPane(pane, appSettings: appSettings) }
                         Button("Open Shell") { pane.tab?.openShellInPane(pane) }
                         Button("Close") { onClosePane(pane) }
                     }
@@ -81,6 +82,9 @@ struct PaneView: View {
                 Button("Refresh Pane\u{2026}") {
                     onRefreshPane(pane)
                 }
+            }
+            Button("View Pane Settings\u{2026}") {
+                onViewPaneSettings(pane)
             }
             Button("Create Pane") {
                 NotificationCenter.default.post(name: .newPane, object: nil)

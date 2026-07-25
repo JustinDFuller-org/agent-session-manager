@@ -138,10 +138,23 @@ struct SettingsPersistence {
     }
     private static var focusModeSettingsURL: URL { appSupportDir.appending(path: "focus-mode-settings.json") }
     private static var updateCheckSettingsURL: URL { appSupportDir.appending(path: "update-check-settings.json") }
+    private static var agentControlSettingsURL: URL { appSupportDir.appending(path: "agent-control-settings.json") }
 
     static func save<Value: Encodable>(_ value: Value, to filename: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
         try? data.write(to: appSupportDir.appending(path: filename))
+    }
+
+    static func saveDebugSettings(enabled: Bool) -> Bool {
+        guard let data = try? JSONEncoder().encode(DebugSettings(schemaVersion: 1, enabled: enabled)) else {
+            return false
+        }
+        do {
+            try data.write(to: debugSettingsURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
     nonisolated static func load<Value: Decodable>(_ type: Value.Type, from filename: String) -> Value? {
@@ -196,24 +209,40 @@ struct SettingsPersistence {
         return updated + userAdded
     }
 
-    static func save(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return }
-        try? data.write(to: settingsURL)
+    @discardableResult
+    static func save(appSettings: AppSettings) -> Bool {
+        guard let data = try? JSONEncoder().encode(appSettings.cliOptions) else { return false }
+        do {
+            try data.write(to: settingsURL, options: .atomic)
+            return true
+        } catch { return false }
     }
 
-    static func saveCodexOptions(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.codexCliOptions) else { return }
-        try? data.write(to: codexSettingsURL)
+    @discardableResult
+    static func saveCodexOptions(appSettings: AppSettings) -> Bool {
+        guard let data = try? JSONEncoder().encode(appSettings.codexCliOptions) else { return false }
+        do {
+            try data.write(to: codexSettingsURL, options: .atomic)
+            return true
+        } catch { return false }
     }
 
-    static func saveCursorOptions(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.cursorCliOptions) else { return }
-        try? data.write(to: cursorSettingsURL)
+    @discardableResult
+    static func saveCursorOptions(appSettings: AppSettings) -> Bool {
+        guard let data = try? JSONEncoder().encode(appSettings.cursorCliOptions) else { return false }
+        do {
+            try data.write(to: cursorSettingsURL, options: .atomic)
+            return true
+        } catch { return false }
     }
 
-    static func saveOpenCodeOptions(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.opencodeCliOptions) else { return }
-        try? data.write(to: opencodeSettingsURL)
+    @discardableResult
+    static func saveOpenCodeOptions(appSettings: AppSettings) -> Bool {
+        guard let data = try? JSONEncoder().encode(appSettings.opencodeCliOptions) else { return false }
+        do {
+            try data.write(to: opencodeSettingsURL, options: .atomic)
+            return true
+        } catch { return false }
     }
 
     static func saveOpenCodeEnvVars(appSettings: AppSettings) {
@@ -221,15 +250,25 @@ struct SettingsPersistence {
         try? data.write(to: opencodeEnvVarSettingsURL)
     }
 
-    static func saveActiveTools(appSettings: AppSettings) {
+    @discardableResult
+    static func saveActiveTools(appSettings: AppSettings) -> Bool {
         let sorted = appSettings.activeTools.sorted()
-        guard let data = try? JSONEncoder().encode(sorted) else { return }
-        try? data.write(to: activeToolsURL)
+        guard let data = try? JSONEncoder().encode(sorted) else { return false }
+        do {
+            try data.write(to: activeToolsURL, options: .atomic)
+            return true
+        } catch { return false }
     }
 
-    static func saveStatusLine(appSettings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(appSettings.statusLineConfig) else { return }
-        try? data.write(to: statusLineSettingsURL)
+    @discardableResult
+    static func saveStatusLine(appSettings: AppSettings) -> Bool {
+        guard let data = try? JSONEncoder().encode(appSettings.statusLineConfig) else { return false }
+        do {
+            try data.write(to: statusLineSettingsURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
     static func saveDefaultBranch(appSettings: AppSettings) {
@@ -344,10 +383,14 @@ struct SettingsPersistence {
         var profiles: [Profile]
     }
 
-    static func saveProfiles(appSettings: AppSettings) {
+    @discardableResult
+    static func saveProfiles(appSettings: AppSettings) -> Bool {
         let container = ProfilesContainer(profiles: appSettings.profiles)
-        guard let data = try? JSONEncoder().encode(container) else { return }
-        try? data.write(to: profilesURL)
+        guard let data = try? JSONEncoder().encode(container) else { return false }
+        do {
+            try data.write(to: profilesURL, options: .atomic)
+            return true
+        } catch { return false }
     }
 
     struct ShellSettings: Codable {
@@ -408,6 +451,15 @@ struct SettingsPersistence {
         let payload = UpdateCheckSettings(enabled: appSettings.updateReminderEnabled)
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: updateCheckSettingsURL)
+    }
+
+    static func saveAgentControlSettings(appSettings: AppSettings) {
+        let payload = AgentControlSettings(
+            injectionPolicy: appSettings.agentControlInjectionPolicy,
+            scope: appSettings.agentControlScope
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? data.write(to: agentControlSettingsURL)
     }
 
     static func isUpdateReminderEnabled() -> Bool {

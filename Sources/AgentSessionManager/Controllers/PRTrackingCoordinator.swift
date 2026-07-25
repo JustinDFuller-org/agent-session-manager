@@ -251,9 +251,10 @@ final class PRTrackingCoordinator {
                 startTime: queryStartTime,
                 endTime: Date()
             )
-            timeoutWork.cancel()
             try? FileManager.default.removeItem(atPath: tempPath)
             Task { @MainActor [weak self] in
+                self?.timeoutWorkItem?.cancel()
+                self?.timeoutWorkItem = nil
                 self?.handleBatchResponse(queryResult, token: token, cycleHandle: cycleHandle)
             }
         }

@@ -151,6 +151,8 @@ final class AppSettings {
     var focusModeTabSwitchBehavior: FocusModeTabSwitchBehavior = .rememberFocus
     var hideNotificationSidebarWhileFocused: Bool = true
     var updateReminderEnabled: Bool = true
+    var agentControlInjectionPolicy: AgentControlInjectionPolicy = .askOn
+    var agentControlScope: AgentControlScope = .global
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 
@@ -185,5 +187,9 @@ final class AppSettings {
     /// User-facing harness types currently enabled in Tools, in canonical `Harness.allCases` order.
     var activeHarnesses: [Harness] {
         Harness.allCases.filter { isActive($0) }
+    }
+
+    func resolvedAgentControlInjectionDecision(persistedDecision: Bool?) -> Bool {
+        agentControlInjectionPolicy.resolve(persistedDecision: persistedDecision)
     }
 }

@@ -7,6 +7,7 @@ struct PaneGridView: View {
     let tab: Tab
     let onClosePane: (Pane) -> Void
     let onRefreshPane: (Pane) -> Void
+    let onViewPaneSettings: (Pane) -> Void
 
     private var layout: GridLayout {
         let count = tab.panes.count
@@ -65,7 +66,8 @@ struct PaneGridView: View {
                             isFocused: isFocused,
                             canFocus: tab.panes.count > 1,
                             onClosePane: onClosePane,
-                            onRefreshPane: onRefreshPane
+                            onRefreshPane: onRefreshPane,
+                            onViewPaneSettings: onViewPaneSettings
                         )
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pane-\(pane.name)")
@@ -88,7 +90,8 @@ struct PaneGridView: View {
                             isFocused: false,
                             canFocus: tab.panes.count > 1,
                             onClosePane: onClosePane,
-                            onRefreshPane: onRefreshPane
+                            onRefreshPane: onRefreshPane,
+                            onViewPaneSettings: onViewPaneSettings
                         )
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pane-\(pane.name)")

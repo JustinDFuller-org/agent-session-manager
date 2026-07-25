@@ -68,14 +68,18 @@ final class ProcessEnvironmentTests: XCTestCase {
         XCTAssertEqual(dict["COLORTERM"], "truecolor")
     }
 
-    func testSanitizeAddsDefaultPATHWhenEmpty() {
-        let env = ProcessEnvironment.sanitize(["TERM=dumb"])
+    func testSanitizeAddsDefaultPATHWhenEmpty() throws {
+        let root = try makeEtcDirectory(
+            paths: "/usr/local/bin\n/usr/bin\n/bin",
+            pathDEntries: ["40-homebrew": "/opt/homebrew/bin"]
+        )
+        let etc = (root as NSString).appendingPathComponent("etc")
+        let env = ProcessEnvironment.sanitize([], etcDirectory: etc)
         let dict = envDict(from: env)
         let path = dict["PATH"] ?? ""
-        XCTAssertTrue(path.contains("/usr/local/bin"), "PATH should contain /usr/local/bin")
-        XCTAssertTrue(path.contains("/opt/homebrew/bin"), "PATH should contain /opt/homebrew/bin")
-        XCTAssertTrue(path.contains("/usr/bin"), "PATH should contain /usr/bin")
-        XCTAssertTrue(path.contains("/bin"), "PATH should contain /bin")
+        for entry in ProcessEnvironment.defaultPATHEntries(etcDirectory: etc) {
+            XCTAssertTrue(path.split(separator: ":").contains(Substring(entry)))
+        }
     }
 
     func testSanitizeDoesNotDuplicateExistingPATHEntries() {

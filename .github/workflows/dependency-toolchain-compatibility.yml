@@ -1,0 +1,35 @@
+name: Dependency and Toolchain Compatibility
+
+on:
+  pull_request:
+    paths:
+      - "Package.swift"
+      - "Package.resolved"
+      - "project.yml"
+      - "Sources/**"
+      - "Tests/**"
+      - "scripts/check-toolchain.sh"
+      - ".github/workflows/dependency-toolchain-compatibility.yml"
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: dependency-toolchain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    name: Dependency and toolchain compatibility
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check supported toolchain floor
+        run: bash scripts/check-toolchain.sh
+
+      - name: Resolve locked packages
+        run: swift package resolve
+
+      - name: Build release package
+        run: swift build -c release

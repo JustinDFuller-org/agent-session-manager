@@ -48,7 +48,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         )
     }
 
-    private func makeSession(
+    private static func makeSession(
         id: String = "ses_test",
         directory: String? = nil,
         title: String? = nil,
@@ -80,6 +80,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             (true, "1.17.20"))
         nonisolated(unsafe) var sessions: [OpenCodeSession] = []
         nonisolated(unsafe) var sessionsByID: [String: OpenCodeSession] = [:]
+        nonisolated(unsafe) var sessionRequestCount = 0
         nonisolated(unsafe) var renameRequests: [(id: String, title: String)] = []
         nonisolated(unsafe) var renamedSessions: [String: OpenCodeSession] = [:]
         nonisolated(unsafe) var eventStream: Result<AsyncThrowingStream<OpenCodeEvent, Error>, Error>?
@@ -94,6 +95,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         }
 
         func session(_ id: String) async throws -> OpenCodeSession {
+            sessionRequestCount += 1
             guard let session = sessionsByID[id] else {
                 throw OpenCodeServerClientError.unexpectedStatus(404)
             }
@@ -153,7 +155,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
     func testProviderEmitsMergedDataAfterBindingAndPoll() throws {
         let processStart = Date()
         let client = FakeClient()
-        let session = makeSession(
+        let session = Self.makeSession(
             id: "ses_one",
             directory: tempDir.path,
             created: Int64(processStart.timeIntervalSince1970 * 1000)
@@ -195,8 +197,8 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let older = makeSession(id: "ses_older", directory: tempDir.path, created: processStartMs - 5000)
-        let closer = makeSession(id: "ses_closer", directory: tempDir.path, created: processStartMs - 500)
+        let older = Self.makeSession(id: "ses_older", directory: tempDir.path, created: processStartMs - 5000)
+        let closer = Self.makeSession(id: "ses_closer", directory: tempDir.path, created: processStartMs - 500)
         client.sessions = [older, closer]
         client.sessionsByID = [older.id: older, closer.id: closer]
 
@@ -230,7 +232,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let session = makeSession(id: "ses_symlink", directory: realDir.path, created: processStartMs)
+        let session = Self.makeSession(id: "ses_symlink", directory: realDir.path, created: processStartMs)
         client.sessions = [session]
         client.sessionsByID[session.id] = session
 
@@ -277,8 +279,9 @@ final class OpenCodeStatusProviderTests: XCTestCase {
 
         provider.start()
 
+        let directory = tempDir.path
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.25) {
-            let session = self.makeSession(id: "ses_late", directory: self.tempDir.path, created: processStartMs)
+            let session = Self.makeSession(id: "ses_late", directory: directory, created: processStartMs)
             client.sessions = [session]
             client.sessionsByID[session.id] = session
         }
@@ -293,7 +296,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let session = makeSession(
+        let session = Self.makeSession(
             id: "ses_rename", directory: tempDir.path, title: "old-title", created: processStartMs)
         client.sessions = [session]
         client.sessionsByID[session.id] = session
@@ -323,7 +326,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let oldSession = makeSession(id: "ses_old", directory: tempDir.path, created: processStartMs - 120_000)
+        let oldSession = Self.makeSession(id: "ses_old", directory: tempDir.path, created: processStartMs - 120_000)
         client.sessions = [oldSession]
         client.sessionsByID[oldSession.id] = oldSession
 
@@ -359,7 +362,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let expected = makeSession(
+        let expected = Self.makeSession(
             id: "ses_expected",
             directory: tempDir.path,
             created: processStartMs - 120_000
@@ -393,7 +396,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let stale = makeSession(
+        let stale = Self.makeSession(
             id: "ses_stale",
             directory: tempDir.path,
             created: processStartMs - 30 * 60 * 60 * 1_000
@@ -431,7 +434,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let stale = makeSession(
+        let stale = Self.makeSession(
             id: "ses_unrelated",
             directory: tempDir.path,
             created: processStartMs - 30 * 60 * 60 * 1_000
@@ -488,7 +491,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let initial = makeSession(
+        let initial = Self.makeSession(
             id: "ses_poll",
             directory: tempDir.path,
             created: processStartMs,
@@ -518,10 +521,11 @@ final class OpenCodeStatusProviderTests: XCTestCase {
 
         provider.start()
 
+        let directory = tempDir.path
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.15) {
-            let updated = self.makeSession(
+            let updated = Self.makeSession(
                 id: "ses_poll",
-                directory: self.tempDir.path,
+                directory: directory,
                 created: processStartMs,
                 cost: 0.99,
                 tokens: OpenCodeSessionTokens(input: 10, output: 5, reasoning: 0, cacheRead: 0, cacheWrite: 0)
@@ -531,13 +535,15 @@ final class OpenCodeStatusProviderTests: XCTestCase {
 
         wait(for: [expectation], timeout: 5)
         provider.stop()
+
+        XCTAssertGreaterThanOrEqual(client.sessionRequestCount, 2)
     }
 
     func testProviderFiresOnSessionBound() throws {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let session = makeSession(id: "ses_bound_callback", directory: tempDir.path, created: processStartMs)
+        let session = Self.makeSession(id: "ses_bound_callback", directory: tempDir.path, created: processStartMs)
         client.sessions = [session]
         client.sessionsByID[session.id] = session
 
@@ -566,7 +572,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let session = makeSession(id: "ses_trace", directory: tempDir.path, created: processStartMs)
+        let session = Self.makeSession(id: "ses_trace", directory: tempDir.path, created: processStartMs)
         client.sessions = [session]
         client.sessionsByID[session.id] = session
 
@@ -599,7 +605,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let session = makeSession(
+        let session = Self.makeSession(
             id: "ses_sse_stop",
             directory: tempDir.path,
             created: processStartMs,
@@ -640,7 +646,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let session = makeSession(
+        let session = Self.makeSession(
             id: "ses_bound",
             directory: tempDir.path,
             created: processStartMs,
@@ -680,7 +686,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let session = makeSession(
+        let session = Self.makeSession(
             id: "ses_permission",
             directory: tempDir.path,
             created: processStartMs
@@ -724,7 +730,7 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         let processStart = Date()
         let processStartMs = Int64(processStart.timeIntervalSince1970 * 1000)
         let client = FakeClient()
-        let busySession = makeSession(
+        let busySession = Self.makeSession(
             id: "ses_poll_transition",
             directory: tempDir.path,
             created: processStartMs,
@@ -755,10 +761,11 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         provider.start()
         wait(for: [updateExpectation], timeout: 3)
 
+        let directory = tempDir.path
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.1) {
-            let idleSession = self.makeSession(
+            let idleSession = Self.makeSession(
                 id: "ses_poll_transition",
-                directory: self.tempDir.path,
+                directory: directory,
                 created: processStartMs,
                 status: "idle"
             )

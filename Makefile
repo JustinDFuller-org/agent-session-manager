@@ -24,6 +24,7 @@ export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 build: build-prd
 
 build-prd:
+	$(MAKE) check-toolchain
 	swift build -c release
 
 app: app-prd
@@ -94,6 +95,7 @@ watch-prd:
 # --- Dev targets ---
 
 build-dev:
+	$(MAKE) check-toolchain
 	swift build -Xswiftc -D -Xswiftc DEV_BUILD
 
 app-dev: build-dev
@@ -159,6 +161,9 @@ watch-dev:
 
 # --- Shared targets ---
 
+check-toolchain:
+	@scripts/check-toolchain.sh
+
 xcodeproj:
 	xcodegen generate
 
@@ -216,7 +221,8 @@ reset-app-state:
     terminal-settings.json worktree-base-ref.json exit-behavior.json \
     env-var-settings.json profiles.json session-name-settings.json \
     shell-settings.json onboarding-settings.json activity-indicator-settings.json \
-	    focus-mode-settings.json update-check-settings.json; do \
+	    focus-mode-settings.json update-check-settings.json \
+	    agent-control-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
 	done
 	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager/traces"
@@ -233,7 +239,8 @@ reset-app-state-dev:
     terminal-settings.json worktree-base-ref.json exit-behavior.json \
     env-var-settings.json profiles.json session-name-settings.json \
     shell-settings.json onboarding-settings.json activity-indicator-settings.json \
-	    focus-mode-settings.json update-check-settings.json; do \
+	    focus-mode-settings.json update-check-settings.json \
+	    agent-control-settings.json; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
 		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done

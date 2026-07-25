@@ -2,6 +2,7 @@ import Foundation
 
 /// Deletes per-pane JSONL files older than `retentionInterval` and removes empty
 /// subdirectories. Runs once on initialization and then every 6 hours on a background timer.
+@MainActor
 final class TraceCleanupService {
     private let tracesDirectory: URL
     private let retentionInterval: TimeInterval
@@ -12,7 +13,9 @@ final class TraceCleanupService {
         self.retentionInterval = retentionInterval
         runCleanup()
         timer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
-            self?.runCleanup()
+            Task { @MainActor [weak self] in
+                self?.runCleanup()
+            }
         }
     }
 
@@ -30,7 +33,7 @@ final class TraceCleanupService {
         }
     }
 
-    static func cleanup(
+    nonisolated static func cleanup(
         in directory: URL, olderThan retentionInterval: TimeInterval
     ) -> (filesDeleted: Int, dirsRemoved: Int) {
         let fm = FileManager.default

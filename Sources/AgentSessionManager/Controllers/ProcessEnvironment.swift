@@ -23,7 +23,11 @@ import SwiftTerm
 /// `KEY=VALUE` array.
 enum ProcessEnvironment {
     /// Returns the environment array with the baseline merged in.
-    nonisolated static func sanitize(_ env: [String]) -> [String] {
+    nonisolated static func sanitize(
+        _ env: [String],
+        etcDirectory: String = "/etc",
+        fileManager: FileManager = .default
+    ) -> [String] {
         var values: [String: String] = [:]
         for entry in env {
             guard let separator = entry.firstIndex(of: "=") else { continue }
@@ -44,7 +48,9 @@ enum ProcessEnvironment {
 
         // Merge PATH with the system default entries so `go`, `brew`, etc. are findable.
         let currentPath = values["PATH"] ?? ""
-        values["PATH"] = mergedPATH(currentPath: currentPath, defaultEntries: defaultPATHEntries())
+        values["PATH"] = mergedPATH(
+            currentPath: currentPath,
+            defaultEntries: defaultPATHEntries(etcDirectory: etcDirectory, fileManager: fileManager))
 
         return values.map { "\($0.key)=\($0.value)" }
     }

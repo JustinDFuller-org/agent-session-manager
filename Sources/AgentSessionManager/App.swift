@@ -17,6 +17,8 @@ struct ContentView: View {
     @State private var paneToRefresh: Pane?
     @State private var showRefreshSettingsSheet = false
     @State private var showOnboarding = false
+    @State private var showPaneSettingsSheet = false
+    @State private var paneForSettings: Pane?
 
     var body: some View {
         @Bindable var appState = appState
@@ -47,8 +49,11 @@ struct ContentView: View {
                         if appState.tabs.isEmpty {
                             EmptyStateView()
                         } else if let tab = appState.activeTab {
-                            PaneGridView(tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            PaneGridView(
+                                tab: tab, onClosePane: handleClosePane, onRefreshPane: handleRefreshPane,
+                                onViewPaneSettings: handleViewPaneSettings
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -189,8 +194,16 @@ struct ContentView: View {
                 {
                     appSettings.updateReminderEnabled = config.enabled
                 }
+                if let config = SettingsPersistence.load(
+                    AgentControlSettings.self, from: "agent-control-settings.json")
+                {
+                    appSettings.agentControlInjectionPolicy = config.injectionPolicy
+                    appSettings.agentControlScope = config.scope
+                }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
+                await AgentControlService.shared.configure(appState: appState, appSettings: appSettings)
+                await AgentControlService.shared.start()
                 UpdateCheckCoordinator.shared.start()
                 if let bundleIdentifier = Bundle.main.bundleIdentifier {
                     BundleIdentityVerifier.checkPreferredURL(
@@ -240,6 +253,10 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openShellHere)) { _ in
             guard let tab = appState.activeTab else { return }
             tab.openShellPane(activePane: appState.activePane, appSettings: appSettings)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .viewPaneSettings)) { _ in
+            guard let pane = appState.activePane else { return }
+            handleViewPaneSettings(pane)
         }
         .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
             closeActiveTab()
@@ -295,6 +312,11 @@ struct ContentView: View {
         .sheet(isPresented: $showRefreshSettingsSheet) {
             if let pane = paneToRefresh, let tab = pane.tab {
                 NewPaneSheet(tab: tab, refreshingPane: pane)
+            }
+        }
+        .sheet(isPresented: $showPaneSettingsSheet) {
+            if let pane = paneForSettings {
+                PaneSettingsView(snapshot: pane.settingsSnapshot(profiles: appSettings.profiles))
             }
         }
         .alert("Close Worktree Pane", isPresented: $showCleanupAlert) {
@@ -386,6 +408,11 @@ struct ContentView: View {
     private func handleRefreshPane(_ pane: Pane) {
         paneToRefresh = pane
         showRefreshSheet = true
+    }
+
+    private func handleViewPaneSettings(_ pane: Pane) {
+        paneForSettings = pane
+        showPaneSettingsSheet = true
     }
 
     private func handleClosePane(_ pane: Pane) {
@@ -586,9 +613,9 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         var onRefreshPane: () -> Void = {}
         var appState: AppState?
         weak var hostWindow: NSWindow?
-        var keyMonitor: Any?
-        var mouseMonitor: Any?
-        var scrollWheelMonitor: Any?
+        nonisolated(unsafe) var keyMonitor: Any?
+        nonisolated(unsafe) var mouseMonitor: Any?
+        nonisolated(unsafe) var scrollWheelMonitor: Any?
 
         deinit {
             if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }

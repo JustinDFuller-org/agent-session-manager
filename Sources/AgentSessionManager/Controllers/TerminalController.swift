@@ -11,7 +11,7 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     var telemetryPaneName: String = ""
     var telemetryPaneUUID: UUID?
     private var osc777HookInstalled = false
-    private var keyEventMonitor: Any?
+    nonisolated(unsafe) private var keyEventMonitor: Any?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)

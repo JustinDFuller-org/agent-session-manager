@@ -55,6 +55,12 @@ final class AppState {
     func closeTab(_ tab: Tab) {
         let paneIDs = Set(tab.panes.map(\.id))
         for pane in tab.panes {
+            AgentControlService.shared.revoke(
+                paneID: pane.id,
+                paneName: pane.name,
+                tabID: tab.id,
+                tabName: tab.name
+            )
             pane.terminalController?.terminate()
             pane.installTerminalController(nil)
             pane.removeStatusLineMonitor()
@@ -64,6 +70,7 @@ final class AppState {
         tabs.removeAll { $0.id == tab.id }
         if activeTabID == tab.id {
             activeTabID = tabs.last?.id
+            activePaneID = activeTab?.panes.first?.id
         }
         SessionPersistence.save(appState: self)
     }
@@ -247,7 +254,15 @@ final class AppState {
         SessionPersistence.save(appState: self)
     }
 
-    func navigateTo(notification: PaneNotification) {
+    @discardableResult
+    func acknowledgeNotification(id: UUID) -> PaneNotification? {
+        guard let notification = notifications.first(where: { $0.id == id }),
+            let tab = tabs.first(where: { $0.id == notification.tabID }),
+            tab.panes.contains(where: { $0.id == notification.paneID })
+        else {
+            return nil
+        }
+
         TracingService.shared.record(
             "pane.notification.cleared",
             attributes: [
@@ -271,6 +286,8 @@ final class AppState {
                 ]
             )
         }
+
+        return notification
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {
