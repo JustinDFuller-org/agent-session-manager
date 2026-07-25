@@ -5,5 +5,12 @@
     <link>https://agent-session-manager.justindfuller.com/</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
-  </channel>
+      <item>
+      <title>Agent Session Manager 0.0.1</title>
+      <pubDate>Sat, 25 Jul 2026 12:08:09 +0000</pubDate>
+      <sparkle:version>247</sparkle:version>
+      <sparkle:shortVersionString>0.0.1</sparkle:shortVersionString>
+      <enclosure url="https://agent-session-manager.justindfuller.com/downloads/AgentSessionManager-0.0.1-247.dmg" length="9259564" type="application/octet-stream" sparkle:edSignature="uxUyD2rtyRgg7YSKUytp0q52Hk8busci722XxuMaLErzM6/oLCpC22XYyQXbEKwgAzbTTQqfWFYS4Rbl5e6RAg==" />
+    </item>
+</channel>
 </rss>
