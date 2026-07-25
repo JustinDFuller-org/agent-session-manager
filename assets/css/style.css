@@ -112,6 +112,25 @@ a:hover {
   display: none;
 }
 
+.release-notice {
+  border-bottom: 1px solid #d9a441;
+  background: #fff4d6;
+  color: #5c4300;
+}
+
+.release-notice-inner {
+  width: min(1180px, 100% - 40px);
+  margin: 0 auto;
+  padding: 0.8rem 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+
+.release-notice strong {
+  font-weight: 750;
+}
+
 .site-frame {
   display: grid;
   grid-template-columns: 245px minmax(0, 1fr);
