@@ -146,11 +146,26 @@
 
 <p>Agent Control gives a supported agent tool access to the Agent Session Manager workspace around its pane. Depending on the selected scope, the agent can inspect tabs, panes, profiles, status information, notifications, and diagnostics, and perform supported session-management actions.</p>
 
+<p>Agent Session Manager starts an app-owned local Model Context Protocol (MCP) server and prepares the selected harness to connect to it when the pane launches. The connection is configured for that pane and scope; it is not a shell command that users need to type.</p>
+
 <h2 id="why-you-might-use-it">Why you might use it</h2>
 
 <p>Use Agent Control when you want an agent to coordinate its session with the rest of the workspace. For example, an agent can work with other panes in its tab, update shared configuration, or help investigate a problem without requiring you to perform every workspace action manually.</p>
 
 <p>Agent Control is available for panes using Claude Code, Codex, or OpenCode. Cursor does not currently support Agent Control injection.</p>
+
+<h2 id="how-it-connects-to-your-agent-tool">How it connects to your agent tool</h2>
+
+<p>Agent Session Manager prepares the MCP connection before it starts the final harness command:</p>
+
+<ul>
+  <li><strong>Claude Code</strong> receives an MCP configuration through its supported <code class="language-plaintext highlighter-rouge">--mcp-config</code> option.</li>
+  <li><strong>Codex</strong> receives the MCP server URL and runtime credential through supported <code class="language-plaintext highlighter-rouge">-c</code> settings.</li>
+  <li><strong>OpenCode</strong> receives the connection through its inline configuration. Existing OpenCode MCP entries and unrelated settings are preserved.</li>
+  <li><strong>Cursor</strong> is not injected. Its documented project- and user-level configuration does not provide a safe per-pane setup.</li>
+</ul>
+
+<p>Each injected pane receives a runtime-only credential for its connection. The credential is not persisted, logged, or printed in the terminal, and it is revoked when the pane or tab is torn down.</p>
 
 <h2 id="before-you-start">Before you start</h2>
 
@@ -182,6 +197,47 @@
 <p><strong>Global</strong> is the default scope. Some app-wide configuration and diagnostic actions require Global scope.</p>
 
 <p>Changing the policy or scope affects future launches, restores, and restarts. Restart an existing pane after changing these settings.</p>
+
+<h2 id="what-the-agent-can-access-and-control">What the agent can access and control</h2>
+
+<p>The available surface depends on the selected scope. Scope is enforced for every read and change, so an agent cannot use a control that reaches outside its scope.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Available operations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Workspace</td>
+      <td>Read the workspace, tabs, panes, worktrees, setup state, and pane status available in scope</td>
+    </tr>
+    <tr>
+      <td>Tabs and panes</td>
+      <td>Create, inspect, focus, restart, delete, and reorder tabs and panes</td>
+    </tr>
+    <tr>
+      <td>Profiles and harnesses</td>
+      <td>Read visible profiles; create, edit, delete, and reorder profiles; enable harnesses and configure CLI options when Global scope is available</td>
+    </tr>
+    <tr>
+      <td>Status line</td>
+      <td>Read status-line configuration and pane data; update global or profile-specific status-line settings with Global scope</td>
+    </tr>
+    <tr>
+      <td>Notifications</td>
+      <td>Read visible notifications, acknowledge them, and navigate to their pane</td>
+    </tr>
+    <tr>
+      <td>Diagnostics</td>
+      <td>Read bounded diagnostic summaries, traces, invariant occurrences, and app-owned logs available in scope; change Debug Mode with Global scope</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Names are display values. Agent Control uses stable object identities so actions continue to target the intended tab, pane, profile, or notification when names are duplicated.</p>
 
 <h2 id="what-you-should-see">What you should see</h2>
 
