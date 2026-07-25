@@ -10,9 +10,8 @@ description: A native macOS app for running multiple AI agent sessions in parall
     <h1>Agent Session Manager</h1>
     <p class="lede">Run multiple AI agent sessions in parallel in a tabbed, multi-pane terminal window, with each pane working in a git worktree context.</p>
     <div class="home-actions">
-      <a class="button" href="{{ '/docs/' | relative_url }}">Browse documentation</a>
-      <a class="button button-secondary" href="{{ '/documentation/user-guide/quickstart/' | relative_url }}">Start the quickstart</a>
-      <a class="button button-secondary" href="{{ '/download/' | relative_url }}">Download the app</a>
+      <a class="button" href="{{ '/download/' | relative_url }}">Download</a>
+      <a class="button button-secondary" href="{{ '/docs/' | relative_url }}">Documentation</a>
     </div>
   </div>
   <img class="home-image" src="{{ '/assets/img/hero.png' | relative_url }}" alt="Agent Session Manager window showing tabs and terminal panes">
