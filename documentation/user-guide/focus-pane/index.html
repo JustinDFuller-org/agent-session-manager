@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Expand one pane when you need more room to read or work.">
+    <title>Focus Pane · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Focus Pane</h1>
+    <p class="lede">Expand one pane when you need more room to read or work.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Focus Pane mode enlarges one terminal pane inside its tab while keeping the tab bar, terminal session, pane header, and status line available.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Use Focus Pane mode when a task has long output or needs more horizontal space than the pane grid provides.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Open a tab with at least two panes.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<ol>
+  <li>Double-click a pane header, or open the pane’s context menu and choose <strong>Focus This Pane</strong>.</li>
+  <li>Work in the expanded pane.</li>
+  <li>Choose <strong>Show All Panes</strong>, double-click the focused pane header, or use the context menu option to return to the grid.</li>
+</ol>
+
+<p>You can still switch tabs while a pane is focused. Creating a pane, opening a shell, closing the focused pane, or navigating from a notification restores the grid when necessary.</p>
+
+<h3 id="configure-focus-pane-behavior">Configure Focus Pane behavior</h3>
+
+<ol>
+  <li>Open <strong>Settings → Panes</strong>.</li>
+  <li>In <strong>Focus Mode</strong>, choose <strong>When Switching Tabs</strong>: <strong>Remember Focus</strong> or <strong>Show All Panes</strong>.</li>
+  <li>Enable <strong>Hide Notification Sidebar</strong> if the focused terminal should use the full tab width.</li>
+</ol>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>The selected pane fills the tab body and the other panes are hidden from view. The focused pane keeps its activity indicator, name, close button, and status line.</p>
+
+<p><img src="/assets/img/docs/focused-pane.png" alt="Agent Session Manager with one focused pane" /></p>
+
+<p><em>Focused Pane mode expands the selected terminal while keeping its controls visible.</em></p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If <strong>Focus This Pane</strong> is unavailable, create a second pane in the tab.</li>
+  <li>If the grid does not return, use <strong>Show All Panes</strong> in the focused pane header.</li>
+  <li>If the sidebar still takes space, enable <strong>Hide Notification Sidebar</strong> in <strong>Settings → Panes → Focus Mode</strong>.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+  <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

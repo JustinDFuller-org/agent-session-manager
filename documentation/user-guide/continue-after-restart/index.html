@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Reopen saved tabs and panes after Agent Session Manager restarts.">
+    <title>Continue After Restart · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Continue After Restart</h1>
+    <p class="lede">Reopen saved tabs and panes after Agent Session Manager restarts.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Agent Session Manager saves open tabs and agent panes so it can restore them after the app is relaunched. A pane is restored only when its working copy still exists on disk.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Session restoration lets you close the app or restart your Mac without rebuilding your project layout manually. The <strong>Continue on Restart</strong> setting can also resume supported agent conversations.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Keep the working copies used by your panes on disk. If you delete a working copy, the related pane cannot be restored.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<ol>
+  <li>Open <strong>Settings</strong>.</li>
+  <li>Select <strong>Panes</strong>.</li>
+  <li>In the <strong>Cleanup</strong> section, enable or disable <strong>Continue on Restart</strong>.</li>
+  <li>Quit and reopen Agent Session Manager.</li>
+</ol>
+
+<p>The app restores tabs and panes whose working copies still exist. With <strong>Continue on Restart</strong> enabled, Claude Code and OpenCode use their available conversation-resume behavior. Codex and Cursor panes reopen in their working copies without an added continuation option.</p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>The saved tabs reappear when their project directories can be restored, with each restorable pane starting in its saved working copy. Panes whose project directory or working copy is missing are left out of the restored session.</p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If a tab or pane is missing, confirm that its project directory and working copy still exist.</li>
+  <li>If the project path contains spaces and the tab does not return, update to a build containing the current session-restore fix or recreate the tab.</li>
+  <li>If the pane reopens but the conversation does not resume, check <strong>Settings → Panes → Continue on Restart</strong> and the selected tool’s own session behavior.</li>
+  <li>If you intentionally deleted the working copy, create a new pane from the relevant branch or worktree.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+  <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

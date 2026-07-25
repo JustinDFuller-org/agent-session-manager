@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Open a project, create a tab, and start your first agent pane.">
+    <title>Quickstart · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Quickstart</h1>
+    <p class="lede">Open a project, create a tab, and start your first agent pane.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>This walkthrough takes you from the main window to a running agent session in a project directory.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Complete <a href="/documentation/user-guide/install/">Install and First Launch</a> and make sure at least one agent tool is active in <strong>Settings → Harnesses</strong>. Use a Git repository for the project directory.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<ol>
+  <li>Open Agent Session Manager and press ⌘T, or choose <strong>File → New Tab</strong>.</li>
+  <li>In <strong>New Tab</strong>, enter a project name in <strong>Name</strong>.</li>
+  <li>Choose the project directory with <strong>Choose…</strong>. The directory should contain the Git repository where you want to work.</li>
+  <li>Optionally enter a starting branch in <strong>Base Branch</strong>.</li>
+  <li>Choose <strong>Create</strong>. The new tab becomes active.</li>
+  <li>Press ⌘P, or choose <strong>File → New Pane in Current Tab</strong>.</li>
+  <li>In <strong>New Pane</strong>, select an active tool in <strong>Harness</strong>.</li>
+  <li>Enter a session name, branch, or worktree in <strong>Session, branch, or worktree</strong>. For a new task, use a simple name such as <code class="language-plaintext highlighter-rouge">feature-a</code>.</li>
+  <li>Review any <strong>CLI Options</strong> or <strong>Environment Variables</strong> shown for the selected tool, then choose <strong>Create Pane</strong>.</li>
+</ol>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>Agent Session Manager prepares the working copy and opens a pane for the selected tool. The pane contains the tool’s terminal session, and the tab remains available for creating additional panes.</p>
+
+<p><img src="/assets/img/docs/empty-state.png" alt="Agent Session Manager empty state" /></p>
+
+<p><em>The empty state provides the shortcut for creating the first tab.</em></p>
+
+<p><img src="/assets/img/docs/new-tab-sheet-filled.png" alt="Agent Session Manager New Tab sheet with a project directory and base branch" /></p>
+
+<p><em>New Tab is ready to create after the project directory and optional base branch are set.</em></p>
+
+<p><img src="/assets/img/docs/new-pane-sheet.png" alt="Agent Session Manager New Pane sheet" /></p>
+
+<p><em>New Pane combines the harness, session name, CLI options, and environment settings.</em></p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If <strong>Create</strong> is disabled in <strong>New Tab</strong>, provide both a name and a directory.</li>
+  <li>If no tool appears in <strong>Harness</strong>, enable one in <strong>Settings → Harnesses</strong>.</li>
+  <li>If the pane cannot resolve the entered name or branch, check the spelling and use an existing branch, ref, or worktree name.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+  <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+  <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+  <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

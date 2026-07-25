@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Learn how tabs, panes, agent tools, sessions, and working copies fit together.">
+    <title>Core Concepts · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Core Concepts</h1>
+    <p class="lede">Learn how tabs, panes, agent tools, sessions, and working copies fit together.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Agent Session Manager uses a small set of concepts to organize parallel work.</p>
+
+<h3 id="tab">Tab</h3>
+
+<p>A tab represents a project directory. It is the context that contains the panes for one project.</p>
+
+<h3 id="pane">Pane</h3>
+
+<p>A pane is one terminal session inside a tab. It runs an agent tool or, when opened from an existing pane, a shell in that pane’s working directory.</p>
+
+<h3 id="agent-tool">Agent tool</h3>
+
+<p>An agent tool is the command-line program that works inside a pane. Agent Session Manager currently supports Claude Code, Cursor, Codex, and OpenCode. Only tools enabled in <strong>Settings → Harnesses</strong> appear when you create a pane.</p>
+
+<h3 id="session-name-branch-or-worktree">Session name, branch, or worktree</h3>
+
+<p>The <strong>Session, branch, or worktree</strong> field in <strong>New Pane</strong> identifies the task’s working copy. You can enter a session name, an existing branch or ref, or the name of an existing worktree.</p>
+
+<h3 id="separate-working-copy">Separate working copy</h3>
+
+<p>When Agent Session Manager creates a new task workspace, it uses a separate Git working copy for that pane. This lets multiple panes work on different tasks without making every task use the same checkout.</p>
+
+<h2 id="why-you-might-use-these-concepts">Why you might use these concepts</h2>
+
+<p>Tabs keep projects separate. Panes keep tasks within a project separate. Agent tools determine which command-line assistant runs, while the session or branch name identifies the work associated with that pane.</p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>The main window shows tabs across the top and panes below them. Creating another pane adds another terminal session to the active tab; switching tabs changes the project context and its panes.</p>
+
+<p><img src="/assets/img/docs/main-window-tab.png" alt="Agent Session Manager main window with an active tab" /></p>
+
+<p><em>A tab identifies the project context shown below the tab bar.</em></p>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+  <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+  <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+  <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

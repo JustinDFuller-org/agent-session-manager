@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Understand the tab and pane indicators that show where attention is needed.">
+    <title>Activity Indicators · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Activity Indicators</h1>
+    <p class="lede">Understand the tab and pane indicators that show where attention is needed.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Activity indicators appear beside tabs and panes. They help you identify whether a pane is idle, working, stopped, or waiting for attention.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Use the indicators to scan several agent sessions and decide where to focus next.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Activity indicators are enabled by default. To change them, open <strong>Settings → Panes → Activity Indicators</strong>.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<p>Read the indicator beside a pane or tab:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Indicator</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Hollow ring</td>
+      <td>Idle, with no active attention signal</td>
+    </tr>
+    <tr>
+      <td>Soft neutral glow</td>
+      <td>A supported agent signal indicates that work is active</td>
+    </tr>
+    <tr>
+      <td>Secondary octagon</td>
+      <td>A Claude Code turn has stopped while its process remains available</td>
+    </tr>
+    <tr>
+      <td>Filled accent dot</td>
+      <td>The pane has a pending attention notification; priority notifications use the priority color</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Focusing a pane clears its notification. A tab shows the strongest state among its panes, with waiting taking priority over working, stopped, and idle.</p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>Each tab and pane keeps an indicator, including when it is idle. The focused pane remains identifiable even when Focus Pane hides the other panes.</p>
+
+<p><img src="/assets/img/docs/notification-sidebar.png" alt="Agent Session Manager notification sidebar beside panes" /></p>
+
+<p><em>The notification sidebar stays aligned with the tab and pane indicators.</em></p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If indicators are missing, enable <strong>Show Activity Indicators</strong> in <strong>Settings → Panes → Activity Indicators</strong>.</li>
+  <li>If the notification sidebar is hidden while a pane is focused, review <strong>Hide Notification Sidebar</strong> in <strong>Settings → Panes → Focus Mode</strong>.</li>
+  <li>If a tool does not report a working state, its pane can remain idle until an attention notification appears.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+  <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

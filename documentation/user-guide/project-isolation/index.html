@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Choose the branch or working copy for each agent task.">
+    <title>Project Isolation · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Project Isolation</h1>
+    <p class="lede">Choose the branch or working copy for each agent task.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Agent Session Manager gives each agent pane a task working copy. This keeps changes for separate tasks from being mixed together in one checkout.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Use a separate working copy when you want several agents to work on different branches or tasks at the same time. You can also open an existing checkout when the task already has a working copy.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Create a tab for the Git repository you want to work in. Decide whether the pane should create a new task working copy or open an existing branch, ref, or worktree.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<h3 id="start-a-new-task">Start a new task</h3>
+
+<ol>
+  <li>Open <strong>New Pane</strong>.</li>
+  <li>In <strong>Session, branch, or worktree</strong>, enter a simple task name such as <code class="language-plaintext highlighter-rouge">feature-a</code>.</li>
+  <li>Choose <strong>Create Pane</strong>.</li>
+</ol>
+
+<p>When the name does not match an existing checkout or ref, Agent Session Manager creates a separate working copy if <strong>Default Branch</strong> is enabled or the tab has a <strong>Base Branch</strong>. It uses the configured <strong>Starting Point</strong> for that new working copy. If neither setting supplies a branch, the name must resolve to an existing checkout or ref.</p>
+
+<p><img src="/assets/img/docs/new-pane-sheet.png" alt="Agent Session Manager New Pane sheet" /></p>
+
+<p><em>New Pane keeps the harness, worktree name, priority, CLI options, and environment variables in one flow.</em></p>
+
+<h3 id="open-an-existing-branch-or-worktree">Open an existing branch or worktree</h3>
+
+<ol>
+  <li>Open <strong>New Pane</strong>.</li>
+  <li>Enter an existing branch, ref such as <code class="language-plaintext highlighter-rouge">origin/feature</code>, or worktree name.</li>
+  <li>Choose <strong>Create Pane</strong>.</li>
+  <li>If the checkout is already outside the app-managed locations, choose whether to open it without management or allow Agent Session Manager to manage it for cleanup.</li>
+</ol>
+
+<h3 id="choose-a-starting-branch">Choose a starting branch</h3>
+
+<p>For one tab, enter a branch in <strong>Base Branch</strong> when creating the tab. For the default behavior across new panes, open <strong>Settings → Panes → New Pane</strong>, enable <strong>Default Branch</strong>, and choose the branch name and <strong>Starting Point</strong>.</p>
+
+<p><strong>Starting Point</strong> controls which commits are available in a newly created working copy:</p>
+
+<ul>
+  <li><strong>Fresh</strong> fetches from <code class="language-plaintext highlighter-rouge">origin/&lt;default-branch&gt;</code> for a clean copy that matches the remote.</li>
+  <li><strong>HEAD</strong> starts from the local <code class="language-plaintext highlighter-rouge">HEAD</code>, including local commits and the current branch state.</li>
+</ul>
+
+<h3 id="choose-what-happens-when-a-branch-already-exists">Choose what happens when a branch already exists</h3>
+
+<p>In <strong>Settings → Panes → New Pane</strong>, use <strong>If Branch Exists</strong> to decide whether an existing external worktree should be managed:</p>
+
+<ul>
+  <li><strong>Ask</strong> shows a choice each time. Choose <strong>Manage</strong> to allow cleanup later, or <strong>Don’t Manage</strong> to leave the checkout under your control.</li>
+  <li><strong>Always</strong> takes over management automatically so the worktree can be cleaned up later.</li>
+  <li><strong>Never</strong> uses the existing worktree as-is and does not offer cleanup for it.</li>
+</ul>
+
+<p><img src="/assets/img/docs/existing-worktree-prompt.png" alt="Existing worktree management prompt in Agent Session Manager" /></p>
+
+<p><em>When an external checkout already exists, choose whether Agent Session Manager should manage it.</em></p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>The pane opens in the selected working copy, and the agent tool starts there. Other panes can use different task working copies while remaining in the same tab.</p>
+
+<p><img src="/assets/img/docs/settings-panes.png" alt="Agent Session Manager pane settings" /></p>
+
+<p><em>Pane settings control default branches, starting points, existing-branch behavior, and terminal defaults.</em></p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If the entered name is rejected, use only letters, digits, dots, underscores, and dashes for a new task name.</li>
+  <li>If you are opening a branch or ref, enter its full ref when needed, such as <code class="language-plaintext highlighter-rouge">origin/feature</code>.</li>
+  <li>If a checkout is already open, close the other pane or use the existing pane instead of opening a duplicate task.</li>
+  <li>If a new name cannot be resolved, check <strong>Settings → Panes → New Pane → Default Branch</strong> or set <strong>Base Branch</strong> on the tab.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+  <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+  <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

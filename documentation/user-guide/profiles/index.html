@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Save reusable agent tool settings and apply them when creating panes.">
+    <title>Profiles · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Profiles</h1>
+    <p class="lede">Save reusable agent tool settings and apply them when creating panes.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>A profile is a named set of settings for one agent tool. It can include CLI options, environment variables for tools that support them, and an optional status line layout.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Profiles save repeated setup. Create one for a common model, permission mode, workflow, or status line, then apply it to a new pane instead of configuring each option again.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Enable the agent tool you want to use in <a href="/documentation/user-guide/agent-tools/">Agent Tools</a>. Profiles can only use active tools.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<h3 id="create-or-edit-a-profile">Create or edit a profile</h3>
+
+<ol>
+  <li>Open <strong>Settings</strong> and select <strong>Profiles</strong>.</li>
+  <li>Choose <strong>New Profile</strong>, or open an existing profile’s menu and choose <strong>Edit</strong>.</li>
+  <li>Enter a <strong>Profile Name</strong> and choose a <strong>Harness</strong>.</li>
+  <li>Enable the CLI options and environment variables the profile should apply.</li>
+  <li>Mark <strong>Show on new pane</strong> for options you want to adjust each time. Options that are not shown are still applied.</li>
+  <li>Optionally enable a custom status line for the profile.</li>
+  <li>Save the profile.</li>
+</ol>
+
+<p>Use <strong>Duplicate</strong> to make a copy, <strong>Delete</strong> to remove a profile, or the up and down arrows to change its order.</p>
+
+<h3 id="apply-a-profile-to-a-pane">Apply a profile to a pane</h3>
+
+<ol>
+  <li>Open <strong>New Pane</strong>.</li>
+  <li>Choose a profile from <strong>Profile</strong>.</li>
+  <li>Review any options displayed in the sheet.</li>
+  <li>Choose <strong>Create Pane</strong>.</li>
+</ol>
+
+<p>The profile selects its harness and applies its saved settings. If you change an option, the profile name is marked <strong>(modified)</strong>. Choose <strong>Save Profile &amp; Create</strong> if you want to save the changed settings before creating the pane; this saves a new profile snapshot with the name you provide and then creates the pane.</p>
+
+<p>The first profile in the list that matches the selected harness is preselected when a new pane opens.</p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>The profile appears in <strong>Settings → Profiles</strong> and in the <strong>Profile</strong> picker in <strong>New Pane</strong>. Options marked <strong>Show on new pane</strong> appear for editing; other saved options remain hidden while they are applied.</p>
+
+<p><img src="/assets/img/docs/settings-profiles.png" alt="Agent Session Manager Profiles settings with a saved profile" /></p>
+
+<p><em>Profiles are managed from the Profiles section of Settings and can be reused in New Pane.</em></p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If a profile does not appear in <strong>New Pane</strong>, enable its harness in <a href="/documentation/user-guide/agent-tools/">Agent Tools</a>.</li>
+  <li>If an option is not visible, edit the profile and enable <strong>Show on new pane</strong> for that option.</li>
+  <li>If the profile is not preselected, move it higher than other profiles for the same harness.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+  <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+  <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

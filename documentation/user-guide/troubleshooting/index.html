@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Recover when an update, permission, tool, pane, or checkout does not work as expected.">
+    <title>Troubleshooting · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Troubleshooting</h1>
+    <p class="lede">Recover when an update, permission, tool, pane, or checkout does not work as expected.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Use this guide when Agent Session Manager cannot update, find an agent tool, start a pane, access a project, or open the working copy you selected.</p>
+
+<h2 id="updates">Updates</h2>
+
+<h3 id="no-update-appears">No update appears</h3>
+
+<ol>
+  <li>Open <strong>Settings → About</strong>.</li>
+  <li>Choose <strong>Check for Updates</strong>.</li>
+  <li>If no update is found, confirm that the Mac is connected to the internet and try again later.</li>
+</ol>
+
+<p>The update path depends on how Agent Session Manager was installed. A release DMG can download and install a newer release from the public update feed. A source-built copy reports newer changes from its source checkout and does not install them automatically.</p>
+
+<h3 id="an-update-is-available-for-a-release-dmg">An update is available for a release DMG</h3>
+
+<p>Choose <strong>Install Update</strong> in <strong>Settings → About</strong>, or select <strong>Update available</strong> in the tab bar. Follow the macOS update prompts and allow the app to relaunch when the installation finishes.</p>
+
+<h3 id="an-update-is-available-for-a-source-built-copy">An update is available for a source-built copy</h3>
+
+<p>Open <strong>Settings → About</strong> and follow the displayed source-update instruction. The app must be rebuilt from the updated checkout before the new version is available.</p>
+
+<h3 id="control-update-reminders">Control update reminders</h3>
+
+<p>In <strong>Settings → About</strong>, use <strong>Update Reminder</strong> to show or hide the tab-bar reminder. For a source-built copy, the reminder reports a newer commit on GitHub <code class="language-plaintext highlighter-rouge">main</code>; for a release DMG, it reports a newer DMG release.</p>
+
+<p>If you need to install manually, use <a href="/download/">Download</a>.</p>
+
+<h2 id="macos-permission-prompts">macOS permission prompts</h2>
+
+<p>The first pane for a project may cause macOS to ask whether Agent Session Manager can access files in protected locations or data from other apps. Allow access when you want the agent to work with that project. macOS remembers the decision for the app.</p>
+
+<p>If access still fails:</p>
+
+<ol>
+  <li>Open <strong>System Settings → Privacy &amp; Security</strong>.</li>
+  <li>Review Agent Session Manager under <strong>Files and Folders</strong>.</li>
+  <li>If the project still cannot be opened, review <strong>Full Disk Access</strong> and relaunch the app after changing the permission.</li>
+</ol>
+
+<p>Do not grant access to a project or folder that you do not want the agent tool to use.</p>
+
+<h2 id="a-tool-is-missing">A tool is missing</h2>
+
+<p>If a tool does not appear in <strong>New Pane → Harness</strong>:</p>
+
+<ol>
+  <li>Confirm that the tool is installed.</li>
+  <li>Open <strong>Settings → Harnesses</strong> and enable the tool.</li>
+  <li>Open <strong>Settings → Panes</strong> and review <strong>Shell</strong>. Leave it on <strong>Auto-detect</strong> unless the tool is installed through a shell-specific package manager or version manager.</li>
+  <li>Close and reopen <strong>New Pane</strong>.</li>
+</ol>
+
+<p>If the tool is installed but still cannot be found, choose <strong>Other…</strong> under <strong>Shell</strong> and enter the full path to the shell executable, then try again. A plain shell opened with <strong>Open Shell Here</strong> does not require an active agent tool.</p>
+
+<h2 id="a-pane-will-not-start">A pane will not start</h2>
+
+<h3 id="the-pane-says-setting-up-workspace">The pane says “Setting up workspace…”</h3>
+
+<p>Wait for the workspace setup to finish. The app may need to inspect Git worktrees, fetch a branch, or create a working copy before the terminal starts.</p>
+
+<h3 id="the-pane-shows-an-error">The pane shows an error</h3>
+
+<p>Read the message in the pane, correct the named problem, and create the pane again. Choose <strong>Remove Pane</strong> to dismiss the failed pane.</p>
+
+<p>Common causes include a missing branch or ref, a network failure while fetching, a path that is not a Git worktree, or an agent tool that is not available in the selected shell.</p>
+
+<h3 id="the-process-exits-immediately">The process exits immediately</h3>
+
+<p>When the process-exit controls appear, choose <strong>Restart</strong> to try the same pane again, <strong>Open Shell</strong> to inspect the working copy, or <strong>Close</strong> to remove the pane. If restarting produces the same result, check the selected tool, shell, and tool-specific options.</p>
+
+<p>You can choose the default behavior in <strong>Settings → Panes → Terminal → When Process Exits</strong>:</p>
+
+<ul>
+  <li><strong>Show Prompt</strong> displays those controls.</li>
+  <li><strong>Open Shell</strong> replaces the exited process with a live shell.</li>
+  <li><strong>Close Pane</strong> closes the pane automatically.</li>
+</ul>
+
+<h2 id="a-checkout-conflicts-with-another-task">A checkout conflicts with another task</h2>
+
+<h3 id="the-worktree-is-already-open">The worktree is already open</h3>
+
+<p>Agent Session Manager does not open the same checkout in two panes in the same tab. Close the pane that already uses it, or use that pane instead of creating a duplicate.</p>
+
+<h3 id="the-branch-or-ref-cannot-be-found">The branch or ref cannot be found</h3>
+
+<p>Check the spelling and enter the branch or ref exactly. Use a full ref such as <code class="language-plaintext highlighter-rouge">origin/feature</code> when the short name is ambiguous. If you want a new task working copy from a simple name, open <strong>Settings → Panes → New Pane</strong>, enable <strong>Default Branch</strong>, and confirm the configured branch and <strong>Starting Point</strong>.</p>
+
+<h3 id="a-path-exists-but-is-not-a-worktree">A path exists but is not a worktree</h3>
+
+<p>Choose a valid branch, ref, or existing Git worktree instead. New task names may contain only letters, digits, dots, underscores, and dashes.</p>
+
+<h3 id="an-existing-worktree-is-outside-the-app-managed-location">An existing worktree is outside the app-managed location</h3>
+
+<p>When <strong>Manage existing worktree</strong> appears, choose <strong>Manage</strong> if Agent Session Manager should be able to clean up that worktree later, or <strong>Don’t Manage</strong> if the checkout should remain under your control. Choose <strong>Cancel</strong> to stop creating the pane.</p>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+  <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+  <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+  <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

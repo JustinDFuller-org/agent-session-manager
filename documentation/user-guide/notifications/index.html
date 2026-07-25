@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Notice when an agent pane needs attention and choose how alerts appear.">
+    <title>Notifications · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Notifications</h1>
+    <p class="lede">Notice when an agent pane needs attention and choose how alerts appear.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Agent Session Manager can show attention in the pane and tab indicators, the in-app notifications sidebar, and optional macOS banners. Notifications can come from terminal alerts, supported agent-tool events, or tracked pull-request events.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Notifications let you keep working in one pane while another pane waits for input or finishes a turn.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>In-app indicators and the notifications sidebar do not require macOS permission. macOS banners require permission in <strong>System Settings → Notifications</strong> for Agent Session Manager.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<h3 id="read-and-clear-notifications">Read and clear notifications</h3>
+
+<ul>
+  <li>A waiting dot on a pane or tab means that pane needs attention. A completed Claude turn can instead use the stopped indicator.</li>
+  <li>Open a notification row to switch to its tab and pane.</li>
+  <li>Focusing a pane clears its notification.</li>
+  <li>Use <strong>Clear All</strong> in the sidebar to dismiss all current rows.</li>
+</ul>
+
+<p>The sidebar can group priority notifications above other notifications. Priority is selected per pane when <strong>Priority Notifications</strong> is enabled.</p>
+
+<p>To mark a pane as important, enable <strong>Priority Notifications</strong> in Settings, then turn on <strong>Priority Pane</strong> when creating a pane or from the pane’s context menu. Priority notifications appear above other notifications and use the priority color.</p>
+
+<p>Pending in-app notifications are saved with the session and restored after relaunch when their pane is restored. macOS banners are not replayed after relaunch.</p>
+
+<h3 id="configure-notifications">Configure notifications</h3>
+
+<ol>
+  <li>Open <strong>Settings → Notifications</strong>.</li>
+  <li>Enable <strong>Banner Notifications</strong> if you want macOS alerts.</li>
+  <li>Configure tool-specific completion alerts such as <strong>Notify when Claude stops</strong>, <strong>Stop hook for attention</strong>, or <strong>Notify when OpenCode stops</strong>.</li>
+  <li>Choose the <strong>Sidebar Position</strong> and whether to enable <strong>Always Show Notifications Bar</strong>.</li>
+  <li>Enable <strong>Priority Notifications</strong> if you want to mark important panes.</li>
+</ol>
+
+<p>To keep macOS banners visible until dismissed, choose <strong>Open Notification Settings</strong> and set Agent Session Manager’s Alert Style to <strong>Persistent</strong>.</p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>The sidebar shows the pane and tab associated with each pending notification. Clicking a macOS banner brings Agent Session Manager forward and focuses the related pane.</p>
+
+<p><img src="/assets/img/docs/settings-notifications.png" alt="Agent Session Manager Notifications settings" /></p>
+
+<p><em>Notifications settings control banners, tool completion alerts, and sidebar behavior.</em></p>
+
+<p><img src="/assets/img/docs/notification-sidebar.png" alt="Agent Session Manager notification sidebar" /></p>
+
+<p><em>The sidebar occupies a fixed rail beside the active tab’s panes.</em></p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If in-app notifications appear but macOS banners do not, allow notifications for the correct Agent Session Manager app in <strong>System Settings → Notifications</strong>.</li>
+  <li>If the sidebar is hidden, enable <strong>Always Show Notifications Bar</strong> or wait for a pending notification. If a pane is focused, also check <strong>Settings → Panes → Focus Mode → Hide Notification Sidebar</strong>.</li>
+  <li>If a tool completion alert is missing, check its tool-specific setting in <strong>Settings → Notifications</strong> and reopen the pane after changing hook-related settings.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

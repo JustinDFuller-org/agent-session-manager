@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Organize projects and agent sessions with tabs and panes.">
+    <title>Tabs and Panes · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Tabs and Panes</h1>
+    <p class="lede">Organize projects and agent sessions with tabs and panes.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>A tab is a project context. A pane is one terminal session inside that tab. You can keep several tasks open in one project tab and create another tab when you switch projects.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Tabs keep projects separate, while panes let you work on multiple tasks without opening a separate terminal window for each one.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Create a tab for a Git repository by following the <a href="/documentation/user-guide/quickstart/">Quickstart</a>. To create an agent pane, make sure at least one tool is active in <a href="/documentation/user-guide/agent-tools/">Agent Tools</a>.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<h3 id="create-and-switch-tabs">Create and switch tabs</h3>
+
+<ol>
+  <li>Choose <strong>File → New Tab</strong> or press ⌘T.</li>
+  <li>In <strong>New Tab</strong>, enter a project name in <strong>Name</strong>.</li>
+  <li>Choose a project directory with <strong>Choose…</strong>.</li>
+  <li>Optionally enter a starting branch in <strong>Base Branch</strong>.</li>
+  <li>Choose <strong>Create</strong>.</li>
+  <li>Select a tab in the tab bar to switch projects. You can also press ⌘1 through ⌘9 to switch to a tab by position.</li>
+</ol>
+
+<h3 id="create-a-pane">Create a pane</h3>
+
+<ol>
+  <li>Choose <strong>File → New Pane in Current Tab</strong> or press ⌘P.</li>
+  <li>In <strong>New Pane</strong>, select a tool in <strong>Harness</strong>.</li>
+  <li>Enter a name, branch, or existing worktree in <strong>Session, branch, or worktree</strong>.</li>
+  <li>Review any <strong>CLI Options</strong> or <strong>Environment Variables</strong>.</li>
+  <li>Choose <strong>Create Pane</strong>.</li>
+</ol>
+
+<h3 id="open-a-shell-in-a-panes-working-directory">Open a shell in a pane’s working directory</h3>
+
+<ol>
+  <li>Open the pane’s context menu.</li>
+  <li>Choose <strong>Open Shell Here</strong>.</li>
+</ol>
+
+<p>The new shell pane uses the same working directory as the pane you selected.</p>
+
+<h3 id="refresh-a-pane">Refresh a pane</h3>
+
+<p>To restart an agent pane with a fresh environment, open its context menu and choose <strong>Refresh Pane…</strong>, or press ⌘R when it is the active pane. Choose <strong>Refresh and Continue</strong> to restart with the same settings and <code class="language-plaintext highlighter-rouge">--continue</code>. Choose <strong>Refresh with New Settings…</strong> to change the CLI options before restarting. This action is not available for plain shell panes.</p>
+
+<h3 id="close-a-pane-or-tab">Close a pane or tab</h3>
+
+<p>Choose the close button in a pane header or press ⌘W to close the active pane. To close the active tab, press ⌘K or use <strong>File → Close Tab</strong>.</p>
+
+<p>If the pane uses a working copy managed by Agent Session Manager, closing it may show cleanup choices. See <a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a>.</p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>The tab bar remains at the top of the window, and panes appear below it in a grid. Adding panes changes the grid layout while keeping each terminal session visible.</p>
+
+<h3 id="session-names">Session names</h3>
+
+<p>For Claude Code panes, <strong>Auto Session Name</strong> can pass the tab and pane names to Claude so the session is easier to find when you resume it. Open <strong>Settings → Panes → Terminal</strong> to enable or disable it. If you add a manual <strong>Session Name</strong> option in <strong>Settings → Harnesses → CLI Options</strong>, the manual value takes precedence.</p>
+
+<p><img src="/assets/img/docs/split-panes.png" alt="Agent Session Manager with two panes in one tab" /></p>
+
+<p><em>Each pane has its own header, terminal area, and status line.</em></p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If <strong>Create</strong> is disabled in <strong>New Tab</strong>, provide both a name and a directory.</li>
+  <li>If <strong>Create Pane</strong> is unavailable, activate at least one tool in <strong>Settings → Harnesses</strong>.</li>
+  <li>If the session field reports an invalid or duplicate name, enter a valid name, branch ref, or existing worktree that is not already open in the tab.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+  <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+  <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+  <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>

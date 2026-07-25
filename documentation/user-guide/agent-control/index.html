@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Let supported agent tools inspect and manage the surrounding Agent Session Manager workspace.">
+    <title>Agent Control · Agent Session Manager</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/">
+          <span class="brand-mark" aria-hidden="true">⌘</span>
+          <span>Agent Session Manager</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="/docs/">Documentation</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+          <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+        </nav>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav aria-label="Mobile navigation">
+            <a href="/docs/">Documentation</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager">GitHub</a>
+            <a href="https://github.com/JustinDFuller/agent-session-manager/releases">Releases</a>
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <div class="site-frame">
+      
+      <aside class="sidebar">
+        <a class="sidebar-home" href="/">Overview</a>
+        
+        <section class="nav-group">
+          <h2>Getting Started</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Daily Work</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/project-isolation/">Project Isolation</a></li>
+            
+            <li><a href="/documentation/user-guide/continue-after-restart/">Continue After Restart</a></li>
+            
+            <li><a href="/documentation/user-guide/reorder-tabs-and-panes/">Reorder Tabs and Panes</a></li>
+            
+            <li><a href="/documentation/user-guide/focus-pane/">Focus Pane</a></li>
+            
+            <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Integrations</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/agent-control/">Agent Control</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Configure</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+            
+            <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
+            
+            <li><a href="/documentation/user-guide/terminal-scrollback/">Terminal Scrollback</a></li>
+            
+            <li><a href="/documentation/user-guide/status-line/">Status Line</a></li>
+            
+            <li><a href="/documentation/user-guide/notifications/">Notifications</a></li>
+            
+            <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Troubleshooting</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Reference</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+          </ul>
+        </section>
+        
+      </aside>
+      
+
+      <main id="main-content" class="content">
+        
+        <p class="eyebrow"><a href="/docs/">Documentation</a></p>
+        
+        <article class="doc-article">
+  <header class="doc-header">
+    <h1>Agent Control</h1>
+    <p class="lede">Let supported agent tools inspect and manage the surrounding Agent Session Manager workspace.</p>
+  </header>
+  <h2 id="what-it-is">What it is</h2>
+
+<p>Agent Control gives a supported agent tool access to the Agent Session Manager workspace around its pane. Depending on the selected scope, the agent can inspect tabs, panes, profiles, status information, notifications, and diagnostics, and perform supported session-management actions.</p>
+
+<h2 id="why-you-might-use-it">Why you might use it</h2>
+
+<p>Use Agent Control when you want an agent to coordinate its session with the rest of the workspace. For example, an agent can work with other panes in its tab, update shared configuration, or help investigate a problem without requiring you to perform every workspace action manually.</p>
+
+<p>Agent Control is available for panes using Claude Code, Codex, or OpenCode. Cursor does not currently support Agent Control injection.</p>
+
+<h2 id="before-you-start">Before you start</h2>
+
+<p>Enable a supported tool in <a href="/documentation/user-guide/agent-tools/">Agent Tools</a> and make sure it is available from the shell selected in <strong>Settings → Panes → Terminal</strong>.</p>
+
+<h2 id="how-to-use-it">How to use it</h2>
+
+<ol>
+  <li>Open <strong>Settings</strong> and select <strong>Panes</strong>.</li>
+  <li>Under <strong>Agent Control</strong>, choose an <strong>Injection Policy</strong>:
+    <ul>
+      <li><strong>Always</strong> enables control for every new or restarted pane.</li>
+      <li><strong>Never</strong> disables control for every new or restarted pane.</li>
+      <li><strong>Ask (on by default)</strong> or <strong>Ask (off by default)</strong> shows a per-pane choice when you create a pane.</li>
+    </ul>
+  </li>
+  <li>Choose a <strong>Scope</strong>:
+    <ul>
+      <li><strong>Pane</strong> lets the agent access only its own pane.</li>
+      <li><strong>Tab</strong> lets the agent access every pane in its tab.</li>
+      <li><strong>Global</strong> lets the agent access the entire app.</li>
+    </ul>
+  </li>
+  <li>Open <strong>New Pane</strong> and select Claude Code, Codex, or OpenCode in <strong>Harness</strong>.</li>
+  <li>If you chose an ask policy, enable or disable <strong>Agent Session Manager control</strong> in the <strong>Agent Control</strong> section.</li>
+  <li>Choose <strong>Create Pane</strong>.</li>
+</ol>
+
+<p><strong>Global</strong> is the default scope. Some app-wide configuration and diagnostic actions require Global scope.</p>
+
+<p>Changing the policy or scope affects future launches, restores, and restarts. Restart an existing pane after changing these settings.</p>
+
+<h2 id="what-you-should-see">What you should see</h2>
+
+<p>With an ask policy, <strong>New Pane</strong> shows the <strong>Agent Session Manager control</strong> checkbox and the current scope. With <strong>Always</strong> or <strong>Never</strong>, the sheet shows whether control will be enabled or disabled instead of showing a checkbox.</p>
+
+<p>After the pane starts, the supported agent can use Agent Control within the selected scope. The pane continues to run the selected agent tool in its prepared working copy.</p>
+
+<h2 id="if-it-does-not-work">If it does not work</h2>
+
+<ul>
+  <li>If the control checkbox is not shown, check <strong>Settings → Panes → Injection Policy</strong>. <strong>Always</strong> and <strong>Never</strong> show a status message instead of a checkbox.</li>
+  <li>If a pane uses Cursor, disable Agent Control for that pane or choose Claude Code, Codex, or OpenCode. Cursor does not support the required per-pane setup.</li>
+  <li>If a policy or scope change has no effect on a running pane, restart the pane.</li>
+  <li>If an action is unavailable, choose <strong>Global</strong> scope when the action needs access beyond the current pane or tab.</li>
+</ul>
+
+<h2 id="related-tasks">Related tasks</h2>
+
+<ul>
+  <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+  <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
+  <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
+  <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
+</ul>
+
+</article>
+
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Agent Session Manager</strong>
+        <span>Native macOS session management for parallel AI agent work.</span>
+      </div>
+      <a href="https://github.com/JustinDFuller/agent-session-manager">View the source on GitHub</a>
+    </footer>
+  </body>
+</html>
