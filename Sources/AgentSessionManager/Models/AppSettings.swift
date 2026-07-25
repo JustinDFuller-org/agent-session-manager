@@ -152,7 +152,7 @@ final class AppSettings {
     var hideNotificationSidebarWhileFocused: Bool = true
     var updateReminderEnabled: Bool = true
     var agentControlInjectionPolicy: AgentControlInjectionPolicy = .askOn
-    var agentControlScope: AgentControlScope = .pane
+    var agentControlScope: AgentControlScope = .global
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 

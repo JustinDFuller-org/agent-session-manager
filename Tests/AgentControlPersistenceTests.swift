@@ -24,7 +24,7 @@ final class AgentControlPersistenceTests: XCTestCase {
         let settings = AppSettings()
 
         XCTAssertEqual(settings.agentControlInjectionPolicy, .askOn)
-        XCTAssertEqual(settings.agentControlScope, .pane)
+        XCTAssertEqual(settings.agentControlScope, .global)
         XCTAssertTrue(settings.resolvedAgentControlInjectionDecision(persistedDecision: nil))
     }
 

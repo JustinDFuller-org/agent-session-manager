@@ -20,9 +20,11 @@ restarted to receive a changed environment. Restarts replace injected control
 configuration rather than accumulating arguments or credentials. Converting a
 pane to a shell removes the control credential before the shell starts.
 
-`Pane` scope is the default and permits access only to the source pane.
-`Tab` scope includes the source tab and its panes. `Global` scope includes the
-whole app and is required for global configuration changes and `debug.set_mode`.
+`Global` scope is the default for new settings and legacy settings without an
+explicit scope. `Pane` scope permits access only to the source pane, and `Tab`
+scope includes the source tab and its panes. Explicitly persisted `Pane` or
+`Tab` settings remain unchanged. `Global` scope is required for global
+configuration changes and `debug.set_mode`.
 Scope is enforced by every request, not only by the tool descriptions.
 
 ## Available MCP surface
@@ -82,6 +84,13 @@ newly registered session. Requests return at the configured deadline;
 cancelled Git operations terminate their subprocesses where possible.
 
 Diagnostic responses are metadata-first, incrementally bounded, and redacted.
+Diagnostic resource reads accept `limit`, `sinceEpochMs`, and `untilEpochMs`
+query parameters. Resource reads default to 20 records and cap requests at 50;
+diagnostic query tools retain their separate bounded limits. Use time windows to
+page through older records. A readable resource may return an empty result when
+no durable file exists; `tracesCapturing` and `invariantsCapturing` report
+whether new durable capture is enabled.
+
 They do not expose
 terminal content, harness output, secrets, environment values, or arbitrary
 system logs. Trace and invariant files remain readable when Debug Mode is
@@ -102,4 +111,3 @@ Dev state is isolated under
 `~/Library/Application Support/agent-session-manager.dev/`. The final terminal
 invocation contains only the selected harness command; setup, configuration,
 and error reporting stay in the app layer.
-

@@ -556,6 +556,7 @@ final class AgentControlMutationRouter {
             managed = true
         }
 
+        appState.switchToTab(id: tab.id, focusModeTabSwitchBehavior: appSettings.focusModeTabSwitchBehavior)
         tab.setFocusedPane(id: nil, reason: "agent_control_pane_created")
         let pane = tab.addPaneWithLoadingState(
             name: worktreeRef,
@@ -1027,6 +1028,10 @@ final class AgentControlMutationRouter {
             guard let option = catalog.first(where: { $0.id == input.id }) else {
                 throw MCPError.invalidParams("Unknown CLI option: \(input.id)")
             }
+            guard option.isAvailable else {
+                throw MCPError.invalidParams(
+                    "CLI option \(input.id) is unavailable for \(harness.displayName)")
+            }
             states[input.id] = ProfileCLIOption(
                 id: option.id, isEnabled: input.enabled, value: input.value, values: input.values)
         }
@@ -1124,7 +1129,8 @@ final class AgentControlMutationRouter {
     private func requireGlobal(_ source: AgentControlSource, name: String) throws {
         guard source.scope == .global else {
             record(name: name, source: source, result: "scope_denied")
-            throw MCPError.invalidRequest("Global scope is required for this operation")
+            throw MCPError.invalidRequest(
+                "Global scope is required for \(name); current scope is \(source.scope.displayName)")
         }
     }
 
@@ -1179,27 +1185,6 @@ final class AgentControlMutationRouter {
         return try CallTool.Result(
             content: [.text(text: String(decoding: data, as: UTF8.self), annotations: nil, _meta: nil)],
             structuredContent: value)
-    }
-
-    func record(
-        name: String, source: AgentControlSource, result: String, tabID: UUID? = nil, paneID: UUID? = nil,
-        profileID: UUID? = nil, harness: Harness? = nil, optionID: String? = nil,
-        notificationID: UUID? = nil
-    ) {
-        var attributes = [
-            "tool": name,
-            "result": result,
-            "scope": source.scope.rawValue,
-            "source.pane.id": source.paneID.uuidString,
-            "source.tab.id": source.tabID.uuidString,
-        ]
-        if let tabID { attributes["target.tab.id"] = tabID.uuidString }
-        if let paneID { attributes["target.pane.id"] = paneID.uuidString }
-        if let profileID { attributes["target.profile.id"] = profileID.uuidString }
-        if let harness { attributes["harness"] = harness.rawValue }
-        if let optionID { attributes["option.id"] = optionID }
-        if let notificationID { attributes["notification.id"] = notificationID.uuidString }
-        TracingService.shared.record("agent_control.mutation", attributes: attributes)
     }
 
     private static func objectSchema(properties: [String: Value], required: [String]) -> Value {

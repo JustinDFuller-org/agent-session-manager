@@ -70,6 +70,7 @@ final class AppState {
         tabs.removeAll { $0.id == tab.id }
         if activeTabID == tab.id {
             activeTabID = tabs.last?.id
+            activePaneID = activeTab?.panes.first?.id
         }
         SessionPersistence.save(appState: self)
     }

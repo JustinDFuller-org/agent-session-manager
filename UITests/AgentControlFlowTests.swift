@@ -12,6 +12,10 @@ final class AgentControlFlowTests: BaseTestCase {
         waitFor(policyPicker)
         waitFor(scopePicker)
 
+        let globalScope = app.descendants(matching: .any)
+            .matching(identifier: "settings-agent-control-scope-option-global").firstMatch
+        waitFor(globalScope)
+
         let tabScope = app.descendants(matching: .any)
             .matching(identifier: "settings-agent-control-scope-option-tab").firstMatch
         waitFor(tabScope)

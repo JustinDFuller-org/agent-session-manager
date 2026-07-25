@@ -72,8 +72,10 @@ Persist an `AgentControlScope` with these choices:
 - `Tab` — the injected agent can access all panes in its tab.
 - `Global` — the injected agent can access the entire app.
 
-The default is `Pane`. Scope is enforced for every read and write request, not
-just communicated through tool descriptions.
+The default is `Global`. Scope is enforced for every read and write request, not
+just communicated through tool descriptions. Explicitly persisted `Pane` and
+`Tab` scopes remain unchanged; legacy settings without a stored scope resolve to
+`Global`.
 
 There is no additional Agent Session Manager confirmation dialog for an
 authorized MCP mutation. The injection policy controls whether the server is
@@ -137,6 +139,11 @@ dashboard. Expose diagnostics as scoped MCP resources and bounded query tools:
 - Return availability and capture-state metadata when Debug Mode is disabled.
   Unified logs remain available because they are always on; existing trace and
   invariant files remain readable, but no new durable records are captured.
+- Diagnostic resource reads accept `limit`, `sinceEpochMs`, and `untilEpochMs`.
+  They default to 20 records and cap requests at 50; diagnostic query tools
+  retain their separate bounds. Readability describes the valid resource
+  response, while `tracesCapturing` and `invariantsCapturing` describe durable
+  capture state.
 
 Pane scope may read only records attributable to its source pane. Tab scope may
 read records attributable to panes in that tab. Unscoped global records and
@@ -327,7 +334,7 @@ Each item is intended to be a separate implementation session.
 Roadmap item 2 is implemented as a transport-independent foundation:
 
 - `AgentControlInjectionPolicy` and `AgentControlScope` use stable Codable raw
-  values and default to `Ask (on by default)` and `Pane`.
+  values and default to `Ask (on by default)` and `Global`.
 - `agent-control-settings.json` stores the app-level policy and scope through
   the existing settings persistence path.
 - Pane decisions are persisted in `sessions.json`; legacy panes without the
@@ -716,7 +723,7 @@ work remains ordered Claude Code, OpenCode, Codex, then Cursor.
 ## Defaults and constraints
 
 - Injection policy: `Ask (on by default)`.
-- Scope: `Pane`.
+- Scope: `Global`.
 - Debugging reads are available at the caller's configured scope; unscoped
   global records and Debug Mode mutation require `Global` scope.
 - The first debugging mutation is `debug.set_mode`; clearing, retention,

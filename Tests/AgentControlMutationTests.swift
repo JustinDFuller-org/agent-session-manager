@@ -102,6 +102,23 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertEqual(fixture.state.tabs.map(\.id), [fixture.secondTab.id, fixture.tab.id])
     }
 
+    func testDeletingActiveTabReturnsConsistentActiveSelection() async throws {
+        let fixture = makeFixture()
+        fixture.state.activeTabID = fixture.secondTab.id
+        fixture.state.activePaneID = fixture.secondTabPane.id
+
+        let response = try await fixture.router.callTool(
+            name: "tabs.delete",
+            arguments: ["tabID": .string(fixture.secondTab.id.uuidString)],
+            source: fixture.globalSource)
+        let result = try decodeMutationResult(response)
+
+        XCTAssertEqual(result.activeTabID, fixture.tab.id)
+        XCTAssertEqual(result.activePaneID, fixture.firstPane.id)
+        XCTAssertEqual(fixture.state.activeTabID, fixture.tab.id)
+        XCTAssertEqual(fixture.state.activePaneID, fixture.firstPane.id)
+    }
+
     func testGlobalScopeCanCreateTabFromAnExistingDirectory() async throws {
         let fixture = makeFixture()
         let directory = URL(filePath: NSTemporaryDirectory(), directoryHint: .isDirectory)
@@ -520,6 +537,33 @@ final class AgentControlMutationTests: XCTestCase {
             XCTAssertTrue(String(describing: error).contains("controlled"))
         }
         XCTAssertTrue(fixture.settings.profiles.isEmpty)
+    }
+
+    func testPaneCreationRejectsUnavailableHarnessOptionsBeforeWorktreeSetup() async throws {
+        let fixture = makeFixture()
+        fixture.settings.codexCliOptions = [
+            CLIOptionConfig(
+                id: "--prompt", label: "Prompt", description: "Initial prompt", isAvailable: false,
+                isDefaultEnabled: false)
+        ]
+
+        do {
+            _ = try await fixture.router.callTool(
+                name: "panes.create",
+                arguments: [
+                    "tabID": .string(fixture.secondTab.id.uuidString),
+                    "worktreeRef": .string("prompt-test"),
+                    "harness": .string("codex"),
+                    "cliOptions": .array([
+                        .object(["id": .string("--prompt"), "enabled": .bool(true)])
+                    ]),
+                ],
+                source: fixture.globalSource)
+            XCTFail("Unavailable harness options must be rejected")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("unavailable"))
+        }
+        XCTAssertEqual(fixture.state.tabs.flatMap(\.panes).count, 3)
     }
 
     private struct Fixture {

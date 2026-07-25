@@ -265,6 +265,28 @@ final class AgentControlResourceTests: XCTestCase {
         XCTAssertNil(debugModeResult.isError)
     }
 
+    func testDiagnosticSummaryAndResourceQueryExposeScopeContract() async throws {
+        let fixture = makeFixture()
+        defer { stopPanes(in: fixture.state) }
+
+        let summaryData = Data(
+            try await fixture.router.read(
+                uri: AgentControlResourceURI.diagnosticSummary.rawValue,
+                source: fixture.paneSource
+            ).utf8)
+        let summary = try JSONDecoder().decode(AgentControlDiagnosticSummary.self, from: summaryData)
+        XCTAssertEqual(summary.currentScope, .pane)
+        XCTAssertTrue(summary.globalOnlyResources.contains(AgentControlResourceURI.harnesses.rawValue))
+        XCTAssertTrue(summary.globalOnlyTools.contains("debug.set_mode"))
+
+        let traceData = try await fixture.router.read(
+            uri: "\(AgentControlResourceURI.diagnosticTraces.rawValue)?limit=1",
+            source: fixture.paneSource)
+        let traceResult = try JSONDecoder().decode(
+            AgentControlTraceQueryResult.self, from: Data(traceData.utf8))
+        XCTAssertEqual(traceResult.metadata.query.limit, 1)
+    }
+
     func testResourceReadTelemetryContainsContextButNoPayload() async throws {
         let fixture = makeFixture()
         defer { stopPanes(in: fixture.state) }

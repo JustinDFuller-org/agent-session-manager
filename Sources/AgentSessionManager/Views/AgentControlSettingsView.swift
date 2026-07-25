@@ -27,7 +27,7 @@ struct AgentControlSettingsSection: View {
             SettingRow(
                 title: "Scope",
                 description: appSettings.agentControlScope.description,
-                defaultValue: "Pane"
+                defaultValue: "Global"
             ) {
                 Picker("Scope", selection: $appSettings.agentControlScope) {
                     ForEach(AgentControlScope.allCases, id: \.self) { scope in

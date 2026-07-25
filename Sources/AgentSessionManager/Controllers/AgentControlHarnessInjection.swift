@@ -112,7 +112,6 @@ struct OpenCodeAgentControlAdapter: AgentControlHarnessAdapter {
             environment: environment
         )
     }
-
 }
 
 struct CursorAgentControlAdapter: AgentControlHarnessAdapter {

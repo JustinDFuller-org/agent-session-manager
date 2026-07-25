@@ -58,11 +58,11 @@ enum AgentControlScope: String, Codable, CaseIterable, Sendable {
 
 struct AgentControlSettings: Codable, Equatable {
     var injectionPolicy: AgentControlInjectionPolicy = .askOn
-    var scope: AgentControlScope = .pane
+    var scope: AgentControlScope = .global
 
     init(
         injectionPolicy: AgentControlInjectionPolicy = .askOn,
-        scope: AgentControlScope = .pane
+        scope: AgentControlScope = .global
     ) {
         self.injectionPolicy = injectionPolicy
         self.scope = scope
@@ -72,6 +72,6 @@ struct AgentControlSettings: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         injectionPolicy =
             (try? container.decodeIfPresent(AgentControlInjectionPolicy.self, forKey: .injectionPolicy)) ?? .askOn
-        scope = (try? container.decodeIfPresent(AgentControlScope.self, forKey: .scope)) ?? .pane
+        scope = (try? container.decodeIfPresent(AgentControlScope.self, forKey: .scope)) ?? .global
     }
 }

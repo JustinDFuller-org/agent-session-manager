@@ -34,6 +34,27 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         XCTAssertNil(AgentControlResourceURI("agent-session-manager://diagnostics/unknown"))
     }
 
+    func testDiagnosticResourceQueryUsesBoundedTimeWindowAndLimit() throws {
+        let query = try AgentControlDiagnosticResourceQuery(queryItems: [
+            URLQueryItem(name: "sinceEpochMs", value: "10"),
+            URLQueryItem(name: "untilEpochMs", value: "20"),
+            URLQueryItem(name: "limit", value: "999"),
+        ])
+
+        XCTAssertEqual(query.sinceEpochMs, 10)
+        XCTAssertEqual(query.untilEpochMs, 20)
+        XCTAssertEqual(query.limit, 999)
+
+        let resolved = try AgentControlDiagnosticQuery(
+            sinceEpochMs: query.sinceEpochMs,
+            untilEpochMs: query.untilEpochMs,
+            limit: query.limit
+        ).resolved(defaultLimit: 20, maximumLimit: 50)
+        XCTAssertEqual(resolved.limit, 50)
+        XCTAssertEqual(resolved.sinceEpochMs, 10)
+        XCTAssertEqual(resolved.untilEpochMs, 20)
+    }
+
     func testTraceDiagnosticsUseMetadataAndRedactSensitiveAttributes() async throws {
         let fixture = makeFixture()
         let now = Int64(Date().timeIntervalSince1970 * 1000)
@@ -58,6 +79,24 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         XCTAssertNil(result.records.first?.attributes["path"])
         XCTAssertTrue(result.metadata.sourceTruncated)
         XCTAssertEqual(result.metadata.malformedLines, 1)
+    }
+
+    func testTraceResourceReadAppliesQueryParameters() async throws {
+        let fixture = makeFixture()
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let metadata = [
+            "paneId": fixture.paneID.uuidString, "paneName": "Pane",
+            "tabId": fixture.tabID.uuidString, "tabName": "Tab",
+        ]
+        try writeTrace(path: "traces/query/old.jsonl", metadata: metadata, eventName: "old.event", start: now - 2_000)
+        try writeTrace(path: "traces/query/new.jsonl", metadata: metadata, eventName: "new.event", start: now)
+
+        let uri = "\(AgentControlResourceURI.diagnosticTraces.rawValue)?limit=1&sinceEpochMs=\(now - 1_000)"
+        let result = try decodeTraceResult(try await fixture.router.read(uri: uri, source: fixture.paneSource))
+
+        XCTAssertEqual(result.records.map(\.name), ["new.event"])
+        XCTAssertEqual(result.metadata.query.limit, 1)
+        XCTAssertEqual(result.metadata.query.sinceEpochMs, now - 1_000)
     }
 
     func testTraceDiagnosticsRespectPaneAndGlobalScope() async throws {
@@ -149,6 +188,30 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         let decoded = try decodeTraceResult(result)
         XCTAssertFalse(decoded.availability.debugModeEnabled)
         XCTAssertEqual(decoded.records.map(\.name), ["existing.event"])
+    }
+
+    func testEmptyInvariantResourceIsReadableAndReportsCaptureSeparately() async throws {
+        let fixture = makeFixture()
+        fixture.settings.debugModeEnabled = true
+
+        let result = try await fixture.router.read(
+            uri: AgentControlResourceURI.diagnosticInvariants.rawValue, source: fixture.paneSource)
+        let decoded = try decodeInvariantResult(result)
+
+        XCTAssertTrue(decoded.records.isEmpty)
+        XCTAssertTrue(decoded.availability.invariantsReadable)
+        XCTAssertTrue(decoded.availability.invariantsCapturing)
+    }
+
+    func testDiagnosticSummaryDescribesCurrentScopeAndGlobalCapabilities() async throws {
+        let fixture = makeFixture()
+        let data = try await fixture.router.read(
+            uri: AgentControlResourceURI.diagnosticSummary.rawValue, source: fixture.paneSource)
+        let summary = try JSONDecoder().decode(AgentControlDiagnosticSummary.self, from: Data(data.utf8))
+
+        XCTAssertEqual(summary.currentScope, .pane)
+        XCTAssertTrue(summary.globalOnlyResources.contains(AgentControlResourceURI.harnesses.rawValue))
+        XCTAssertTrue(summary.globalOnlyTools.contains("debug.set_mode"))
     }
 
     func testDiagnosticQueryTelemetryIncludesOutcomeAndScopeContext() async throws {

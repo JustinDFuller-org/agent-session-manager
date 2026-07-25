@@ -244,7 +244,7 @@ final class AgentControlResourceRouter {
             Resource(
                 name: "Agent Session Manager harnesses",
                 uri: AgentControlResourceURI.harnesses.rawValue,
-                description: "Read-only harness and CLI option catalogs.",
+                description: "Read-only harness and CLI option catalogs. Global scope required.",
                 mimeType: "application/json"),
             Resource(
                 name: "Agent Session Manager status lines",
@@ -298,6 +298,14 @@ final class AgentControlResourceRouter {
     }
 
     func read(uri: String, source: AgentControlSource) async throws -> String {
+        let parsedURL = URL(string: uri)
+        let diagnosticQuery: AgentControlDiagnosticResourceQuery?
+        if let parsedURL, parsedURL.host == "diagnostics" {
+            diagnosticQuery = try AgentControlDiagnosticResourceQuery(
+                queryItems: URLComponents(url: parsedURL, resolvingAgainstBaseURL: false)?.queryItems ?? [])
+        } else {
+            diagnosticQuery = nil
+        }
         guard let resource = AgentControlResourceURI(uri) else {
             recordRead(uri: uri, source: source, kind: "unknown", result: "invalid_uri")
             throw MCPError.invalidParams("Unknown Agent Session Manager resource")
@@ -312,7 +320,8 @@ final class AgentControlResourceRouter {
                 data = try JSONEncoder().encode(profileSnapshots(source: source))
             case .harnesses:
                 guard source.scope == .global else {
-                    throw MCPError.invalidRequest("Global scope is required for harness catalogs")
+                    throw MCPError.invalidRequest(
+                        "Global scope is required for harness catalogs; current scope is \(source.scope.displayName)")
                 }
                 data = try JSONEncoder().encode(harnessSnapshots())
             case .statusLines:
@@ -320,7 +329,8 @@ final class AgentControlResourceRouter {
             case .notifications:
                 data = try JSONEncoder().encode(notificationSnapshots(source: source))
             case .diagnosticSummary, .diagnosticTraces, .diagnosticInvariants, .diagnosticLogs:
-                let diagnostic = try await diagnostics.read(uri: resource, source: source)
+                let diagnostic = try await diagnostics.read(
+                    uri: resource, source: source, resourceQuery: diagnosticQuery)
                 recordRead(uri: uri, source: source, kind: resource.kind, result: "success")
                 return diagnostic
             case .tab(let id):

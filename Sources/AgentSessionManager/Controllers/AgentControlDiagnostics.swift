@@ -13,15 +13,58 @@ struct AgentControlDiagnosticQuery: Codable, Sendable {
         self.limit = limit
     }
 
-    func resolved(now: Date = Date()) throws -> AgentControlResolvedDiagnosticQuery {
+    func resolved(
+        now: Date = Date(), defaultLimit: Int = 100, maximumLimit: Int = 200
+    ) throws -> AgentControlResolvedDiagnosticQuery {
         let until = untilEpochMs ?? Int64(now.timeIntervalSince1970 * 1000)
         let since = sinceEpochMs ?? until - 3_600_000
         guard since <= until else {
             throw MCPError.invalidParams("Diagnostic query start must not be later than its end")
         }
-        let resolvedLimit = min(max(limit ?? 100, 1), 200)
+        let resolvedLimit = min(max(limit ?? defaultLimit, 1), maximumLimit)
         return AgentControlResolvedDiagnosticQuery(
             sinceEpochMs: since, untilEpochMs: until, limit: resolvedLimit)
+    }
+}
+
+struct AgentControlDiagnosticResourceQuery: Sendable {
+    let sinceEpochMs: Int64?
+    let untilEpochMs: Int64?
+    let limit: Int?
+
+    init(queryItems: [URLQueryItem]) throws {
+        var sinceEpochMs: Int64?
+        var untilEpochMs: Int64?
+        var limit: Int?
+
+        for item in queryItems {
+            guard let value = item.value, !value.isEmpty else {
+                throw MCPError.invalidParams("Diagnostic resource query value is missing")
+            }
+            switch item.name {
+            case "sinceEpochMs":
+                guard sinceEpochMs == nil, let parsed = Int64(value) else {
+                    throw MCPError.invalidParams("Diagnostic resource sinceEpochMs is invalid or duplicated")
+                }
+                sinceEpochMs = parsed
+            case "untilEpochMs":
+                guard untilEpochMs == nil, let parsed = Int64(value) else {
+                    throw MCPError.invalidParams("Diagnostic resource untilEpochMs is invalid or duplicated")
+                }
+                untilEpochMs = parsed
+            case "limit":
+                guard limit == nil, let parsed = Int(value) else {
+                    throw MCPError.invalidParams("Diagnostic resource limit is invalid or duplicated")
+                }
+                limit = parsed
+            default:
+                throw MCPError.invalidParams("Unknown diagnostic resource query parameter: \(item.name)")
+            }
+        }
+
+        self.sinceEpochMs = sinceEpochMs
+        self.untilEpochMs = untilEpochMs
+        self.limit = limit
     }
 }
 
@@ -68,6 +111,8 @@ struct AgentControlDiagnosticAvailability: Codable, Sendable {
     let debugModeEnabled: Bool
     let tracesReadable: Bool
     let invariantsReadable: Bool
+    let tracesCapturing: Bool
+    let invariantsCapturing: Bool
     let unifiedLogsAlwaysOn: Bool
     let unscopedRecordsRequireGlobalScope: Bool
 }
@@ -149,6 +194,9 @@ struct AgentControlDiagnosticSummary: Codable, Sendable {
     let bundleIdentifier: String
     let shortVersion: String
     let buildVersion: String
+    let currentScope: AgentControlScope
+    let globalOnlyResources: [String]
+    let globalOnlyTools: [String]
     let availability: AgentControlDiagnosticAvailability
     let workspace: AgentControlWorkspaceSnapshot
     let legacyFiles: [AgentControlDiagnosticFileInfo]
@@ -187,6 +235,14 @@ enum AgentControlDiagnosticRedactor {
 
 @MainActor
 final class AgentControlDiagnosticsRouter {
+    private static let globalOnlyResources = ["agent-session-manager://harnesses"]
+    private static let globalOnlyTools = [
+        "tabs.create", "tabs.delete", "tabs.reorder", "profiles.create", "profiles.update",
+        "profiles.delete", "profiles.reorder", "status_lines.update_global", "status_lines.update_profile",
+        "status_lines.clear_profile_override", "harnesses.set_enabled", "harnesses.configure_cli_option",
+        "diagnostics.query_logs", "debug.set_mode",
+    ]
+
     private let appState: AppState
     private let appSettings: AppSettings
 
@@ -205,7 +261,8 @@ final class AgentControlDiagnosticsRouter {
             Resource(
                 name: "Agent Session Manager traces",
                 uri: AgentControlResourceURI.diagnosticTraces.rawValue,
-                description: "Recent scoped trace records with metadata and truncation state.",
+                description:
+                    "Recent scoped trace records with metadata, truncation state, and time-window query parameters.",
                 mimeType: "application/json"),
             Resource(
                 name: "Agent Session Manager invariants",
@@ -215,7 +272,7 @@ final class AgentControlDiagnosticsRouter {
             Resource(
                 name: "Agent Session Manager unified logs",
                 uri: AgentControlResourceURI.diagnosticLogs.rawValue,
-                description: "Recent bounded unified-log event metadata.",
+                description: "Recent bounded unified-log event metadata. Global scope required.",
                 mimeType: "application/json"),
         ]
     }
@@ -260,18 +317,25 @@ final class AgentControlDiagnosticsRouter {
         ]
     }
 
-    func read(uri: AgentControlResourceURI, source: AgentControlSource) async throws -> String {
+    func read(
+        uri: AgentControlResourceURI,
+        source: AgentControlSource,
+        resourceQuery: AgentControlDiagnosticResourceQuery? = nil
+    ) async throws -> String {
         do {
             let data: Data
             switch uri {
             case .diagnosticSummary:
                 data = try JSONEncoder().encode(summary(source: source))
             case .diagnosticTraces:
-                data = try JSONEncoder().encode(try await traceResult(source: source, arguments: nil))
+                data = try JSONEncoder().encode(
+                    try await traceResult(source: source, arguments: nil, resourceQuery: resourceQuery))
             case .diagnosticInvariants:
-                data = try JSONEncoder().encode(try await invariantResult(source: source, arguments: nil))
+                data = try JSONEncoder().encode(
+                    try await invariantResult(source: source, arguments: nil, resourceQuery: resourceQuery))
             case .diagnosticLogs:
-                data = try JSONEncoder().encode(try await logResult(source: source, arguments: nil))
+                data = try JSONEncoder().encode(
+                    try await logResult(source: source, arguments: nil, resourceQuery: resourceQuery))
             default:
                 throw MCPError.invalidParams("Not an Agent Session Manager diagnostic resource")
             }
@@ -299,14 +363,14 @@ final class AgentControlDiagnosticsRouter {
             case "diagnostics.query_logs":
                 guard source.scope == .global else {
                     recordAuthorizationDenied(name: name, source: source)
-                    throw MCPError.invalidRequest("Global scope is required for unified-log queries")
+                    throw MCPError.invalidRequest(scopeError(required: .global, current: source.scope))
                 }
                 let decoded = try decode(AgentControlLogQueryArguments.self, arguments: arguments)
                 return try result(try await logResult(source: source, arguments: decoded))
             case "debug.set_mode":
                 guard source.scope == .global else {
                     recordAuthorizationDenied(name: name, source: source)
-                    throw MCPError.invalidRequest("Global scope is required to change Debug Mode")
+                    throw MCPError.invalidRequest(scopeError(required: .global, current: source.scope))
                 }
                 let decoded = try decode(AgentControlDebugModeArguments.self, arguments: arguments)
                 return try result(setDebugMode(decoded.enabled, source: source))
@@ -326,6 +390,9 @@ final class AgentControlDiagnosticsRouter {
             bundleIdentifier: bundle.bundleIdentifier ?? "unknown",
             shortVersion: bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
             buildVersion: bundle.infoDictionary?["CFBundleVersion"] as? String ?? "unknown",
+            currentScope: source.scope,
+            globalOnlyResources: Self.globalOnlyResources,
+            globalOnlyTools: Self.globalOnlyTools,
             availability: availability(),
             workspace: AgentControlResourceRouter(appState: appState, appSettings: appSettings)
                 .workspaceSnapshot(source: source),
@@ -333,13 +400,17 @@ final class AgentControlDiagnosticsRouter {
     }
 
     private func traceResult(
-        source: AgentControlSource, arguments: AgentControlTraceQueryArguments?
+        source: AgentControlSource,
+        arguments: AgentControlTraceQueryArguments?,
+        resourceQuery: AgentControlDiagnosticResourceQuery? = nil
     ) async throws -> AgentControlTraceQueryResult {
         let query = try AgentControlDiagnosticQuery(
-            sinceEpochMs: arguments?.sinceEpochMs,
-            untilEpochMs: arguments?.untilEpochMs,
-            limit: arguments?.limit
-        ).resolved()
+            sinceEpochMs: arguments?.sinceEpochMs ?? resourceQuery?.sinceEpochMs,
+            untilEpochMs: arguments?.untilEpochMs ?? resourceQuery?.untilEpochMs,
+            limit: arguments?.limit ?? resourceQuery?.limit
+        ).resolved(
+            defaultLimit: resourceQuery == nil ? 100 : 20,
+            maximumLimit: resourceQuery == nil ? 200 : 50)
         try validateSelectors(tabID: arguments?.tabID, paneID: arguments?.paneID, source: source)
         let eventNames = Set(arguments?.eventNames ?? [])
         let result = try await readTraces(
@@ -360,13 +431,17 @@ final class AgentControlDiagnosticsRouter {
     }
 
     private func invariantResult(
-        source: AgentControlSource, arguments: AgentControlInvariantQueryArguments?
+        source: AgentControlSource,
+        arguments: AgentControlInvariantQueryArguments?,
+        resourceQuery: AgentControlDiagnosticResourceQuery? = nil
     ) async throws -> AgentControlInvariantQueryResult {
         let query = try AgentControlDiagnosticQuery(
-            sinceEpochMs: arguments?.sinceEpochMs,
-            untilEpochMs: arguments?.untilEpochMs,
-            limit: arguments?.limit
-        ).resolved()
+            sinceEpochMs: arguments?.sinceEpochMs ?? resourceQuery?.sinceEpochMs,
+            untilEpochMs: arguments?.untilEpochMs ?? resourceQuery?.untilEpochMs,
+            limit: arguments?.limit ?? resourceQuery?.limit
+        ).resolved(
+            defaultLimit: resourceQuery == nil ? 100 : 20,
+            maximumLimit: resourceQuery == nil ? 200 : 50)
         try validateSelectors(tabID: arguments?.tabID, paneID: arguments?.paneID, source: source)
         let result = try await readInvariants(
             query: query, source: source, tabID: arguments?.tabID, paneID: arguments?.paneID,
@@ -385,17 +460,21 @@ final class AgentControlDiagnosticsRouter {
     }
 
     private func logResult(
-        source: AgentControlSource, arguments: AgentControlLogQueryArguments?
+        source: AgentControlSource,
+        arguments: AgentControlLogQueryArguments?,
+        resourceQuery: AgentControlDiagnosticResourceQuery? = nil
     ) async throws -> AgentControlLogQueryResult {
         guard source.scope == .global else {
             recordAuthorizationDenied(name: "diagnostics.logs", source: source)
-            throw MCPError.invalidRequest("Global scope is required for unified-log queries")
+            throw MCPError.invalidRequest(scopeError(required: .global, current: source.scope))
         }
         let query = try AgentControlDiagnosticQuery(
-            sinceEpochMs: arguments?.sinceEpochMs,
-            untilEpochMs: arguments?.untilEpochMs,
-            limit: arguments?.limit
-        ).resolved()
+            sinceEpochMs: arguments?.sinceEpochMs ?? resourceQuery?.sinceEpochMs,
+            untilEpochMs: arguments?.untilEpochMs ?? resourceQuery?.untilEpochMs,
+            limit: arguments?.limit ?? resourceQuery?.limit
+        ).resolved(
+            defaultLimit: resourceQuery == nil ? 100 : 20,
+            maximumLimit: resourceQuery == nil ? 200 : 50)
         let categoryFilter = Set(arguments?.categories ?? [])
         let levelFilter = Set(arguments?.levels ?? [])
         let eventFilter = Set(arguments?.eventNames ?? [])
@@ -657,10 +736,16 @@ final class AgentControlDiagnosticsRouter {
     private func availability() -> AgentControlDiagnosticAvailability {
         AgentControlDiagnosticAvailability(
             debugModeEnabled: appSettings.debugModeEnabled,
-            tracesReadable: FileManager.default.fileExists(atPath: appSettings.resolvedTracingDirectoryURL.path),
-            invariantsReadable: FileManager.default.fileExists(atPath: appSettings.resolvedInvariantDirectoryURL.path),
+            tracesReadable: true,
+            invariantsReadable: true,
+            tracesCapturing: TracingService.shared.isEnabled,
+            invariantsCapturing: appSettings.debugModeEnabled,
             unifiedLogsAlwaysOn: true,
             unscopedRecordsRequireGlobalScope: true)
+    }
+
+    private func scopeError(required: AgentControlScope, current: AgentControlScope) -> String {
+        "\(required.displayName) scope is required; current scope is \(current.displayName)"
     }
 
     private func legacyFiles() -> [AgentControlDiagnosticFileInfo] {
