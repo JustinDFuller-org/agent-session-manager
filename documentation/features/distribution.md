@@ -91,6 +91,91 @@ For GitHub Actions releases, configure the `release` environment with `APPLE_ID`
 
 The normal release workflow deploys a Pages artifact through GitHub Actions. There is no supported local command that uploads that workflow artifact directly. When Actions minutes are unavailable, publish a prebuilt static site from a dedicated `gh-pages` branch instead.
 
+#### Documentation-only publication
+
+For documentation changes, use the local Jekyll build and preserve the current
+release assets. This does not build, sign, notarize, or publish a new DMG.
+
+From the source checkout:
+
+```bash
+set -euo pipefail
+
+publish_root=$(mktemp -d -t agent-session-manager-pages.XXXXXX)
+site_dir="$publish_root/site"
+branch_dir="$publish_root/branch"
+
+make docs-check
+bundle exec jekyll build --destination "$site_dir" --trace
+scripts/stage-pages-assets.sh "$site_dir" preserve
+cp CNAME "$site_dir/CNAME"
+touch "$site_dir/.nojekyll"
+```
+
+`preserve` downloads the current public appcast and the DMG named by its latest
+appcast enclosure. If the public appcast has no release item, the resulting
+site contains no DMG, which is valid for a documentation-only publication.
+
+Before publishing, verify the new route and the internal-documentation
+boundary:
+
+```bash
+test -f "$site_dir/documentation/user-guide/agent-control/index.html"
+test ! -e "$site_dir/AGENTIC_CONTROL.md"
+test ! -e "$site_dir/AgentSessionManager.xcodeproj"
+test ! -e "$site_dir/Info.plist"
+test ! -e "$site_dir/default.profraw"
+test ! -e "$site_dir/documentation/agent-control-mcp-qa-findings.md"
+test ! -e "$site_dir/documentation/features"
+```
+
+Replace the rendered contents of a temporary `gh-pages` checkout. Preserve its
+existing `downloads/` directory before replacing the rest of the branch so
+older release files remain available:
+
+```bash
+remote_url=$(git remote get-url origin)
+
+git clone --branch gh-pages --single-branch "$remote_url" "$branch_dir"
+if test -d "$branch_dir/downloads"; then
+    cp -R "$branch_dir/downloads" "$site_dir/downloads"
+fi
+
+find "$branch_dir" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+cp -R "$site_dir"/. "$branch_dir"/
+
+git -C "$branch_dir" add --all
+git -C "$branch_dir" commit -m "Publish documentation site from $(git rev-parse --short HEAD)"
+git -C "$branch_dir" push origin gh-pages
+```
+
+Configure Pages once before the first branch publication. The API equivalent
+of **Settings → Pages → Deploy from a branch → gh-pages → /(root)** is:
+
+```bash
+gh api --method PUT repos/JustinDFuller/agent-session-manager/pages \
+    -f build_type=legacy \
+    -f 'source[branch]=gh-pages' \
+    -f 'source[path]=/'
+```
+
+Keep the custom domain and HTTPS enforcement enabled. If the first branch push
+was made before switching Pages from workflow mode to legacy mode, push a
+follow-up commit to `gh-pages` to trigger the initial legacy build.
+
+Verify the branch, Pages build, public route, and preserved release endpoints:
+
+```bash
+gh api repos/JustinDFuller/agent-session-manager/pages \
+    --jq '{build_type,source,cname,https_enforced,status}'
+gh api repos/JustinDFuller/agent-session-manager/pages/builds/latest \
+    --jq '{status,commit,updated_at,error_message}'
+curl --fail --location --head \
+    https://agent-session-manager.justindfuller.com/documentation/user-guide/agent-control/
+curl --fail --silent \
+    https://agent-session-manager.justindfuller.com/appcast.xml
+```
+
 GitHub Pages must be configured to deploy from the `gh-pages` branch at the repository root. The branch contains only the rendered site, the signed appcast, and release DMGs. The `.nojekyll` marker tells Pages that the site has already been built locally.
 
 Before the first local publication:
