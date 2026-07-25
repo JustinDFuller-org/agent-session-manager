@@ -49,7 +49,7 @@ stage_preserved_release() {
           document = REXML::Document.new(File.read(path))
           enclosure = document.elements["rss/channel/item/enclosure"]
           exit 0 unless enclosure
-          url = URI(enclosure.attributes.fetch("url"))
+          url = URI(enclosure.attributes.fetch("url").to_s)
           abort "appcast enclosure must use the public Pages host" unless url.scheme == "https" && url.host == site_host
           puts "#{url} #{File.basename(url.path)}"
         ' "$current_appcast" "$PUBLIC_SITE_URL"
