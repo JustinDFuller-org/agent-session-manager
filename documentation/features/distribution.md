@@ -16,7 +16,7 @@ The shippable artifact is produced by:
 make dist
 ```
 
-This builds the `.app` bundle (via the existing `make app` SPM-based flow), then re-signs and packages it through `scripts/dist.sh`:
+This builds the `.app` bundle (via the existing `make app` SPM-based flow), embeds `Sparkle.framework` under `Contents/Frameworks`, then re-signs and packages it through `scripts/dist.sh`:
 
 1. Stamps a version into `Info.plist`.
 2. Re-signs the `.app` with the **Developer ID Application** certificate, the entitlements file, and hardened runtime.
@@ -24,6 +24,16 @@ This builds the `.app` bundle (via the existing `make app` SPM-based flow), then
 4. Submits the DMG to Apple for notarization.
 5. Staples the notarization ticket to the DMG.
 6. Validates the result with `spctl --assess --type install`.
+
+The standalone bundle check is available before a release build:
+
+```bash
+make test-app-bundles
+```
+
+It verifies that both production and development app bundles contain Sparkle,
+resolve the framework through the app bundle rpath, and have valid deep code
+signatures.
 
 The DMG is written next to the `.app` bundle at the git common root, named:
 
@@ -283,6 +293,7 @@ The Pages source should report the `gh-pages` branch and `/` path. The latest DM
 ## First-Distribution Verification Checklist
 
 - [ ] `make dist` completes without errors.
+- [ ] `make test-app-bundles` passes before building the DMG.
 - [ ] `spctl --assess --verbose=4 --type install AgentSessionManager-<ver>-<build>.dmg` reports `accepted`.
 - [ ] The mounted DMG opens correctly and contains the app plus an `Applications` shortcut.
 - [ ] After dragging to `/Applications`, the app launches and can open a pane that spawns a harness (Claude Code, Cursor, or Codex).

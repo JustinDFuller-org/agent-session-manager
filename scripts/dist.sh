@@ -69,6 +69,8 @@ main() {
   local staging_volume="$staging_dir/Agent Session Manager"
 
   cp -a "$app_bundle" "$staged_app"
+  [[ -f "$staged_app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" ]] || \
+    die "Sparkle.framework is missing from the app bundle"
 
   info "Stamping version into Info.plist"
   local info_plist="$staged_app/Contents/Info.plist"
@@ -150,6 +152,10 @@ main() {
   [[ -d "$mounted_app" ]] || {
     hdiutil detach "$mount_point" >/dev/null 2>&1 || true
     die "AgentSessionManager.app not found inside mounted DMG"
+  }
+  [[ -f "$mounted_app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" ]] || {
+    hdiutil detach "$mount_point" >/dev/null 2>&1 || true
+    die "Sparkle.framework is missing from the mounted DMG"
   }
 
   spctl --assess --type exec --verbose=4 "$mounted_app" || {

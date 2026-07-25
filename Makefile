@@ -4,6 +4,8 @@ APP_NAME_DEV = AgentSessionManagerDev
 GIT_COMMON_ROOT := $(shell dirname "$$(git rev-parse --path-format=absolute --git-common-dir)")
 BUILD_DIR = .build/release
 BUILD_DIR_DEV = .build/debug
+SPARKLE_FRAMEWORK = $(BUILD_DIR)/Sparkle.framework
+SPARKLE_FRAMEWORK_DEV = $(BUILD_DIR_DEV)/Sparkle.framework
 APP_BUNDLE = $(GIT_COMMON_ROOT)/$(APP_NAME).app
 APP_BUNDLE_DEV = $(GIT_COMMON_ROOT)/$(APP_NAME_DEV).app
 SCHEME = AgentSessionManager
@@ -34,8 +36,12 @@ dist: app-prd
 
 app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
+	rm -rf $(APP_BUNDLE)/Contents/Frameworks/Sparkle.framework
+	ditto $(SPARKLE_FRAMEWORK) $(APP_BUNDLE)/Contents/Frameworks/Sparkle.framework
+	install_name_tool -add_rpath @executable_path/../Frameworks $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 	cp Info.plist $(APP_BUNDLE)/Contents/
 	mkdir -p .build
 	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE)/Contents/Resources \
@@ -100,8 +106,12 @@ build-dev:
 
 app-dev: build-dev
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE_DEV)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/Resources
 	cp $(BUILD_DIR_DEV)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
+	rm -rf $(APP_BUNDLE_DEV)/Contents/Frameworks/Sparkle.framework
+	ditto $(SPARKLE_FRAMEWORK_DEV) $(APP_BUNDLE_DEV)/Contents/Frameworks/Sparkle.framework
+	install_name_tool -add_rpath @executable_path/../Frameworks $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
 	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
 	mkdir -p .build
 	@if [ ! -f .build/dev-assets-compiled ] || \
@@ -201,6 +211,10 @@ build-for-testing: xcodeproj
 sign-dev-test-artifacts: build-for-testing
 	codesign --force --deep --sign - $(DERIVED_DATA)/Build/Products/Dev/Sparkle.framework
 	codesign --force --deep --sign - $(DERIVED_DATA)/Build/Products/Dev/AgentSessionManager.app
+
+test-app-bundles: app-prd app-dev
+	@scripts/test-app-bundle.sh "$(APP_BUNDLE)"
+	@scripts/test-app-bundle.sh "$(APP_BUNDLE_DEV)"
 
 pr-screenshots:
 	@bash "$(CURDIR)/scripts/pr-screenshots.sh"
