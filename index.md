@@ -1,32 +1,34 @@
 ---
 layout: home
 title: Agent Session Manager
-description: A native macOS app for running multiple AI agent sessions in parallel.
+description: A native macOS app for managing and keeping track of many simultaneous AI agent sessions.
 ---
 
 <section class="home-grid">
   <div class="home-copy">
-    <p class="eyebrow">Native macOS app for parallel AI agents</p>
+    <p class="eyebrow">Manage many AI agent sessions at once</p>
     <h1>Agent Session Manager</h1>
-    <p class="lede">Run multiple AI agent sessions in parallel in a tabbed, multi-pane terminal window, with each pane working in a git worktree context.</p>
+    <p class="lede">Keep track of many simultaneous AI agent sessions in one native macOS app, with tabs and panes that keep projects and tasks organized.</p>
     <div class="home-actions">
-      <a class="button" href="{{ '/download/' | relative_url }}">Download</a>
-      <a class="button button-secondary" href="{{ '/docs/' | relative_url }}">Documentation</a>
+      <a class="button" href="{{ '/download/' | relative_url }}">Download for macOS</a>
+      <a class="button button-secondary" href="{{ '/docs/' | relative_url }}">See the user guides</a>
     </div>
   </div>
   <img class="home-image" src="{{ '/assets/img/docs/split-panes.png' | relative_url }}" alt="Agent Session Manager with two panes open in one tab">
 </section>
 
 <section class="home-section">
-  <p class="eyebrow">Start here</p>
-  <h2>From download to your first session</h2>
+  <p class="eyebrow">Why use it</p>
+  <h2>Keep every session in view</h2>
+  <p>When several agents are working at once, Agent Session Manager keeps their sessions together in one window so you can see what is running, switch between tasks, and stay organized without managing separate terminal windows.</p>
+  <h3>From download to your first session</h3>
   <ol>
     <li><a href="{{ '/download/' | relative_url }}">Download the latest DMG</a>, mount it, and drag the app to <code>/Applications</code>.</li>
     <li>Launch the app, then create a tab with <kbd>⌘T</kbd> and a pane with <kbd>⌘P</kbd>.</li>
     <li>Choose an agent tool and session name in the <strong>New Pane</strong> sheet.</li>
     <li>Use <strong>Settings</strong> to configure <strong>Harnesses</strong>, profiles, status information, and notifications.</li>
   </ol>
-  <p>Each pane is a separate terminal session inside the tab, so you can work on multiple tasks at the same time.</p>
+  <p>Each pane is a separate terminal session inside the tab, so you can keep multiple tasks visible and active at the same time.</p>
 </section>
 
 <section class="home-section">

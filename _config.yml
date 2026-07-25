@@ -2,8 +2,6 @@ title: Agent Session Manager
 description: A native macOS app for running multiple AI agent sessions in parallel.
 url: https://agent-session-manager.justindfuller.com
 baseurl: ""
-repository: JustinDFuller/agent-session-manager
-branch: dmg-updates
 theme: jekyll-theme-minimal
 markdown: kramdown
 permalink: pretty

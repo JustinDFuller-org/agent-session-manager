@@ -1,7 +1,7 @@
 ---
 layout: doc
 title: Overview
-description: Understand what Agent Session Manager does and whether it fits your workflow.
+description: Manage and keep track of many simultaneous AI agent sessions from one macOS window.
 permalink: /documentation/user-guide/overview/
 ---
 
@@ -13,7 +13,7 @@ Each pane can run Claude Code, Cursor, Codex, or OpenCode. The app starts the se
 
 ## Why you might use it
 
-Use Agent Session Manager when you want to work on several agent tasks without switching between separate terminal windows. Keep related sessions together in a tab, compare their progress, and focus on one pane when you need more room.
+Use Agent Session Manager when you have multiple agent sessions open at once. Keep them together in one window, track which tasks are active, and switch between sessions without hunting through separate terminal windows.
 
 ## Before you start
 
