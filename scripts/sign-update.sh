@@ -16,4 +16,5 @@ if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
 fi
 
 "$repo_root/scripts/sparkle-tools.sh"
-"$repo_root/.sparkle-tools/bin/sign_update" "$1" -s "$SPARKLE_PRIVATE_KEY"
+printf '%s' "$SPARKLE_PRIVATE_KEY" | \
+    "$repo_root/.sparkle-tools/bin/sign_update" --ed-key-file - -p "$1"

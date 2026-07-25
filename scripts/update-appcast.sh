@@ -44,7 +44,13 @@ item="    <item>
       <enclosure url=\"$download_url\" length=\"$file_size\" type=\"application/octet-stream\" sparkle:edSignature=\"$signature\" />
     </item>"
 
-awk -v item="$item" '/<\/channel>/{print item} {print}' "$base_appcast" > "$appcast.tmp"
+ruby -e '
+  base_path, output_path, item = ARGV
+  content = File.binread(base_path)
+  marker = "</channel>"
+  abort "appcast is missing </channel>" unless content.include?(marker)
+  File.binwrite(output_path, content.sub(marker, "#{item}\n#{marker}"))
+' "$base_appcast" "$appcast.tmp" "$item"
 mv "$appcast.tmp" "$appcast"
 
 echo "Updated $appcast with v$version_short"
