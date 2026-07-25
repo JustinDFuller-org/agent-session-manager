@@ -14,7 +14,7 @@ description: A native macOS app for running multiple AI agent sessions in parall
       <a class="button button-secondary" href="{{ '/docs/' | relative_url }}">Documentation</a>
     </div>
   </div>
-  <img class="home-image" src="{{ '/assets/img/hero.png' | relative_url }}" alt="Agent Session Manager window showing tabs and terminal panes">
+  <img class="home-image" src="{{ '/assets/img/docs/split-panes.png' | relative_url }}" alt="Agent Session Manager with two panes open in one tab">
 </section>
 
 <section class="home-section">

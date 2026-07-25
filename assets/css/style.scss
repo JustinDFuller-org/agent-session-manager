@@ -71,16 +71,11 @@ a:hover { color: #174c80; }
   letter-spacing: .01em;
 }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
+.brand-logo {
   width: 30px;
   height: 30px;
-  border: 1px solid #b8cce0;
   border-radius: 7px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 17px;
+  object-fit: cover;
 }
 
 .top-nav,
