@@ -6,12 +6,11 @@ description: A native macOS app for managing and keeping track of many simultane
 
 <section class="home-grid">
   <div class="home-copy">
-    <p class="eyebrow">Manage many AI agent sessions at once</p>
     <h1>Agent Session Manager</h1>
     <p class="lede">Keep track of many simultaneous AI agent sessions in one native macOS app, with tabs and panes that keep projects and tasks organized.</p>
     <div class="home-actions">
       <a class="button" href="{{ '/download/' | relative_url }}">Download for macOS</a>
-      <a class="button button-secondary" href="{{ '/docs/' | relative_url }}">See the user guides</a>
+      <a class="button button-secondary" href="{{ '/docs/' | relative_url }}">Documentation</a>
     </div>
   </div>
   <img class="home-image" src="{{ '/assets/img/docs/split-panes.png' | relative_url }}" alt="Agent Session Manager with two panes open in one tab">
