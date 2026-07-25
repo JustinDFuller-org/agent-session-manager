@@ -13,15 +13,21 @@ exclude:
   - .build
   - .codex
   - .git
+  - AGENTIC_CONTROL.md
+  - AgentSessionManager.xcodeproj
+  - AppIcons
   - OPENCODE_SUPPORT.md
   - AGENTS.md
   - USER_FACING_DOCS.md
   - AgentSessionManager.entitlements
   - AgentSessionManagerUITests.entitlements
+  - Info.plist
   - Makefile
   - Package.resolved
   - Package.swift
   - PROGRESS.md
+  - default.profraw
+  - docs
   - Sources
   - Tests
   - UITests
@@ -29,6 +35,7 @@ exclude:
   - project.yml
   - README.md
   - documentation/dictionary.md
+  - documentation/agent-control-mcp-qa-findings.md
   - documentation/features
   - documentation/user-guide/_template.md
 
