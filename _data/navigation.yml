@@ -28,6 +28,8 @@
   items:
     - title: Agent Tools
       url: /documentation/user-guide/agent-tools/
+    - title: Agent Control
+      url: /documentation/user-guide/agent-control/
     - title: Claude Code
       url: /documentation/user-guide/claude-code/
     - title: Codex
