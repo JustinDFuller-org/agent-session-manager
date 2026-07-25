@@ -208,6 +208,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - terminal-rendering: `feature-terminal-rendering`
 - worktree-creation: `feature-worktree-creation`
 - agent-harness-matrix: `feature-agent-harness-matrix`
+- agentic-control: `feature-agentic-control`
 - distribution: `feature-distribution`
 
 **Workflow reminders:**

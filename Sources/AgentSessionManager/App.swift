@@ -194,8 +194,16 @@ struct ContentView: View {
                 {
                     appSettings.updateReminderEnabled = config.enabled
                 }
+                if let config = SettingsPersistence.load(
+                    AgentControlSettings.self, from: "agent-control-settings.json")
+                {
+                    appSettings.agentControlInjectionPolicy = config.injectionPolicy
+                    appSettings.agentControlScope = config.scope
+                }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
+                await AgentControlService.shared.configure(appState: appState, appSettings: appSettings)
+                await AgentControlService.shared.start()
                 UpdateCheckCoordinator.shared.start()
                 if let bundleIdentifier = Bundle.main.bundleIdentifier {
                     BundleIdentityVerifier.checkPreferredURL(
@@ -612,9 +620,9 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         var onRefreshPane: () -> Void = {}
         var appState: AppState?
         weak var hostWindow: NSWindow?
-        var keyMonitor: Any?
-        var mouseMonitor: Any?
-        var scrollWheelMonitor: Any?
+        nonisolated(unsafe) var keyMonitor: Any?
+        nonisolated(unsafe) var mouseMonitor: Any?
+        nonisolated(unsafe) var scrollWheelMonitor: Any?
 
         deinit {
             if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }

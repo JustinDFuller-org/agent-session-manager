@@ -17,6 +17,12 @@ packages:
   opentelemetry-swift:
     url: https://github.com/open-telemetry/opentelemetry-swift
     from: 1.9.0
+  swift-sdk:
+    url: https://github.com/modelcontextprotocol/swift-sdk.git
+    exactVersion: 0.12.1
+  swift-nio:
+    url: https://github.com/apple/swift-nio.git
+    from: 2.65.0
 
 targets:
   AgentSessionManager:
@@ -30,7 +36,7 @@ targets:
       path: Info.plist
     settings:
       base:
-        SWIFT_VERSION: "5.9"
+        SWIFT_VERSION: "6.0"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ENABLE_HARDENED_RUNTIME: YES
         OTHER_LDFLAGS:
@@ -58,6 +64,14 @@ targets:
         product: ResourceExtension
       - package: opentelemetry-swift
         product: SignPostIntegration
+      - package: swift-sdk
+        product: MCP
+      - package: swift-nio
+        product: NIOCore
+      - package: swift-nio
+        product: NIOPosix
+      - package: swift-nio
+        product: NIOHTTP1
     entitlements:
       path: AgentSessionManager.entitlements
       properties:
@@ -72,7 +86,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.justinfuller.agent-session-manager.uitests
-        SWIFT_VERSION: "5.9"
+        SWIFT_VERSION: "6.0"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: ""

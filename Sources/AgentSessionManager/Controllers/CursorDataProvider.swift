@@ -23,7 +23,6 @@ final class CursorDataProvider: StatusLineDataProvider {
     private var hookSource: DispatchSourceFileSystemObject?
     private var attentionSource: DispatchSourceFileSystemObject?
     private var lastHookModel: StatusLineData.Model?
-    private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
 
@@ -78,21 +77,21 @@ final class CursorDataProvider: StatusLineDataProvider {
             // Best-effort; model detection and notifications gracefully degrade if hooks aren't set up.
         }
         FileManager.default.createFile(atPath: hookOutputFilePath, contents: nil)
+        let hookOutputPath = hookOutputFilePath
         let hookFD = open(hookOutputFilePath, O_EVTONLY)
         if hookFD >= 0 {
             let source = DispatchSource.makeFileSystemObjectSource(
                 fileDescriptor: hookFD,
                 eventMask: [.write, .extend],
-                queue: .global(qos: .utility)
+                queue: .main
             )
-            source.setEventHandler { [weak self] in
-                guard let self,
-                    let data = try? Data(contentsOf: URL(filePath: self.hookOutputFilePath)),
+            source.setEventHandler { [weak self, hookOutputPath] in
+                guard let data = try? Data(contentsOf: URL(filePath: hookOutputPath)),
                     !data.isEmpty,
                     let parsed = CursorHookPayload.parse(data)
                 else { return }
                 let model = StatusLineData.Model(id: parsed.model, displayName: parsed.model)
-                Task { @MainActor [weak self] in
+                DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.lastHookModel = model
                     self.refreshNow()
@@ -111,29 +110,29 @@ final class CursorDataProvider: StatusLineDataProvider {
                 let source = DispatchSource.makeFileSystemObjectSource(
                     fileDescriptor: attentionFD,
                     eventMask: [.write, .extend],
-                    queue: .global(qos: .utility)
+                    queue: .main
                 )
                 source.setEventHandler { [weak self] in
-                    guard let self else { return }
-                    self.attentionDebounceLock.lock()
-                    self.attentionDebounceWork?.cancel()
-                    let work = DispatchWorkItem { [weak self] in
-                        guard let self,
-                            let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
-                            !data.isEmpty
-                        else { return }
-                        var hasher = Hasher()
-                        hasher.combine(data)
-                        let fingerprint = hasher.finalize()
-                        Task { @MainActor in
-                            guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                            self.lastAttentionPayloadFingerprint = fingerprint
-                            self.onAttention?(.cursorStop)
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        self.attentionDebounceWork?.cancel()
+                        let work = DispatchWorkItem { [weak self] in
+                            DispatchQueue.main.async { [weak self] in
+                                guard let self,
+                                    let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
+                                    !data.isEmpty
+                                else { return }
+                                var hasher = Hasher()
+                                hasher.combine(data)
+                                let fingerprint = hasher.finalize()
+                                guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+                                self.lastAttentionPayloadFingerprint = fingerprint
+                                self.onAttention?(.cursorStop)
+                            }
                         }
+                        self.attentionDebounceWork = work
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
                     }
-                    self.attentionDebounceWork = work
-                    self.attentionDebounceLock.unlock()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
                 }
                 source.setCancelHandler { close(attentionFD) }
                 source.resume()
@@ -162,10 +161,8 @@ final class CursorDataProvider: StatusLineDataProvider {
         refreshTimer = nil
         hookSource?.cancel()
         hookSource = nil
-        attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
-        attentionDebounceLock.unlock()
         attentionSource?.cancel()
         attentionSource = nil
         lastAttentionPayloadFingerprint = nil
@@ -272,6 +269,14 @@ struct CursorHookPayload {
 /// (for model detection) and a `stop` hook (for notifications) that write their payloads
 /// to per-pane temp files identified by the `AGENT_SESSION_MANAGER_PANE_ID` environment variable.
 enum CursorHookSetup {
+    struct HookEntry: Sendable, Equatable {
+        let command: String
+
+        var jsonObject: [String: Any] {
+            ["command": command]
+        }
+    }
+
     fileprivate static let hookScriptName = "agent-session-manager-cursor-hook.sh"
     fileprivate static let stopHookScriptName = "agent-session-manager-cursor-stop-hook.sh"
 
@@ -318,13 +323,9 @@ enum CursorHookSetup {
 
         """
 
-    static let hookEntry: [String: Any] = [
-        "command": "./hooks/\(hookScriptName)"
-    ]
+    static let hookEntry = HookEntry(command: "./hooks/\(hookScriptName)")
 
-    static let stopHookEntry: [String: Any] = [
-        "command": "./hooks/\(stopHookScriptName)"
-    ]
+    static let stopHookEntry = HookEntry(command: "./hooks/\(stopHookScriptName)")
 
     fileprivate static func writeScript(at path: URL, content: String) throws {
         let currentContent = try? String(contentsOf: path, encoding: .utf8)
@@ -339,7 +340,7 @@ enum CursorHookSetup {
     fileprivate static func installHookEntry(
         into hooks: inout [String: Any],
         eventName: String,
-        entry: [String: Any],
+        entry: HookEntry,
         scriptName: String
     ) -> Bool {
         var entries = hooks[eventName] as? [[String: Any]] ?? []
@@ -347,7 +348,7 @@ enum CursorHookSetup {
             ($0["command"] as? String)?.contains(scriptName) == true
         }
         guard !alreadyInstalled else { return false }
-        entries.append(entry)
+        entries.append(entry.jsonObject)
         hooks[eventName] = entries
         return true
     }

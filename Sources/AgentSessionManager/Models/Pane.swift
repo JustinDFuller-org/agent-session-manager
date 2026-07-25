@@ -59,6 +59,9 @@ final class Pane: Identifiable {
     /// Secret values are intentionally not persisted with the pane.
     var extraEnvVars: [String: String] = [:]
     var setupState: PaneSetupState?
+    var agentControlInjectionEnabled: Bool
+    var isRestarting = false
+    weak var appSettings: AppSettings?
     var uiTestActivityStateOverride: PaneActivityState?
     var opencodeRaceLossRestarted = false
     /// Transient port assigned to an OpenCode pane for its local HTTP API.
@@ -74,7 +77,9 @@ final class Pane: Identifiable {
         harness: Harness = .claude,
         worktreeDirectory: URL? = nil,
         worktreeIsManaged: Bool = false,
-        profileID: UUID? = nil
+        profileID: UUID? = nil,
+        agentControlInjectionEnabled: Bool = true,
+        appSettings: AppSettings? = nil
     ) {
         self.id = id
         self.name = name
@@ -83,6 +88,8 @@ final class Pane: Identifiable {
         self.worktreeIsManaged = worktreeIsManaged
         self.tab = tab
         self.profileID = profileID
+        self.agentControlInjectionEnabled = agentControlInjectionEnabled
+        self.appSettings = appSettings
     }
 
     var worktreePath: URL? {

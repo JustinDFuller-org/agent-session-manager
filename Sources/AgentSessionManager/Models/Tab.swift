@@ -55,6 +55,8 @@ struct ResolvedWorktree: Equatable {
     var checkoutURL: URL
     /// Whether this is an existing worktree outside `.agent-session-manager/worktrees/`.
     var isExternalTakeover: Bool
+    /// Whether this resolution created a new managed worktree during the request.
+    var wasCreated: Bool = false
 }
 
 @Observable
@@ -286,7 +288,7 @@ final class Tab: Identifiable {
                 throw error
             }
 
-            return resolvedManaged(shortName: targetName)
+            return resolvedManaged(shortName: targetName, wasCreated: true)
         }
 
         guard let branch = defaultBranch else {
@@ -334,13 +336,17 @@ final class Tab: Identifiable {
             throw error
         }
 
-        return resolvedManaged(shortName: targetName)
+        return resolvedManaged(shortName: targetName, wasCreated: true)
     }
 
-    private func resolvedManaged(shortName: String) -> ResolvedWorktree {
+    private func resolvedManaged(shortName: String, wasCreated: Bool = false) -> ResolvedWorktree {
         let checkout = Tab.worktreeDirectoryURL(repoRoot: directory, name: shortName).standardizedFileURL
         return ResolvedWorktree(
-            paneTitle: shortName, processDirectory: checkout, checkoutURL: checkout, isExternalTakeover: false)
+            paneTitle: shortName,
+            processDirectory: checkout,
+            checkoutURL: checkout,
+            isExternalTakeover: false,
+            wasCreated: wasCreated)
     }
 
     /// Paths from `git worktree list` are authoritative (includes main checkout with a `.git` directory).
@@ -390,33 +396,41 @@ final class Tab: Identifiable {
             "tab.git.command",
             attributes: ["cwd": cwd, "args": args.joined(separator: " ")]
         ) {
-            try await withCheckedThrowingContinuation { continuation in
-                let process = Process()
-                let outPipe = Pipe()
-                let errPipe = Pipe()
-                process.executableURL = URL(filePath: "/usr/bin/git")
-                process.arguments = args
-                process.currentDirectoryURL = self.directory
-                process.standardOutput = outPipe
-                process.standardError = errPipe
-                process.terminationHandler = { proc in
-                    let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                    let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                    if proc.terminationStatus == 0 {
-                        continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
-                    } else {
-                        let stderr = String(data: errData, encoding: .utf8) ?? ""
-                        continuation.resume(
-                            throwing: GitCommandError(
-                                arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+            let process = Process()
+            let output = try await withTaskCancellationHandler(
+                operation: {
+                    try await withCheckedThrowingContinuation { continuation in
+                        let outPipe = Pipe()
+                        let errPipe = Pipe()
+                        process.executableURL = URL(filePath: "/usr/bin/git")
+                        process.arguments = args
+                        process.currentDirectoryURL = self.directory
+                        process.standardOutput = outPipe
+                        process.standardError = errPipe
+                        process.terminationHandler = { proc in
+                            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                            if proc.terminationStatus == 0 {
+                                continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
+                            } else {
+                                let stderr = String(data: errData, encoding: .utf8) ?? ""
+                                continuation.resume(
+                                    throwing: GitCommandError(
+                                        arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+                            }
+                        }
+                        do {
+                            try process.run()
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     }
-                }
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+                },
+                onCancel: {
+                    if process.isRunning { process.terminate() }
+                })
+            try Task.checkCancellation()
+            return output
         }
     }
 
@@ -426,31 +440,38 @@ final class Tab: Identifiable {
             "tab.git.command",
             attributes: ["cwd": cwd, "args": args.joined(separator: " ")]
         ) {
-            try await withCheckedThrowingContinuation { continuation in
-                let process = Process()
-                let errPipe = Pipe()
-                process.executableURL = URL(filePath: "/usr/bin/git")
-                process.arguments = args
-                process.currentDirectoryURL = self.directory
-                process.standardOutput = FileHandle.nullDevice
-                process.standardError = errPipe
-                process.terminationHandler = { proc in
-                    let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-                    let stderr = String(data: errData, encoding: .utf8) ?? ""
-                    if proc.terminationStatus == 0 {
-                        continuation.resume()
-                    } else {
-                        continuation.resume(
-                            throwing: GitCommandError(
-                                arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+            let process = Process()
+            try await withTaskCancellationHandler(
+                operation: {
+                    try await withCheckedThrowingContinuation { continuation in
+                        let errPipe = Pipe()
+                        process.executableURL = URL(filePath: "/usr/bin/git")
+                        process.arguments = args
+                        process.currentDirectoryURL = self.directory
+                        process.standardOutput = FileHandle.nullDevice
+                        process.standardError = errPipe
+                        process.terminationHandler = { proc in
+                            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                            let stderr = String(data: errData, encoding: .utf8) ?? ""
+                            if proc.terminationStatus == 0 {
+                                continuation.resume()
+                            } else {
+                                continuation.resume(
+                                    throwing: GitCommandError(
+                                        arguments: args, exitCode: proc.terminationStatus, stderr: stderr))
+                            }
+                        }
+                        do {
+                            try process.run()
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     }
-                }
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+                },
+                onCancel: {
+                    if process.isRunning { process.terminate() }
+                })
+            try Task.checkCancellation()
         }
     }
 
@@ -464,6 +485,7 @@ final class Tab: Identifiable {
         id: UUID? = nil,
         extraEnvVars: [String: String] = [:],
         profileID: UUID? = nil,
+        agentControlInjectionEnabled: Bool = true,
         resumeOpencodeSessionID: String? = nil,
         statusLineConfigOverride: StatusLineConfig? = nil,
         appSettings: AppSettings? = nil
@@ -497,11 +519,25 @@ final class Tab: Identifiable {
             harness: harness,
             worktreeDirectory: worktreeDirectory,
             worktreeIsManaged: worktreeIsManaged,
-            profileID: profileID
+            profileID: profileID,
+            agentControlInjectionEnabled: agentControlInjectionEnabled,
+            appSettings: appSettings
         )
         pane.extraArgs = extraArgs
         pane.extraEnvVars = extraEnvVars
         pane.opencodeSessionID = resumeOpencodeSessionID
+        TracingService.shared.record(
+            "agent_control.injection_decision.resolved",
+            attributes: [
+                "pane.id": pane.id.uuidString,
+                "pane.name": pane.name,
+                "tab.id": self.id.uuidString,
+                "tab.name": self.name,
+                "agent_control.enabled": String(pane.agentControlInjectionEnabled),
+                "agent_control.policy": appSettings?.agentControlInjectionPolicy.rawValue ?? "default",
+                "agent_control.scope": appSettings?.agentControlScope.rawValue ?? "default",
+                "agent_control.source": "pane_added",
+            ])
         let cwd = worktreeDirectory?.path ?? directory.path
 
         if harness != .shell && harness != .opencode {
@@ -551,6 +587,10 @@ final class Tab: Identifiable {
                     controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars,
                     resumeSessionID: pane.opencodeSessionID, harness: harness)
             }
+            guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
+                panes.append(pane)
+                return pane
+            }
             pane.installTerminalController(controller)
             controller.terminalView.telemetryTabName = self.name
             controller.terminalView.telemetryTabUUID = self.id
@@ -562,11 +602,20 @@ final class Tab: Identifiable {
     }
 
     /// Restarts a pane by replacing its terminal controller with a new one running the same command.
-    func restartPane(_ pane: Pane) {
-        guard let old = pane.terminalController else { return }
+    func restartPane(_ pane: Pane, appSettings: AppSettings? = nil) {
+        guard !pane.isRestarting, let old = pane.terminalController else { return }
+        pane.isRestarting = true
+        defer { pane.isRestarting = false }
+        let launchSettings = appSettings ?? pane.appSettings
+        if let launchSettings {
+            pane.agentControlInjectionEnabled = launchSettings.resolvedAgentControlInjectionDecision(
+                persistedDecision: pane.agentControlInjectionEnabled)
+        }
         let new = TerminalController()
         new.pendingDirectory = old.pendingDirectory
-        new.pendingEnvironment = old.pendingEnvironment
+        new.pendingEnvironment = old.pendingEnvironment.map {
+            AgentControlHarnessInjection.removingControlToken(from: $0)
+        }
         new.pendingShell = old.pendingShell
 
         if pane.harness == .opencode {
@@ -584,8 +633,12 @@ final class Tab: Identifiable {
                 opencodeEnvironment: pane.extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         } else {
-            new.pendingCommandArgs = old.pendingCommandArgs
+            new.pendingCommandArgs = old.pendingCommandArgs.map {
+                AgentControlHarnessInjection.removingControlArguments(from: $0, harness: pane.harness)
+            }
         }
+
+        guard prepareAgentControl(for: pane, controller: new, appSettings: launchSettings) else { return }
 
         old.terminate()
         pane.installTerminalController(new)
@@ -602,6 +655,11 @@ final class Tab: Identifiable {
     ) {
         if let extraArgs, let harness {
             guard let old = pane.terminalController else { return }
+            if let appSettings {
+                pane.agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
+                    persistedDecision: pane.agentControlInjectionEnabled)
+            }
+            pane.harness = harness
             old.terminate()
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             let controller = TerminalController()
@@ -657,7 +715,10 @@ final class Tab: Identifiable {
                     resumeSessionID: pane.opencodeSessionID, harness: harness)
             }
 
-            pane.harness = harness
+            guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
+                return
+            }
+
             pane.extraArgs = extraArgs
             pane.extraEnvVars = extraEnvVars
             pane.installTerminalController(controller)
@@ -711,6 +772,7 @@ final class Tab: Identifiable {
                 hookScriptPath: monitor.codexHookScriptFilePath,
                 extraArgs: pane.extraArgs)
         }
+        guard prepareAgentControl(for: pane, controller: new, appSettings: pane.appSettings) else { return }
         pane.installTerminalController(new)
         pane.restartToken = UUID()
     }
@@ -721,7 +783,9 @@ final class Tab: Identifiable {
         let new = TerminalController()
         new.pendingCommandArgs = nil
         new.pendingDirectory = old.pendingDirectory
-        new.pendingEnvironment = old.pendingEnvironment
+        new.pendingEnvironment = old.pendingEnvironment.map {
+            AgentControlHarnessInjection.removingControlToken(from: $0)
+        }
         new.pendingShell = old.pendingShell
         old.terminate()
         pane.removeStatusLineMonitor()
@@ -731,6 +795,12 @@ final class Tab: Identifiable {
     }
 
     func closePane(_ pane: Pane) {
+        AgentControlService.shared.revoke(
+            paneID: pane.id,
+            paneName: pane.name,
+            tabID: id,
+            tabName: name
+        )
         if focusedPaneID == pane.id {
             setFocusedPane(id: nil, reason: "focused_pane_closed")
         }
@@ -743,6 +813,11 @@ final class Tab: Identifiable {
 
     func cleanupWorktree(for pane: Pane) async throws {
         guard pane.worktreeIsManaged, let path = pane.worktreeDirectory else { return }
+        guard FileManager.default.fileExists(atPath: path.path) else { return }
+        try await runGit(["worktree", "remove", path.path])
+    }
+
+    func cleanupManagedWorktree(at path: URL) async throws {
         guard FileManager.default.fileExists(atPath: path.path) else { return }
         try await runGit(["worktree", "remove", path.path])
     }
@@ -780,7 +855,7 @@ extension Tab {
         return paneName
     }
 
-    private func applyExtraEnvVars(_ extraEnvVars: [String: String], to controller: TerminalController) {
+    func applyExtraEnvVars(_ extraEnvVars: [String: String], to controller: TerminalController) {
         guard !extraEnvVars.isEmpty else { return }
         controller.pendingEnvironment =
             (controller.pendingEnvironment ?? [])
@@ -809,7 +884,7 @@ extension Tab {
         pane.installStatusLineMonitor(monitor)
     }
 
-    private func configureOpenCodeController(
+    func configureOpenCodeController(
         _ controller: TerminalController,
         pane: Pane,
         extraArgs: [String],
@@ -1064,126 +1139,5 @@ extension Tab {
     nonisolated static func injectContinueFlagIntoArgs(_ args: [String]) -> [String] {
         guard !args.contains("--continue") else { return args }
         return args + ["--continue"]
-    }
-}
-
-extension Tab {
-    /// Creates a pane with a loading overlay; terminal setup is deferred to `completeSetup`.
-    @discardableResult
-    func addPaneWithLoadingState(
-        name: String,
-        harness: Harness = .claude,
-        worktreeIsManaged: Bool = false,
-        profileID: UUID? = nil
-    ) -> Pane {
-        TracingService.shared.record(
-            "tab.pane.added",
-            attributes: [
-                "pane.name": name,
-                "tab.name": self.name,
-            ])
-        let pane = Pane(
-            name: name,
-            tab: self,
-            harness: harness,
-            worktreeIsManaged: worktreeIsManaged,
-            profileID: profileID
-        )
-        pane.setupState = .loading
-        panes.append(pane)
-        return pane
-    }
-
-    /// Finishes setup of a pane created by `addPaneWithLoadingState`: wires the terminal controller
-    /// and clears the loading state.
-    func completeSetup(
-        for pane: Pane,
-        resolved: ResolvedWorktree,
-        managed: Bool,
-        effectiveExtraArgs: [String],
-        extraEnvVars: [String: String],
-        statusLineConfigOverride: StatusLineConfig?,
-        appSettings: AppSettings? = nil
-    ) {
-        pane.name = resolved.paneTitle
-        pane.worktreeDirectory = resolved.processDirectory
-        pane.worktreeIsManaged = managed
-        pane.extraArgs = effectiveExtraArgs
-        pane.extraEnvVars = extraEnvVars
-
-        TracingService.shared.record(
-            "tab.worktree.resolved",
-            attributes: [
-                "user_ref": pane.name,
-                "result": "dir: \(resolved.processDirectory.path)",
-                "path": resolved.processDirectory.path,
-                "pane.name": pane.name,
-                "pane.id": pane.id.uuidString,
-                "tab.id": self.id.uuidString,
-                "tab.name": self.name,
-            ])
-
-        let cwd = resolved.processDirectory.path
-
-        if pane.harness != .shell && pane.harness != .opencode {
-            let monitor = StatusLineMonitor(
-                paneID: pane.id, paneName: pane.name,
-                workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
-            pane.installStatusLineMonitor(monitor)
-        }
-
-        if !AgentSessionManagerApp.isUITesting {
-            let controller = TerminalController()
-            controller.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
-            controller.pendingDirectory = cwd
-            controller.pendingShell = appSettings.map { ShellResolver.resolved($0) }
-
-            switch pane.harness {
-            case .shell:
-                controller.pendingCommandArgs = nil
-            case .claude:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingCommandArgs = Tab.buildClaudeCommand(
-                    settingsPath: pane.statusLineMonitor!.settingsFilePath,
-                    extraArgs: effectiveExtraArgs
-                )
-            case .codex:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                pane.statusLineMonitor?.writeCodexHookScript()
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + [
-                        "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)",
-                        "AGENT_SESSION_MANAGER_TAB_ID=\(self.id.uuidString)",
-                        "AGENT_SESSION_MANAGER_CODEX_HOOK_RECORD_PATH=\(pane.statusLineMonitor!.codexHookRecordFilePath)",
-                    ]
-                controller.pendingCommandArgs = Tab.buildCodexCommand(
-                    hookScriptPath: pane.statusLineMonitor!.codexHookScriptFilePath,
-                    extraArgs: effectiveExtraArgs)
-            case .cursor:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
-                controller.pendingCommandArgs = ["agent"] + effectiveExtraArgs
-            case .opencode:
-                applyExtraEnvVars(extraEnvVars, to: controller)
-                configureOpenCodeController(
-                    controller, pane: pane, extraArgs: effectiveExtraArgs, extraEnvVars: extraEnvVars,
-                    resumeSessionID: pane.opencodeSessionID)
-                let monitor = StatusLineMonitor(
-                    paneID: pane.id, paneName: pane.name,
-                    workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
-                pane.installStatusLineMonitor(monitor)
-            }
-            controller.terminalView.telemetryTabName = self.name
-            controller.terminalView.telemetryTabUUID = self.id
-            controller.terminalView.telemetryPaneName = pane.name
-            controller.terminalView.telemetryPaneUUID = pane.id
-            pane.installTerminalController(controller)
-        }
-        pane.setupState = nil
     }
 }

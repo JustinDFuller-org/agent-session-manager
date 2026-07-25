@@ -41,5 +41,6 @@ extension BaseTestCase {
         waitForDisappear(field, timeout: 25)
         // Wait for the pane name text — Text elements are reliably in the accessibility tree.
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(name)").firstMatch, timeout: 10)
+        waitFor(app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch, timeout: 10)
     }
 }

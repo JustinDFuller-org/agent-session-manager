@@ -164,7 +164,8 @@ final class AppStateTabFocusTests: XCTestCase {
             tabName: "tab2",
             isPriority: false
         )
-        state.navigateTo(notification: notification)
+        state.notifications = [notification]
+        state.acknowledgeNotification(id: notification.id)
 
         XCTAssertEqual(state.activeTabID, state.tabs[1].id)
         XCTAssertEqual(state.activePaneID, panes[1][0].id)
@@ -188,7 +189,8 @@ final class AppStateTabFocusTests: XCTestCase {
             prNumber: 42,
             prTitle: "My PR"
         )
-        state.navigateTo(notification: notification)
+        state.notifications = [notification]
+        state.acknowledgeNotification(id: notification.id)
 
         XCTAssertEqual(state.activeTabID, state.tabs[1].id)
         XCTAssertEqual(state.activePaneID, panes[1][0].id)

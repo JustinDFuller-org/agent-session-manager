@@ -288,6 +288,7 @@ private struct PanesContent: View {
                     }
                 }
             }
+            AgentControlSettingsSection()
             Section("Terminal") {
                 SettingRow(
                     title: "Shell",

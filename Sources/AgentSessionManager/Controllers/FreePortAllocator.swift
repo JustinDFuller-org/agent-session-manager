@@ -9,10 +9,15 @@ import Network
 /// consumer binding the same port; callers that lose the race must retry or fall
 /// back to letting the consumer choose its own port.
 final class FreePortAllocator {
+    private final class AllocationState: @unchecked Sendable {
+        let lock = NSLock()
+        var port: Int?
+    }
+
     /// Returns a free TCP port number, or `nil` if allocation failed.
     static func allocate(timeout: TimeInterval = 2) -> Int? {
         let semaphore = DispatchSemaphore(value: 0)
-        var allocatedPort: Int?
+        let allocation = AllocationState()
 
         let listener: NWListener
         do {
@@ -31,7 +36,9 @@ final class FreePortAllocator {
             switch state {
             case .ready:
                 if let port = listener.port {
-                    allocatedPort = Int(port.rawValue)
+                    allocation.lock.withLock {
+                        allocation.port = Int(port.rawValue)
+                    }
                 }
                 listener.cancel()
                 semaphore.signal()
@@ -44,6 +51,7 @@ final class FreePortAllocator {
 
         listener.start(queue: .global(qos: .utility))
         _ = semaphore.wait(timeout: .now() + timeout)
+        let allocatedPort = allocation.lock.withLock { allocation.port }
         if allocatedPort == nil { listener.cancel() }
 
         return allocatedPort

@@ -741,11 +741,11 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
     // MARK: - Polling
 
     private func startPollTimer() {
-        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + pollInterval, repeating: pollInterval)
         timer.setEventHandler { [weak self] in
             guard let self else { return }
-            Task { [weak self] in
+            Task { @MainActor [weak self] in
                 await self?.refreshSession()
             }
         }

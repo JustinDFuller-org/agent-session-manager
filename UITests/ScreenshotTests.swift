@@ -37,7 +37,9 @@ final class ScreenshotTests: BaseTestCase {
         // 4. New pane sheet open
         app.typeKey("p", modifierFlags: .command)
         waitFor(app.textFields["new-pane-name-field"])
+        waitFor(app.checkBoxes["new-pane-agent-control-toggle"])
         screenshot("new-pane-sheet")
+        screenshot("new-pane-agent-control")
         app.typeKey(.escape, modifierFlags: [])
         waitForDisappear(app.textFields["new-pane-name-field"])
 
@@ -56,6 +58,11 @@ final class ScreenshotTests: BaseTestCase {
         panesTab.click()
         XCTAssertTrue(panesTab.isSelected)
         screenshot("settings-panes")
+
+        let injectionPolicyPicker = settingsWindow.descendants(matching: .any)
+            .matching(identifier: "settings-agent-control-injection-policy-picker").firstMatch
+        waitFor(injectionPolicyPicker)
+        screenshot("settings-agent-control")
 
         // 7. Settings — Notifications tab
         let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
@@ -229,11 +236,7 @@ final class ScreenshotTests: BaseTestCase {
         wait(for: [monitorFileExpectation], timeout: 0.1)
         XCTAssertNotNil(monitorFile)
 
-        // 3. Exercise the same file ingress Claude uses and let production enforcement report the mismatch
-        try Data(#"{"worktree":{"name":"wrong-name","branch":"main"}}"#.utf8)
-            .write(to: XCTUnwrap(monitorFile))
-
-        // 4. Open the dashboard and require the real violation before capturing it
+        // 3. Open the dashboard, then exercise the same file ingress Claude uses.
         app.typeKey("i", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Invariant Dashboard"]
         waitFor(dashboard)
@@ -241,6 +244,8 @@ final class ScreenshotTests: BaseTestCase {
         XCTAssertEqual(round(dashboard.frame.height), 664)
         let refreshButton = dashboard.buttons["invariant-dashboard-refresh-button"]
         waitFor(refreshButton)
+        try Data(#"{"worktree":{"name":"wrong-name","branch":"main"}}"#.utf8)
+            .write(to: XCTUnwrap(monitorFile))
 
         let violation = dashboard.staticTexts["statusline.worktree.name"]
         let violationDeadline = Date().addingTimeInterval(10)
