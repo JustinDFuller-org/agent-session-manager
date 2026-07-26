@@ -657,6 +657,10 @@ final class Tab: Identifiable {
                 pane.agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
                     persistedDecision: pane.agentControlInjectionEnabled)
             }
+            if pane.harness == .cursor, harness != .cursor {
+                CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
+                pane.cursorAgentControlPluginDirectory = nil
+            }
             pane.harness = harness
             old.terminate()
             let cwd = pane.worktreeDirectory?.path ?? directory.path
@@ -782,6 +786,8 @@ final class Tab: Identifiable {
         }
         new.pendingShell = old.pendingShell
         old.terminate()
+        CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
+        pane.cursorAgentControlPluginDirectory = nil
         pane.removeStatusLineMonitor()
         pane.harness = .shell
         pane.installTerminalController(new)
@@ -799,6 +805,8 @@ final class Tab: Identifiable {
             setFocusedPane(id: nil, reason: "focused_pane_closed")
         }
         pane.terminalController?.terminate()
+        CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
+        pane.cursorAgentControlPluginDirectory = nil
         pane.installTerminalController(nil)
         pane.removeStatusLineMonitor()
         pane.notificationAppState?.clearNotification(paneID: pane.id)

@@ -56,16 +56,21 @@ Stale IDs and out-of-scope IDs return structured errors.
 
 ## Harness support
 
-Claude Code, OpenCode, and Codex receive app-owned, per-pane MCP
-configuration before the final harness command starts. Credentials are
+Claude Code, Cursor, OpenCode, and Codex receive app-owned, per-pane MCP
+configuration before the final harness command starts. Cursor receives a
+private plugin directory through `--plugin-dir`; its plugin-root `mcp.json`
+defines the connection without modifying project or user configuration.
+Credentials are
 high-entropy bearer tokens held only in memory and passed through a runtime
-environment variable. They are revoked when a pane or tab is torn down and are
+environment variable. If control registration or Cursor plugin preparation is
+temporarily unavailable, the app opens a normal Cursor pane without injection
+instead of blocking pane creation. Credentials are revoked when a pane or tab is torn down and are
 never persisted, logged, or printed in the terminal.
 
-Cursor injection is intentionally unsupported because its documented
-configuration locations are project- or user-owned and do not provide a safe
-per-pane surface. Agent Control reports an actionable setup error instead of
-writing `.cursor/mcp.json` or `~/.cursor/mcp.json`.
+Cursor uses the CLI's local plugin mechanism rather than `.cursor/mcp.json` or
+`~/.cursor/mcp.json`. The generated MCP configuration references
+`${env:AGENT_SESSION_MANAGER_MCP_TOKEN}`, so the runtime credential is never
+written to the plugin directory.
 
 OpenCode configuration is merged into the app-owned inline configuration;
 existing user MCP entries and unrelated settings are preserved. Disabled or

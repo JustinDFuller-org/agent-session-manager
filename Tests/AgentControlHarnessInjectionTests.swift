@@ -89,15 +89,34 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertThrowsError(try OpenCodeAgentControlAdapter().prepare(invalidMCP))
     }
 
-    func testCursorReportsActionableUnsupportedError() {
+    func testCursorUsesPrivatePluginDirectoryAndRuntimeTokenReference() throws {
+        let paneID = UUID()
         let context = AgentControlHarnessLaunchContext(
-            endpoint: endpoint, tokenEnvironmentKey: tokenKey, commandArguments: ["agent"], environment: []
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["agent"],
+            environment: ["\(tokenKey)=runtime-secret"],
+            paneID: paneID
         )
 
-        XCTAssertThrowsError(try CursorAgentControlAdapter().prepare(context)) { error in
-            XCTAssertEqual(error as? AgentControlHarnessInjectionError, .unsupported(.cursor))
-            XCTAssertTrue(error.localizedDescription.contains("Cursor"))
-        }
+        let prepared = try CursorAgentControlAdapter().prepare(context)
+        defer { CursorAgentControlPlugin.remove(directory: prepared.cursorPluginDirectory) }
+
+        let directory = try XCTUnwrap(prepared.cursorPluginDirectory)
+        XCTAssertEqual(prepared.commandArguments.suffix(2), ["--plugin-dir", directory.path])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appending(path: "mcp.json").path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: directory.appending(path: ".cursor-plugin/plugin.json").path))
+
+        let mcpData = try Data(contentsOf: directory.appending(path: "mcp.json"))
+        let mcp = try XCTUnwrap(JSONSerialization.jsonObject(with: mcpData) as? [String: Any])
+        let servers = try XCTUnwrap(mcp["mcpServers"] as? [String: Any])
+        let server = try XCTUnwrap(servers.values.first as? [String: Any])
+        XCTAssertEqual(server["url"] as? String, endpoint.absoluteString)
+        let headers = try XCTUnwrap(server["headers"] as? [String: String])
+        XCTAssertEqual(headers["Authorization"], "Bearer ${env:\(tokenKey)}")
+        XCTAssertFalse(String(decoding: mcpData, as: UTF8.self).contains("runtime-secret"))
+        XCTAssertFalse(prepared.commandArguments.contains { $0.contains("runtime-secret") })
     }
 
     @MainActor
@@ -141,6 +160,18 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             ["PATH=/usr/bin", "HOME=/tmp"])
     }
 
+    func testCursorAppOwnedDetectionRequiresGeneratedTemporaryPath() {
+        let generatedPlugin = CursorAgentControlPlugin.directory(for: UUID())
+        let customPlugin = URL(
+            filePath: "/Users/example/plugins/\(CursorAgentControlPlugin.directoryPrefix)custom")
+        let malformedTemporaryPlugin = FileManager.default.temporaryDirectory.appending(
+            path: "\(CursorAgentControlPlugin.directoryPrefix)custom")
+
+        XCTAssertTrue(CursorAgentControlPlugin.isAppOwned(generatedPlugin))
+        XCTAssertFalse(CursorAgentControlPlugin.isAppOwned(customPlugin))
+        XCTAssertFalse(CursorAgentControlPlugin.isAppOwned(malformedTemporaryPlugin))
+    }
+
     func testRemovingControlArgumentsRemovesOnlyAgentControlConfiguration() {
         let claudeArguments = [
             "claude", "--mcp-config", "{\"agent-session-manager\":{}}",
@@ -159,5 +190,22 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             AgentControlHarnessInjection.removingControlArguments(
                 from: codexArguments, harness: .codex),
             ["codex", "-c", "model=\"gpt-5\""])
+
+        let appOwnedPlugin = CursorAgentControlPlugin.directory(for: UUID()).path
+        let customPlugin =
+            "/Users/example/plugins/\(CursorAgentControlPlugin.directoryPrefix)user-configured"
+        let cursorArguments = [
+            "agent", "--plugin-dir", appOwnedPlugin,
+            "--plugin-dir", customPlugin,
+            "--plugin-dir=\(customPlugin)",
+            "--model", "auto",
+        ]
+        XCTAssertEqual(
+            AgentControlHarnessInjection.removingControlArguments(
+                from: cursorArguments, harness: .cursor),
+            [
+                "agent", "--plugin-dir", customPlugin,
+                "--plugin-dir=\(customPlugin)", "--model", "auto",
+            ])
     }
 }
