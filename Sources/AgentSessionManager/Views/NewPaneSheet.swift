@@ -345,11 +345,15 @@ struct NewPaneSheet: View {
                 Text("CLI Options")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(visibleCLIOptions) { option in
-                        CLIOptionToggleRow(option: option, state: stateBinding(for: option))
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(visibleCLIOptions) { option in
+                            CLIOptionToggleRow(option: option, state: stateBinding(for: option))
+                        }
                     }
                 }
+                .frame(maxHeight: 160)
+                .accessibilityIdentifier("new-pane-visible-cli-options-scroll-view")
             }
         }
     }
@@ -395,11 +399,15 @@ struct NewPaneSheet: View {
                     Text("Environment Variables")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(visibleEnvVars) { envVar in
-                            EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(visibleEnvVars) { envVar in
+                                EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
+                            }
                         }
                     }
+                    .frame(maxHeight: 120)
+                    .accessibilityIdentifier("new-pane-visible-env-vars-scroll-view")
                 }
             }
         }
@@ -420,47 +428,52 @@ struct NewPaneSheet: View {
                 .accessibilityIdentifier("new-pane-show-hidden-options-button")
 
                 if showHiddenOptions {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(hiddenCLIOptions) { option in
-                            HiddenCLIOptionToggleRow(
-                                option: option,
-                                state: stateBinding(for: option),
-                                onAddToGlobal: {
-                                    switch selectedHarness {
-                                    case .claude:
-                                        if let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id })
-                                        {
-                                            appSettings.cliOptions[index].isAvailable = true
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(hiddenCLIOptions) { option in
+                                HiddenCLIOptionToggleRow(
+                                    option: option,
+                                    state: stateBinding(for: option),
+                                    onAddToGlobal: {
+                                        switch selectedHarness {
+                                        case .claude:
+                                            if let index = appSettings.cliOptions.firstIndex(where: {
+                                                $0.id == option.id
+                                            }) {
+                                                appSettings.cliOptions[index].isAvailable = true
+                                            }
+                                            SettingsPersistence.save(appSettings: appSettings)
+                                        case .codex:
+                                            if let index = appSettings.codexCliOptions.firstIndex(where: {
+                                                $0.id == option.id
+                                            }) {
+                                                appSettings.codexCliOptions[index].isAvailable = true
+                                            }
+                                            SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+                                        case .cursor:
+                                            if let index = appSettings.cursorCliOptions.firstIndex(where: {
+                                                $0.id == option.id
+                                            }) {
+                                                appSettings.cursorCliOptions[index].isAvailable = true
+                                            }
+                                            SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+                                        case .opencode:
+                                            if let index = appSettings.opencodeCliOptions.firstIndex(where: {
+                                                $0.id == option.id
+                                            }) {
+                                                appSettings.opencodeCliOptions[index].isAvailable = true
+                                            }
+                                            SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+                                        case .shell:
+                                            break
                                         }
-                                        SettingsPersistence.save(appSettings: appSettings)
-                                    case .codex:
-                                        if let index = appSettings.codexCliOptions.firstIndex(where: {
-                                            $0.id == option.id
-                                        }) {
-                                            appSettings.codexCliOptions[index].isAvailable = true
-                                        }
-                                        SettingsPersistence.saveCodexOptions(appSettings: appSettings)
-                                    case .cursor:
-                                        if let index = appSettings.cursorCliOptions.firstIndex(where: {
-                                            $0.id == option.id
-                                        }) {
-                                            appSettings.cursorCliOptions[index].isAvailable = true
-                                        }
-                                        SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-                                    case .opencode:
-                                        if let index = appSettings.opencodeCliOptions.firstIndex(where: {
-                                            $0.id == option.id
-                                        }) {
-                                            appSettings.opencodeCliOptions[index].isAvailable = true
-                                        }
-                                        SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
-                                    case .shell:
-                                        break
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
+                    .frame(maxHeight: 160)
+                    .accessibilityIdentifier("new-pane-hidden-cli-options-scroll-view")
                 }
             }
         }
@@ -481,34 +494,38 @@ struct NewPaneSheet: View {
                 .accessibilityIdentifier("new-pane-show-hidden-env-vars-button")
 
                 if showHiddenEnvVars {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(hiddenEnvVarOptions) { envVar in
-                            HiddenEnvVarToggleRow(
-                                envVar: envVar,
-                                state: envVarStateBinding(for: envVar),
-                                onAddToGlobal: {
-                                    switch selectedHarness {
-                                    case .claude:
-                                        if let index = appSettings.envVarOptions.firstIndex(where: {
-                                            $0.id == envVar.id
-                                        }) {
-                                            appSettings.envVarOptions[index].isAvailable = true
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(hiddenEnvVarOptions) { envVar in
+                                HiddenEnvVarToggleRow(
+                                    envVar: envVar,
+                                    state: envVarStateBinding(for: envVar),
+                                    onAddToGlobal: {
+                                        switch selectedHarness {
+                                        case .claude:
+                                            if let index = appSettings.envVarOptions.firstIndex(where: {
+                                                $0.id == envVar.id
+                                            }) {
+                                                appSettings.envVarOptions[index].isAvailable = true
+                                            }
+                                            SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+                                        case .opencode:
+                                            if let index = appSettings.opencodeEnvVarOptions.firstIndex(where: {
+                                                $0.id == envVar.id
+                                            }) {
+                                                appSettings.opencodeEnvVarOptions[index].isAvailable = true
+                                            }
+                                            SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
+                                        case .codex, .cursor, .shell:
+                                            break
                                         }
-                                        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
-                                    case .opencode:
-                                        if let index = appSettings.opencodeEnvVarOptions.firstIndex(where: {
-                                            $0.id == envVar.id
-                                        }) {
-                                            appSettings.opencodeEnvVarOptions[index].isAvailable = true
-                                        }
-                                        SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
-                                    case .codex, .cursor, .shell:
-                                        break
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
+                    .frame(maxHeight: 120)
+                    .accessibilityIdentifier("new-pane-hidden-env-vars-scroll-view")
                 }
             }
         }

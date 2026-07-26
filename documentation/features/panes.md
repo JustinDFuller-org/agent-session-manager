@@ -14,6 +14,8 @@ Use **⌘P** (default; configurable under **Settings → Shortcuts → New Pane 
 
 **CLI options** — Flags enabled in **Settings → Harnesses** appear as toggles and fields. Options marked default-on in Settings start checked.
 
+Use **Show all options** to expose the complete CLI or environment-variable catalog for the selected harness. Long catalogs stay within a bounded list that can be scrolled independently, so **Fewer options** and the pane actions remain available.
+
 Choose **Open** or press Return to create the pane.
 
 ## Status line
