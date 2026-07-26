@@ -27,7 +27,7 @@ Complete [Install and First Launch]({{ '/documentation/user-guide/install/' | re
 
 ## What you should see
 
-Agent Session Manager prepares the working copy and opens a pane for the selected tool. The pane contains the tool's terminal session, and the tab remains available for creating additional panes.
+Agent Session Manager prepares the Git worktree and opens a pane for the selected tool. The pane contains the tool's terminal session, and the tab remains available for creating additional task worktrees.
 
 ![Agent Session Manager empty state]({{ '/assets/img/docs/empty-state.png' | relative_url }})
 
@@ -45,7 +45,7 @@ _New Pane combines the harness, session name, CLI options, and environment setti
 
 - If **Create** is disabled in **New Tab**, provide both a name and a directory.
 - If no tool appears in **Harness**, enable one in **Settings → Harnesses**.
-- If the pane cannot resolve the entered name or branch, check the spelling and use an existing branch, ref, or worktree name.
+- If the pane cannot resolve the entered name or branch, check the spelling and use an existing branch, remote branch, or worktree name.
 
 ## Related tasks
 

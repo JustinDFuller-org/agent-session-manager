@@ -11,7 +11,7 @@ Claude Code is one of the agent tools that can run inside an Agent Session Manag
 
 ## Why you might use it
 
-Run Claude Code in an isolated working copy while keeping other agent sessions visible in the same window.
+Run Claude Code in an isolated Git worktree while keeping other agent sessions visible in the same window.
 
 ## Before you start
 
@@ -25,7 +25,7 @@ Install Claude Code and make sure its command is available from the shell select
 4. Review any **CLI Options** or **Environment Variables** you want to use.
 5. Choose **Create Pane**.
 
-Claude Code starts in the working copy prepared for the pane. Its status line can show tool-specific session information when those facts are available.
+Claude Code starts in the Git worktree prepared for the pane. Its status line can show tool-specific session information when those facts are available.
 
 ## What you should see
 

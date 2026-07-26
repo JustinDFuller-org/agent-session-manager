@@ -1,7 +1,7 @@
 ---
 layout: doc
 title: Core Concepts
-description: Learn how tabs, panes, agent tools, sessions, and working copies fit together.
+description: Learn how tabs, panes, agent tools, branches, and Git worktrees fit together.
 permalink: /documentation/user-guide/core-concepts/
 ---
 
@@ -21,17 +21,27 @@ A pane is one terminal session inside a tab. It runs an agent tool or, when open
 
 An agent tool is the command-line program that works inside a pane. Agent Session Manager currently supports Claude Code, Cursor, Codex, and OpenCode. Only tools enabled in **Settings → Harnesses** appear when you create a pane.
 
+### Repository
+
+A repository is the project directory and Git history that a tab represents. The directory selected in **New Tab** must contain the Git repository where you want to work.
+
+### Branch
+
+A branch is a named line of development. A branch points to commits in the repository history; it is not the same thing as the directory containing the files.
+
+### Git worktree
+
+A Git worktree is an independent working directory linked to the same repository. Each agent pane runs in one worktree, so several panes can work on different branches without mixing their files.
+
+Agent Session Manager creates linked worktrees for new tasks and can also open an existing worktree. Closing or deleting a managed worktree removes that working directory, but does not delete its branch or commits.
+
 ### Session name, branch, or worktree
 
-The **Session, branch, or worktree** field in **New Pane** identifies the task's working copy. You can enter a session name, an existing branch or ref, or the name of an existing worktree.
-
-### Separate working copy
-
-When Agent Session Manager creates a new task workspace, it uses a separate Git working copy for that pane. This lets multiple panes work on different tasks without making every task use the same checkout.
+The **Session, branch, or worktree** field in **New Pane** chooses the Git worktree for the pane. For a new task, enter a simple task name such as `feature-a`; when a starting branch is configured, Agent Session Manager creates a new branch and Git worktree with that name. You can also enter an existing local branch, a remote branch such as `origin/feature`, or an existing worktree name.
 
 ## Why you might use these concepts
 
-Tabs keep projects separate. Panes keep tasks within a project separate. Agent tools determine which command-line assistant runs, while the session or branch name identifies the work associated with that pane.
+Tabs keep repositories separate. Panes keep task worktrees separate within a repository. Agent tools determine which command-line assistant runs, while the task name or branch identifies the work associated with that pane.
 
 ## What you should see
 

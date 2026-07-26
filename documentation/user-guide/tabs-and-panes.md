@@ -51,7 +51,7 @@ To restart an agent pane with a fresh environment, open its context menu and cho
 
 Choose the close button in a pane header or press ⌘W to close the active pane. To close the active tab, press ⌘K or use **File → Close Tab**.
 
-If the pane uses a working copy managed by Agent Session Manager, closing it may show cleanup choices. See [Worktree Cleanup]({{ '/documentation/user-guide/worktree-cleanup/' | relative_url }}).
+If the pane uses a Git worktree managed by Agent Session Manager, closing it may show cleanup choices. See [Worktree Cleanup]({{ '/documentation/user-guide/worktree-cleanup/' | relative_url }}).
 
 ## What you should see
 
@@ -69,7 +69,7 @@ _Each pane has its own header, terminal area, and status line._
 
 - If **Create** is disabled in **New Tab**, provide both a name and a directory.
 - If **Create Pane** is unavailable, activate at least one tool in **Settings → Harnesses**.
-- If the session field reports an invalid or duplicate name, enter a valid name, branch ref, or existing worktree that is not already open in the tab.
+- If the session field reports an invalid or duplicate name, enter a valid task name, branch, or existing worktree that is not already open in the tab.
 
 ## Related tasks
 

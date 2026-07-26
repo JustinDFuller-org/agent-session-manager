@@ -9,7 +9,7 @@ permalink: /documentation/user-guide/overview/
 
 Agent Session Manager is a native macOS app for running multiple AI agent sessions in parallel. A tab represents a project directory, and each pane is a separate terminal session inside that tab.
 
-Each pane can run Claude Code, Cursor, Codex, or OpenCode. The app starts the selected tool in a Git working copy so separate tasks can stay organized.
+Each pane can run Claude Code, Cursor, Codex, or OpenCode. The app starts the selected tool in a Git worktree so separate task branches can stay isolated.
 
 ## Why you might use it
 

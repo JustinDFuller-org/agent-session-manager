@@ -11,7 +11,7 @@ Codex is one of the agent tools that can run inside an Agent Session Manager pan
 
 ## Why you might use it
 
-Run Codex in an isolated working copy while organizing several agent tasks in tabs and panes.
+Run Codex in an isolated Git worktree while organizing several agent tasks in tabs and panes.
 
 ## Before you start
 
@@ -25,7 +25,7 @@ Install Codex and make sure its command is available from the shell selected in 
 4. Review the Codex **CLI Options** shown in the sheet.
 5. Choose **Create Pane**.
 
-Codex starts in the working copy prepared for the pane. The status line can show app-owned facts and supported Codex session information.
+Codex starts in the Git worktree prepared for the pane. The status line can show app-owned facts and supported Codex session information.
 
 ## What you should see
 
@@ -37,7 +37,7 @@ After a restart, Codex panes reopen in their saved working copies. **Continue on
 
 - If Codex is missing from **Harness**, confirm that it is installed and available from the selected shell.
 - If the pane exits immediately, review **Settings → Panes → Terminal → Shell** and the Codex options shown in **Settings → Harnesses**.
-- If the working copy cannot be prepared, see [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }}).
+- If the Git worktree cannot be prepared, see [Project Isolation]({{ '/documentation/user-guide/project-isolation/' | relative_url }}).
 
 ## Related tasks
 

@@ -1,13 +1,13 @@
 ---
 layout: doc
 title: Troubleshooting
-description: Recover when an update, permission, tool, pane, or checkout does not work as expected.
+description: Recover when an update, permission, tool, pane, or Git worktree does not work as expected.
 permalink: /documentation/user-guide/troubleshooting/
 ---
 
 ## What it is
 
-Use this guide when Agent Session Manager cannot update, find an agent tool, start a pane, access a project, or open the working copy you selected.
+Use this guide when Agent Session Manager cannot update, find an agent tool, start a pane, access a project, or open the Git worktree you selected.
 
 ## Updates
 
@@ -17,7 +17,7 @@ Use this guide when Agent Session Manager cannot update, find an agent tool, sta
 2. Choose **Check for Updates**.
 3. If no update is found, confirm that the Mac is connected to the internet and try again later.
 
-The update path depends on how Agent Session Manager was installed. A release DMG can download and install a newer release from the public update feed. A source-built copy reports newer changes from its source checkout and does not install them automatically.
+The update path depends on how Agent Session Manager was installed. A release DMG can download and install a newer release from the public update feed. A source-built copy reports newer changes from its source directory and does not install them automatically.
 
 ### An update is available for a release DMG
 
@@ -25,7 +25,7 @@ Choose **Install Update** in **Settings → About**, or select **Update availabl
 
 ### An update is available for a source-built copy
 
-Open **Settings → About** and follow the displayed source-update instruction. The app must be rebuilt from the updated checkout before the new version is available.
+Open **Settings → About** and follow the displayed source-update instruction. The app must be rebuilt from the updated source directory before the new version is available.
 
 ### Control update reminders
 
@@ -60,17 +60,17 @@ If the tool is installed but still cannot be found, choose **Other…** under **
 
 ### The pane says “Setting up workspace…”
 
-Wait for the workspace setup to finish. The app may need to inspect Git worktrees, fetch a branch, or create a working copy before the terminal starts.
+Wait for the workspace setup to finish. The app may need to inspect Git worktrees, fetch a branch, or create a new branch and worktree before the terminal starts.
 
 ### The pane shows an error
 
 Read the message in the pane, correct the named problem, and create the pane again. Choose **Remove Pane** to dismiss the failed pane.
 
-Common causes include a missing branch or ref, a network failure while fetching, a path that is not a Git worktree, or an agent tool that is not available in the selected shell.
+Common causes include a missing branch, a network failure while fetching, a directory that is not a Git worktree, or an agent tool that is not available in the selected shell.
 
 ### The process exits immediately
 
-When the process-exit controls appear, choose **Restart** to try the same pane again, **Open Shell** to inspect the working copy, or **Close** to remove the pane. If restarting produces the same result, check the selected tool, shell, and tool-specific options.
+When the process-exit controls appear, choose **Restart** to try the same pane again, **Open Shell** to inspect the Git worktree, or **Close** to remove the pane. If restarting produces the same result, check the selected tool, shell, and tool-specific options.
 
 You can choose the default behavior in **Settings → Panes → Terminal → When Process Exits**:
 
@@ -78,23 +78,23 @@ You can choose the default behavior in **Settings → Panes → Terminal → Whe
 - **Open Shell** replaces the exited process with a live shell.
 - **Close Pane** closes the pane automatically.
 
-## A checkout conflicts with another task
+## A Git worktree conflicts with another task
 
 ### The worktree is already open
 
-Agent Session Manager does not open the same checkout in two panes in the same tab. Close the pane that already uses it, or use that pane instead of creating a duplicate.
+Agent Session Manager does not open the same Git worktree in two panes in the same tab. Close the pane that already uses it, or use that pane instead of creating a duplicate task.
 
-### The branch or ref cannot be found
+### The branch cannot be found
 
-Check the spelling and enter the branch or ref exactly. Use a full ref such as `origin/feature` when the short name is ambiguous. If you want a new task working copy from a simple name, open **Settings → Panes → New Pane**, enable **Default Branch**, and confirm the configured branch and **Starting Point**.
+Check the spelling and enter the branch exactly. Use a remote branch name such as `origin/feature` when the short name is ambiguous. If you want a new task branch and worktree from a simple name, open **Settings → Panes → New Pane**, enable **Default Branch**, and confirm the configured branch and **Starting Point**.
 
 ### A path exists but is not a worktree
 
-Choose a valid branch, ref, or existing Git worktree instead. New task names may contain only letters, digits, dots, underscores, and dashes.
+Choose a valid branch, remote branch, or existing Git worktree instead. New task names may contain only letters, digits, dots, underscores, and dashes.
 
 ### An existing worktree is outside the app-managed location
 
-When **Manage existing worktree** appears, choose **Manage** if Agent Session Manager should be able to clean up that worktree later, or **Don't Manage** if the checkout should remain under your control. Choose **Cancel** to stop creating the pane.
+When **Manage existing worktree** appears, choose **Manage** if Agent Session Manager should be able to clean up that worktree later, or **Don't Manage** if the worktree should remain under your control. Choose **Cancel** to stop creating the pane.
 
 ## Related tasks
 

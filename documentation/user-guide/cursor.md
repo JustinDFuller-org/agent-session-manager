@@ -11,7 +11,7 @@ Cursor is one of the agent tools that can run inside an Agent Session Manager pa
 
 ## Why you might use it
 
-Run Cursor in an isolated working copy while keeping related agent tasks together in a tab.
+Run Cursor in an isolated Git worktree while keeping related agent tasks together in a tab.
 
 ## Before you start
 
@@ -25,7 +25,7 @@ Install the Cursor agent command and make sure it is available from the shell se
 4. Review the Cursor **CLI Options** shown in the sheet.
 5. Choose **Create Pane**.
 
-Cursor starts in the working copy prepared for the pane. You can enable its attention hook from **Settings → Notifications** if you want a notification when a turn completes.
+Cursor starts in the Git worktree prepared for the pane. You can enable its attention hook from **Settings → Notifications** if you want a notification when a turn completes.
 
 ## What you should see
 

@@ -7,7 +7,7 @@ permalink: /documentation/user-guide/status-line/
 
 ## What it is
 
-The status line is the information bar at the bottom of a pane. It can show session details, model and usage information, duration, working-copy changes, and other facts available for the selected tool.
+The status line is the information bar at the bottom of a pane. It can show session details, model and usage information, duration, worktree changes, and other facts available for the selected tool.
 
 ## Why you might use it
 
