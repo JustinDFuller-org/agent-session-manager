@@ -474,6 +474,14 @@ struct CursorLifecyclePayload {
 /// (for model detection) and a `stop` hook (for notifications) that write their payloads
 /// to per-pane temp files identified by the `AGENT_SESSION_MANAGER_PANE_ID` environment variable.
 enum CursorHookSetup {
+    struct HookEntry: Sendable, Equatable {
+        let command: String
+
+        var jsonObject: [String: Any] {
+            ["command": command]
+        }
+    }
+
     fileprivate static let hookScriptName = "agent-session-manager-cursor-hook.sh"
     fileprivate static let stopHookScriptName = "agent-session-manager-cursor-stop-hook.sh"
     fileprivate static let lifecycleHookScriptName = "agent-session-manager-cursor-lifecycle-hook.sh"
@@ -563,20 +571,14 @@ enum CursorHookSetup {
 
         """
 
-    static let hookEntry: [String: Any] = [
-        "command": "./hooks/\(hookScriptName)"
-    ]
+    static let hookEntry = HookEntry(command: "./hooks/\(hookScriptName)")
 
-    static let stopHookEntry: [String: Any] = [
-        "command": "./hooks/\(stopHookScriptName)"
-    ]
+    static let stopHookEntry = HookEntry(command: "./hooks/\(stopHookScriptName)")
 
-    static let lifecycleHookEntry: [String: Any] = [
-        "command": "./hooks/\(lifecycleHookScriptName)"
-    ]
+    static let lifecycleHookEntry = HookEntry(command: "./hooks/\(lifecycleHookScriptName)")
 
     private static let ownershipLock = NSLock()
-    private static var activeOwners = Set<UUID>()
+    nonisolated(unsafe) private static var activeOwners = Set<UUID>()
 
     static func acquire(owner: UUID) throws {
         ownershipLock.lock()
@@ -735,7 +737,7 @@ enum CursorHookSetup {
     fileprivate static func installHookEntry(
         into hooks: inout [String: Any],
         eventName: String,
-        entry: [String: Any],
+        entry: HookEntry,
         scriptName: String
     ) -> Bool {
         var entries = hooks[eventName] as? [[String: Any]] ?? []
@@ -743,7 +745,7 @@ enum CursorHookSetup {
             ($0["command"] as? String)?.contains(scriptName) == true
         }
         guard !alreadyInstalled else { return false }
-        entries.append(entry)
+        entries.append(entry.jsonObject)
         hooks[eventName] = entries
         return true
     }

@@ -16,7 +16,7 @@ The **Starting Point** setting controls whether fallback creation starts from fr
 
 Implementation: `NewPaneSheet.create`, `Tab.resolveOrAttachWorktree`, and `SettingsPersistence.saveDefaultBranch` / `restoreDefaultBranch`.
 
-See [worktree-creation.md](worktree-creation.md) for the full resolution order.
+See [worktree-creation.md]({{ '/documentation/features/worktree-creation/' | relative_url }}) for the full resolution order.
 
 ## Per-Tab Base Branch Override
 

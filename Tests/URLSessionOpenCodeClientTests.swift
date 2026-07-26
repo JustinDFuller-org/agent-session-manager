@@ -172,7 +172,7 @@ final class URLSessionOpenCodeClientTests: XCTestCase {
 }
 
 private final class StubURLProtocol: URLProtocol {
-    static var requestHandler: ((URLRequest) -> (Data, URLResponse))?
+    nonisolated(unsafe) static var requestHandler: ((URLRequest) -> (Data, URLResponse))?
 
     override static func canInit(with request: URLRequest) -> Bool {
         return true

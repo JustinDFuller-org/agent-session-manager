@@ -157,7 +157,7 @@ final class TracingService: @unchecked Sendable {
     /// Wraps a synchronous throwing body in a span. Pass a `parent` handle to make this
     /// span a child of an in-progress trace.
     @discardableResult
-    func withSpan<T>(
+    func withSpan<T: Sendable>(
         _ name: String,
         parent: SpanHandle? = nil,
         attributes: [String: String] = [:],
@@ -178,11 +178,12 @@ final class TracingService: @unchecked Sendable {
     /// Wraps an async throwing body in a span. Pass a `parent` handle to make this
     /// span a child of an in-progress trace.
     @discardableResult
-    func withSpan<T>(
+    @MainActor
+    func withSpan<T: Sendable>(
         _ name: String,
         parent: SpanHandle? = nil,
         attributes: [String: String] = [:],
-        _ body: () async throws -> T
+        _ body: @MainActor @Sendable () async throws -> T
     ) async rethrows -> T {
         AppLog.log(name, level: .debug, attributes: attributes)
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else {
@@ -190,9 +191,15 @@ final class TracingService: @unchecked Sendable {
         }
         let builder = tracer.spanBuilder(spanName: name)
         if let parent { _ = builder.setParent(parent.span.context) }
-        return try await builder.withActiveSpan { span in
-            for (key, value) in attributes { span.setAttribute(key: key, value: value) }
-            return try await body()
+        let span = builder.startSpan()
+        for (key, value) in attributes { span.setAttribute(key: key, value: value) }
+        do {
+            let result = try await body()
+            span.end()
+            return result
+        } catch {
+            span.end()
+            throw error
         }
     }
 }

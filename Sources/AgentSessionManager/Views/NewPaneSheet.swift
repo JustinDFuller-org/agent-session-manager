@@ -14,6 +14,7 @@ struct NewPaneSheet: View {
     @State private var optionStates: [String: OptionState] = [:]
     @State private var envVarStates: [String: OptionState] = [:]
     @State private var isPriority = false
+    @State private var agentControlInjectionEnabled = true
 
     @State private var showSaveProfileSheet = false
     @State private var saveProfileName = ""
@@ -163,6 +164,8 @@ struct NewPaneSheet: View {
                 .accessibilityIdentifier("new-pane-priority-toggle")
             }
 
+            agentControlSection
+
             cliOptionsSection
             hiddenCLIOptionsSection
             envVarSection
@@ -223,6 +226,9 @@ struct NewPaneSheet: View {
             if !activeToolList.contains(selectedHarness) {
                 selectedHarness = activeToolList.first ?? .claude
             }
+            agentControlInjectionEnabled =
+                appSettings.resolvedAgentControlInjectionDecision(
+                    persistedDecision: refreshingPane?.agentControlInjectionEnabled)
             if !isRefreshing && selectedProfileID == nil {
                 let filtered = appSettings.profiles.filter { activeToolList.contains($0.harness) }
                 selectedProfileID = filtered.first?.id
@@ -345,6 +351,39 @@ struct NewPaneSheet: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var agentControlSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Agent Control")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if appSettings.agentControlInjectionPolicy.isAskPolicy {
+                Toggle(isOn: $agentControlInjectionEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Agent Session Manager control")
+                        Text("Allow this pane to use the app-owned control surface.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+                .accessibilityIdentifier("new-pane-agent-control-toggle")
+            } else {
+                Text(
+                    appSettings.agentControlInjectionPolicy == .always
+                        ? "Agent Session Manager control will be enabled."
+                        : "Agent Session Manager control will be disabled."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("new-pane-agent-control-policy-status")
+            }
+            Text("Scope: \(appSettings.agentControlScope.displayName)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
     }
 
@@ -559,6 +598,8 @@ struct NewPaneSheet: View {
         let extraEnvVars = buildExtraEnvVars()
 
         if let pane = refreshingPane {
+            pane.agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
+                persistedDecision: agentControlInjectionEnabled)
             tab.refreshPane(
                 pane, extraArgs: extraArgs, harness: selectedHarness, extraEnvVars: extraEnvVars,
                 appSettings: appSettings)
@@ -574,7 +615,10 @@ struct NewPaneSheet: View {
             name: trimmed,
             harness: selectedHarness,
             worktreeIsManaged: true,
-            profileID: selectedProfileID
+            profileID: selectedProfileID,
+            agentControlInjectionEnabled: appSettings.resolvedAgentControlInjectionDecision(
+                persistedDecision: agentControlInjectionEnabled),
+            appSettings: appSettings
         )
         pane.bindNotifications(appState: appState, isPriority: isPriority)
         appState.setActivePane(id: pane.id)
@@ -605,7 +649,7 @@ struct NewPaneSheet: View {
         let tabID = tab.id
         let resolvedDefaultBranch = defaultBranch
 
-        Task {
+        Task<Void, Never> { @MainActor in
             TracingService.shared.record(
                 "tab.worktree.base_branch_resolved",
                 attributes: [

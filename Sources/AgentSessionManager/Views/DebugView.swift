@@ -18,10 +18,9 @@ struct DebugView: View {
                         .labelsHidden()
                         .accessibilityIdentifier("settings-debug-mode-toggle")
                         .onChange(of: appSettings.debugModeEnabled) {
-                            SettingsPersistence.save(
-                                SettingsPersistence.DebugSettings(
-                                    schemaVersion: 1, enabled: appSettings.debugModeEnabled),
-                                to: "debug-settings.json")
+                            guard SettingsPersistence.saveDebugSettings(enabled: appSettings.debugModeEnabled) else {
+                                return
+                            }
                             TracingService.shared.configure(from: appSettings)
                             InvariantReporter.shared.configure(from: appSettings)
                         }

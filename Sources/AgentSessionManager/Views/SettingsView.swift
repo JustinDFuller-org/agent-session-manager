@@ -288,6 +288,7 @@ private struct PanesContent: View {
                     }
                 }
             }
+            AgentControlSettingsSection()
             Section("Terminal") {
                 SettingRow(
                     title: "Shell",
@@ -1091,30 +1092,35 @@ private struct AboutContent: View {
     var body: some View {
         @Bindable var appSettings = appSettings
         Form {
-            if let provenance = BuildProvenance.current() {
+            if let channel = coordinator.channel {
                 Section("Build") {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Built from \(provenance.branch) @ \(Self.shortSHA(provenance.commit))")
+                    if channel == .sourceMain, let provenance = BuildProvenance.current() {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Built from \(provenance.branch) @ \(Self.shortSHA(provenance.commit))")
+                                .font(.system(.body, design: .monospaced))
+                                .fontWeight(.medium)
+                            if let date = provenance.commitDate {
+                                Text(Self.relativeFormatter.localizedString(for: date, relativeTo: Date()))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(
+                                "Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")"
+                            )
                             .font(.system(.body, design: .monospaced))
                             .fontWeight(.medium)
-                        if let date = provenance.commitDate {
-                            Text(Self.relativeFormatter.localizedString(for: date, relativeTo: Date()))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                         }
-                    }
-                    .padding(.vertical, 4)
-
-                    if !provenance.isMainSourceBuild {
-                        Text("Update reminders are only available for builds made from main.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        .padding(.vertical, 4)
                     }
                 }
 
-                if provenance.isMainSourceBuild {
+                if channel == .sourceMain {
                     Section("Updates") {
-                        if let latest = coordinator.latestCommit {
+                        if let latest = coordinator.latestVersion {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Latest main: \(Self.shortSHA(latest))")
                                     .font(.system(.body, design: .monospaced))
@@ -1178,10 +1184,87 @@ private struct AboutContent: View {
                                 }
                         }
                     }
+                } else if channel == .dmg {
+                    Section("Updates") {
+                        if let latest = coordinator.latestVersion {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Latest release: \(latest)")
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.medium)
+                                if let checked = coordinator.lastCheckedAt {
+                                    Text(
+                                        "Checked \(Self.relativeFormatter.localizedString(for: checked, relativeTo: Date()))"
+                                    )
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+
+                        if coordinator.updateAvailable {
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .foregroundStyle(Theme.accent)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Update available")
+                                        .fontWeight(.medium)
+                                    Text("Download and install the latest release.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .accessibilityIdentifier("settings-about-update-available-banner")
+                        }
+
+                        HStack(spacing: 12) {
+                            Button {
+                                coordinator.check()
+                            } label: {
+                                if coordinator.isChecking {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Text("Check for Updates")
+                                }
+                            }
+                            .disabled(coordinator.isChecking)
+                            .accessibilityIdentifier("settings-check-for-updates-button")
+
+                            if coordinator.updateAvailable {
+                                Button {
+                                    coordinator.performUpdate()
+                                } label: {
+                                    Text("Install Update")
+                                }
+                                .accessibilityIdentifier("settings-install-update-button")
+                            }
+                        }
+
+                        SettingRow(
+                            title: "Update Reminder",
+                            description: "Show a reminder in the tab bar when a newer DMG release is available.",
+                            defaultValue: "On"
+                        ) {
+                            Toggle("Update Reminder", isOn: $appSettings.updateReminderEnabled)
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .accessibilityIdentifier("settings-update-reminder-toggle")
+                                .onChange(of: appSettings.updateReminderEnabled) {
+                                    SettingsPersistence.saveUpdateCheckSettings(appSettings: appSettings)
+                                    if appSettings.updateReminderEnabled {
+                                        UpdateCheckCoordinator.shared.start()
+                                    } else {
+                                        UpdateCheckCoordinator.shared.stop()
+                                    }
+                                }
+                        }
+                    }
                 }
             } else {
                 Section("Version") {
-                    Text("Version 1.0")
+                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")")
                         .font(.system(.body, design: .monospaced))
                         .fontWeight(.medium)
                 }

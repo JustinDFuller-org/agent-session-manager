@@ -110,8 +110,9 @@ final class FocusPaneTests: XCTestCase {
             tabName: fixture.tab.name,
             isPriority: false
         )
+        fixture.state.notifications = [notification]
 
-        fixture.state.navigateTo(notification: notification)
+        fixture.state.acknowledgeNotification(id: notification.id)
 
         XCTAssertNil(fixture.tab.focusedPaneID)
         XCTAssertEqual(fixture.state.activePaneID, fixture.panes[1].id)

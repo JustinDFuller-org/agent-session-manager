@@ -46,7 +46,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.showWindow(nil)
         mainWindow = window
         mainWindowController = controller
-
         NotificationCenter.default.addObserver(
             forName: .toggleSettings, object: nil, queue: .main
         ) { [weak self] _ in
@@ -66,21 +65,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         for (name, event) in notificationsToObserve {
             let token = center.addObserver(forName: name, object: nil, queue: .main) { note in
-                MainActor.assumeIsolated {
-                    let window = note.object as? NSWindow
-                    let extra: [String: String] = [
-                        "subjectTitle": window?.title ?? "",
-                        "subjectClass": window.map { String(describing: type(of: $0)) } ?? "nil",
-                        "subjectID": window.map { String(ObjectIdentifier($0).hashValue, radix: 16) }
-                            ?? "nil",
-                    ]
-                    WindowSnapshot.record(event: event, extra: extra)
-                }
+                let window = note.object as? NSWindow
+                let extra: [String: String] = [
+                    "subjectTitle": window?.title ?? "",
+                    "subjectClass": window.map { String(describing: type(of: $0)) } ?? "nil",
+                    "subjectID": window.map { String(ObjectIdentifier($0).hashValue, radix: 16) }
+                        ?? "nil",
+                ]
+                WindowSnapshot.record(event: event, extra: extra)
             }
             windowLifecycleObservers.append(token)
         }
         WindowSnapshot.record(event: "app.did_finish_launching")
         #endif
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task { @MainActor in
+            await AgentControlService.shared.stop()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func focusMainWindow() {

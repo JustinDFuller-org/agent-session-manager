@@ -59,6 +59,20 @@ Debug mode enables both:
 
 Both outputs use fixed 10 MB caps. Trace files retain their existing one-day cleanup behavior. Invariant logs are size-bounded only so violations remain available during dogfooding.
 
+## Agent control diagnostics
+
+The app-owned MCP server exposes scoped diagnostic resources and bounded query
+tools for the summary, per-pane traces, invariant occurrences, and app-owned
+unified logs. Pane and tab callers receive only records attributable to their
+scope; unified-log queries and Debug Mode changes require Global scope.
+
+Diagnostic output is metadata-first and redacted before it crosses the MCP
+boundary. Terminal content, harness output, secrets, environment values, and
+arbitrary system logs are not returned. Queries use bounded limits and
+cooperative cancellation. When Debug Mode is disabled, existing durable trace
+and invariant files remain readable while new durable capture is disabled;
+unified logs remain available because they are always on.
+
 Top-level `debug-trace.log` and `traces.jsonl` files are stale legacy formats when present. Report them separately from current per-pane traces.
 
 Use **Open Trace Dashboard** or **Open Invariant Dashboard** from the Debug settings page. The same windows are available from the Window menu with `⌘⇧D` and `⌘⇧I`.

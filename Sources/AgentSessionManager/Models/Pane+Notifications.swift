@@ -87,7 +87,7 @@ extension Pane {
             Task { @MainActor in
                 guard let pane = self, let tab = pane.tab, !pane.opencodeRaceLossRestarted else { return }
                 pane.opencodeRaceLossRestarted = true
-                tab.restartPane(pane)
+                tab.restartPane(pane, appSettings: pane.appSettings)
             }
         }
         statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in

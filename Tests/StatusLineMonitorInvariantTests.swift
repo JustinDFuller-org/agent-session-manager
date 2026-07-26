@@ -230,6 +230,38 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
     // MARK: - I6: Liveness
 
+    func testI6StatusWatcherAppliesWritesAndAtomicReplacements() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
+        monitor.start()
+        defer { monitor.stop() }
+
+        try Data(#"{"worktree":{"name":"wrong-name","branch":"main"}}"#.utf8)
+            .write(to: URL(filePath: monitor.filePath))
+        let firstDeadline = Date().addingTimeInterval(2)
+        while monitor.currentData == nil, Date() < firstDeadline {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertEqual(monitor.currentData?.worktree?.branch, "main")
+        XCTAssertTrue(
+            InvariantReporter.shared.violationsForTesting.contains {
+                $0.invariantID == "statusline.worktree.name"
+            }
+        )
+
+        try Data(#"{"worktree":{"name":"right-name","branch":"develop"}}"#.utf8)
+            .write(to: URL(filePath: monitor.filePath), options: .atomic)
+        let replacementDeadline = Date().addingTimeInterval(2)
+        while monitor.currentData?.worktree?.branch != "develop", Date() < replacementDeadline {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTAssertEqual(monitor.currentData?.worktree?.branch, "develop")
+    }
+
     func testI6FreshnessRecoveryAppliesLatestPayload() async throws {
         let workDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString).path

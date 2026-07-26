@@ -77,10 +77,9 @@ final class ProcessEnvironmentTests: XCTestCase {
         let env = ProcessEnvironment.sanitize([], etcDirectory: etc)
         let dict = envDict(from: env)
         let path = dict["PATH"] ?? ""
-        XCTAssertTrue(path.contains("/usr/local/bin"), "PATH should contain /usr/local/bin")
-        XCTAssertTrue(path.contains("/opt/homebrew/bin"), "PATH should contain /opt/homebrew/bin")
-        XCTAssertTrue(path.contains("/usr/bin"), "PATH should contain /usr/bin")
-        XCTAssertTrue(path.contains("/bin"), "PATH should contain /bin")
+        for entry in ProcessEnvironment.defaultPATHEntries(etcDirectory: etc) {
+            XCTAssertTrue(path.split(separator: ":").contains(Substring(entry)))
+        }
     }
 
     func testSanitizeDoesNotDuplicateExistingPATHEntries() {

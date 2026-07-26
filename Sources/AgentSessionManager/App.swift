@@ -201,8 +201,16 @@ struct ContentView: View {
                 {
                     appSettings.updateReminderEnabled = config.enabled
                 }
+                if let config = SettingsPersistence.load(
+                    AgentControlSettings.self, from: "agent-control-settings.json")
+                {
+                    appSettings.agentControlInjectionPolicy = config.injectionPolicy
+                    appSettings.agentControlScope = config.scope
+                }
                 TracingService.shared.configure(from: appSettings)
                 InvariantReporter.shared.configure(from: appSettings)
+                await AgentControlService.shared.configure(appState: appState, appSettings: appSettings)
+                await AgentControlService.shared.start()
                 UpdateCheckCoordinator.shared.start()
                 if let bundleIdentifier = Bundle.main.bundleIdentifier {
                     BundleIdentityVerifier.checkPreferredURL(
@@ -231,13 +239,6 @@ struct ContentView: View {
                     {
                         for tab in appState.tabs {
                             tab.panes.first(where: { $0.id == id })?.setupState = .failed(error: "Test setup error")
-                        }
-                    }
-                    if arg.hasPrefix("--inject-pane-working="),
-                        let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-working=".count)))
-                    {
-                        for tab in appState.tabs {
-                            tab.panes.first(where: { $0.id == id })?.uiTestActivityStateOverride = .working
                         }
                     }
                 }
@@ -619,9 +620,9 @@ private struct KeyboardShortcutView: NSViewRepresentable {
         var onRefreshPane: () -> Void = {}
         var appState: AppState?
         weak var hostWindow: NSWindow?
-        var keyMonitor: Any?
-        var mouseMonitor: Any?
-        var scrollWheelMonitor: Any?
+        nonisolated(unsafe) var keyMonitor: Any?
+        nonisolated(unsafe) var mouseMonitor: Any?
+        nonisolated(unsafe) var scrollWheelMonitor: Any?
 
         deinit {
             if let monitor = keyMonitor { NSEvent.removeMonitor(monitor) }

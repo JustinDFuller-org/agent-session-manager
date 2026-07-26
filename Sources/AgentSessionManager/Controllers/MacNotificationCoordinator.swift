@@ -1,5 +1,5 @@
 import AppKit
-import UserNotifications
+@preconcurrency import UserNotifications
 
 enum MacNotificationUserInfoKey {
     static let paneID = "paneID"
@@ -321,18 +321,13 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         return "navigated"
     }
 
-    func handleNotificationResponse(_ response: UNNotificationResponse) {
-        let userInfo = response.notification.request.content.userInfo
-        guard
-            let paneIDStr = userInfo[MacNotificationUserInfoKey.paneID] as? String,
-            let tabIDStr = userInfo[MacNotificationUserInfoKey.tabID] as? String
-        else {
+    func handleNotificationResponse(paneIDStr: String?, tabIDStr: String?, kind: String?) {
+        guard let paneIDStr, let tabIDStr else {
             TracingService.shared.record(
                 "notification.response.navigation",
                 attributes: ["result": "missing_context"])
             return
         }
-        let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
         let tab = UUID(uuidString: tabIDStr).flatMap { tabID in
             appState?.tabs.first { $0.id == tabID }
         }
@@ -405,9 +400,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        DispatchQueue.main.async {
-            completionHandler(Self.willPresentPresentationOptions)
-        }
+        completionHandler(Self.willPresentPresentationOptions)
     }
 
     nonisolated func userNotificationCenter(
@@ -415,9 +408,17 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        let userInfo = response.notification.request.content.userInfo
+        let paneIDStr = userInfo[MacNotificationUserInfoKey.paneID] as? String
+        let tabIDStr = userInfo[MacNotificationUserInfoKey.tabID] as? String
+        let kind = userInfo[MacNotificationUserInfoKey.notificationKind] as? String
+        completionHandler()
         Task { @MainActor in
-            MacNotificationCoordinator.shared.handleNotificationResponse(response)
-            completionHandler()
+            MacNotificationCoordinator.shared.handleNotificationResponse(
+                paneIDStr: paneIDStr,
+                tabIDStr: tabIDStr,
+                kind: kind
+            )
         }
     }
 }

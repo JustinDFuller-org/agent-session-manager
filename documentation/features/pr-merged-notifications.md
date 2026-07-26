@@ -40,6 +40,6 @@ This setting is stored in `~/Library/Application Support/agent-session-manager/n
 
 ## Related features
 
-- [PR Tracking](pr-tracking.md) — how PR state is polled and displayed in the status line.
-- [Notifications](notifications.md) — sidebar and banner notification system.
-- [Worktree Cleanup](worktree-cleanup.md) — how worktrees are removed when closing panes.
+- [PR Tracking]({{ '/documentation/features/pr-tracking/' | relative_url }}) — how PR state is polled and displayed in the status line.
+- [Notifications]({{ '/documentation/features/notifications/' | relative_url }}) — sidebar and banner notification system.
+- [Worktree Cleanup]({{ '/documentation/features/worktree-cleanup/' | relative_url }}) — how worktrees are removed when closing panes.

@@ -1,7 +1,8 @@
 name: Unit Tests
 
 on:
-  workflow_dispatch: # Disabled: macOS runners are expensive (10× Linux cost). Re-enable when budget allows.
+  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: unit-tests-${{ github.ref }}
@@ -12,13 +13,16 @@ jobs:
     name: swift test
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
+
+      - name: Check supported toolchain floor
+        run: bash scripts/check-toolchain.sh
 
       - name: Cache Swift packages
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: .build/checkouts
           key: swift-packages-${{ hashFiles('Package.resolved') }}
 
       - name: Run unit tests
-        run: swift test
+        run: swift test --triple "$(uname -m)-apple-macosx14.0" --enable-code-coverage

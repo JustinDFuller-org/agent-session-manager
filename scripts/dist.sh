@@ -12,7 +12,8 @@
 # Prerequisites (one-time):
 #   - Developer ID Application certificate installed in Keychain.
 #   - App-specific password created at appleid.apple.com.
-#   - xcrun notarytool store-credentials "AC_NOTARY" --apple-id ... --team-id ... --password ...
+#   - Either a local "AC_NOTARY" keychain profile, or AC_NOTARY_APPLE_ID and
+#     AC_NOTARY_PASSWORD environment variables for CI.
 set -euo pipefail
 
 readonly DEV_IDENTITY="Developer ID Application: Justin Fuller (CX2KMQZQ7X)"
@@ -22,6 +23,8 @@ readonly ENTITLEMENTS_FILENAME="AgentSessionManager.entitlements"
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=scripts/release-config.sh
+source "$repo_root/scripts/release-config.sh"
 
 info() { echo "==> $*"; }
 error() { echo "ERROR: $*" >&2; }
@@ -66,11 +69,32 @@ main() {
   local staging_volume="$staging_dir/Agent Session Manager"
 
   cp -a "$app_bundle" "$staged_app"
+  [[ -f "$staged_app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" ]] || \
+    die "Sparkle.framework is missing from the app bundle"
 
   info "Stamping version into Info.plist"
   local info_plist="$staged_app/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version_short" "$info_plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $version_build" "$info_plist"
+
+  info "Marking distribution channel as dmg"
+  for key in ASMSourceCommit ASMSourceBranch ASMSourceCommitDate ASMDistributionChannel; do
+    /usr/libexec/PlistBuddy -c "Delete :$key" "$info_plist" 2>/dev/null || true
+  done
+  /usr/libexec/PlistBuddy -c "Add :ASMDistributionChannel string dmg" "$info_plist"
+
+  local sparkle_public_key_file="$repo_root/.sparkle/sparkle-public.pem"
+  if [ -f "$sparkle_public_key_file" ]; then
+    info "Injecting Sparkle feed URL and public key"
+    local public_key
+    public_key=$(cat "$sparkle_public_key_file")
+    /usr/libexec/PlistBuddy -c "Delete :SUFeedURL" "$info_plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $PUBLIC_APPCAST_URL" "$info_plist"
+    /usr/libexec/PlistBuddy -c "Delete :SUPublicEdKey" "$info_plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :SUPublicEdKey string $public_key" "$info_plist"
+  else
+    info "Sparkle public key not found at $sparkle_public_key_file; skipping feed injection"
+  fi
 
   info "Signing app with Developer ID + entitlements + hardened runtime"
   codesign --force --deep \
@@ -100,8 +124,18 @@ main() {
     -o "$dmg_path" >/dev/null
 
   info "Submitting DMG to Apple for notarization"
+  local -a notary_credentials
+  if [[ -n "${AC_NOTARY_APPLE_ID:-}" && -n "${AC_NOTARY_PASSWORD:-}" ]]; then
+    notary_credentials=(
+      --apple-id "$AC_NOTARY_APPLE_ID"
+      --team-id "$TEAM_ID"
+      --password "$AC_NOTARY_PASSWORD"
+    )
+  else
+    notary_credentials=(--keychain-profile "$NOTARY_PROFILE")
+  fi
   xcrun notarytool submit "$dmg_path" \
-    --keychain-profile "$NOTARY_PROFILE" \
+    "${notary_credentials[@]}" \
     --wait || die "DMG notarization submission failed"
 
   info "Stapling notarization ticket to DMG"
@@ -118,6 +152,10 @@ main() {
   [[ -d "$mounted_app" ]] || {
     hdiutil detach "$mount_point" >/dev/null 2>&1 || true
     die "AgentSessionManager.app not found inside mounted DMG"
+  }
+  [[ -f "$mounted_app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" ]] || {
+    hdiutil detach "$mount_point" >/dev/null 2>&1 || true
+    die "Sparkle.framework is missing from the mounted DMG"
   }
 
   spctl --assess --type exec --verbose=4 "$mounted_app" || {

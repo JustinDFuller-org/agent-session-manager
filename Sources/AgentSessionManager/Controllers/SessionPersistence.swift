@@ -128,6 +128,7 @@ struct PersistedPane: Codable {
     var profileID: UUID?
     var extraArgs: [String]
     var opencodeSessionID: String?
+    var agentControlInjectionEnabled: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, name, harness, isPriority, isMerged, isClosed, worktreeDirectory, worktreeIsManaged
@@ -135,13 +136,15 @@ struct PersistedPane: Codable {
         case profileID
         case extraArgs
         case opencodeSessionID
+        case agentControlInjectionEnabled
     }
 
     init(
         id: UUID, name: String, harness: Harness, isPriority: Bool = false, isMerged: Bool = false,
         isClosed: Bool = false,
         worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil,
-        extraArgs: [String] = [], opencodeSessionID: String? = nil
+        extraArgs: [String] = [], opencodeSessionID: String? = nil,
+        agentControlInjectionEnabled: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -154,6 +157,7 @@ struct PersistedPane: Codable {
         self.profileID = profileID
         self.extraArgs = extraArgs
         self.opencodeSessionID = opencodeSessionID
+        self.agentControlInjectionEnabled = agentControlInjectionEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -171,6 +175,7 @@ struct PersistedPane: Codable {
         profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
         extraArgs = (try? container.decodeIfPresent([String].self, forKey: .extraArgs)) ?? []
         opencodeSessionID = try container.decodeIfPresent(String.self, forKey: .opencodeSessionID)
+        agentControlInjectionEnabled = try container.decodeIfPresent(Bool.self, forKey: .agentControlInjectionEnabled)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -186,6 +191,7 @@ struct PersistedPane: Codable {
         try container.encodeIfPresent(profileID, forKey: .profileID)
         try container.encode(extraArgs, forKey: .extraArgs)
         try container.encodeIfPresent(opencodeSessionID, forKey: .opencodeSessionID)
+        try container.encodeIfPresent(agentControlInjectionEnabled, forKey: .agentControlInjectionEnabled)
     }
 }
 
@@ -218,7 +224,8 @@ struct SessionPersistence {
                         worktreeIsManaged: pane.worktreeIsManaged,
                         profileID: pane.profileID,
                         extraArgs: pane.extraArgs,
-                        opencodeSessionID: pane.opencodeSessionID
+                        opencodeSessionID: pane.opencodeSessionID,
+                        agentControlInjectionEnabled: pane.agentControlInjectionEnabled
                     )
                 }
             )
@@ -249,14 +256,20 @@ struct SessionPersistence {
         try? data.write(to: sessionURL)
     }
 
+    static func persistedDirectoryURL(for path: String) -> URL? {
+        guard !path.isEmpty else { return nil }
+        return URL(filePath: path)
+    }
+
     static func restore(into appState: AppState, appSettings: AppSettings) {
         guard
             let data = try? Data(contentsOf: sessionURL),
             let session = try? JSONDecoder().decode(PersistedSession.self, from: data)
         else { return }
 
+        var didMigrateAgentControlDecisions = false
         for persistedTab in session.tabs {
-            guard let dir = URL(string: "file://\(persistedTab.directory)") else { continue }
+            guard let dir = persistedDirectoryURL(for: persistedTab.directory) else { continue }
             let tab = Tab(
                 id: persistedTab.id,
                 name: persistedTab.name,
@@ -296,6 +309,10 @@ struct SessionPersistence {
                         extraArgs.append("--continue")
                     }
                 }
+                let agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
+                    persistedDecision: persistedPane.agentControlInjectionEnabled)
+                didMigrateAgentControlDecisions =
+                    didMigrateAgentControlDecisions || persistedPane.agentControlInjectionEnabled == nil
                 let restoredEnvironment: [String: String] = {
                     guard let profileID = persistedPane.profileID,
                         let profile = appSettings.profiles.first(where: { $0.id == profileID })
@@ -314,6 +331,7 @@ struct SessionPersistence {
                     id: persistedPane.id,
                     extraEnvVars: restoredEnvironment,
                     profileID: persistedPane.profileID,
+                    agentControlInjectionEnabled: agentControlInjectionEnabled,
                     resumeOpencodeSessionID: resumeOpencodeSessionID,
                     appSettings: appSettings
                 )
@@ -368,6 +386,9 @@ struct SessionPersistence {
                     pane.isClosed = true
                 }
             }
+        }
+        if didMigrateAgentControlDecisions {
+            save(appState: appState)
         }
     }
 

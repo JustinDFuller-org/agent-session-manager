@@ -155,7 +155,7 @@ private struct LegacyStatusLineItem: Decodable {
     }
 }
 
-struct StatusLineConfig: Codable, Equatable {
+struct StatusLineConfig: Codable, Equatable, Sendable {
     var rows: [StatusLineRow]
     var factLabelStyle: FactLabelStyle
     var rowAlignment: RowAlignment
@@ -374,6 +374,62 @@ struct StatusLineConfig: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case rows, factLabelStyle, rowAlignment, showPercentagesAsText, customFields
         case items
+    }
+
+    func validateForAgentControl() throws {
+        let customIDs = customFields.map(\.id)
+        guard Set(customIDs).count == customIDs.count else {
+            throw StatusLineConfigurationValidationError.duplicateCustomFieldID
+        }
+        for field in customFields {
+            let prefix = "custom:"
+            guard field.id.hasPrefix(prefix),
+                UUID(uuidString: String(field.id.dropFirst(prefix.count))) != nil
+            else {
+                throw StatusLineConfigurationValidationError.invalidCustomFieldID(field.id)
+            }
+            guard !field.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                !field.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                throw StatusLineConfigurationValidationError.emptyCustomField(field.id)
+            }
+        }
+
+        let knownIDs = Set(Self.itemMetadata.keys).union(customIDs)
+        var usedIDs = Set<String>()
+        for row in rows {
+            for item in row.items {
+                guard knownIDs.contains(item.id) else {
+                    throw StatusLineConfigurationValidationError.unknownItemID(item.id)
+                }
+                guard usedIDs.insert(item.id).inserted else {
+                    throw StatusLineConfigurationValidationError.duplicateItemID(item.id)
+                }
+            }
+        }
+    }
+}
+
+enum StatusLineConfigurationValidationError: Error, Equatable, LocalizedError {
+    case duplicateCustomFieldID
+    case invalidCustomFieldID(String)
+    case emptyCustomField(String)
+    case unknownItemID(String)
+    case duplicateItemID(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .duplicateCustomFieldID:
+            return "Status-line custom field IDs must be unique"
+        case .invalidCustomFieldID(let id):
+            return "Status-line custom field ID is invalid: \(id)"
+        case .emptyCustomField(let id):
+            return "Status-line custom field must have a label and command: \(id)"
+        case .unknownItemID(let id):
+            return "Status-line item is not in the catalog: \(id)"
+        case .duplicateItemID(let id):
+            return "Status-line item appears more than once: \(id)"
+        }
     }
 }
 

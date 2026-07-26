@@ -1,6 +1,6 @@
 # Panes
 
-A **pane** is a terminal session inside a tab. Each pane runs an AI agent CLI: Claude Code, Cursor, or Codex. All three harnesses use the shared worktree flow: the app can attach to existing git checkouts or create **managed** trees under `.agent-session-manager/worktrees/<name>` inside the tab’s repository. See [worktree-creation.md](worktree-creation.md).
+A **pane** is a terminal session inside a tab. Each pane runs an AI agent CLI: Claude Code, Cursor, or Codex. All three harnesses use the shared worktree flow: the app can attach to existing git checkouts or create **managed** trees under `.agent-session-manager/worktrees/<name>` inside the tab’s repository. See [worktree-creation.md]({{ '/documentation/features/worktree-creation/' | relative_url }}).
 
 ## Creating a pane
 
@@ -8,11 +8,11 @@ Use **⌘P** (default; configurable under **Settings → Shortcuts → New Pane 
 
 ### Fields
 
-**CLI** — Pick the tool to launch. Only tools enabled in **Settings → CLI Tools** appear.
+**CLI** — Pick the tool to launch. Only tools enabled in **Settings → Harnesses** appear.
 
 **Session / name field** — One text field, shared across tools. Switching tools preserves whatever was typed. It accepts a session name, branch ref, or existing worktree name and routes every harness through the same app-owned Git resolution path.
 
-**CLI options** — Flags enabled in **Settings → CLI Tools** appear as toggles and fields. Options marked default-on in Settings start checked.
+**CLI options** — Flags enabled in **Settings → Harnesses** appear as toggles and fields. Options marked default-on in Settings start checked.
 
 Choose **Open** or press Return to create the pane.
 
@@ -22,7 +22,7 @@ Each pane shows a configurable status bar at the bottom (model, cost, context us
 
 ## Focus mode
 
-When a tab contains multiple panes, double-click a pane header or right-click and choose **Focus This Pane** to give that terminal the full tab body while keeping the tab bar visible. See [focus-pane.md](focus-pane.md).
+When a tab contains multiple panes, double-click a pane header or right-click and choose **Focus This Pane** to give that terminal the full tab body while keeping the tab bar visible. See [focus-pane.md]({{ '/documentation/features/focus-pane/' | relative_url }}).
 
 ## Open Shell Here
 
@@ -30,11 +30,11 @@ Right-click a pane header and choose **Open Shell Here** to create a plain shell
 
 ## Session persistence
 
-Open panes are saved to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch, the app restores tabs and restarts the CLI in any pane whose checkout still exists on disk (see restore rules in [worktree-creation.md](worktree-creation.md)).
+Open panes are saved to `~/Library/Application Support/agent-session-manager/sessions.json`. On relaunch, the app restores tabs and restarts the CLI in any pane whose checkout still exists on disk (see restore rules in [worktree-creation.md]({{ '/documentation/features/worktree-creation/' | relative_url }})).
 
 ## Attention notifications
 
-When a tool sends a terminal bell (`\a`), Agent Session Manager can surface [in-app notifications and optional macOS banners](notifications.md) (including when that pane is focused).
+When a tool sends a terminal bell (`\a`), Agent Session Manager can surface [in-app notifications and optional macOS banners]({{ '/documentation/features/notifications/' | relative_url }}) (including when that pane is focused).
 
 ## macOS Permission Prompts
 
@@ -60,7 +60,7 @@ Before a pane process starts, the app sanitizes the environment it inherited:
 
 Inherited values are always preserved. When Agent Session Manager is launched from a terminal, the parent shell usually supplies a complete `PATH` and `TERM`, so the sanitizer is a no-op. When launched from the DMG via Finder, the sanitizer restores the missing baseline.
 
-For process launches and environment details when diagnosing issues, see [debug-logging.md](debug-logging.md).
+For process launches and environment details when diagnosing issues, see [debug-logging.md]({{ '/documentation/features/debug-logging/' | relative_url }}).
 
 ### If prompts persist across sessions
 
@@ -80,4 +80,4 @@ macOS stores TCC decisions per app bundle. If permissions don't stick:
 | ⌘K | Close active tab |
 | ⌘1–⌘9 | Switch to tab by index |
 
-For fallback creation from the configured **default branch**, see [default-branch.md](default-branch.md).
+For fallback creation from the configured **default branch**, see [default-branch.md]({{ '/documentation/features/default-branch/' | relative_url }}).

@@ -18,8 +18,9 @@ Agent Session Manager is a native macOS app (Swift/SwiftUI, macOS 14+) for runni
 
 **Keyboard shortcuts:**
 - ⌘T — new tab
-- ⌘⇧N — new pane
+- ⌘P — new pane
 - ⌘W — close active pane
+- ⌘K — close active tab
 - ⌘1–⌘9 — switch to tab by index
 
 ## Core Design Principle
@@ -63,7 +64,12 @@ make xcodeproj    # regenerate Xcode project via xcodegen (required before UI te
 make lint         # swift-format lint --recursive --strict (matches CI format check)
 make setup-hooks  # configure git hooks for pre-commit (unit tests) and pre-push (UI smoke tests)
 make clean        # remove .build/, .app/, .xcodeproj/
+make docs-check   # render the GitHub Pages site and check generated local links
 ```
+
+The documentation check requires a current Ruby installation and Bundler. It
+builds the site into `.build/docs-site` and validates the rendered HTML without
+checking external URLs over the network.
 
 ## Testing
 
@@ -113,7 +119,7 @@ Run `make setup-hooks` after cloning to install git hooks: `swift test` on commi
 - `ContentView` — Root; composes `TabBarView` + `PaneGridView`; owns NSEvent keyboard monitor for ⌘W and ⌘1–9
 - `TerminalRepresentable` — `NSViewRepresentable` wrapping SwiftTerm; defers process start until the view frame is non-zero (layout must be complete before the terminal resizes correctly)
 - `NewPaneSheet` — Harness picker, shared worktree resolution flow, and dynamic CLI option toggles from `CLIOptionConfig`
-- `SettingsView` — Three-tab settings window: CLI Options (flag visibility), Shortcuts (key bindings), Status Line (item visibility)
+- `SettingsView` — In-window settings overlay with sections: Panes, Profiles, Harnesses, Shortcuts, Status Line, Notifications, Debug, and About
 - `StatusLineView` — Renders visible status items as a monospaced caption bar; formats durations, reset times, cost, token counts, and all other Claude data fields
 
 ## Visual Design System
@@ -208,7 +214,9 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - terminal-rendering: `feature-terminal-rendering`
 - worktree-creation: `feature-worktree-creation`
 - agent-harness-matrix: `feature-agent-harness-matrix`
+- agentic-control: `feature-agentic-control`
 - distribution: `feature-distribution`
+- update-reminder: `feature-update-reminder`
 
 **Workflow reminders:**
 1. **When working on a feature** — load the corresponding skill (e.g. `feature-panes`) before starting.
