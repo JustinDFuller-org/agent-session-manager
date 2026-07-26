@@ -7,7 +7,7 @@ permalink: /documentation/user-guide/continue-after-restart/
 
 ## What it is
 
-Agent Session Manager saves open tabs and agent panes so it can restore them after the app is relaunched. A pane is restored only when its working copy still exists on disk.
+Agent Session Manager saves open tabs and agent panes so it can restore them after the app is relaunched. A pane is restored only when its Git worktree still exists on disk.
 
 ## Why you might use it
 
@@ -15,7 +15,7 @@ Session restoration lets you close the app or restart your Mac without rebuildin
 
 ## Before you start
 
-Keep the working copies used by your panes on disk. If you delete a working copy, the related pane cannot be restored.
+Keep the Git worktrees used by your panes on disk. If you delete a worktree, the related pane cannot be restored, although its branch remains available in Git.
 
 ## How to use it
 
@@ -28,14 +28,14 @@ The app restores tabs and panes whose working copies still exist. With **Continu
 
 ## What you should see
 
-The saved tabs reappear when their project directories can be restored, with each restorable pane starting in its saved working copy. Panes whose project directory or working copy is missing are left out of the restored session.
+The saved tabs reappear when their project directories can be restored, with each restorable pane starting in its saved Git worktree. Panes whose project directory or worktree is missing are left out of the restored session.
 
 ## If it does not work
 
-- If a tab or pane is missing, confirm that its project directory and working copy still exist.
+- If a tab or pane is missing, confirm that its project directory and Git worktree still exist.
 - If the project path contains spaces and the tab does not return, update to a build containing the current session-restore fix or recreate the tab.
 - If the pane reopens but the conversation does not resume, check **Settings → Panes → Continue on Restart** and the selected tool's own session behavior.
-- If you intentionally deleted the working copy, create a new pane from the relevant branch or worktree.
+- If you intentionally deleted the worktree, create a new pane from the relevant branch or worktree.
 
 ## Related tasks
 

@@ -70,7 +70,7 @@ Names are display values. Agent Control uses stable object identities so actions
 
 With an ask policy, **New Pane** shows the **Agent Session Manager control** checkbox and the current scope. With **Always** or **Never**, the sheet shows whether control will be enabled or disabled instead of showing a checkbox.
 
-After the pane starts, the supported agent can use Agent Control within the selected scope. The pane continues to run the selected agent tool in its prepared working copy.
+After the pane starts, the supported agent can use Agent Control within the selected scope. The pane continues to run the selected agent tool in its prepared Git worktree.
 
 ## If it does not work
 

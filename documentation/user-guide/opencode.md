@@ -11,7 +11,7 @@ OpenCode is one of the agent tools that can run inside an Agent Session Manager 
 
 ## Why you might use it
 
-Run OpenCode in an isolated working copy and monitor its session alongside other agent panes.
+Run OpenCode in an isolated Git worktree and monitor its session alongside other agent panes.
 
 ## Before you start
 
@@ -25,7 +25,7 @@ Install OpenCode and make sure its command is available from the shell selected 
 4. Review any OpenCode **CLI Options** or **Environment Variables** you want to use.
 5. Choose **Create Pane**.
 
-OpenCode starts in the working copy prepared for the pane. Its status line can show supported session information while the pane is running.
+OpenCode starts in the Git worktree prepared for the pane. Its status line can show supported session information while the pane is running.
 
 ## What you should see
 
