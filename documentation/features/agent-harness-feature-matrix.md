@@ -46,12 +46,12 @@ This is the canonical, code-observed audit of Agent Session Manager integration 
 
 | Surface | Claude Code | Cursor | Codex | OpenCode | Notes |
 |---|---|---|---|---|---|
-| Per-pane MCP injection | Implemented | Missing | Implemented | Implemented | Claude uses `--mcp-config`; Codex uses launch-time `-c` overrides; OpenCode merges `OPENCODE_CONFIG_CONTENT`; Cursor has no safe documented per-pane configuration surface. |
+| Per-pane MCP injection | Implemented | Implemented | Implemented | Implemented | Claude uses `--mcp-config`; Cursor uses a private plugin directory through `--plugin-dir`; Codex uses launch-time `-c` overrides; OpenCode merges `OPENCODE_CONFIG_CONTENT`. |
 | Injection policy and scope | Implemented | Implemented | Implemented | Implemented | App settings support `Always`, `Never`, and ask policies plus `Pane`, `Tab`, and `Global` scope. |
-| Runtime credential isolation | Implemented | N/A | Implemented | Implemented | Credentials are runtime-only bearer tokens, passed through an environment variable and revoked on pane teardown. |
-| Scoped MCP resources | Implemented | N/A | Implemented | Implemented | The app-owned server exposes stable-ID workspace, pane, profile, status, notification, and diagnostic resources. |
-| Scoped MCP mutations | Implemented | N/A | Implemented | Implemented | Tab/pane, profile, harness, status-line, notification, diagnostic, and Debug Mode tools enforce scope through the shared router. |
-| Terminal-pure setup | Implemented | N/A | Implemented | Implemented | Configuration preparation occurs in Swift before launch; panes receive only the final harness invocation. |
+| Runtime credential isolation | Implemented | Implemented | Implemented | Implemented | Credentials are runtime-only bearer tokens, passed through an environment variable and revoked on pane teardown. |
+| Scoped MCP resources | Implemented | Implemented | Implemented | Implemented | The app-owned server exposes stable-ID workspace, pane, profile, status, notification, and diagnostic resources. |
+| Scoped MCP mutations | Implemented | Implemented | Implemented | Implemented | Tab/pane, profile, harness, status-line, notification, diagnostic, and Debug Mode tools enforce scope through the shared router. |
+| Terminal-pure setup | Implemented | Implemented | Implemented | Implemented | Configuration preparation occurs in Swift before launch; panes receive only the final harness invocation. |
 | Diagnostic redaction and bounds | Implemented | N/A | Implemented | Implemented | Diagnostic queries are bounded and metadata-first; terminal content, harness output, secrets, and environment values are excluded. |
 
 ## Status Chips

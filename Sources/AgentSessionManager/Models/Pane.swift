@@ -67,6 +67,8 @@ final class Pane: Identifiable {
     /// Transient port assigned to an OpenCode pane for its local HTTP API.
     /// Not persisted; a fresh port is allocated on every launch/restart.
     var opencodePort: Int?
+    /// Runtime-only private Cursor plugin directory used for Agent Control MCP injection.
+    var cursorAgentControlPluginDirectory: URL?
     /// OpenCode session ID to resume on relaunch. Persisted across app launches.
     var opencodeSessionID: String?
 

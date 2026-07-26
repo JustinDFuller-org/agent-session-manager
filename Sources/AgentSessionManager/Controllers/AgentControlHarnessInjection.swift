@@ -23,6 +23,24 @@ struct AgentControlHarnessLaunchContext {
     let tokenEnvironmentKey: String
     let commandArguments: [String]
     let environment: [String]
+    let paneID: UUID
+    let cursorPluginDirectory: URL?
+
+    init(
+        endpoint: URL,
+        tokenEnvironmentKey: String,
+        commandArguments: [String],
+        environment: [String],
+        paneID: UUID = UUID(),
+        cursorPluginDirectory: URL? = nil
+    ) {
+        self.endpoint = endpoint
+        self.tokenEnvironmentKey = tokenEnvironmentKey
+        self.commandArguments = commandArguments
+        self.environment = environment
+        self.paneID = paneID
+        self.cursorPluginDirectory = cursorPluginDirectory
+    }
 }
 
 protocol AgentControlHarnessAdapter {
@@ -49,7 +67,9 @@ struct ClaudeAgentControlAdapter: AgentControlHarnessAdapter {
             endpoint: context.endpoint,
             tokenEnvironmentKey: context.tokenEnvironmentKey,
             commandArguments: arguments,
-            environment: context.environment
+            environment: context.environment,
+            paneID: context.paneID,
+            cursorPluginDirectory: context.cursorPluginDirectory
         )
     }
 }
@@ -67,7 +87,9 @@ struct CodexAgentControlAdapter: AgentControlHarnessAdapter {
             endpoint: context.endpoint,
             tokenEnvironmentKey: context.tokenEnvironmentKey,
             commandArguments: arguments,
-            environment: context.environment
+            environment: context.environment,
+            paneID: context.paneID,
+            cursorPluginDirectory: context.cursorPluginDirectory
         )
     }
 }
@@ -109,14 +131,81 @@ struct OpenCodeAgentControlAdapter: AgentControlHarnessAdapter {
             endpoint: context.endpoint,
             tokenEnvironmentKey: context.tokenEnvironmentKey,
             commandArguments: context.commandArguments,
-            environment: environment
+            environment: environment,
+            paneID: context.paneID,
+            cursorPluginDirectory: context.cursorPluginDirectory
         )
+    }
+}
+
+enum CursorAgentControlPlugin {
+    static let directoryPrefix = "agent-session-manager-cursor-mcp-"
+
+    static func directory(for paneID: UUID) -> URL {
+        FileManager.default.temporaryDirectory
+            .appending(path: "\(directoryPrefix)\(paneID.uuidString.lowercased())")
+    }
+
+    static func remove(directory: URL?) {
+        guard let directory, isAppOwned(directory) else { return }
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    static func isAppOwned(_ directory: URL) -> Bool {
+        directory.lastPathComponent.hasPrefix(directoryPrefix)
     }
 }
 
 struct CursorAgentControlAdapter: AgentControlHarnessAdapter {
     func prepare(_ context: AgentControlHarnessLaunchContext) throws -> AgentControlHarnessLaunchContext {
-        throw AgentControlHarnessInjectionError.unsupported(.cursor)
+        let directory = CursorAgentControlPlugin.directory(for: context.paneID)
+        let fileManager = FileManager.default
+        do {
+            try fileManager.createDirectory(
+                at: directory.appending(path: ".cursor-plugin"),
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700])
+            try fileManager.setAttributes(
+                [.posixPermissions: 0o700], ofItemAtPath: directory.path)
+
+            let plugin = [
+                "name": "agent-session-manager-\(context.paneID.uuidString.lowercased())",
+                "version": "1.0.0",
+            ]
+            let pluginData = try JSONSerialization.data(withJSONObject: plugin, options: [])
+            let pluginPath = directory.appending(path: ".cursor-plugin/plugin.json")
+            try pluginData.write(to: pluginPath, options: .atomic)
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: pluginPath.path)
+
+            let serverName = "agent-session-manager-\(context.paneID.uuidString.lowercased())"
+            let mcp: [String: Any] = [
+                "mcpServers": [
+                    serverName: [
+                        "url": context.endpoint.absoluteString,
+                        "headers": [
+                            "Authorization": "Bearer ${env:\(context.tokenEnvironmentKey)}"
+                        ],
+                    ]
+                ]
+            ]
+            let mcpData = try JSONSerialization.data(withJSONObject: mcp, options: [])
+            let mcpPath = directory.appending(path: "mcp.json")
+            try mcpData.write(to: mcpPath, options: .atomic)
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: mcpPath.path)
+        } catch {
+            CursorAgentControlPlugin.remove(directory: directory)
+            throw AgentControlHarnessInjectionError.invalidConfiguration(.cursor)
+        }
+
+        var arguments = context.commandArguments
+        arguments.append(contentsOf: ["--plugin-dir", directory.path])
+        return AgentControlHarnessLaunchContext(
+            endpoint: context.endpoint,
+            tokenEnvironmentKey: context.tokenEnvironmentKey,
+            commandArguments: arguments,
+            environment: context.environment,
+            paneID: context.paneID,
+            cursorPluginDirectory: directory)
     }
 }
 
@@ -136,6 +225,8 @@ enum AgentControlHarnessInjection {
         }
         let sanitizedEnvironment = removingControlToken(from: environment)
         guard pane.harness != .shell, pane.agentControlInjectionEnabled, appSettings != nil else {
+            CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
+            pane.cursorAgentControlPluginDirectory = nil
             AgentControlService.shared.revoke(paneID: pane.id)
             recordPreparation(pane: pane, tab: tab, result: "disabled")
             return (sanitizedCommandArguments, sanitizedEnvironment)
@@ -154,7 +245,8 @@ enum AgentControlHarnessInjection {
                 endpoint: credential.endpoint,
                 tokenEnvironmentKey: tokenEnvironmentKey,
                 commandArguments: sanitizedCommandArguments ?? [],
-                environment: sanitizedEnvironment + ["\(tokenEnvironmentKey)=\(credential.bearerToken)"]
+                environment: sanitizedEnvironment + ["\(tokenEnvironmentKey)=\(credential.bearerToken)"],
+                paneID: pane.id
             )
             let adapter: any AgentControlHarnessAdapter
             switch pane.harness {
@@ -165,9 +257,15 @@ enum AgentControlHarnessInjection {
             case .shell: throw AgentControlHarnessInjectionError.unsupported(.shell)
             }
             let prepared = try adapter.prepare(context)
+            if pane.cursorAgentControlPluginDirectory != prepared.cursorPluginDirectory {
+                CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
+            }
+            pane.cursorAgentControlPluginDirectory = prepared.cursorPluginDirectory
             recordPreparation(pane: pane, tab: tab, result: "injected")
             return (commandArguments == nil ? nil : prepared.commandArguments, prepared.environment)
         } catch {
+            CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
+            pane.cursorAgentControlPluginDirectory = nil
             AgentControlService.shared.revoke(
                 paneID: pane.id, paneName: pane.name, tabID: tab.id, tabName: tab.name)
             recordPreparation(pane: pane, tab: tab, result: "failed", error: error.localizedDescription)
@@ -196,6 +294,20 @@ enum AgentControlHarnessInjection {
                 arguments[index + 1].hasPrefix("mcp_servers.agent_session_manager.")
             {
                 index += 2
+                continue
+            }
+            if harness == .cursor, argument == "--plugin-dir",
+                index + 1 < arguments.count,
+                CursorAgentControlPlugin.isAppOwned(URL(filePath: arguments[index + 1]))
+            {
+                index += 2
+                continue
+            }
+            if harness == .cursor, argument.hasPrefix("--plugin-dir="),
+                CursorAgentControlPlugin.isAppOwned(
+                    URL(filePath: String(argument.dropFirst("--plugin-dir=".count))))
+            {
+                index += 1
                 continue
             }
             sanitized.append(argument)

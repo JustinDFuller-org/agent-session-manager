@@ -26,6 +26,12 @@ Once enabled, "Cursor" appears as an option in the CLI picker when creating a ne
 
 The pane launches `agent` in the resolved checkout with any configured CLI flags appended.
 
+When Agent Control is enabled, Agent Session Manager creates a private plugin
+directory for the pane and appends Cursor's `--plugin-dir` option to the final
+`agent` command. The plugin's `mcp.json` points to the app-owned local MCP
+server and references the runtime-only `AGENT_SESSION_MANAGER_MCP_TOKEN`
+environment variable. Project and user Cursor MCP files are not modified.
+
 ## Configuring CLI Flags
 
 Cursor-specific flags can be enabled or disabled in **Settings → Harnesses → Cursor**. Enable Cursor first, then configure which flags appear as toggles in the New Pane sheet.

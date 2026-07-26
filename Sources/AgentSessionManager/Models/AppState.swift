@@ -62,6 +62,8 @@ final class AppState {
                 tabName: tab.name
             )
             pane.terminalController?.terminate()
+            CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
+            pane.cursorAgentControlPluginDirectory = nil
             pane.installTerminalController(nil)
             pane.removeStatusLineMonitor()
             MacNotificationCoordinator.shared.forgetPane(paneID: pane.id)
