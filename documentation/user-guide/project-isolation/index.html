@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Choose the branch or working copy for each agent task.">
+    <meta name="description" content="Use Git branches and worktrees to isolate each agent task.">
     <title>Project Isolation · Agent Session Manager</title>
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -144,19 +144,21 @@
         <article class="doc-article">
   <header class="doc-header">
     <h1>Project Isolation</h1>
-    <p class="lede">Choose the branch or working copy for each agent task.</p>
+    <p class="lede">Use Git branches and worktrees to isolate each agent task.</p>
   </header>
   <h2 id="what-it-is">What it is</h2>
 
-<p>Agent Session Manager gives each agent pane a task working copy. This keeps changes for separate tasks from being mixed together in one checkout.</p>
+<p>Agent Session Manager uses Git worktrees to give each agent pane an isolated task directory. Each worktree is linked to the same repository but has its own files, index, and current branch, so changes for separate tasks do not mix together.</p>
+
+<p>The app prepares or opens the worktree before the agent starts. It does not commit, push, or merge changes on your behalf; those remain part of your normal Git workflow.</p>
 
 <h2 id="why-you-might-use-it">Why you might use it</h2>
 
-<p>Use a separate working copy when you want several agents to work on different branches or tasks at the same time. You can also open an existing checkout when the task already has a working copy.</p>
+<p>Use a separate Git worktree when you want several agents to work on different branches or tasks at the same time. You can also open an existing worktree when the task already has one.</p>
 
 <h2 id="before-you-start">Before you start</h2>
 
-<p>Create a tab for the Git repository you want to work in. Decide whether the pane should create a new task working copy or open an existing branch, ref, or worktree.</p>
+<p>Create a tab for the Git repository you want to work in. Decide whether the pane should create a new task branch and worktree or open an existing branch or worktree.</p>
 
 <h2 id="how-to-use-it">How to use it</h2>
 
@@ -168,49 +170,53 @@
   <li>Choose <strong>Create Pane</strong>.</li>
 </ol>
 
-<p>When the name does not match an existing checkout or ref, Agent Session Manager creates a separate working copy if <strong>Default Branch</strong> is enabled or the tab has a <strong>Base Branch</strong>. It uses the configured <strong>Starting Point</strong> for that new working copy. If neither setting supplies a branch, the name must resolve to an existing checkout or ref.</p>
+<p>When the name does not match an existing branch or worktree, Agent Session Manager creates a new branch and linked worktree if <strong>Default Branch</strong> is enabled or the tab has a <strong>Base Branch</strong>. It uses the configured <strong>Starting Point</strong> for that new worktree. If neither setting supplies a starting branch, the name must identify an existing branch or worktree.</p>
 
 <p><img src="/assets/img/docs/new-pane-sheet.png" alt="Agent Session Manager New Pane sheet" /></p>
 
-<p><em>New Pane keeps the harness, worktree name, priority, CLI options, and environment variables in one flow.</em></p>
+<p><em>New Pane keeps the agent tool, task branch or worktree, priority, CLI options, and environment variables in one flow.</em></p>
 
 <h3 id="open-an-existing-branch-or-worktree">Open an existing branch or worktree</h3>
 
 <ol>
   <li>Open <strong>New Pane</strong>.</li>
-  <li>Enter an existing branch, ref such as <code class="language-plaintext highlighter-rouge">origin/feature</code>, or worktree name.</li>
+  <li>Enter an existing local branch, a remote branch such as <code class="language-plaintext highlighter-rouge">origin/feature</code>, or a worktree name.</li>
   <li>Choose <strong>Create Pane</strong>.</li>
-  <li>If the checkout is already outside the app-managed locations, choose whether to open it without management or allow Agent Session Manager to manage it for cleanup.</li>
+  <li>If the worktree already exists outside the worktrees created by Agent Session Manager, choose whether to open it without management or allow the app to manage it for cleanup.</li>
 </ol>
+
+<p>Opening an existing branch or worktree uses its existing state. <strong>Fresh</strong> applies when the app creates a new task branch and worktree; it does not update an existing branch.</p>
 
 <h3 id="choose-a-starting-branch">Choose a starting branch</h3>
 
 <p>For one tab, enter a branch in <strong>Base Branch</strong> when creating the tab. For the default behavior across new panes, open <strong>Settings → Panes → New Pane</strong>, enable <strong>Default Branch</strong>, and choose the branch name and <strong>Starting Point</strong>.</p>
 
-<p><strong>Starting Point</strong> controls which commits are available in a newly created working copy:</p>
+<p><strong>Starting Point</strong> controls which commits are available when a new task branch and worktree are created:</p>
 
 <ul>
-  <li><strong>Fresh</strong> fetches from <code class="language-plaintext highlighter-rouge">origin/&lt;default-branch&gt;</code> for a clean copy that matches the remote.</li>
-  <li><strong>HEAD</strong> starts from the local <code class="language-plaintext highlighter-rouge">HEAD</code>, including local commits and the current branch state.</li>
+  <li><strong>Fresh</strong> fetches <code class="language-plaintext highlighter-rouge">origin/&lt;base-branch&gt;</code> before creating the task branch. The new branch starts from the fetched remote tip. Fetching does not merge changes into an existing branch or worktree.</li>
+  <li><strong>HEAD</strong> starts from local <code class="language-plaintext highlighter-rouge">HEAD</code>, including unpushed commits and the current branch state.</li>
 </ul>
+
+<p>If <strong>Fresh</strong> cannot fetch the remote, the current local branch is used when it is available. In that case, the new worktree may not include the latest remote commits. Check the remote connection or choose <strong>HEAD</strong> when you intentionally want local state.</p>
 
 <h3 id="choose-what-happens-when-a-branch-already-exists">Choose what happens when a branch already exists</h3>
 
-<p>In <strong>Settings → Panes → New Pane</strong>, use <strong>If Branch Exists</strong> to decide whether an existing external worktree should be managed:</p>
+<p>In <strong>Settings → Panes → New Pane</strong>, use <strong>If Branch Exists</strong> to decide whether an existing worktree outside Agent Session Manager’s created worktrees should be managed:</p>
 
 <ul>
-  <li><strong>Ask</strong> shows a choice each time. Choose <strong>Manage</strong> to allow cleanup later, or <strong>Don’t Manage</strong> to leave the checkout under your control.</li>
+  <li><strong>Ask</strong> shows a choice each time. Choose <strong>Manage</strong> to allow cleanup later, or <strong>Don’t Manage</strong> to leave the worktree under your control.</li>
   <li><strong>Always</strong> takes over management automatically so the worktree can be cleaned up later.</li>
   <li><strong>Never</strong> uses the existing worktree as-is and does not offer cleanup for it.</li>
 </ul>
 
 <p><img src="/assets/img/docs/existing-worktree-prompt.png" alt="Existing worktree management prompt in Agent Session Manager" /></p>
 
-<p><em>When an external checkout already exists, choose whether Agent Session Manager should manage it.</em></p>
+<p><em>When an existing worktree is outside the app’s created worktrees, choose whether Agent Session Manager should manage it.</em></p>
 
 <h2 id="what-you-should-see">What you should see</h2>
 
-<p>The pane opens in the selected working copy, and the agent tool starts there. Other panes can use different task working copies while remaining in the same tab.</p>
+<p>The pane opens in the selected Git worktree, and the agent tool starts there. Other panes can use different task worktrees while remaining in the same tab.</p>
 
 <p><img src="/assets/img/docs/settings-panes.png" alt="Agent Session Manager pane settings" /></p>
 
@@ -220,8 +226,8 @@
 
 <ul>
   <li>If the entered name is rejected, use only letters, digits, dots, underscores, and dashes for a new task name.</li>
-  <li>If you are opening a branch or ref, enter its full ref when needed, such as <code class="language-plaintext highlighter-rouge">origin/feature</code>.</li>
-  <li>If a checkout is already open, close the other pane or use the existing pane instead of opening a duplicate task.</li>
+  <li>If you are opening a branch, enter the remote branch name when needed, such as <code class="language-plaintext highlighter-rouge">origin/feature</code>.</li>
+  <li>If a worktree is already open, close the other pane or use the existing pane instead of opening a duplicate task.</li>
   <li>If a new name cannot be resolved, check <strong>Settings → Panes → New Pane → Default Branch</strong> or set <strong>Base Branch</strong> on the tab.</li>
 </ul>
 

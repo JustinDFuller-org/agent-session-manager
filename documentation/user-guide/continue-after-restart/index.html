@@ -148,7 +148,7 @@
   </header>
   <h2 id="what-it-is">What it is</h2>
 
-<p>Agent Session Manager saves open tabs and agent panes so it can restore them after the app is relaunched. A pane is restored only when its working copy still exists on disk.</p>
+<p>Agent Session Manager saves open tabs and agent panes so it can restore them after the app is relaunched. A pane is restored only when its Git worktree still exists on disk.</p>
 
 <h2 id="why-you-might-use-it">Why you might use it</h2>
 
@@ -156,7 +156,7 @@
 
 <h2 id="before-you-start">Before you start</h2>
 
-<p>Keep the working copies used by your panes on disk. If you delete a working copy, the related pane cannot be restored.</p>
+<p>Keep the Git worktrees used by your panes on disk. If you delete a worktree, the related pane cannot be restored, although its branch remains available in Git.</p>
 
 <h2 id="how-to-use-it">How to use it</h2>
 
@@ -171,15 +171,15 @@
 
 <h2 id="what-you-should-see">What you should see</h2>
 
-<p>The saved tabs reappear when their project directories can be restored, with each restorable pane starting in its saved working copy. Panes whose project directory or working copy is missing are left out of the restored session.</p>
+<p>The saved tabs reappear when their project directories can be restored, with each restorable pane starting in its saved Git worktree. Panes whose project directory or worktree is missing are left out of the restored session.</p>
 
 <h2 id="if-it-does-not-work">If it does not work</h2>
 
 <ul>
-  <li>If a tab or pane is missing, confirm that its project directory and working copy still exist.</li>
+  <li>If a tab or pane is missing, confirm that its project directory and Git worktree still exist.</li>
   <li>If the project path contains spaces and the tab does not return, update to a build containing the current session-restore fix or recreate the tab.</li>
   <li>If the pane reopens but the conversation does not resume, check <strong>Settings → Panes → Continue on Restart</strong> and the selected tool’s own session behavior.</li>
-  <li>If you intentionally deleted the working copy, create a new pane from the relevant branch or worktree.</li>
+  <li>If you intentionally deleted the worktree, create a new pane from the relevant branch or worktree.</li>
 </ul>
 
 <h2 id="related-tasks">Related tasks</h2>

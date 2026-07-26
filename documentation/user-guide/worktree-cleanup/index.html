@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Choose what happens to a managed working copy when you close a pane.">
+    <meta name="description" content="Choose what happens to a managed Git worktree when you close a pane.">
     <title>Worktree Cleanup · Agent Session Manager</title>
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -144,19 +144,19 @@
         <article class="doc-article">
   <header class="doc-header">
     <h1>Worktree Cleanup</h1>
-    <p class="lede">Choose what happens to a managed working copy when you close a pane.</p>
+    <p class="lede">Choose what happens to a managed Git worktree when you close a pane.</p>
   </header>
   <h2 id="what-it-is">What it is</h2>
 
-<p>Worktree cleanup controls whether Agent Session Manager removes a task working copy when you close its pane. It applies to working copies managed by the app, not to every checkout on your Mac.</p>
+<p>Worktree cleanup controls whether Agent Session Manager removes a task Git worktree when you close its pane. It applies to worktrees managed by the app, not to every Git directory on your Mac.</p>
 
 <h2 id="why-you-might-use-it">Why you might use it</h2>
 
-<p>Delete finished task working copies to keep a repository tidy, or keep them when you may want to reopen the task later.</p>
+<p>Delete finished task worktrees to keep a repository tidy, or keep them when you may want to reopen the task later.</p>
 
 <h2 id="before-you-start">Before you start</h2>
 
-<p>Understand whether the pane uses a working copy created or managed by Agent Session Manager. An unmanaged external checkout is not removed just because its pane is closed. An existing checkout can become managed when you choose <strong>Manage</strong> in the existing-worktree prompt.</p>
+<p>Understand whether the pane uses a worktree created or managed by Agent Session Manager. An unmanaged existing worktree is not removed just because its pane is closed. An existing worktree can become managed when you choose <strong>Manage</strong> in the existing-worktree prompt.</p>
 
 <h2 id="how-to-use-it">How to use it</h2>
 
@@ -169,8 +169,8 @@
   <li>Choose one of the available behaviors:
     <ul>
       <li><strong>Ask</strong> shows the choices each time.</li>
-      <li><strong>Always Keep</strong> closes the pane and keeps the working copy.</li>
-      <li><strong>Always Delete</strong> closes the pane and removes the managed working copy.</li>
+      <li><strong>Always Keep</strong> closes the pane and keeps the worktree.</li>
+      <li><strong>Always Delete</strong> closes the pane and removes the managed worktree.</li>
     </ul>
   </li>
 </ol>
@@ -180,10 +180,12 @@
 <p>When <strong>Ask</strong> is selected and you close a managed pane:</p>
 
 <ul>
-  <li>Choose <strong>Delete Worktree</strong> to close the pane and remove the managed working copy.</li>
-  <li>Choose <strong>Keep Worktree</strong> to close the pane while leaving the working copy available to reopen.</li>
+  <li>Choose <strong>Delete Worktree</strong> to close the pane and remove the managed worktree.</li>
+  <li>Choose <strong>Keep Worktree</strong> to close the pane while leaving the worktree available to reopen.</li>
   <li>Choose <strong>Cancel</strong> to leave the pane open.</li>
 </ul>
+
+<p>Deleting a worktree removes its working directory from Git’s list of worktrees. It does not delete the branch or commits made on that branch.</p>
 
 <p><img src="/assets/img/docs/worktree-cleanup-alert.png" alt="Managed worktree cleanup prompt in Agent Session Manager" /></p>
 
@@ -191,13 +193,13 @@
 
 <h2 id="what-you-should-see">What you should see</h2>
 
-<p>Closing an unmanaged external checkout simply closes the pane. Closing a managed working copy follows the selected cleanup behavior.</p>
+<p>Closing an unmanaged existing worktree simply closes the pane. Closing a managed worktree follows the selected cleanup behavior.</p>
 
 <h2 id="if-it-does-not-work">If it does not work</h2>
 
 <ul>
-  <li>If no cleanup dialog appears, the pane may use an unmanaged external checkout or cleanup may be set to <strong>Always Keep</strong> or <strong>Always Delete</strong>.</li>
-  <li>If a deleted task does not return after relaunch, create a new pane from its branch or ref.</li>
+  <li>If no cleanup dialog appears, the pane may use an unmanaged existing worktree or cleanup may be set to <strong>Always Keep</strong> or <strong>Always Delete</strong>.</li>
+  <li>If a deleted task does not return after relaunch, create a new pane from its branch or worktree name.</li>
   <li>If you need the files later, choose <strong>Keep Worktree</strong> before closing the pane.</li>
 </ul>
 

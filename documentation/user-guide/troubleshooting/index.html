@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Recover when an update, permission, tool, pane, or checkout does not work as expected.">
+    <meta name="description" content="Recover when an update, permission, tool, pane, or Git worktree does not work as expected.">
     <title>Troubleshooting · Agent Session Manager</title>
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -144,11 +144,11 @@
         <article class="doc-article">
   <header class="doc-header">
     <h1>Troubleshooting</h1>
-    <p class="lede">Recover when an update, permission, tool, pane, or checkout does not work as expected.</p>
+    <p class="lede">Recover when an update, permission, tool, pane, or Git worktree does not work as expected.</p>
   </header>
   <h2 id="what-it-is">What it is</h2>
 
-<p>Use this guide when Agent Session Manager cannot update, find an agent tool, start a pane, access a project, or open the working copy you selected.</p>
+<p>Use this guide when Agent Session Manager cannot update, find an agent tool, start a pane, access a project, or open the Git worktree you selected.</p>
 
 <h2 id="updates">Updates</h2>
 
@@ -160,7 +160,7 @@
   <li>If no update is found, confirm that the Mac is connected to the internet and try again later.</li>
 </ol>
 
-<p>The update path depends on how Agent Session Manager was installed. A release DMG can download and install a newer release from the public update feed. A source-built copy reports newer changes from its source checkout and does not install them automatically.</p>
+<p>The update path depends on how Agent Session Manager was installed. A release DMG can download and install a newer release from the public update feed. A source-built copy reports newer changes from its source directory and does not install them automatically.</p>
 
 <h3 id="an-update-is-available-for-a-release-dmg">An update is available for a release DMG</h3>
 
@@ -168,7 +168,7 @@
 
 <h3 id="an-update-is-available-for-a-source-built-copy">An update is available for a source-built copy</h3>
 
-<p>Open <strong>Settings → About</strong> and follow the displayed source-update instruction. The app must be rebuilt from the updated checkout before the new version is available.</p>
+<p>Open <strong>Settings → About</strong> and follow the displayed source-update instruction. The app must be rebuilt from the updated source directory before the new version is available.</p>
 
 <h3 id="control-update-reminders">Control update reminders</h3>
 
@@ -207,17 +207,17 @@
 
 <h3 id="the-pane-says-setting-up-workspace">The pane says “Setting up workspace…”</h3>
 
-<p>Wait for the workspace setup to finish. The app may need to inspect Git worktrees, fetch a branch, or create a working copy before the terminal starts.</p>
+<p>Wait for the workspace setup to finish. The app may need to inspect Git worktrees, fetch a branch, or create a new branch and worktree before the terminal starts.</p>
 
 <h3 id="the-pane-shows-an-error">The pane shows an error</h3>
 
 <p>Read the message in the pane, correct the named problem, and create the pane again. Choose <strong>Remove Pane</strong> to dismiss the failed pane.</p>
 
-<p>Common causes include a missing branch or ref, a network failure while fetching, a path that is not a Git worktree, or an agent tool that is not available in the selected shell.</p>
+<p>Common causes include a missing branch, a network failure while fetching, a directory that is not a Git worktree, or an agent tool that is not available in the selected shell.</p>
 
 <h3 id="the-process-exits-immediately">The process exits immediately</h3>
 
-<p>When the process-exit controls appear, choose <strong>Restart</strong> to try the same pane again, <strong>Open Shell</strong> to inspect the working copy, or <strong>Close</strong> to remove the pane. If restarting produces the same result, check the selected tool, shell, and tool-specific options.</p>
+<p>When the process-exit controls appear, choose <strong>Restart</strong> to try the same pane again, <strong>Open Shell</strong> to inspect the Git worktree, or <strong>Close</strong> to remove the pane. If restarting produces the same result, check the selected tool, shell, and tool-specific options.</p>
 
 <p>You can choose the default behavior in <strong>Settings → Panes → Terminal → When Process Exits</strong>:</p>
 
@@ -227,23 +227,23 @@
   <li><strong>Close Pane</strong> closes the pane automatically.</li>
 </ul>
 
-<h2 id="a-checkout-conflicts-with-another-task">A checkout conflicts with another task</h2>
+<h2 id="a-git-worktree-conflicts-with-another-task">A Git worktree conflicts with another task</h2>
 
 <h3 id="the-worktree-is-already-open">The worktree is already open</h3>
 
-<p>Agent Session Manager does not open the same checkout in two panes in the same tab. Close the pane that already uses it, or use that pane instead of creating a duplicate.</p>
+<p>Agent Session Manager does not open the same Git worktree in two panes in the same tab. Close the pane that already uses it, or use that pane instead of creating a duplicate task.</p>
 
-<h3 id="the-branch-or-ref-cannot-be-found">The branch or ref cannot be found</h3>
+<h3 id="the-branch-cannot-be-found">The branch cannot be found</h3>
 
-<p>Check the spelling and enter the branch or ref exactly. Use a full ref such as <code class="language-plaintext highlighter-rouge">origin/feature</code> when the short name is ambiguous. If you want a new task working copy from a simple name, open <strong>Settings → Panes → New Pane</strong>, enable <strong>Default Branch</strong>, and confirm the configured branch and <strong>Starting Point</strong>.</p>
+<p>Check the spelling and enter the branch exactly. Use a remote branch name such as <code class="language-plaintext highlighter-rouge">origin/feature</code> when the short name is ambiguous. If you want a new task branch and worktree from a simple name, open <strong>Settings → Panes → New Pane</strong>, enable <strong>Default Branch</strong>, and confirm the configured branch and <strong>Starting Point</strong>.</p>
 
 <h3 id="a-path-exists-but-is-not-a-worktree">A path exists but is not a worktree</h3>
 
-<p>Choose a valid branch, ref, or existing Git worktree instead. New task names may contain only letters, digits, dots, underscores, and dashes.</p>
+<p>Choose a valid branch, remote branch, or existing Git worktree instead. New task names may contain only letters, digits, dots, underscores, and dashes.</p>
 
 <h3 id="an-existing-worktree-is-outside-the-app-managed-location">An existing worktree is outside the app-managed location</h3>
 
-<p>When <strong>Manage existing worktree</strong> appears, choose <strong>Manage</strong> if Agent Session Manager should be able to clean up that worktree later, or <strong>Don’t Manage</strong> if the checkout should remain under your control. Choose <strong>Cancel</strong> to stop creating the pane.</p>
+<p>When <strong>Manage existing worktree</strong> appears, choose <strong>Manage</strong> if Agent Session Manager should be able to clean up that worktree later, or <strong>Don’t Manage</strong> if the worktree should remain under your control. Choose <strong>Cancel</strong> to stop creating the pane.</p>
 
 <h2 id="related-tasks">Related tasks</h2>
 

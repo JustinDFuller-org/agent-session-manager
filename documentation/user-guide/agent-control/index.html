@@ -156,7 +156,7 @@
 
 <p>Use Agent Control when you want an agent to coordinate its session with the rest of the workspace. For example, an agent can work with other panes in its tab, update shared configuration, or help investigate a problem without requiring you to perform every workspace action manually.</p>
 
-<p>Agent Control is available for panes using Claude Code, Codex, or OpenCode. Cursor does not currently support Agent Control injection.</p>
+<p>Agent Control is available for panes using Claude Code, Cursor, Codex, or OpenCode.</p>
 
 <h2 id="how-it-connects-to-your-agent-tool">How it connects to your agent tool</h2>
 
@@ -164,9 +164,9 @@
 
 <ul>
   <li><strong>Claude Code</strong> receives an MCP configuration through its supported <code class="language-plaintext highlighter-rouge">--mcp-config</code> option.</li>
+  <li><strong>Cursor</strong> receives a private plugin directory through <code class="language-plaintext highlighter-rouge">--plugin-dir</code>. The plugin contains the MCP configuration for that pane and does not modify project or user Cursor files. If the control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.</li>
   <li><strong>Codex</strong> receives the MCP server URL and runtime credential through supported <code class="language-plaintext highlighter-rouge">-c</code> settings.</li>
   <li><strong>OpenCode</strong> receives the connection through its inline configuration. Existing OpenCode MCP entries and unrelated settings are preserved.</li>
-  <li><strong>Cursor</strong> is not injected. Its documented project- and user-level configuration does not provide a safe per-pane setup.</li>
 </ul>
 
 <p>Each injected pane receives a runtime-only credential for its connection. The credential is not persisted, logged, or printed in the terminal, and it is revoked when the pane or tab is torn down.</p>
@@ -193,7 +193,7 @@
       <li><strong>Global</strong> lets the agent access the entire app.</li>
     </ul>
   </li>
-  <li>Open <strong>New Pane</strong> and select Claude Code, Codex, or OpenCode in <strong>Harness</strong>.</li>
+  <li>Open <strong>New Pane</strong> and select Claude Code, Cursor, Codex, or OpenCode in <strong>Harness</strong>.</li>
   <li>If you chose an ask policy, enable or disable <strong>Agent Session Manager control</strong> in the <strong>Agent Control</strong> section.</li>
   <li>Choose <strong>Create Pane</strong>.</li>
 </ol>
@@ -247,13 +247,13 @@
 
 <p>With an ask policy, <strong>New Pane</strong> shows the <strong>Agent Session Manager control</strong> checkbox and the current scope. With <strong>Always</strong> or <strong>Never</strong>, the sheet shows whether control will be enabled or disabled instead of showing a checkbox.</p>
 
-<p>After the pane starts, the supported agent can use Agent Control within the selected scope. The pane continues to run the selected agent tool in its prepared working copy.</p>
+<p>After the pane starts, the supported agent can use Agent Control within the selected scope. The pane continues to run the selected agent tool in its prepared Git worktree.</p>
 
 <h2 id="if-it-does-not-work">If it does not work</h2>
 
 <ul>
   <li>If the control checkbox is not shown, check <strong>Settings → Panes → Injection Policy</strong>. <strong>Always</strong> and <strong>Never</strong> show a status message instead of a checkbox.</li>
-  <li>If a pane uses Cursor, disable Agent Control for that pane or choose Claude Code, Codex, or OpenCode. Cursor does not support the required per-pane setup.</li>
+  <li>Cursor may still ask for normal MCP approval. Approve the Agent Session Manager server through Cursor, or enable Cursor’s own MCP approval option if that is appropriate for your workflow.</li>
   <li>If a policy or scope change has no effect on a running pane, restart the pane.</li>
   <li>If an action is unavailable, choose <strong>Global</strong> scope when the action needs access beyond the current pane or tab.</li>
 </ul>
