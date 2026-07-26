@@ -77,7 +77,7 @@ final class ProcessEnvironmentTests: XCTestCase {
         let env = ProcessEnvironment.sanitize([], etcDirectory: etc)
         let dict = envDict(from: env)
         let path = dict["PATH"] ?? ""
-        for entry in ProcessEnvironment.defaultPATHEntries() {
+        for entry in ProcessEnvironment.defaultPATHEntries(etcDirectory: etc) {
             XCTAssertTrue(path.split(separator: ":").contains(Substring(entry)))
         }
     }

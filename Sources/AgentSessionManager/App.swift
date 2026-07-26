@@ -234,13 +234,6 @@ struct ContentView: View {
                             tab.panes.first(where: { $0.id == id })?.setupState = .failed(error: "Test setup error")
                         }
                     }
-                    if arg.hasPrefix("--inject-pane-working="),
-                        let id = UUID(uuidString: String(arg.dropFirst("--inject-pane-working=".count)))
-                    {
-                        for tab in appState.tabs {
-                            tab.panes.first(where: { $0.id == id })?.uiTestActivityStateOverride = .working
-                        }
-                    }
                 }
             }
             if !AgentSessionManagerApp.isUITesting

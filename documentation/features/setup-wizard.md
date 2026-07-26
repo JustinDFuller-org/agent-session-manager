@@ -71,7 +71,7 @@ Settings are saved as the user advances through each step:
 |---|---|
 | `shell-settings.json` | `{"preferredShell": "/bin/bash"}` — empty string = auto-detect |
 | `onboarding-settings.json` | `{"completed": true}` |
-| `statusline-settings.json` | Status line config written on **Save**; see [status-line.md](status-line.md) for schema |
+| `statusline-settings.json` | Status line config written on **Save**; see [status-line.md]({{ '/documentation/features/status-line/' | relative_url }}) for schema |
 | `settings.json` | Claude CLI options (written on CLI Flags **Save**) |
 | `codex-settings.json` | Codex CLI options |
 | `cursor-settings.json` | Cursor CLI options |

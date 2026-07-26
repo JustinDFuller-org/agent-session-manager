@@ -95,6 +95,15 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         XCTAssertEqual(pane.id, paneID)
     }
 
+    func testPersistedDirectoryURLPreservesSpaces() {
+        let path = "/tmp/Agent Session Manager/project"
+        XCTAssertEqual(SessionPersistence.persistedDirectoryURL(for: path)?.path, path)
+    }
+
+    func testPersistedDirectoryURLRejectsEmptyPath() {
+        XCTAssertNil(SessionPersistence.persistedDirectoryURL(for: ""))
+    }
+
     func testProfileIDPreservedAfterAddPane() {
         let profileID = UUID()
         let tab = Tab(id: UUID(), name: "T", directory: URL(fileURLWithPath: "/tmp"))

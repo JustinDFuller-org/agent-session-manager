@@ -1,6 +1,6 @@
 # Worktree Creation and New Pane
 
-This document describes the shared worktree path used when creating Claude Code, Cursor, or Codex panes. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the full cross-harness audit.
+This document describes the shared worktree path used when creating Claude Code, Cursor, or Codex panes. See [agent-harness-feature-matrix.md]({{ '/documentation/features/agent-harness-feature-matrix/' | relative_url }}) for the full cross-harness audit.
 
 ## Shared New Pane Flow
 
@@ -40,11 +40,11 @@ Settings → Panes → New Pane controls fallback creation for a plain name that
 | **Fresh** starting point | Fetch and branch from `origin/<default-branch>` |
 | **HEAD** starting point | Branch from local `HEAD` |
 
-See [default-branch.md](default-branch.md).
+See [default-branch.md]({{ '/documentation/features/default-branch/' | relative_url }}).
 
 ## Cleanup
 
-Cleanup depends on `Pane.worktreeIsManaged`, not the selected harness. New app-created worktrees are managed. External worktrees can be managed when the user chooses takeover. See [worktree-cleanup.md](worktree-cleanup.md).
+Cleanup depends on `Pane.worktreeIsManaged`, not the selected harness. New app-created worktrees are managed. External worktrees can be managed when the user chooses takeover. See [worktree-cleanup.md]({{ '/documentation/features/worktree-cleanup/' | relative_url }}).
 
 ## Session Restore
 

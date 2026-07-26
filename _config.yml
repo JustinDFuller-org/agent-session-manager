@@ -1,0 +1,44 @@
+title: Agent Session Manager
+description: A native macOS app for running multiple AI agent sessions in parallel.
+url: https://agent-session-manager.justindfuller.com
+baseurl: ""
+theme: jekyll-theme-minimal
+markdown: kramdown
+permalink: pretty
+
+exclude:
+  - .agents
+  - .build
+  - .codex
+  - .git
+  - AGENTIC_CONTROL.md
+  - AgentSessionManager.xcodeproj
+  - AppIcons
+  - OPENCODE_SUPPORT.md
+  - AGENTS.md
+  - USER_FACING_DOCS.md
+  - AgentSessionManager.entitlements
+  - AgentSessionManagerUITests.entitlements
+  - Info.plist
+  - Makefile
+  - Package.resolved
+  - Package.swift
+  - PROGRESS.md
+  - default.profraw
+  - docs
+  - Sources
+  - Tests
+  - UITests
+  - scripts
+  - project.yml
+  - README.md
+  - documentation/dictionary.md
+  - documentation/agent-control-mcp-qa-findings.md
+  - documentation/features
+  - documentation/user-guide/_template.md
+
+defaults:
+  - scope:
+      path: "documentation/features"
+    values:
+      layout: doc

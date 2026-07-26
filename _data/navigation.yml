@@ -1,0 +1,64 @@
+- title: Getting Started
+  items:
+    - title: Overview
+      url: /documentation/user-guide/overview/
+    - title: Download
+      url: /download/
+    - title: Install and First Launch
+      url: /documentation/user-guide/install/
+    - title: Quickstart
+      url: /documentation/user-guide/quickstart/
+    - title: Core Concepts
+      url: /documentation/user-guide/core-concepts/
+- title: Daily Work
+  items:
+    - title: Tabs and Panes
+      url: /documentation/user-guide/tabs-and-panes/
+    - title: Project Isolation
+      url: /documentation/user-guide/project-isolation/
+    - title: Continue After Restart
+      url: /documentation/user-guide/continue-after-restart/
+    - title: Reorder Tabs and Panes
+      url: /documentation/user-guide/reorder-tabs-and-panes/
+    - title: Focus Pane
+      url: /documentation/user-guide/focus-pane/
+    - title: Activity Indicators
+      url: /documentation/user-guide/activity-indicators/
+- title: Integrations
+  items:
+    - title: Agent Tools
+      url: /documentation/user-guide/agent-tools/
+    - title: Agent Control
+      url: /documentation/user-guide/agent-control/
+    - title: Claude Code
+      url: /documentation/user-guide/claude-code/
+    - title: Codex
+      url: /documentation/user-guide/codex/
+    - title: Cursor
+      url: /documentation/user-guide/cursor/
+    - title: OpenCode
+      url: /documentation/user-guide/opencode/
+    - title: GitHub Pull Requests
+      url: /documentation/user-guide/github-pull-requests/
+- title: Configure
+  items:
+    - title: Profiles
+      url: /documentation/user-guide/profiles/
+    - title: Tool Options
+      url: /documentation/user-guide/tool-options/
+    - title: Terminal Scrollback
+      url: /documentation/user-guide/terminal-scrollback/
+    - title: Status Line
+      url: /documentation/user-guide/status-line/
+    - title: Notifications
+      url: /documentation/user-guide/notifications/
+    - title: Worktree Cleanup
+      url: /documentation/user-guide/worktree-cleanup/
+- title: Troubleshooting
+  items:
+    - title: Troubleshooting
+      url: /documentation/user-guide/troubleshooting/
+- title: Reference
+  items:
+    - title: Keyboard Shortcuts
+      url: /documentation/user-guide/shortcuts/

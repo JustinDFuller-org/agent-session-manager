@@ -1,0 +1,129 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    environment: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Developer ID certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.DEV_ID_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.DEV_ID_CERTIFICATE_PASSWORD }}
+
+      - name: Validate standalone app bundles
+        run: make test-app-bundles
+
+      - name: Build and notarize DMG
+        env:
+          AC_NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          AC_NOTARY_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: make dist
+
+      - name: Generate signed Pages appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          source scripts/release-config.sh
+          mkdir -p .build/release-pages
+          dmg_path=$(find . -maxdepth 2 -name 'AgentSessionManager-*.dmg' -print -quit)
+          test -n "$dmg_path"
+          dmg_name=$(basename "$dmg_path")
+          version_short="${GITHUB_REF_NAME#v}"
+          version_build="${dmg_name#AgentSessionManager-${version_short}-}"
+          version_build="${version_build%.dmg}"
+          base_appcast="$RUNNER_TEMP/base-appcast.xml"
+          if ! curl --fail --silent --show-error --location \
+            "$PUBLIC_APPCAST_URL" \
+            --output "$base_appcast"; then
+            cp appcast.xml "$base_appcast"
+          fi
+          cp "$dmg_path" .build/release-pages/
+          APPCAST_BASE="$base_appcast" \
+          APPCAST_OUTPUT="$PWD/.build/release-pages/appcast.xml" \
+            scripts/update-appcast.sh "$dmg_path" "$version_short" "$version_build"
+
+      - name: Upload release publication artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-publication
+          path: .build/release-pages
+
+  publish-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+
+      - name: Download release publication artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-publication
+          path: .build/release-pages
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Jekyll site
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
+      - name: Stage public release
+        run: |
+          set -euo pipefail
+          dmg_path=$(find .build/release-pages -maxdepth 1 -name 'AgentSessionManager-*.dmg' -print -quit)
+          scripts/stage-pages-assets.sh _site release "$dmg_path" .build/release-pages/appcast.xml
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./_site
+
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  release:
+    needs: publish-pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release publication artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-publication
+          path: .build/release-pages
+
+      - name: Upload DMG to private GitHub Release
+        run: |
+          gh release create "${GITHUB_REF_NAME}" .build/release-pages/AgentSessionManager-*.dmg \
+            --title "Agent Session Manager ${GITHUB_REF_NAME}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

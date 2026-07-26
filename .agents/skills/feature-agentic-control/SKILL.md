@@ -4,4 +4,3 @@ description: "Agent Control feature for Agent Session Manager. Load when working
 ---
 
 See [agentic-control.md](../../../documentation/features/agentic-control.md) for complete feature documentation.
-

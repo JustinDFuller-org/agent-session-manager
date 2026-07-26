@@ -144,10 +144,13 @@ vite.config.ts.timestamp-*
 
 # Build artifacts
 .build/
+.bundle/
+vendor/bundle/
 AgentSessionManager.app/
 AgentSessionManagerDev.app/
 AgentSessionManager.xcodeproj/
 *.dmg
+# DMGs are release artifacts staged in GitHub Actions and GitHub Pages, never Git files.
 
 # macOS
 .DS_Store
@@ -158,12 +161,17 @@ AgentSessionManager.xcodeproj/
 
 # Swift package manager
 .swiftpm/
+default.profraw
 
 # Legacy worktree directory
 .tree/
 
 # UI test screenshots (committed per-PR via git add -f)
 screenshots/
+
+# Sparkle tooling and signing keys (downloaded/generated locally)
+.sparkle-tools/
+.sparkle/
 
 # Temporary files written by scripts/ship.sh
 .ship-commit-msg

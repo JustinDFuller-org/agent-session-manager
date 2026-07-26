@@ -4,6 +4,8 @@ APP_NAME_DEV = AgentSessionManagerDev
 GIT_COMMON_ROOT := $(shell dirname "$$(git rev-parse --path-format=absolute --git-common-dir)")
 BUILD_DIR = .build/release
 BUILD_DIR_DEV = .build/debug
+SPARKLE_FRAMEWORK = $(BUILD_DIR)/Sparkle.framework
+SPARKLE_FRAMEWORK_DEV = $(BUILD_DIR_DEV)/Sparkle.framework
 APP_BUNDLE = $(GIT_COMMON_ROOT)/$(APP_NAME).app
 APP_BUNDLE_DEV = $(GIT_COMMON_ROOT)/$(APP_NAME_DEV).app
 SCHEME = AgentSessionManager
@@ -34,8 +36,12 @@ dist: app-prd
 
 app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
+	rm -rf $(APP_BUNDLE)/Contents/Frameworks/Sparkle.framework
+	ditto $(SPARKLE_FRAMEWORK) $(APP_BUNDLE)/Contents/Frameworks/Sparkle.framework
+	install_name_tool -add_rpath @executable_path/../Frameworks $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 	cp Info.plist $(APP_BUNDLE)/Contents/
 	mkdir -p .build
 	xcrun actool AppIcons/Assets.xcassets --compile $(APP_BUNDLE)/Contents/Resources \
@@ -100,8 +106,12 @@ build-dev:
 
 app-dev: build-dev
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE_DEV)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/Resources
 	cp $(BUILD_DIR_DEV)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
+	rm -rf $(APP_BUNDLE_DEV)/Contents/Frameworks/Sparkle.framework
+	ditto $(SPARKLE_FRAMEWORK_DEV) $(APP_BUNDLE_DEV)/Contents/Frameworks/Sparkle.framework
+	install_name_tool -add_rpath @executable_path/../Frameworks $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
 	cp Info.plist $(APP_BUNDLE_DEV)/Contents/
 	mkdir -p .build
 	@if [ ! -f .build/dev-assets-compiled ] || \
@@ -167,9 +177,9 @@ check-toolchain:
 xcodeproj:
 	xcodegen generate
 
-test-ui-dev: xcodeproj
+test-ui-dev: xcodeproj sign-dev-test-artifacts
 	rm -rf $(RESULTS_PATH)
-	xcodebuild test \
+	xcodebuild test-without-building \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
 		-configuration Dev \
@@ -177,19 +187,18 @@ test-ui-dev: xcodeproj
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA)
 
-screenshots: xcodeproj
+screenshots: xcodeproj sign-dev-test-artifacts
 	rm -rf $(SCREENSHOTS_DIR)
 	mkdir -p $(SCREENSHOTS_DIR)
 	rm -rf $(RESULTS_PATH)
-	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test \
+	TEST_RUNNER_SCREENSHOTS_OUTPUT_PATH="$(CURDIR)/$(SCREENSHOTS_DIR)" xcodebuild test-without-building \
 		-project $(APP_NAME).xcodeproj \
 		-scheme $(SCHEME) \
 		-configuration Dev \
 		-destination 'platform=macOS' \
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA) \
-		-only-testing:AgentSessionManagerUITests/ScreenshotTests \
-		-only-testing:AgentSessionManagerUITests/ScreenshotInjectedTests
+		-only-testing:AgentSessionManagerUITests/ScreenshotTests
 
 build-for-testing: xcodeproj
 	xcodebuild build-for-testing \
@@ -199,8 +208,22 @@ build-for-testing: xcodeproj
 		-destination 'platform=macOS' \
 		-derivedDataPath $(DERIVED_DATA)
 
+sign-dev-test-artifacts: build-for-testing
+	codesign --force --deep --sign - $(DERIVED_DATA)/Build/Products/Dev/Sparkle.framework
+	codesign --force --deep --sign - $(DERIVED_DATA)/Build/Products/Dev/AgentSessionManager.app
+
+test-app-bundles: app-prd app-dev
+	@scripts/test-app-bundle.sh "$(APP_BUNDLE)"
+	@scripts/test-app-bundle.sh "$(APP_BUNDLE_DEV)"
+
 pr-screenshots:
 	@bash "$(CURDIR)/scripts/pr-screenshots.sh"
+
+docs-build:
+	bundle exec jekyll build --destination .build/docs-site --trace
+
+docs-check:
+	@bash "$(CURDIR)/scripts/check-docs.sh"
 
 reset-app-state:
 	@for f in sessions.json settings.json codex-settings.json cursor-settings.json \

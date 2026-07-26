@@ -2,7 +2,7 @@
 
 Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
-The catalog controls which chips can be selected for a harness. Each fact declares an owner (`app`, `harness`, or `merged`), supported harnesses, and whether missing data should render as pending or unsupported. Unsupported facts are omitted for that pane; supported facts with no current value render `—`. See [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) for the per-harness audit.
+The catalog controls which chips can be selected for a harness. Each fact declares an owner (`app`, `harness`, or `merged`), supported harnesses, and whether missing data should render as pending or unsupported. Unsupported facts are omitted for that pane; supported facts with no current value render `—`. See [agent-harness-feature-matrix.md]({{ '/documentation/features/agent-harness-feature-matrix/' | relative_url }}) for the per-harness audit.
 
 ## Item Catalog
 
@@ -79,7 +79,7 @@ On first launch the setup wizard presents a **Status Line** step (step 4 of 4) t
 
 The wizard default (`StatusLineConfig.wizardDefault()`) is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default is unchanged and remains the fallback for code paths that skip the wizard (e.g. the welcome-step **Skip** button).
 
-See [setup-wizard.md](setup-wizard.md) for the full wizard flow.
+See [setup-wizard.md]({{ '/documentation/features/setup-wizard/' | relative_url }}) for the full wizard flow.
 
 ## Configuring Rows
 
@@ -91,7 +91,7 @@ See [setup-wizard.md](setup-wizard.md) for the full wizard flow.
 
 ## Invariant Violations
 
-When an invariant is violated, the app reports it through `InvariantReporter`, records the preserved trace event (see [tracing.md](tracing.md)), and uses the authoritative value. With Debug mode enabled, occurrences are also appended to `invariants/invariants.jsonl` and shown in the Invariant Dashboard.
+When an invariant is violated, the app reports it through `InvariantReporter`, records the preserved trace event (see [tracing.md]({{ '/documentation/features/tracing/' | relative_url }})), and uses the authoritative value. With Debug mode enabled, occurrences are also appended to `invariants/invariants.jsonl` and shown in the Invariant Dashboard.
 
 | Invariant ID | Preserved trace event | When emitted |
 |-------|-------------|---|

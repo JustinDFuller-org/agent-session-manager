@@ -107,7 +107,7 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 
 Individual CLI flag catalogs remain in the harness-specific guides:
 
-- [Claude Code pane options and shared pane flow](panes.md)
-- [Cursor CLI support](cursor-cli.md)
-- [Codex CLI support](codex-cli.md)
-- [OpenCode CLI support](opencode-cli.md)
+- [Claude Code pane options and shared pane flow]({{ '/documentation/features/panes/' | relative_url }})
+- [Cursor CLI support]({{ '/documentation/features/cursor-cli/' | relative_url }})
+- [Codex CLI support]({{ '/documentation/features/codex-cli/' | relative_url }})
+- [OpenCode CLI support]({{ '/documentation/features/opencode-cli/' | relative_url }})

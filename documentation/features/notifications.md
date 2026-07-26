@@ -40,7 +40,7 @@ Every harness can signal attention through the shared terminal paths:
 
 Attention events are surfaced even when the pane is the active (focused) pane, to keep testing and signals consistent.
 
-**Suppressing false "Claude finished" notifications during background agents:** Claude's `Stop` hook fires whenever the main agent's turn ends, including while background agents (launched via the `Task`/`Agent` tool, e.g. during plan mode) are still running — the main agent gets re-woken as each child completes, producing another `Stop`. Agent Session Manager also registers `SubagentStop` and a `PreToolUse` matcher for `Task|Agent`, and appends every one of these hook invocations to a per-pane hook-event log (tailed for the `statusline.hook.event` trace spans described in [tracing.md](tracing.md)). It counts outstanding background agents from that log (`PreToolUse` launches minus `SubagentStop` completions) and only fires the "Claude finished responding" notification on the `Stop` where the count is back to zero — earlier `Stop`s are suppressed and the pane keeps reading as working.
+**Suppressing false "Claude finished" notifications during background agents:** Claude's `Stop` hook fires whenever the main agent's turn ends, including while background agents (launched via the `Task`/`Agent` tool, e.g. during plan mode) are still running — the main agent gets re-woken as each child completes, producing another `Stop`. Agent Session Manager also registers `SubagentStop` and a `PreToolUse` matcher for `Task|Agent`, and appends every one of these hook invocations to a per-pane hook-event log (tailed for the `statusline.hook.event` trace spans described in [tracing.md]({{ '/documentation/features/tracing/' | relative_url }})). It counts outstanding background agents from that log (`PreToolUse` launches minus `SubagentStop` completions) and only fires the "Claude finished responding" notification on the `Stop` where the count is back to zero — earlier `Stop`s are suppressed and the pane keeps reading as working.
 
 **Why both `Stop` and the Notification path exist:** these two signals answer different questions and are not interchangeable.
 
@@ -91,7 +91,7 @@ Settings → Notifications exposes these controls:
 | Always Show Notifications Bar | Keep the sidebar visible even when there are no pending notifications | On |
 | Priority Notifications | Enable the priority pane toggle and priority sidebar section | On |
 
-These settings are persisted to `~/Library/Application Support/agent-session-manager/notification-settings.json` (alongside other app settings such as [debug-settings.json](debug-logging.md) under the same support directory).
+These settings are persisted to `~/Library/Application Support/agent-session-manager/notification-settings.json` (alongside other app settings such as [debug-settings.json]({{ '/documentation/features/debug-logging/' | relative_url }}) under the same support directory).
 
 ## Notification icon
 
@@ -111,6 +111,6 @@ There are no user-configurable settings for the notification icon. After changin
 
 ## See also
 
-- [debug-logging.md](debug-logging.md) — optional in-app debug log (process starts, git, session restore) separate from bell notifications; useful when diagnosing permission or PATH issues alongside panes.
-- [panes.md](panes.md) — how panes run the shell and CLI; relates to bell events from background panes.
-- [agent-harness-feature-matrix.md](agent-harness-feature-matrix.md) — cross-harness notification coverage and known lifecycle gaps.
+- [debug-logging.md]({{ '/documentation/features/debug-logging/' | relative_url }}) — optional in-app debug log (process starts, git, session restore) separate from bell notifications; useful when diagnosing permission or PATH issues alongside panes.
+- [panes.md]({{ '/documentation/features/panes/' | relative_url }}) — how panes run the shell and CLI; relates to bell events from background panes.
+- [agent-harness-feature-matrix.md]({{ '/documentation/features/agent-harness-feature-matrix/' | relative_url }}) — cross-harness notification coverage and known lifecycle gaps.

@@ -26,6 +26,8 @@ extension BaseTestCase {
         app.buttons["new-tab-choose-dir-button"].click()
         let createBtn = app.buttons["new-tab-create-button"]
         waitFor(createBtn)
+        let enabled = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: createBtn)
+        wait(for: [enabled], timeout: 15)
         XCTAssertTrue(createBtn.isEnabled, "Create button should be enabled after choosing directory")
         createBtn.click()
         waitFor(app.buttons["tab-button-\(name)"].firstMatch)
@@ -42,5 +44,31 @@ extension BaseTestCase {
         // Wait for the pane name text — Text elements are reliably in the accessibility tree.
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(name)").firstMatch, timeout: 10)
         waitFor(app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch, timeout: 10)
+    }
+
+    func openShellHere(from paneName: String) -> String {
+        let sourceHeader = app.descendants(matching: .any)
+            .matching(identifier: "pane-header-\(paneName)").firstMatch
+        waitFor(sourceHeader)
+
+        let baseName = "shell:\(paneName)"
+        var shellName = baseName
+        var suffix = 2
+        while app.staticTexts["pane-name-\(shellName)"].exists {
+            shellName = "\(baseName)-\(suffix)"
+            suffix += 1
+        }
+
+        sourceHeader.rightClick()
+        let menuItem = app.windows.firstMatch.menuItems["Open Shell Here"]
+        waitFor(menuItem)
+        menuItem.click()
+        waitFor(app.staticTexts["pane-name-\(shellName)"].firstMatch, timeout: 10)
+        return shellName
+    }
+
+    func typeTerminalCommand(_ command: String) {
+        app.typeText(command)
+        app.typeKey(.enter, modifierFlags: [])
     }
 }

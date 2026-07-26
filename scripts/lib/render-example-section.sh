@@ -48,10 +48,13 @@ ORDER=(
     # 4. Create and use a pane
     new-pane-sheet.png
     split-panes.png
+    existing-worktree-prompt.png
+    worktree-cleanup-alert.png
+    reordered-tabs-and-panes.png
     pane-status-indicators.png
     # 5. Notifications while working
     notification-sidebar.png
-    pr-merged-alert.png
+    focused-pane.png
     # 6. Configure settings
     settings-panes.png
     settings-notifications.png

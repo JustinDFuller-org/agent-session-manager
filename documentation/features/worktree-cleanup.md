@@ -34,4 +34,4 @@ This removes the worktree entry from `.git/worktrees`, deletes the checkout dire
 
 ## Session restore interaction
 
-If you delete a worktree and later relaunch the app, the pane for that worktree will **not** be restored because the checkout directory no longer exists on disk (see session restore rules in [worktree-creation.md](worktree-creation.md)).
+If you delete a worktree and later relaunch the app, the pane for that worktree will **not** be restored because the checkout directory no longer exists on disk (see session restore rules in [worktree-creation.md]({{ '/documentation/features/worktree-creation/' | relative_url }})).
