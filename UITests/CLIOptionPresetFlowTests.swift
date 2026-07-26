@@ -82,8 +82,9 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         let mcpAItem = app.menuItems["mcp-a"]
         waitFor(mcpAItem)
         mcpAItem.click()
+        mcpMenu.click()
         let mcpBItem = app.menuItems["mcp-b"]
-        waitFor(mcpBItem, timeout: 2)
+        waitFor(mcpBItem)
         mcpBItem.click()
 
         app.descendants(matching: .any).matching(identifier: "profile-editor-show-on-pane---effort").firstMatch
@@ -205,8 +206,9 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         let modelAItem = app.menuItems["model-a"]
         waitFor(modelAItem)
         modelAItem.click()
+        modelMenu.click()
         let modelBItem = app.menuItems["model-b"]
-        waitFor(modelBItem, timeout: 2)
+        waitFor(modelBItem)
         modelBItem.click()
 
         XCTAssertTrue(modelMenu.label.contains("2 selected"), "Selecting two presets should summarize the count")
