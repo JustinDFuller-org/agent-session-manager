@@ -35,6 +35,7 @@ final class CursorDataProvider: StatusLineDataProvider {
     private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
+    private var isStopping = false
     var onActivityChanged: ((Bool) -> Void)?
 
     init(
@@ -58,6 +59,7 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 
     func start() {
+        isStopping = false
         activeConversationID = nil
         activeGenerationID = nil
         var hookSetupError: Error?
@@ -120,6 +122,7 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 
     func stop() {
+        isStopping = true
         refreshTimer?.invalidate()
         refreshTimer = nil
         hookSource?.cancel()
@@ -154,7 +157,7 @@ final class CursorDataProvider: StatusLineDataProvider {
         attentionSource?.cancel()
         attentionSource = nil
         lastAttentionPayloadFingerprint = nil
-        guard enabled else { return }
+        guard enabled, !isStopping else { return }
 
         FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
         let attentionFD = open(attentionFilePath, O_EVTONLY)
@@ -170,7 +173,6 @@ final class CursorDataProvider: StatusLineDataProvider {
             queue: .global(qos: .utility)
         )
         source.setEventHandler { [weak self, weak source] in
-            guard let self else { return }
             let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
             if inodeLost {
                 Task { @MainActor [weak self] in
@@ -222,6 +224,7 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 
     private func startLifecycleWatcher() {
+        guard !isStopping else { return }
         lifecycleSource?.cancel()
         lifecycleSource = nil
         let lifecycleFD = open(lifecycleFilePath, O_EVTONLY)
@@ -237,7 +240,6 @@ final class CursorDataProvider: StatusLineDataProvider {
             queue: .global(qos: .utility)
         )
         source.setEventHandler { [weak self, weak source] in
-            guard let self else { return }
             let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
             if inodeLost {
                 Task { @MainActor [weak self] in
@@ -260,6 +262,7 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 
     private func startHookWatcher() {
+        guard !isStopping else { return }
         hookSource?.cancel()
         hookSource = nil
         let hookFD = open(hookOutputFilePath, O_EVTONLY)
@@ -275,7 +278,6 @@ final class CursorDataProvider: StatusLineDataProvider {
             queue: .global(qos: .utility)
         )
         source.setEventHandler { [weak self, weak source] in
-            guard let self else { return }
             let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
             if inodeLost {
                 Task { @MainActor [weak self] in

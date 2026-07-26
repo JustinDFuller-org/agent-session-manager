@@ -222,6 +222,20 @@ struct CursorDataProviderTests {
         #expect(states == [true, true])
     }
 
+    @MainActor
+    @Test func testStoppingProviderCleansPrivateDirectory() async throws {
+        let provider = CursorDataProvider(
+            workingDirectory: "/tmp/test", paneID: UUID(), processStartTime: Date())
+        try FileManager.default.createDirectory(
+            at: URL(filePath: provider.hookDirectoryPath), withIntermediateDirectories: true)
+
+        provider.stop()
+        provider.configureAttentionWatcher(enabled: true)
+
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!FileManager.default.fileExists(atPath: provider.hookDirectoryPath))
+    }
+
     // MARK: - Hooks config merging
 
     @Test func testMergeHooksConfigIntoBareConfig() throws {
