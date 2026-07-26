@@ -65,5 +65,11 @@ final class CursorFlowTests: BaseTestCase {
                 "Cursor setup failed: "
                     + app.staticTexts.allElementsBoundByIndex.map { $0.label }.joined(separator: " | "))
         }
+
+        app.descendants(matching: .any).matching(identifier: "pane-close-cursor-control").firstMatch.click()
+        let keepWorktree = app.buttons["Keep Worktree"].firstMatch
+        waitFor(keepWorktree)
+        keepWorktree.click()
+        waitForDisappear(pane, timeout: 10)
     }
 }
