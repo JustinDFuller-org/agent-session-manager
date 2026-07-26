@@ -62,7 +62,9 @@ private plugin directory through `--plugin-dir`; its plugin-root `mcp.json`
 defines the connection without modifying project or user configuration.
 Credentials are
 high-entropy bearer tokens held only in memory and passed through a runtime
-environment variable. They are revoked when a pane or tab is torn down and are
+environment variable. If control registration or Cursor plugin preparation is
+temporarily unavailable, the app opens a normal Cursor pane without injection
+instead of blocking pane creation. Credentials are revoked when a pane or tab is torn down and are
 never persisted, logged, or printed in the terminal.
 
 Cursor uses the CLI's local plugin mechanism rather than `.cursor/mcp.json` or

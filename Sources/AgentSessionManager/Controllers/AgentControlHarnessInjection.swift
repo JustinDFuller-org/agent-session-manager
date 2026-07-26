@@ -268,6 +268,14 @@ enum AgentControlHarnessInjection {
             pane.cursorAgentControlPluginDirectory = nil
             AgentControlService.shared.revoke(
                 paneID: pane.id, paneName: pane.name, tabID: tab.id, tabName: tab.name)
+            if pane.harness == .cursor {
+                recordPreparation(pane: pane, tab: tab, result: "fallback", error: error.localizedDescription)
+                return (
+                    commandArguments.map {
+                        removingControlArguments(from: $0, harness: pane.harness)
+                    }, sanitizedEnvironment
+                )
+            }
             recordPreparation(pane: pane, tab: tab, result: "failed", error: error.localizedDescription)
             throw error
         }
