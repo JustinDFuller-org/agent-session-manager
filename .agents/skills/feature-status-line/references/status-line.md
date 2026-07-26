@@ -2,6 +2,8 @@
 
 Agent Session Manager shows a configurable status bar at the bottom of each terminal pane. The bar is composed of rows of facts; each fact displays one fact about the running session.
 
+Facts show their SF Symbol and label by default. Explicit `labelOnly` and `symbolOnly` configurations are preserved; older saved configurations that omitted the style migrate to the symbol-and-label default.
+
 ## Item Catalog
 
 | ID | Label | Availability | Source |

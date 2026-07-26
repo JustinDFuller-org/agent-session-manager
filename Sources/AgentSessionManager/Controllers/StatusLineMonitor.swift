@@ -17,11 +17,15 @@ enum SidebarSide: String, Codable, CaseIterable {
 @MainActor
 final class StatusLineMonitor {
     enum ClaudeLifecycle { case unknown, working, stopped }
+    enum CursorLifecycle { case unknown, working, stopped }
 
     private(set) var currentData: StatusLineData?
     private(set) var claudeLifecycle: ClaudeLifecycle = .unknown
+    private(set) var cursorLifecycle: CursorLifecycle = .unknown
     var isClaudeWorking: Bool { claudeLifecycle == .working }
     var isClaudeStopped: Bool { claudeLifecycle == .stopped }
+    var isCursorWorking: Bool { cursorLifecycle == .working }
+    var isCursorStopped: Bool { cursorLifecycle == .stopped }
     private(set) var isOpenCodeWorking = false
 
     private let paneID: UUID
@@ -147,7 +151,8 @@ final class StatusLineMonitor {
             let provider: any StatusLineDataProvider
             if harness == .cursor {
                 provider = CursorDataProvider(
-                    workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime)
+                    workingDirectory: cwd, paneID: paneID, processStartTime: processStartTime,
+                    paneName: self.paneName, tabID: tabID, tabName: tabName)
             } else if harness == .codex, let providerContext {
                 provider = CodexStatusProvider(context: providerContext)
             } else if harness == .opencode, let providerContext {
@@ -201,6 +206,12 @@ final class StatusLineMonitor {
                 let toolCmd = harness.commandDescription
                 provider = ToolAgnosticDataProvider(
                     workingDirectory: cwd, toolCommand: toolCmd, processStartTime: processStartTime)
+            }
+            if let cursorProvider = provider as? CursorDataProvider {
+                cursorProvider.onActivityChanged = { [weak self] isWorking in
+                    guard let self else { return }
+                    self.applyCursorActivity(isWorking: isWorking)
+                }
             }
             agnosticProvider = provider
             agnosticProvider?.onUpdate = { [weak self] data in
@@ -357,6 +368,7 @@ final class StatusLineMonitor {
                 attributes: providerTraceAttributes(providerName: harness.rawValue))
         }
         agnosticProvider = nil
+        cursorLifecycle = .unknown
         PRTrackingCoordinator.shared.unsubscribe(paneID: paneID)
         lastKnownPRState = nil
         onOpencodeStopped = nil
@@ -369,6 +381,20 @@ final class StatusLineMonitor {
         try? FileManager.default.removeItem(atPath: hookLogScriptFilePath)
         try? FileManager.default.removeItem(atPath: codexHookRecordFilePath)
         try? FileManager.default.removeItem(atPath: codexHookScriptFilePath)
+    }
+
+    func configureCursorAttentionWatcher(enabled: Bool) {
+        guard let provider = agnosticProvider as? CursorDataProvider else { return }
+        provider.configureAttentionWatcher(enabled: enabled)
+    }
+
+    var cursorHookEnvironmentVariables: [String: String] {
+        guard let provider = agnosticProvider as? CursorDataProvider else { return [:] }
+        return provider.hookEnvironmentVariables
+    }
+
+    private func applyCursorActivity(isWorking: Bool) {
+        cursorLifecycle = isWorking ? .working : .stopped
     }
 
     private func startStatusWatcher() {
@@ -916,6 +942,11 @@ extension StatusLineMonitor {
     @MainActor
     func testApplyClaudeActivityPayload(_ data: Data) {
         applyClaudeActivityPayload(data)
+    }
+
+    @MainActor
+    func testApplyCursorActivity(isWorking: Bool) {
+        applyCursorActivity(isWorking: isWorking)
     }
 
     /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus lifecycle and attention hooks) for tests and tooling.

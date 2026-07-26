@@ -3,9 +3,9 @@ import XCTest
 @testable import AgentSessionManager
 
 final class StatusLineConfigDefaultsTests: XCTestCase {
-    func testDefaultInitProducesLabelOnly() {
+    func testDefaultInitProducesSymbolsAndLabels() {
         let config = StatusLineConfig()
-        XCTAssertEqual(config.factLabelStyle, .labelOnly)
+        XCTAssertEqual(config.factLabelStyle, .symbolAndLabel)
     }
 
     func testDefaultInitProducesSpaceBetween() {
@@ -13,8 +13,14 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         XCTAssertEqual(config.rowAlignment, .spaceBetween)
     }
 
-    func testDecodingMissingFieldsFallsBackToLabelOnly() throws {
+    func testDecodingMissingFieldsMigratesToSymbolsAndLabels() throws {
         let json = Data("{}".utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertEqual(config.factLabelStyle, .symbolAndLabel)
+    }
+
+    func testDecodingExplicitLabelOnlyPreservesIt() throws {
+        let json = Data(#"{"factLabelStyle":"labelOnly"}"#.utf8)
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
         XCTAssertEqual(config.factLabelStyle, .labelOnly)
     }

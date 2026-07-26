@@ -279,7 +279,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                 return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
             }
         rows = [StatusLineRow(items: defaultItems)]
-        factLabelStyle = .labelOnly
+        factLabelStyle = .symbolAndLabel
         rowAlignment = .spaceBetween
         showPercentagesAsText = false
         customFields = []
@@ -291,7 +291,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
         }
         var config = StatusLineConfig()
-        config.factLabelStyle = .labelOnly
+        config.factLabelStyle = .symbolAndLabel
         config.rowAlignment = .spaceBetween
         config.rows = [
             StatusLineRow(items: [item("pr"), item("profileName"), item("model")]),
@@ -304,7 +304,8 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        factLabelStyle = try container.decodeIfPresent(FactLabelStyle.self, forKey: .factLabelStyle) ?? .labelOnly
+        factLabelStyle =
+            try container.decodeIfPresent(FactLabelStyle.self, forKey: .factLabelStyle) ?? .symbolAndLabel
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
         showPercentagesAsText = try container.decodeIfPresent(Bool.self, forKey: .showPercentagesAsText) ?? false
         customFields = try container.decodeIfPresent([CustomStatusLineField].self, forKey: .customFields) ?? []

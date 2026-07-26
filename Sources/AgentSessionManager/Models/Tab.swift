@@ -578,9 +578,7 @@ final class Tab: Identifiable {
                     extraArgs: extraArgs)
             case .cursor:
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+                applyCursorHookEnvironment(to: controller, pane: pane)
                 controller.pendingCommandArgs = ["agent"] + extraArgs
             case .opencode:
                 installOpenCodeController(
@@ -705,9 +703,7 @@ final class Tab: Identifiable {
                     tabID: self.id, tabName: self.name)
                 pane.installStatusLineMonitor(monitor)
                 applyExtraEnvVars(extraEnvVars, to: controller)
-                controller.pendingEnvironment =
-                    (controller.pendingEnvironment ?? [])
-                    + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+                applyCursorHookEnvironment(to: controller, pane: pane)
                 controller.pendingCommandArgs = ["agent"] + extraArgs
             case .opencode:
                 installOpenCodeController(
@@ -749,9 +745,7 @@ final class Tab: Identifiable {
                 settingsPath: monitor.settingsFilePath, extraArgs: continued)
         }
         if pane.harness == .cursor {
-            new.pendingEnvironment =
-                (new.pendingEnvironment ?? [])
-                + ["AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"]
+            applyCursorHookEnvironment(to: new, pane: pane)
             new.pendingCommandArgs = ["agent"] + pane.extraArgs
         }
         if pane.harness == .opencode {
@@ -860,6 +854,16 @@ extension Tab {
         controller.pendingEnvironment =
             (controller.pendingEnvironment ?? [])
             + extraEnvVars.map { "\($0.key)=\($0.value)" }
+    }
+
+    private func applyCursorHookEnvironment(to controller: TerminalController, pane: Pane) {
+        var environment = [
+            "AGENT_SESSION_MANAGER_PANE_ID=\(pane.id.uuidString)"
+        ]
+        if let monitor = pane.statusLineMonitor {
+            environment += monitor.cursorHookEnvironmentVariables.map { "\($0.key)=\($0.value)" }
+        }
+        controller.pendingEnvironment = (controller.pendingEnvironment ?? []) + environment
     }
 
     private func installOpenCodeController(

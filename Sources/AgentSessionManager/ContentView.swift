@@ -104,6 +104,8 @@ extension Notification.Name {
     static let viewPaneSettings = Notification.Name("viewPaneSettings")
     static let agentSessionManagerPRTrackingSettingChanged = Notification.Name(
         "agentSessionManagerPRTrackingSettingChanged")
+    static let agentSessionManagerCursorNotificationSettingChanged = Notification.Name(
+        "agentSessionManagerCursorNotificationSettingChanged")
     static let showSettingsSection = Notification.Name("showSettingsSection")
 }
 

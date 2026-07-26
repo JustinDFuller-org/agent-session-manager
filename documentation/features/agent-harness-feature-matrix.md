@@ -91,16 +91,15 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 |---|---|---|---|---|---|
 | BEL handling | Implemented | Implemented | Implemented | Implemented | Shared terminal parser path. |
 | OSC 777 handling | Implemented | Implemented | Implemented | Implemented | Shared `ESC]777;notify;title;body BEL` handler. |
-| Native hook attention | Implemented | Partial | Missing | Implemented | Claude `Notification` hook (`permission_prompt`, `elicitation_dialog`, `idle_prompt`, `agent_needs_input`) is refreshed for existing panes when toggled. Cursor `stop` hook is installed, but toggling attention does not refresh existing Cursor providers. OpenCode uses SSE `session.idle` and `permission.asked` events with a 15-second polling fallback. |
+| Native hook attention | Implemented | Implemented | Missing | Implemented | Claude `Notification` hook and Cursor `stop` hook are refreshed for every live pane when toggled. Cursor stores hook output in private per-pane directories and reports `beforeSubmitPrompt`/`stop` lifecycle state for activity indicators. OpenCode uses SSE `session.idle` and `permission.asked` events with a 15-second polling fallback. |
 | Background-agent completion gating (`SubagentStop`) | Implemented | N/A | N/A | N/A | Claude registers `SubagentStop` and a `PreToolUse` matcher for `Task\|Agent`; the outstanding-agent count derived from those hooks suppresses the false "Claude finished" `Stop` notification while background agents (e.g. plan-mode Explore agents) are still running. |
-| Sidebar and pane/tab indicators | Partial | Partial | Partial | Partial | Delivery exists once callbacks are wired; see lifecycle gaps below. |
+| Sidebar and pane/tab indicators | Partial | Implemented | Partial | Partial | Cursor lifecycle and attention callbacks drive working, stopped, and waiting states. |
 | macOS banners | Partial | Partial | Partial | Partial | Uses the same callback path as sidebar delivery. |
 | Pending-notification persistence | Implemented | Implemented | Implemented | Implemented | In-app entries survive restart through `sessions.json`; banners are not replayed. |
 | PR merged notifications | Partial | Partial | Partial | Partial | Status monitors subscribe to shared PR tracking; callback rewiring gaps also apply here. |
 
 ## Known Gaps
 
-- Cursor attention-toggle changes do not refresh existing Cursor providers. Claude has `refreshClaudeIntegrationFromSettings`; Cursor has no equivalent.
 - Codex rollout parsing is currently supported only for Codex `0.136.x`; unknown versions degrade to baseline/state DB facts.
 
 ## Harness Guides

@@ -320,6 +320,16 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertFalse(monitor.isClaudeWorking)
     }
 
+    func testCursorLifecycleTransitionsWorkingAndStopped() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .cursor)
+        monitor.testApplyCursorActivity(isWorking: true)
+        XCTAssertTrue(monitor.isCursorWorking)
+        XCTAssertFalse(monitor.isCursorStopped)
+        monitor.testApplyCursorActivity(isWorking: false)
+        XCTAssertFalse(monitor.isCursorWorking)
+        XCTAssertTrue(monitor.isCursorStopped)
+    }
+
     func testClaudeStopWithNoPriorWorkingIsIgnored() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))

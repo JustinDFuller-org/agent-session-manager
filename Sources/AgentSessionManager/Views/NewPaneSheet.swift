@@ -649,7 +649,7 @@ struct NewPaneSheet: View {
         let tabID = tab.id
         let resolvedDefaultBranch = defaultBranch
 
-        Task {
+        Task<Void, Never> { @MainActor in
             TracingService.shared.record(
                 "tab.worktree.base_branch_resolved",
                 attributes: [

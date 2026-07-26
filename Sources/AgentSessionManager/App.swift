@@ -77,6 +77,13 @@ struct ContentView: View {
         .background(Theme.controlBackground)
         .preferredColorScheme(.dark)
         .tint(Theme.accent)
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .agentSessionManagerCursorNotificationSettingChanged)
+        ) { _ in
+            appState.configureCursorAttentionWatchers(
+                enabled: appSettings.isCursorNotificationHookAttentionEnabled)
+        }
         .task {
             if let config = SettingsPersistence.load(DefaultBranchConfig.self, from: "default-branch.json") {
                 appSettings.isDefaultBranchEnabled = config.isEnabled

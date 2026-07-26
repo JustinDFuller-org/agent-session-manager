@@ -4,6 +4,8 @@ Agent Session Manager shows a configurable status bar at the bottom of each term
 
 The catalog controls which chips can be selected for a harness. Each fact declares an owner (`app`, `harness`, or `merged`), supported harnesses, and whether missing data should render as pending or unsupported. Unsupported facts are omitted for that pane; supported facts with no current value render `—`. See [agent-harness-feature-matrix.md]({{ '/documentation/features/agent-harness-feature-matrix/' | relative_url }}) for the per-harness audit.
 
+Facts show their SF Symbol and label by default. Explicit `labelOnly` and `symbolOnly` configurations are preserved; older saved configurations that omitted the style migrate to the symbol-and-label default.
+
 ## Item Catalog
 
 | ID | Label | Availability | Source |

@@ -426,6 +426,16 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications[0].reason, "OpenCode finished responding")
     }
 
+    func testAddNotificationCursorStopCreatesCursorStopKind() {
+        let state = AppState()
+        state.addNotification(
+            paneID: UUID(), paneName: "pane", tabID: UUID(), tabName: "tab",
+            isPriority: false, event: .cursorStop
+        )
+        XCTAssertEqual(state.notifications[0].kind, .cursorStop)
+        XCTAssertEqual(state.notifications[0].reason, "Agent turn completed")
+    }
+
     func testAddNotificationTerminalBellCreatesTerminalBellKind() {
         let state = AppState()
         state.addNotification(

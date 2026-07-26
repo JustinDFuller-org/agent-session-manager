@@ -1,7 +1,7 @@
 import XCTest
 
 final class ScreenshotTests: BaseTestCase {
-    private static var launchCount = 0
+    nonisolated(unsafe) private static var launchCount = 0
 
     override var additionalLaunchArguments: [String] {
         ["--uitesting-show-onboarding"]

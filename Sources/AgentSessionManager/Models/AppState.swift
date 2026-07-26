@@ -80,6 +80,18 @@ final class AppState {
         SessionPersistence.save(appState: self)
     }
 
+    func configureCursorAttentionWatchers(enabled: Bool) {
+        for pane in tabs.flatMap(\.panes) where pane.harness == .cursor {
+            pane.statusLineMonitor?.configureCursorAttentionWatcher(enabled: enabled)
+        }
+        TracingService.shared.record(
+            "statusline.cursor.attention_setting.applied",
+            attributes: [
+                "enabled": enabled ? "true" : "false",
+                "cursor_pane_count": "\(tabs.flatMap(\.panes).filter { $0.harness == .cursor }.count)",
+            ])
+    }
+
     func addNotification(
         paneID: UUID, paneName: String, tabID: UUID, tabName: String, isPriority: Bool,
         event: PaneAttentionEvent = .rawBell
@@ -92,6 +104,7 @@ final class AppState {
         let kind: NotificationKind = {
             switch event.source {
             case .claudeStop: return .claudeStop
+            case .cursorStop: return .cursorStop
             case .opencodeStop: return .opencodeStop
             case .opencodePermissionRequest: return .opencodePermissionRequest
             default: return .terminalBell
