@@ -592,7 +592,7 @@ final class AgentControlMutationTests: XCTestCase {
             worktreeDirectory: URL(filePath: "/tmp/other-worktree"), appSettings: settings)
         let secondTab = Tab(name: "Second Tab", directory: URL(filePath: NSTemporaryDirectory()))
         let secondTabPane = secondTab.addPane(
-            name: "Second Tab Pane", harness: .cursor,
+            name: "Second Tab Pane", harness: .shell,
             worktreeDirectory: URL(filePath: "/tmp/second-tab-worktree"), appSettings: settings)
         state.tabs = [tab, secondTab]
         state.activeTabID = tab.id
