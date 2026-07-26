@@ -160,6 +160,18 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             ["PATH=/usr/bin", "HOME=/tmp"])
     }
 
+    func testCursorAppOwnedDetectionRequiresGeneratedTemporaryPath() {
+        let generatedPlugin = CursorAgentControlPlugin.directory(for: UUID())
+        let customPlugin = URL(
+            filePath: "/Users/example/plugins/\(CursorAgentControlPlugin.directoryPrefix)custom")
+        let malformedTemporaryPlugin = FileManager.default.temporaryDirectory.appending(
+            path: "\(CursorAgentControlPlugin.directoryPrefix)custom")
+
+        XCTAssertTrue(CursorAgentControlPlugin.isAppOwned(generatedPlugin))
+        XCTAssertFalse(CursorAgentControlPlugin.isAppOwned(customPlugin))
+        XCTAssertFalse(CursorAgentControlPlugin.isAppOwned(malformedTemporaryPlugin))
+    }
+
     func testRemovingControlArgumentsRemovesOnlyAgentControlConfiguration() {
         let claudeArguments = [
             "claude", "--mcp-config", "{\"agent-session-manager\":{}}",
@@ -180,14 +192,20 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             ["codex", "-c", "model=\"gpt-5\""])
 
         let appOwnedPlugin = CursorAgentControlPlugin.directory(for: UUID()).path
+        let customPlugin =
+            "/Users/example/plugins/\(CursorAgentControlPlugin.directoryPrefix)user-configured"
         let cursorArguments = [
             "agent", "--plugin-dir", appOwnedPlugin,
-            "--plugin-dir", "/Users/example/plugins/custom",
+            "--plugin-dir", customPlugin,
+            "--plugin-dir=\(customPlugin)",
             "--model", "auto",
         ]
         XCTAssertEqual(
             AgentControlHarnessInjection.removingControlArguments(
                 from: cursorArguments, harness: .cursor),
-            ["agent", "--plugin-dir", "/Users/example/plugins/custom", "--model", "auto"])
+            [
+                "agent", "--plugin-dir", customPlugin,
+                "--plugin-dir=\(customPlugin)", "--model", "auto",
+            ])
     }
 }

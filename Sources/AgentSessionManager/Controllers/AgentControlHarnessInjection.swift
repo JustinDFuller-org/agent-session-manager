@@ -152,7 +152,15 @@ enum CursorAgentControlPlugin {
     }
 
     static func isAppOwned(_ directory: URL) -> Bool {
-        directory.lastPathComponent.hasPrefix(directoryPrefix)
+        let standardizedDirectory = directory.standardizedFileURL
+        let temporaryDirectory = FileManager.default.temporaryDirectory.standardizedFileURL
+        guard standardizedDirectory.deletingLastPathComponent() == temporaryDirectory else { return false }
+
+        let component = standardizedDirectory.lastPathComponent
+        guard component.hasPrefix(directoryPrefix) else { return false }
+        let paneIDString = String(component.dropFirst(directoryPrefix.count))
+        guard let paneID = UUID(uuidString: paneIDString) else { return false }
+        return paneID.uuidString.lowercased() == paneIDString
     }
 }
 
