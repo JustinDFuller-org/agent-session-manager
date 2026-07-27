@@ -382,12 +382,13 @@ struct CodexRolloutParser {
     }
 }
 
+@MainActor
 final class CodexRolloutTailer {
     let rolloutPath: String
     let expectedCWD: String
     var onUpdate: ((StatusLineData) -> Void)?
     var onTrace: ((String, [String: String]) -> Void)?
-    private var source: DispatchSourceFileSystemObject?
+    private var watcher: FileSystemEventWatcher?
     private var offset: UInt64 = 0
     private var pendingLineBuffer = Data()
 
@@ -397,42 +398,58 @@ final class CodexRolloutTailer {
     }
 
     func start() {
-        onTrace?("statusline.codex.tailer_started", [:])
-        if let handle = FileHandle(forReadingAtPath: rolloutPath) {
-            defer { try? handle.close() }
-            if let data = try? handle.readToEnd() {
-                offset = UInt64(data.count)
-                process(data: data, catchUp: true)
+        stop()
+        offset = 0
+        pendingLineBuffer = Data()
+        readNewLines(catchUp: true)
+        watcher = FileSystemEventWatcher(
+            url: URL(filePath: rolloutPath),
+            followsReplacement: true,
+            onEvent: { [weak self] event in
+                guard let self else { return }
+                if event == .fileReplaced {
+                    offset = 0
+                    pendingLineBuffer = Data()
+                }
+                readNewLines(catchUp: event == .fileReplaced)
+            },
+            onStateChange: { [weak self] state in
+                guard let self else { return }
+                switch state {
+                case .started:
+                    onTrace?("statusline.codex.tailer_started", ["result": "started"])
+                case .waitingForFile(let openError):
+                    onTrace?(
+                        "statusline.codex.tailer_attachment",
+                        ["result": "waiting", "errno": String(openError)])
+                case .recovered:
+                    onTrace?("statusline.codex.tailer_attachment", ["result": "recovered"])
+                case .stopped:
+                    onTrace?("statusline.codex.tailer_stopped", ["result": "stopped"])
+                }
             }
-        }
-        let fd = open(rolloutPath, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let watcher = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
         )
-        watcher.setEventHandler { [weak self] in
-            self?.readNewLines()
-        }
-        watcher.setCancelHandler { close(fd) }
-        watcher.resume()
-        source = watcher
+        watcher?.start()
     }
 
     func stop() {
-        source?.cancel()
-        source = nil
+        watcher?.cancel()
+        watcher = nil
     }
 
-    private func readNewLines() {
+    private func readNewLines(catchUp: Bool) {
         guard let handle = FileHandle(forReadingAtPath: rolloutPath) else { return }
         defer { try? handle.close() }
         do {
+            let fileSize = try handle.seekToEnd()
+            if fileSize < offset {
+                offset = 0
+                pendingLineBuffer = Data()
+            }
             try handle.seek(toOffset: offset)
             let data = try handle.readToEnd() ?? Data()
             offset += UInt64(data.count)
-            process(data: data, catchUp: false)
+            process(data: data, catchUp: catchUp)
         } catch {}
     }
 

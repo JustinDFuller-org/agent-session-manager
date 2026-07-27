@@ -77,6 +77,11 @@ class BaseTestCase: XCTestCase {
         let exp = XCTNSPredicateExpectation(predicate: pred, object: element)
         let result = XCTWaiter.wait(for: [exp], timeout: timeout)
         XCTAssertEqual(result, .completed, "Expected \(element.identifier) to disappear within \(timeout)s")
+        XCTAssertNotEqual(
+            app.state,
+            .notRunning,
+            "The application terminated while waiting for \(element.identifier) to disappear"
+        )
     }
 
     var emptyStateHint: XCUIElement { app.staticTexts["empty-state-hint"] }

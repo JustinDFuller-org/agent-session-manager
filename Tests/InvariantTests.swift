@@ -159,6 +159,41 @@ final class InvariantTests: XCTestCase {
         XCTAssertNotEqual(parsed[0].id, parsed[1].id)
     }
 
+    func testRepositoryAttachesWhenFileAppearsAndFollowsReplacement() async throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let repository = InvariantRepository(directory: directory)
+        repository.start()
+        XCTAssertNotNil(repository.watcherError)
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let first = InvariantViolation(
+            invariant: .statusLineWorktreeName,
+            context: [:],
+            timestamp: Date(timeIntervalSince1970: 1)
+        )
+        let file = directory.appending(path: "invariants.jsonl")
+        try encoder.encode(first).write(to: file, options: .atomic)
+        let firstDeadline = Date().addingTimeInterval(2)
+        while repository.violations.first?.id != first.id, Date() < firstDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(repository.violations.first?.id, first.id)
+        XCTAssertNil(repository.watcherError)
+
+        let second = InvariantViolation(
+            invariant: .statusLineLinesSource,
+            context: [:],
+            timestamp: Date(timeIntervalSince1970: 2)
+        )
+        try encoder.encode(second).write(to: file, options: .atomic)
+        let secondDeadline = Date().addingTimeInterval(2)
+        while repository.violations.first?.id != second.id, Date() < secondDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(repository.violations.first?.id, second.id)
+    }
+
     func testDebugSettingsPersistenceUsesVersionedSchemaAndRejectsLegacySchema() throws {
         let subdirectory = "debug-settings-tests-\(UUID().uuidString)"
         PersistenceHelpers.overrideAppSupportSubdirectory = subdirectory

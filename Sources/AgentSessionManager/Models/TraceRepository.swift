@@ -53,8 +53,7 @@ final class TraceRepository {
     var selectedPaneSpans: [StoredSpan] = []
 
     private let tracesDirectory: URL
-    private var fileWatchSource: DispatchSourceFileSystemObject?
-    private var fileWatchFD: Int32 = -1
+    private var fileWatcher: FileSystemEventWatcher?
 
     init(tracesDirectory: URL) {
         self.tracesDirectory = tracesDirectory
@@ -145,37 +144,24 @@ final class TraceRepository {
     }
 
     func selectPane(_ url: URL) {
-        fileWatchSource?.cancel()
-        fileWatchSource = nil
-        fileWatchFD = -1
+        fileWatcher?.cancel()
+        fileWatcher = nil
         selectedPaneURL = url
         loadSpans(from: url)
-        let fd = open(url.path, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .global(qos: .utility)
-        )
-        source.setEventHandler { [weak self, url] in
-            Task { @MainActor [weak self] in
-                guard let self, self.selectedPaneURL == url else { return }
-                self.loadSpans(from: url)
-            }
+        fileWatcher = FileSystemEventWatcher(
+            url: url,
+            followsReplacement: true
+        ) { [weak self, url] _ in
+            guard let self, selectedPaneURL == url else { return }
+            loadSpans(from: url)
         }
-        source.setCancelHandler { close(fd) }
-        source.resume()
-        fileWatchSource = source
-        fileWatchFD = fd
+        fileWatcher?.start()
     }
 
     // MARK: - JSONL loading
 
     func loadSpans(from url: URL) {
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            selectedPaneSpans = []
-            return
-        }
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return }
         selectedPaneSpans = Self.parseSpans(from: content)
     }
 

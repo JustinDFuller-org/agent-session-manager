@@ -234,6 +234,7 @@ final class CodexStatusProviderTests: XCTestCase {
         XCTAssertFalse(CodexVersionAdapter.supports(nil))
     }
 
+    @MainActor
     func testTailerStartupUsesLatestTwoHundredCompleteLines() throws {
         let rolloutURL = tempDir.appending(path: "rollout.jsonl")
         let lines =
@@ -268,6 +269,7 @@ final class CodexStatusProviderTests: XCTestCase {
             })
     }
 
+    @MainActor
     func testTailerBuffersPartialJsonlUntilNewlineArrives() throws {
         let rolloutURL = tempDir.appending(path: "rollout.jsonl")
         let partial =
@@ -293,6 +295,39 @@ final class CodexStatusProviderTests: XCTestCase {
 
         XCTAssertEqual(observed?.model?.id, "partial")
         XCTAssertEqual(observed?.contextWindow?.usedPercentage, 6)
+    }
+
+    @MainActor
+    func testTailerFollowsAtomicReplacementAndLaterAppend() throws {
+        let rolloutURL = tempDir.appending(path: "replaceable-rollout.jsonl")
+        try (codexTokenLine(model: "initial", input: 1, output: 1, contextTokens: 1, window: 100) + "\n")
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        let replacement = expectation(description: "replacement parsed")
+        let appended = expectation(description: "append after replacement parsed")
+        let tailer = CodexRolloutTailer(rolloutPath: rolloutURL.path, expectedCWD: tempDir.path)
+        tailer.onUpdate = { data in
+            if data.model?.id == "replacement" {
+                replacement.fulfill()
+            }
+            if data.model?.id == "appended" {
+                appended.fulfill()
+            }
+        }
+        tailer.start()
+
+        try (codexTokenLine(model: "replacement", input: 2, output: 1, contextTokens: 2, window: 100) + "\n")
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        wait(for: [replacement], timeout: 2)
+
+        let handle = try FileHandle(forWritingTo: rolloutURL)
+        try handle.seekToEnd()
+        try handle.write(
+            contentsOf: Data(
+                (codexTokenLine(model: "appended", input: 3, output: 1, contextTokens: 3, window: 100)
+                    + "\n").utf8))
+        try handle.close()
+        wait(for: [appended], timeout: 2)
+        tailer.stop()
     }
 
     func testCapabilityFilteringSupportsCodexTokensButNotCost() {

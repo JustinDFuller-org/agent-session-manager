@@ -26,13 +26,12 @@ final class CursorDataProvider: StatusLineDataProvider {
 
     private var refreshTimer: Timer?
     private var versionFetchedVersion: String?
-    private var hookSource: DispatchSourceFileSystemObject?
-    private var attentionSource: DispatchSourceFileSystemObject?
-    private var lifecycleSource: DispatchSourceFileSystemObject?
+    private var hookWatcher: FileSystemEventWatcher?
+    private var attentionWatcher: FileSystemEventWatcher?
+    private var lifecycleWatcher: FileSystemEventWatcher?
     private var lastHookModel: StatusLineData.Model?
     private var activeConversationID: String?
     private var activeGenerationID: String?
-    private let attentionDebounceLock = NSLock()
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
     private var isStopping = false
@@ -98,8 +97,14 @@ final class CursorDataProvider: StatusLineDataProvider {
             [.posixPermissions: 0o600], ofItemAtPath: attentionFilePath)
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o600], ofItemAtPath: lifecycleFilePath)
-        startHookWatcher()
-        startLifecycleWatcher()
+        hookWatcher = makeWatcher(filePath: hookOutputFilePath, role: "hook") { [weak self] in
+            self?.readHookPayload()
+        }
+        hookWatcher?.start()
+        lifecycleWatcher = makeWatcher(filePath: lifecycleFilePath, role: "lifecycle") { [weak self] in
+            self?.readLifecyclePayload()
+        }
+        lifecycleWatcher?.start()
         configureAttentionWatcher(
             enabled: SettingsPersistence.load(NotificationConfig.self, from: "notification-settings.json")?
                 .isCursorHookAttentionEnabled ?? true
@@ -125,17 +130,15 @@ final class CursorDataProvider: StatusLineDataProvider {
         isStopping = true
         refreshTimer?.invalidate()
         refreshTimer = nil
-        hookSource?.cancel()
-        hookSource = nil
-        lifecycleSource?.cancel()
-        lifecycleSource = nil
+        hookWatcher?.cancel()
+        hookWatcher = nil
+        lifecycleWatcher?.cancel()
+        lifecycleWatcher = nil
         CursorHookSetup.release(owner: paneID)
-        attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
-        attentionDebounceLock.unlock()
-        attentionSource?.cancel()
-        attentionSource = nil
+        attentionWatcher?.cancel()
+        attentionWatcher = nil
         lastAttentionPayloadFingerprint = nil
         try? FileManager.default.removeItem(atPath: hookOutputFilePath)
         try? FileManager.default.removeItem(atPath: attentionFilePath)
@@ -150,72 +153,38 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 
     func configureAttentionWatcher(enabled: Bool) {
-        attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
-        attentionDebounceLock.unlock()
-        attentionSource?.cancel()
-        attentionSource = nil
+        attentionWatcher?.cancel()
+        attentionWatcher = nil
         lastAttentionPayloadFingerprint = nil
         guard enabled, !isStopping else { return }
 
         FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
-        let attentionFD = open(attentionFilePath, O_EVTONLY)
-        guard attentionFD >= 0 else {
-            TracingService.shared.record(
-                "statusline.cursor.attention_watcher.failed",
-                attributes: cursorTraceAttributes(["reason": "open_failed"]))
-            return
+        attentionWatcher = makeWatcher(filePath: attentionFilePath, role: "attention") { [weak self] in
+            self?.scheduleAttentionPayloadRead()
         }
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: attentionFD,
-            eventMask: [.write, .extend, .delete, .rename, .revoke],
-            queue: .global(qos: .utility)
-        )
-        source.setEventHandler { [weak self, weak source] in
-            let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
-            if inodeLost {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.configureAttentionWatcher(enabled: true)
-                    self.scheduleAttentionPayloadRead()
-                }
-                return
-            }
-            Task { @MainActor [weak self] in
-                self?.scheduleAttentionPayloadRead()
-            }
-        }
-        source.setCancelHandler { close(attentionFD) }
-        source.resume()
-        attentionSource = source
-        TracingService.shared.record(
-            "statusline.cursor.attention_watcher.started",
-            attributes: cursorTraceAttributes([:]))
+        attentionWatcher?.start()
     }
 
     private func scheduleAttentionPayloadRead() {
-        attentionDebounceLock.lock()
         attentionDebounceWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            guard let self,
+            guard let self, !isStopping,
                 let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
                 !data.isEmpty
             else { return }
             var hasher = Hasher()
             hasher.combine(data)
             let fingerprint = hasher.finalize()
-            Task { @MainActor in
-                guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                self.lastAttentionPayloadFingerprint = fingerprint
-                TracingService.shared.record(
-                    "statusline.cursor.attention.received",
-                    attributes: self.cursorTraceAttributes([:]))
-                self.onAttention?(.cursorStop)
-            }
+            guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
+            self.lastAttentionPayloadFingerprint = fingerprint
+            TracingService.shared.record(
+                "statusline.cursor.attention.received",
+                attributes: self.cursorTraceAttributes([:]))
+            self.onAttention?(.cursorStop)
         }
         attentionDebounceWork = work
-        attentionDebounceLock.unlock()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
@@ -223,77 +192,38 @@ final class CursorDataProvider: StatusLineDataProvider {
         max(0, Date().timeIntervalSince(processStartTime)) * 1000
     }
 
-    private func startLifecycleWatcher() {
-        guard !isStopping else { return }
-        lifecycleSource?.cancel()
-        lifecycleSource = nil
-        let lifecycleFD = open(lifecycleFilePath, O_EVTONLY)
-        guard lifecycleFD >= 0 else {
-            TracingService.shared.record(
-                "statusline.cursor.lifecycle_watcher.failed",
-                attributes: cursorTraceAttributes(["reason": "open_failed"]))
-            return
-        }
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: lifecycleFD,
-            eventMask: [.write, .extend, .delete, .rename, .revoke],
-            queue: .global(qos: .utility)
-        )
-        source.setEventHandler { [weak self, weak source] in
-            let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
-            if inodeLost {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.startLifecycleWatcher()
-                    self.readLifecyclePayload()
+    private func makeWatcher(
+        filePath: String,
+        role: String,
+        onEvent: @escaping @MainActor () -> Void
+    ) -> FileSystemEventWatcher {
+        FileSystemEventWatcher(
+            url: URL(filePath: filePath),
+            followsReplacement: true,
+            onEvent: { _ in onEvent() },
+            onStateChange: { [weak self] state in
+                guard let self else { return }
+                let event: String
+                var attributes: [String: String] = [:]
+                switch state {
+                case .started:
+                    event = "started"
+                case .waitingForFile(let openError):
+                    event = "failed"
+                    attributes = [
+                        "reason": "open_failed",
+                        "errno": String(openError),
+                    ]
+                case .recovered:
+                    event = "recovered"
+                case .stopped:
+                    event = "stopped"
                 }
-            } else {
-                Task { @MainActor [weak self] in
-                    self?.readLifecyclePayload()
-                }
+                TracingService.shared.record(
+                    "statusline.cursor.\(role)_watcher.\(event)",
+                    attributes: cursorTraceAttributes(attributes))
             }
-        }
-        source.setCancelHandler { close(lifecycleFD) }
-        source.resume()
-        lifecycleSource = source
-        TracingService.shared.record(
-            "statusline.cursor.lifecycle_watcher.started",
-            attributes: cursorTraceAttributes([:]))
-    }
-
-    private func startHookWatcher() {
-        guard !isStopping else { return }
-        hookSource?.cancel()
-        hookSource = nil
-        let hookFD = open(hookOutputFilePath, O_EVTONLY)
-        guard hookFD >= 0 else {
-            TracingService.shared.record(
-                "statusline.cursor.hook_watcher.failed",
-                attributes: cursorTraceAttributes(["reason": "open_failed"]))
-            return
-        }
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: hookFD,
-            eventMask: [.write, .extend, .delete, .rename, .revoke],
-            queue: .global(qos: .utility)
         )
-        source.setEventHandler { [weak self, weak source] in
-            let inodeLost = source?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
-            if inodeLost {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.startHookWatcher()
-                    self.readHookPayload()
-                }
-            } else {
-                Task { @MainActor [weak self] in
-                    self?.readHookPayload()
-                }
-            }
-        }
-        source.setCancelHandler { close(hookFD) }
-        source.resume()
-        hookSource = source
     }
 
     private func readHookPayload() {

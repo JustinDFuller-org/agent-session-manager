@@ -6,9 +6,10 @@ import Observation
 final class InvariantRepository {
     var violations: [InvariantViolation] = []
     var writerError: String?
+    var watcherError: String?
 
     private let fileURL: URL
-    private var source: DispatchSourceFileSystemObject?
+    private var watcher: FileSystemEventWatcher?
 
     init(directory: URL) {
         fileURL = directory.appending(path: "invariants.jsonl")
@@ -16,15 +17,32 @@ final class InvariantRepository {
 
     func start() {
         refresh()
-        startWatcher()
+        watcher?.cancel()
+        watcher = FileSystemEventWatcher(
+            url: fileURL,
+            followsReplacement: true,
+            onEvent: { [weak self] _ in
+                self?.refresh()
+            },
+            onStateChange: { [weak self] state in
+                guard let self else { return }
+                switch state {
+                case .started, .recovered:
+                    watcherError = nil
+                    refresh()
+                case .waitingForFile(let openError):
+                    watcherError = "Waiting for invariant log (errno \(openError))."
+                case .stopped:
+                    break
+                }
+            }
+        )
+        watcher?.start()
     }
 
     func refresh() {
         writerError = InvariantReporter.shared.latestWriterError
-        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            violations = []
-            return
-        }
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return }
         violations = Self.parse(content).sorted { $0.timestamp > $1.timestamp }
     }
 
@@ -41,26 +59,4 @@ final class InvariantRepository {
         }
     }
 
-    private func startWatcher() {
-        source?.cancel()
-        source = nil
-        let fd = open(fileURL.path, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let newSource = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend, .delete, .rename, .revoke],
-            queue: .global(qos: .utility)
-        )
-        newSource.setEventHandler { [weak self, weak newSource] in
-            let inodeLost = newSource?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.refresh()
-                if inodeLost { self.startWatcher() }
-            }
-        }
-        newSource.setCancelHandler { close(fd) }
-        newSource.resume()
-        source = newSource
-    }
 }
