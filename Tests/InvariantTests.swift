@@ -192,6 +192,14 @@ final class InvariantTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(20))
         }
         XCTAssertEqual(repository.violations.first?.id, second.id)
+
+        try FileManager.default.removeItem(at: file)
+        let deletionDeadline = Date().addingTimeInterval(2)
+        while !repository.violations.isEmpty, Date() < deletionDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(repository.violations.isEmpty)
+        XCTAssertNotNil(repository.watcherError)
     }
 
     func testDebugSettingsPersistenceUsesVersionedSchemaAndRejectsLegacySchema() throws {

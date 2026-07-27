@@ -51,7 +51,7 @@ final class FileSystemEventWatcherTests: XCTestCase {
                 replacementDelivered.fulfill()
             case .contentChanged where sawReplacement:
                 laterWriteDelivered.fulfill()
-            case .contentChanged:
+            case .contentChanged, .fileAvailable:
                 break
             }
         }
@@ -67,12 +67,19 @@ final class FileSystemEventWatcherTests: XCTestCase {
     func testStartsWhenMissingFileAppears() async throws {
         let file = directory.appending(path: "created-later.json")
         let started = expectation(description: "watcher recovered")
-        let delivered = expectation(description: "write delivered")
+        let available = expectation(description: "created file delivered")
+        let laterWrite = expectation(description: "later write delivered")
         let watcher = FileSystemEventWatcher(
             url: file,
             followsReplacement: true,
             retryDelay: .milliseconds(20),
-            onEvent: { _ in delivered.fulfill() },
+            onEvent: { event in
+                if event == .fileAvailable {
+                    available.fulfill()
+                } else if event == .contentChanged {
+                    laterWrite.fulfill()
+                }
+            },
             onStateChange: { state in
                 if case .recovered = state {
                     started.fulfill()
@@ -81,14 +88,14 @@ final class FileSystemEventWatcherTests: XCTestCase {
         )
 
         watcher.start()
-        try Data().write(to: file)
-        await fulfillment(of: [started], timeout: 2)
+        try Data("initial".utf8).write(to: file)
+        await fulfillment(of: [started, available], timeout: 2)
         try Data("updated".utf8).write(to: file)
-        await fulfillment(of: [delivered], timeout: 2)
+        await fulfillment(of: [laterWrite], timeout: 2)
         watcher.cancel()
     }
 
-    func testCancelSuppressesQueuedDeliveryAndRetry() async throws {
+    func testCancelSuppressesQueuedDelivery() async throws {
         let file = directory.appending(path: "cancelled.json")
         try Data().write(to: file)
         let delivery = expectation(description: "no delivery after cancel")
@@ -102,7 +109,41 @@ final class FileSystemEventWatcherTests: XCTestCase {
         watcher.cancel()
 
         await fulfillment(of: [delivery], timeout: 0.2)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appending(path: "missing.json").path))
+    }
+
+    func testCancelSuppressesMissingFileRetry() async throws {
+        let file = directory.appending(path: "cancelled-retry.json")
+        let delivery = expectation(description: "no delivery after retry cancellation")
+        delivery.isInverted = true
+        let watcher = FileSystemEventWatcher(
+            url: file,
+            followsReplacement: true,
+            retryDelay: .milliseconds(20)
+        ) { _ in
+            delivery.fulfill()
+        }
+
+        watcher.start()
+        watcher.cancel()
+        try Data().write(to: file)
+
+        await fulfillment(of: [delivery], timeout: 0.2)
+    }
+
+    func testMissingFileRetryDoesNotRetainDiscardedWatcher() async {
+        let file = directory.appending(path: "discarded-retry.json")
+        weak var discardedWatcher: FileSystemEventWatcher?
+        var watcher: FileSystemEventWatcher? = FileSystemEventWatcher(
+            url: file,
+            followsReplacement: true,
+            retryDelay: .milliseconds(100)
+        ) { _ in }
+        watcher?.start()
+        discardedWatcher = watcher
+        try? await Task.sleep(for: .milliseconds(20))
+        watcher = nil
+
+        XCTAssertNil(discardedWatcher)
     }
 
     func testRepeatedStartAndCancelAreIdempotent() async {

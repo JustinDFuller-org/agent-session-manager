@@ -31,6 +31,7 @@ final class InvariantRepository {
                     watcherError = nil
                     refresh()
                 case .waitingForFile(let openError):
+                    violations = []
                     watcherError = "Waiting for invariant log (errno \(openError))."
                 case .stopped:
                     break

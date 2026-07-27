@@ -98,11 +98,21 @@ final class CursorDataProvider: StatusLineDataProvider {
         try? FileManager.default.setAttributes(
             [.posixPermissions: 0o600], ofItemAtPath: lifecycleFilePath)
         hookWatcher = makeWatcher(filePath: hookOutputFilePath, role: "hook") { [weak self] in
-            self?.readHookPayload()
+            guard let self,
+                let data = try? Data(contentsOf: URL(filePath: hookOutputFilePath)),
+                !data.isEmpty,
+                let parsed = CursorHookPayload.parse(data)
+            else { return }
+            lastHookModel = StatusLineData.Model(id: parsed.model, displayName: parsed.model)
+            refreshNow()
         }
         hookWatcher?.start()
         lifecycleWatcher = makeWatcher(filePath: lifecycleFilePath, role: "lifecycle") { [weak self] in
-            self?.readLifecyclePayload()
+            guard let self,
+                let data = try? Data(contentsOf: URL(filePath: lifecycleFilePath)),
+                let payload = CursorLifecyclePayload.parse(data)
+            else { return }
+            applyLifecyclePayload(payload)
         }
         lifecycleWatcher?.start()
         configureAttentionWatcher(
@@ -162,30 +172,27 @@ final class CursorDataProvider: StatusLineDataProvider {
 
         FileManager.default.createFile(atPath: attentionFilePath, contents: nil)
         attentionWatcher = makeWatcher(filePath: attentionFilePath, role: "attention") { [weak self] in
-            self?.scheduleAttentionPayloadRead()
+            guard let self else { return }
+            attentionDebounceWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, !isStopping,
+                    let data = try? Data(contentsOf: URL(filePath: attentionFilePath)),
+                    !data.isEmpty
+                else { return }
+                var hasher = Hasher()
+                hasher.combine(data)
+                let fingerprint = hasher.finalize()
+                guard fingerprint != lastAttentionPayloadFingerprint else { return }
+                lastAttentionPayloadFingerprint = fingerprint
+                TracingService.shared.record(
+                    "statusline.cursor.attention.received",
+                    attributes: cursorTraceAttributes([:]))
+                onAttention?(.cursorStop)
+            }
+            attentionDebounceWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
         }
         attentionWatcher?.start()
-    }
-
-    private func scheduleAttentionPayloadRead() {
-        attentionDebounceWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, !isStopping,
-                let data = try? Data(contentsOf: URL(filePath: self.attentionFilePath)),
-                !data.isEmpty
-            else { return }
-            var hasher = Hasher()
-            hasher.combine(data)
-            let fingerprint = hasher.finalize()
-            guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-            self.lastAttentionPayloadFingerprint = fingerprint
-            TracingService.shared.record(
-                "statusline.cursor.attention.received",
-                attributes: self.cursorTraceAttributes([:]))
-            self.onAttention?(.cursorStop)
-        }
-        attentionDebounceWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
     var currentDurationMs: Double {
@@ -224,23 +231,6 @@ final class CursorDataProvider: StatusLineDataProvider {
                     attributes: cursorTraceAttributes(attributes))
             }
         )
-    }
-
-    private func readHookPayload() {
-        guard let data = try? Data(contentsOf: URL(filePath: hookOutputFilePath)),
-            !data.isEmpty,
-            let parsed = CursorHookPayload.parse(data)
-        else { return }
-        let model = StatusLineData.Model(id: parsed.model, displayName: parsed.model)
-        lastHookModel = model
-        refreshNow()
-    }
-
-    private func readLifecyclePayload() {
-        guard let data = try? Data(contentsOf: URL(filePath: lifecycleFilePath)),
-            let payload = CursorLifecyclePayload.parse(data)
-        else { return }
-        applyLifecyclePayload(payload)
     }
 
     func applyLifecyclePayload(_ payload: CursorLifecyclePayload) {

@@ -330,6 +330,44 @@ final class CodexStatusProviderTests: XCTestCase {
         tailer.stop()
     }
 
+    @MainActor
+    func testTailerReadsFileThatAppearsAfterStartAndTracesRecovery() throws {
+        let rolloutURL = tempDir.appending(path: "created-later-rollout.jsonl")
+        let available = expectation(description: "newly available rollout parsed")
+        var traces: [(String, [String: String])] = []
+        let tailer = CodexRolloutTailer(rolloutPath: rolloutURL.path, expectedCWD: tempDir.path)
+        tailer.onUpdate = { data in
+            if data.model?.id == "available" {
+                available.fulfill()
+            }
+        }
+        tailer.onTrace = { name, attributes in
+            traces.append((name, attributes))
+        }
+        tailer.start()
+
+        try (codexTokenLine(model: "available", input: 4, output: 1, contextTokens: 4, window: 100) + "\n")
+            .write(to: rolloutURL, atomically: true, encoding: .utf8)
+        wait(for: [available], timeout: 2)
+        tailer.stop()
+
+        XCTAssertTrue(
+            traces.contains {
+                $0.0 == "statusline.codex.tailer_attachment"
+                    && $0.1["result"] == "waiting"
+            })
+        XCTAssertTrue(
+            traces.contains {
+                $0.0 == "statusline.codex.tailer_attachment"
+                    && $0.1["result"] == "recovered"
+            })
+        XCTAssertTrue(
+            traces.contains {
+                $0.0 == "statusline.codex.tailer_stopped"
+                    && $0.1["result"] == "stopped"
+            })
+    }
+
     func testCapabilityFilteringSupportsCodexTokensButNotCost() {
         let cost = StatusLineItem(id: "cost", label: "Cost", sfSymbol: "dollarsign.circle")
         let input = StatusLineItem(id: "inputTokens", label: "Input Tokens", sfSymbol: "arrow.down.circle")

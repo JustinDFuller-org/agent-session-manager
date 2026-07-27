@@ -407,11 +407,11 @@ final class CodexRolloutTailer {
             followsReplacement: true,
             onEvent: { [weak self] event in
                 guard let self else { return }
-                if event == .fileReplaced {
+                if event != .contentChanged {
                     offset = 0
                     pendingLineBuffer = Data()
                 }
-                readNewLines(catchUp: event == .fileReplaced)
+                readNewLines(catchUp: event != .contentChanged)
             },
             onStateChange: { [weak self] state in
                 guard let self else { return }

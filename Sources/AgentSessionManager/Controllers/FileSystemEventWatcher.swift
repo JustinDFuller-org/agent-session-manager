@@ -10,6 +10,7 @@ import Foundation
 final class FileSystemEventWatcher {
     enum Event: Equatable, Sendable {
         case contentChanged
+        case fileAvailable
         case fileReplaced
     }
 
@@ -90,10 +91,10 @@ final class FileSystemEventWatcher {
                 waitingErrno = openError
                 onStateChange?(.waitingForFile(errno: openError))
             }
+            let delay = retryDelay
             retryTask = Task { @MainActor [weak self] in
-                guard let self else { return }
-                try? await Task.sleep(for: retryDelay)
-                guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled, let self else { return }
                 attach(generation: expectedGeneration)
             }
             return
@@ -130,7 +131,8 @@ final class FileSystemEventWatcher {
         newSource.resume()
         source = newSource
 
-        if hasAttached || waitingErrno != nil {
+        let recoveredFromMissingFile = waitingErrno != nil
+        if hasAttached || recoveredFromMissingFile {
             onStateChange?(.recovered)
         } else {
             onStateChange?(.started)
@@ -140,6 +142,8 @@ final class FileSystemEventWatcher {
         if pendingReplacementDelivery {
             pendingReplacementDelivery = false
             onEvent(.fileReplaced)
+        } else if recoveredFromMissingFile {
+            onEvent(.fileAvailable)
         }
     }
 }

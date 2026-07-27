@@ -147,14 +147,22 @@ final class TraceRepository {
         fileWatcher?.cancel()
         fileWatcher = nil
         selectedPaneURL = url
+        selectedPaneSpans = []
         loadSpans(from: url)
         fileWatcher = FileSystemEventWatcher(
             url: url,
-            followsReplacement: true
-        ) { [weak self, url] _ in
-            guard let self, selectedPaneURL == url else { return }
-            loadSpans(from: url)
-        }
+            followsReplacement: true,
+            onEvent: { [weak self, url] _ in
+                guard let self, selectedPaneURL == url else { return }
+                loadSpans(from: url)
+            },
+            onStateChange: { [weak self, url] state in
+                guard let self, selectedPaneURL == url,
+                    case .waitingForFile = state
+                else { return }
+                selectedPaneSpans = []
+            }
+        )
         fileWatcher?.start()
     }
 
