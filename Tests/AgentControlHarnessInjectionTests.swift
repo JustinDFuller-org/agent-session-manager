@@ -219,6 +219,7 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             })
         XCTAssertEqual(event.attributes["result"], "fallback")
         XCTAssertEqual(event.attributes["transport"], "stdio_bridge")
+        XCTAssertEqual(event.attributes["approve_mcps"], "false")
         XCTAssertNil(event.attributes["endpoint"])
         XCTAssertNil(event.attributes["token"])
 
@@ -229,6 +230,64 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertEqual(violation.context["pane_id"], pane.id.uuidString)
         XCTAssertNil(violation.context["token"])
         XCTAssertNil(violation.context["endpoint"])
+    }
+
+    @MainActor
+    func testCursorApproveMCPsFlagIsRecordedInPrepareTelemetry() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Cursor Pane", harness: .cursor, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        TracingService.shared.enableTestCapture()
+        InvariantReporter.shared.enableTestCapture()
+        defer {
+            TracingService.shared.resetForTesting()
+            InvariantReporter.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        _ = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["agent", "--approve-mcps"],
+            environment: ["PATH=/usr/bin"],
+            appSettings: settings)
+
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.harness.prepare"
+            })
+        XCTAssertEqual(event.attributes["approve_mcps"], "true")
+    }
+
+    @MainActor
+    func testNonCursorHarnessOmitsApproveMCPsFromPrepareTelemetry() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Claude Pane", harness: .claude, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        TracingService.shared.enableTestCapture()
+        defer {
+            TracingService.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        _ = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["claude"],
+            environment: ["PATH=/usr/bin"],
+            appSettings: settings)
+
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.harness.prepare"
+            })
+        XCTAssertNil(event.attributes["approve_mcps"])
     }
 
     @MainActor

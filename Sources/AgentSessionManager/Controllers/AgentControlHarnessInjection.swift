@@ -241,11 +241,13 @@ enum AgentControlHarnessInjection {
             removingControlArguments(from: $0, harness: pane.harness)
         }
         let sanitizedEnvironment = removingControlEnvironment(from: environment)
+        let approveMCPsEnabled: Bool? =
+            pane.harness == .cursor ? (sanitizedCommandArguments?.contains("--approve-mcps") ?? false) : nil
         guard pane.harness != .shell, pane.agentControlInjectionEnabled, appSettings != nil else {
             CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
             pane.cursorAgentControlPluginDirectory = nil
             AgentControlService.shared.revoke(paneID: pane.id)
-            recordPreparation(pane: pane, tab: tab, result: "disabled")
+            recordPreparation(pane: pane, tab: tab, result: "disabled", approveMCPsEnabled: approveMCPsEnabled)
             return (sanitizedCommandArguments, sanitizedEnvironment)
         }
         let settings = appSettings!
@@ -301,7 +303,7 @@ enum AgentControlHarnessInjection {
                 CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
             }
             pane.cursorAgentControlPluginDirectory = prepared.cursorPluginDirectory
-            recordPreparation(pane: pane, tab: tab, result: "injected")
+            recordPreparation(pane: pane, tab: tab, result: "injected", approveMCPsEnabled: approveMCPsEnabled)
             return (commandArguments == nil ? nil : prepared.commandArguments, prepared.environment)
         } catch {
             CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
@@ -309,7 +311,9 @@ enum AgentControlHarnessInjection {
             AgentControlService.shared.revoke(
                 paneID: pane.id, paneName: pane.name, tabID: tab.id, tabName: tab.name)
             if pane.harness == .cursor {
-                recordPreparation(pane: pane, tab: tab, result: "fallback", error: error.localizedDescription)
+                recordPreparation(
+                    pane: pane, tab: tab, result: "fallback", approveMCPsEnabled: approveMCPsEnabled,
+                    error: error.localizedDescription)
                 return (
                     commandArguments.map {
                         removingControlArguments(from: $0, harness: pane.harness)
@@ -368,7 +372,7 @@ enum AgentControlHarnessInjection {
     }
 
     private static func recordPreparation(
-        pane: Pane, tab: Tab, result: String, error: String? = nil
+        pane: Pane, tab: Tab, result: String, approveMCPsEnabled: Bool? = nil, error: String? = nil
     ) {
         var attributes = [
             "pane.id": pane.id.uuidString,
@@ -379,7 +383,12 @@ enum AgentControlHarnessInjection {
             "result": result,
         ]
         if let error { attributes["error"] = String(error.prefix(200)) }
-        if pane.harness == .cursor { attributes["transport"] = "stdio_bridge" }
+        if pane.harness == .cursor {
+            attributes["transport"] = "stdio_bridge"
+            if let approveMCPsEnabled {
+                attributes["approve_mcps"] = approveMCPsEnabled ? "true" : "false"
+            }
+        }
         TracingService.shared.record("agent_control.harness.prepare", attributes: attributes)
     }
 }

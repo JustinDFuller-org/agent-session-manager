@@ -459,8 +459,9 @@ struct CLIOptionConfig: Identifiable, Codable {
             isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--approve-mcps", label: "Approve MCPs",
-            description: "Automatically approve all MCP servers without prompting", isAvailable: false,
-            isDefaultEnabled: false),
+            description:
+                "Automatically approve all MCP servers without prompting, including Agent Control's injected server",
+            isAvailable: true, isDefaultEnabled: false),
         CLIOptionConfig(
             id: "--continue", label: "Continue", description: "Continue the previous session (alias for --resume=-1)",
             isAvailable: false, isDefaultEnabled: false),

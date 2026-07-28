@@ -72,6 +72,12 @@ missing or non-executable bundled bridge reports the
 `cursor.agent_control.bridge_available` invariant, visible in the Invariant
 Dashboard and unified logs, rather than failing silently.
 
+Cursor prompts to approve the injected MCP server unless the pane's
+`--approve-mcps` option is enabled, which auto-approves every MCP server the
+pane sees. The `agent_control.harness.prepare` trace event carries an
+`approve_mcps` attribute for Cursor panes so a pane that never connects can be
+diagnosed from one trace lookup.
+
 Cursor uses the CLI's local plugin mechanism rather than `.cursor/mcp.json` or
 `~/.cursor/mcp.json`. The generated MCP configuration contains only the
 absolute path to the bundled stdio bridge. The endpoint and
