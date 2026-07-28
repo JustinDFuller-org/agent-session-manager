@@ -1,0 +1,28 @@
+name: UI Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: make test-ui-dev-launch
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check supported toolchain floor
+        run: bash scripts/check-toolchain.sh
+
+      - name: Cache Swift packages
+        uses: actions/cache@v5
+        with:
+          path: .build/checkouts
+          key: swift-packages-${{ hashFiles('Package.resolved') }}
+
+      - name: Run launch-behavior UI tests
+        run: make test-ui-dev-launch
