@@ -15,6 +15,23 @@ final class MCPTransportBridgeTests: XCTestCase {
         XCTAssertEqual(configuration.bearerToken, "runtime-secret")
     }
 
+    func testMakeLoopbackEndpointRoundTripsThroughConfigurationForAnyValidPort() throws {
+        for port in [1, 80, 43123, 65_535] {
+            let endpoint = try XCTUnwrap(MCPBridgeEnvironment.makeLoopbackEndpoint(port: port))
+            let configuration = try MCPBridgeConfiguration(environment: [
+                MCPBridgeEnvironment.endpointKey: endpoint.absoluteString,
+                MCPBridgeEnvironment.tokenKey: "runtime-secret",
+            ])
+            XCTAssertEqual(configuration.endpoint, endpoint)
+        }
+    }
+
+    func testMakeLoopbackEndpointRejectsPortsOutsideTheValidRange() {
+        XCTAssertNil(MCPBridgeEnvironment.makeLoopbackEndpoint(port: 0))
+        XCTAssertNil(MCPBridgeEnvironment.makeLoopbackEndpoint(port: 65_536))
+        XCTAssertNil(MCPBridgeEnvironment.makeLoopbackEndpoint(port: -1))
+    }
+
     func testConfigurationRejectsMissingAndUnsafeValues() {
         XCTAssertThrowsError(try MCPBridgeConfiguration(environment: [:])) { error in
             XCTAssertEqual(error as? MCPBridgeConfigurationError, .missingEndpoint)

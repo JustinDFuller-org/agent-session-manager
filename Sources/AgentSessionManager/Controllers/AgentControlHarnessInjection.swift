@@ -170,9 +170,7 @@ enum CursorAgentControlPlugin {
 
 struct CursorAgentControlAdapter: AgentControlHarnessAdapter {
     func prepare(_ context: AgentControlHarnessLaunchContext) throws -> AgentControlHarnessLaunchContext {
-        guard let bridgeExecutable = context.cursorBridgeExecutable,
-            FileManager.default.isExecutableFile(atPath: bridgeExecutable.path)
-        else {
+        guard let bridgeExecutable = context.cursorBridgeExecutable else {
             throw AgentControlHarnessInjectionError.invalidConfiguration(.cursor)
         }
         let directory = CursorAgentControlPlugin.directory(for: context.paneID)
@@ -230,6 +228,24 @@ enum AgentControlHarnessInjection {
     nonisolated static let tokenEnvironmentKey = MCPBridgeEnvironment.tokenKey
     nonisolated static let endpointEnvironmentKey = MCPBridgeEnvironment.endpointKey
 
+    /// Locates the bundled Cursor MCP bridge. A packaged app carries it under
+    /// `Contents/Helpers`; an `swift run` or XCTest process has no such bundle structure, so
+    /// fall back to a build product sitting next to the running executable.
+    nonisolated static func resolveCursorBridgeExecutable(
+        bundleURL: URL = Bundle.main.bundleURL,
+        executableURL: URL? = Bundle.main.executableURL,
+        isExecutableFile: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) -> URL? {
+        let bundled = bundleURL.appending(path: MCPBridgeEnvironment.bundledExecutableRelativePath)
+        if isExecutableFile(bundled.path) {
+            return bundled
+        }
+        guard let executableURL else { return nil }
+        let devCandidate = executableURL.deletingLastPathComponent()
+            .appending(path: "AgentSessionManagerMCPBridge")
+        return isExecutableFile(devCandidate.path) ? devCandidate : nil
+    }
+
     static func prepare(
         pane: Pane,
         tab: Tab,
@@ -261,13 +277,12 @@ enum AgentControlHarnessInjection {
         do {
             let cursorBridgeExecutable: URL?
             if pane.harness == .cursor {
-                let executable = Bundle.main.bundleURL.appending(
-                    path: "Contents/Helpers/AgentSessionManagerMCPBridge")
+                let executable = Self.resolveCursorBridgeExecutable()
                 guard
                     InvariantReporter.shared.check(
                         .cursorAgentControlBridgeAvailable,
-                        FileManager.default.isExecutableFile(atPath: executable.path),
-                        context: ["pane_id": pane.id.uuidString, "path": executable.path])
+                        executable != nil,
+                        context: ["pane_id": pane.id.uuidString, "path": executable?.path ?? "<unresolved>"])
                 else {
                     throw AgentControlHarnessInjectionError.invalidConfiguration(.cursor)
                 }

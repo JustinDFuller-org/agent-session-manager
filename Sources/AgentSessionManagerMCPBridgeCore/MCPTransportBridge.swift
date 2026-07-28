@@ -9,6 +9,14 @@ public enum MCPBridgeLimits {
 public enum MCPBridgeEnvironment {
     public static let endpointKey = "AGENT_SESSION_MANAGER_MCP_ENDPOINT"
     public static let tokenKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
+    public static let bundledExecutableRelativePath = "Contents/Helpers/AgentSessionManagerMCPBridge"
+
+    /// The one shape the app-owned Agent Control server and the bridge agree on: HTTP over
+    /// loopback only, no path beyond `/mcp`, no credential in the URL itself.
+    public static func makeLoopbackEndpoint(port: Int) -> URL? {
+        guard (1...65_535).contains(port) else { return nil }
+        return URL(string: "http://127.0.0.1:\(port)/mcp")
+    }
 }
 
 public enum MCPBridgeConfigurationError: LocalizedError, Equatable {
@@ -42,16 +50,9 @@ public struct MCPBridgeConfiguration: Sendable {
             throw MCPBridgeConfigurationError.missingEndpoint
         }
         guard let components = URLComponents(string: endpointValue),
-            components.scheme == "http",
-            components.host == "127.0.0.1",
             let port = components.port,
-            (1...65_535).contains(port),
-            components.path == "/mcp",
-            components.user == nil,
-            components.password == nil,
-            components.query == nil,
-            components.fragment == nil,
-            let endpoint = components.url
+            let endpoint = MCPBridgeEnvironment.makeLoopbackEndpoint(port: port),
+            endpoint.absoluteString == endpointValue
         else {
             throw MCPBridgeConfigurationError.invalidEndpoint
         }

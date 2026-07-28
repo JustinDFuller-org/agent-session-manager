@@ -1,3 +1,4 @@
+import AgentSessionManagerMCPBridgeCore
 import Foundation
 import XCTest
 
@@ -133,26 +134,71 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertFalse(prepared.commandArguments.contains { $0.contains("runtime-secret") })
     }
 
-    func testCursorRejectsMissingOrNonExecutableBridge() {
+    func testCursorAdapterRejectsAnUnresolvedBridge() {
         let missing = AgentControlHarnessLaunchContext(
             endpoint: endpoint,
             tokenEnvironmentKey: tokenKey,
             commandArguments: ["agent"],
             environment: [],
-            cursorBridgeExecutable: URL(filePath: "/tmp/missing-agent-control-bridge"))
+            cursorBridgeExecutable: nil)
         XCTAssertThrowsError(try CursorAgentControlAdapter().prepare(missing))
+    }
 
-        let nonExecutable = FileManager.default.temporaryDirectory.appending(
-            path: "agent-session-manager-mcp-bridge-\(UUID().uuidString)")
-        XCTAssertTrue(FileManager.default.createFile(atPath: nonExecutable.path, contents: Data()))
-        defer { try? FileManager.default.removeItem(at: nonExecutable) }
-        let invalid = AgentControlHarnessLaunchContext(
-            endpoint: endpoint,
-            tokenEnvironmentKey: tokenKey,
-            commandArguments: ["agent"],
-            environment: [],
-            cursorBridgeExecutable: nonExecutable)
-        XCTAssertThrowsError(try CursorAgentControlAdapter().prepare(invalid))
+    func testResolveCursorBridgeExecutableRejectsMissingOrNonExecutablePaths() throws {
+        let bundleDirectory = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-resolution-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: bundleDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: bundleDirectory) }
+
+        XCTAssertNil(
+            AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+                bundleURL: bundleDirectory, executableURL: nil),
+            "A bundle with no bridge and no fallback executable must resolve to nil")
+
+        let helperPath = bundleDirectory.appending(
+            path: MCPBridgeEnvironment.bundledExecutableRelativePath)
+        try FileManager.default.createDirectory(
+            at: helperPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        XCTAssertTrue(FileManager.default.createFile(atPath: helperPath.path, contents: Data()))
+        XCTAssertNil(
+            AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+                bundleURL: bundleDirectory, executableURL: nil),
+            "A non-executable bundled bridge must not resolve")
+    }
+
+    func testResolveCursorBridgeExecutablePrefersTheBundledBridgeWhenExecutable() throws {
+        let bundleDirectory = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-resolution-\(UUID().uuidString)")
+        let helperPath = bundleDirectory.appending(
+            path: MCPBridgeEnvironment.bundledExecutableRelativePath)
+        try FileManager.default.createDirectory(
+            at: helperPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        XCTAssertTrue(FileManager.default.createFile(atPath: helperPath.path, contents: Data()))
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helperPath.path)
+        defer { try? FileManager.default.removeItem(at: bundleDirectory) }
+
+        let resolved = AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+            bundleURL: bundleDirectory, executableURL: nil)
+        XCTAssertEqual(resolved, helperPath)
+    }
+
+    func testResolveCursorBridgeExecutableFallsBackNextToTheRunningExecutable() throws {
+        let devDirectory = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-dev-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: devDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: devDirectory) }
+        let standInExecutable = devDirectory.appending(path: "AgentSessionManager")
+        XCTAssertTrue(FileManager.default.createFile(atPath: standInExecutable.path, contents: Data()))
+        let devBridge = devDirectory.appending(path: "AgentSessionManagerMCPBridge")
+        XCTAssertTrue(FileManager.default.createFile(atPath: devBridge.path, contents: Data()))
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: devBridge.path)
+
+        let bundleWithoutHelpers = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-no-helpers-\(UUID().uuidString)")
+
+        let resolved = AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+            bundleURL: bundleWithoutHelpers, executableURL: standInExecutable)
+        XCTAssertEqual(resolved, devBridge)
     }
 
     @MainActor
