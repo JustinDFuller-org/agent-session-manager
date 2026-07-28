@@ -67,7 +67,10 @@ tokens held only in memory and passed through a runtime environment variable.
 If control registration, bridge lookup, or Cursor plugin preparation is
 temporarily unavailable, the app opens a normal Cursor pane without injection
 instead of blocking pane creation. Credentials are revoked when a pane or tab
-is torn down and are never persisted, logged, or printed in the terminal.
+is torn down and are never persisted, logged, or printed in the terminal. A
+missing or non-executable bundled bridge reports the
+`cursor.agent_control.bridge_available` invariant, visible in the Invariant
+Dashboard and unified logs, rather than failing silently.
 
 Cursor uses the CLI's local plugin mechanism rather than `.cursor/mcp.json` or
 `~/.cursor/mcp.json`. The generated MCP configuration contains only the

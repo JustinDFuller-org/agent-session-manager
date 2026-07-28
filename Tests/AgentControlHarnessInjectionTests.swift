@@ -192,8 +192,10 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         let service = AgentControlService.shared
         await service.start()
         TracingService.shared.enableTestCapture()
+        InvariantReporter.shared.enableTestCapture()
         defer {
             TracingService.shared.resetForTesting()
+            InvariantReporter.shared.resetForTesting()
             Task { await service.stop() }
         }
 
@@ -219,6 +221,40 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertEqual(event.attributes["transport"], "stdio_bridge")
         XCTAssertNil(event.attributes["endpoint"])
         XCTAssertNil(event.attributes["token"])
+
+        let violation = try XCTUnwrap(
+            InvariantReporter.shared.violationsForTesting.last {
+                $0.invariantID == Invariant.cursorAgentControlBridgeAvailable.id
+            })
+        XCTAssertEqual(violation.context["pane_id"], pane.id.uuidString)
+        XCTAssertNil(violation.context["token"])
+        XCTAssertNil(violation.context["endpoint"])
+    }
+
+    @MainActor
+    func testNonCursorHarnessRecordsNoBridgeInvariantViolation() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Claude Pane", harness: .claude, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        InvariantReporter.shared.enableTestCapture()
+        defer {
+            InvariantReporter.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        _ = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["claude"],
+            environment: ["PATH=/usr/bin"],
+            appSettings: settings)
+
+        XCTAssertTrue(
+            InvariantReporter.shared.violationsForTesting.isEmpty,
+            "A harness that never resolves a Cursor bridge path must not report the bridge invariant")
     }
 
     func testRemovingControlEnvironmentKeepsOtherValues() {

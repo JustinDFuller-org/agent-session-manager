@@ -78,6 +78,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "The app must not call OpenCode /tui/* endpoints; the terminal is the user surface.",
         traceEventName: "opencode.tui.endpoint_forbidden"
     )
+
+    static let cursorAgentControlBridgeAvailable = Invariant(
+        id: "cursor.agent_control.bridge_available",
+        integration: "Cursor",
+        severity: .error,
+        description: "A Cursor pane with Agent Control enabled must find an executable bundled bridge.",
+        traceEventName: "cursor.agent_control.bridge_missing"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {

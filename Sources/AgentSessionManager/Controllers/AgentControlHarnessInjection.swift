@@ -261,7 +261,12 @@ enum AgentControlHarnessInjection {
             if pane.harness == .cursor {
                 let executable = Bundle.main.bundleURL.appending(
                     path: "Contents/Helpers/AgentSessionManagerMCPBridge")
-                guard FileManager.default.isExecutableFile(atPath: executable.path) else {
+                guard
+                    InvariantReporter.shared.check(
+                        .cursorAgentControlBridgeAvailable,
+                        FileManager.default.isExecutableFile(atPath: executable.path),
+                        context: ["pane_id": pane.id.uuidString, "path": executable.path])
+                else {
                     throw AgentControlHarnessInjectionError.invalidConfiguration(.cursor)
                 }
                 cursorBridgeExecutable = executable
