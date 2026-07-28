@@ -35,6 +35,16 @@ final class CursorFlowTests: BaseTestCase {
         if enableCursor.value as? Int != 1 {
             enableCursor.click()
         }
+
+        let debugTab = settingsWindow.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-debug").firstMatch
+        waitFor(debugTab)
+        debugTab.click()
+        let debugToggle = settingsWindow.checkBoxes["settings-debug-mode-toggle"]
+        waitFor(debugToggle)
+        if debugToggle.value as? Int != 1 {
+            debugToggle.click()
+        }
         app.typeKey("w", modifierFlags: .command)
         waitForDisappear(settingsWindow)
 
@@ -52,6 +62,14 @@ final class CursorFlowTests: BaseTestCase {
         if controlToggle.value as? Int != 1 {
             controlToggle.click()
         }
+        let showAllOptions = app.buttons["new-pane-show-hidden-options-button"]
+        waitFor(showAllOptions)
+        showAllOptions.click()
+        let approveMCPs = app.checkBoxes["--approve-mcps"].firstMatch
+        waitFor(approveMCPs)
+        if approveMCPs.value as? Int != 1 {
+            approveMCPs.click()
+        }
         paneField.typeText("cursor-control")
         app.buttons["new-pane-open-button"].click()
 
@@ -66,10 +84,42 @@ final class CursorFlowTests: BaseTestCase {
                     + app.staticTexts.allElementsBoundByIndex.map { $0.label }.joined(separator: " | "))
         }
 
+        let tracesDirectory = UITestAppSupport.directory.appending(path: "traces")
+        let traceContains: (String) -> Bool = { eventName in
+            guard
+                let files = FileManager.default.enumerator(
+                    at: tracesDirectory,
+                    includingPropertiesForKeys: [.isRegularFileKey])
+            else {
+                return false
+            }
+            for case let file as URL in files where file.pathExtension == "jsonl" {
+                if (try? String(contentsOf: file, encoding: .utf8))?.contains(eventName) == true {
+                    return true
+                }
+            }
+            return false
+        }
+        let boundExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in traceContains("agent_control.session.bound") },
+            object: tracesDirectory as NSURL)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [boundExpectation], timeout: 45),
+            .completed,
+            "Cursor should bind a real Agent Control MCP session through the stdio bridge")
+
         app.descendants(matching: .any).matching(identifier: "pane-close-cursor-control").firstMatch.click()
         let keepWorktree = app.buttons["Keep Worktree"].firstMatch
         waitFor(keepWorktree)
         keepWorktree.click()
         waitForDisappear(pane, timeout: 10)
+
+        let revokedExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in traceContains("agent_control.credential.revoked") },
+            object: tracesDirectory as NSURL)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [revokedExpectation], timeout: 10),
+            .completed,
+            "Closing the Cursor pane should revoke its Agent Control credential")
     }
 }

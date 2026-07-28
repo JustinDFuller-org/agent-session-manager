@@ -28,9 +28,11 @@ The pane launches `agent` in the resolved checkout with any configured CLI flags
 
 When Agent Control is enabled, Agent Session Manager creates a private plugin
 directory for the pane and appends Cursor's `--plugin-dir` option to the final
-`agent` command. The plugin's `mcp.json` points to the app-owned local MCP
-server and references the runtime-only `AGENT_SESSION_MANAGER_MCP_TOKEN`
-environment variable. Project and user Cursor MCP files are not modified.
+`agent` command. The plugin's `mcp.json` starts an app-bundled stdio bridge,
+which inherits the app-owned loopback endpoint and runtime-only
+`AGENT_SESSION_MANAGER_MCP_TOKEN` environment variable and forwards MCP traffic
+to the local server. Project and user Cursor MCP files are not modified, and no
+credential or endpoint is written into the plugin.
 
 ## Configuring CLI Flags
 

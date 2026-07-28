@@ -22,7 +22,7 @@ Agent Control is available for panes using Claude Code, Cursor, Codex, or OpenCo
 Agent Session Manager prepares the MCP connection before it starts the final harness command:
 
 - **Claude Code** receives an MCP configuration through its supported `--mcp-config` option.
-- **Cursor** receives a private plugin directory through `--plugin-dir`. The plugin contains the MCP configuration for that pane and does not modify project or user Cursor files. If the control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.
+- **Cursor** receives a private plugin directory through `--plugin-dir`. The plugin starts Agent Session Manager's bundled stdio bridge, which securely forwards to the app-owned local server using runtime-only connection details. It does not modify project or user Cursor files. If the bridge or control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.
 - **Codex** receives the MCP server URL and runtime credential through supported `-c` settings.
 - **OpenCode** receives the connection through its inline configuration. Existing OpenCode MCP entries and unrelated settings are preserved.
 

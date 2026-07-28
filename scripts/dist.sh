@@ -71,6 +71,8 @@ main() {
   cp -a "$app_bundle" "$staged_app"
   [[ -f "$staged_app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" ]] || \
     die "Sparkle.framework is missing from the app bundle"
+  [[ -x "$staged_app/Contents/Helpers/AgentSessionManagerMCPBridge" ]] || \
+    die "Agent Control MCP bridge is missing from the app bundle"
 
   info "Stamping version into Info.plist"
   local info_plist="$staged_app/Contents/Info.plist"
@@ -106,6 +108,9 @@ main() {
 
   codesign --verify --deep --verbose=2 "$staged_app" >/dev/null || \
     die "app signature verification failed"
+  codesign --verify --strict \
+    "$staged_app/Contents/Helpers/AgentSessionManagerMCPBridge" >/dev/null || \
+    die "Agent Control MCP bridge signature verification failed"
 
   info "Building DMG"
   mkdir -p "$staging_volume"
@@ -156,6 +161,10 @@ main() {
   [[ -f "$mounted_app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" ]] || {
     hdiutil detach "$mount_point" >/dev/null 2>&1 || true
     die "Sparkle.framework is missing from the mounted DMG"
+  }
+  [[ -x "$mounted_app/Contents/Helpers/AgentSessionManagerMCPBridge" ]] || {
+    hdiutil detach "$mount_point" >/dev/null 2>&1 || true
+    die "Agent Control MCP bridge is missing from the mounted DMG"
   }
 
   spctl --assess --type exec --verbose=4 "$mounted_app" || {

@@ -16,7 +16,10 @@ The shippable artifact is produced by:
 make dist
 ```
 
-This builds the `.app` bundle (via the existing `make app` SPM-based flow), embeds `Sparkle.framework` under `Contents/Frameworks`, then re-signs and packages it through `scripts/dist.sh`:
+This builds the `.app` bundle (via the existing `make app` SPM-based flow),
+embeds `Sparkle.framework` under `Contents/Frameworks` and the Agent Control MCP
+bridge under `Contents/Helpers`, then re-signs and packages it through
+`scripts/dist.sh`:
 
 1. Stamps a version into `Info.plist`.
 2. Re-signs the `.app` with the **Developer ID Application** certificate, the entitlements file, and hardened runtime.
@@ -31,9 +34,9 @@ The standalone bundle check is available before a release build:
 make test-app-bundles
 ```
 
-It verifies that both production and development app bundles contain Sparkle,
-resolve the framework through the app bundle rpath, and have valid deep code
-signatures.
+It verifies that both production and development app bundles contain Sparkle
+and the executable `AgentSessionManagerMCPBridge`, resolve the framework through
+the app bundle rpath, and have valid app and nested-helper signatures.
 
 The DMG is written next to the `.app` bundle at the git common root, named:
 

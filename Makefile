@@ -1,4 +1,5 @@
 APP_NAME = AgentSessionManager
+MCP_BRIDGE_NAME = AgentSessionManagerMCPBridge
 SCREENSHOTS_DIR = screenshots
 APP_NAME_DEV = AgentSessionManagerDev
 GIT_COMMON_ROOT := $(shell dirname "$$(git rev-parse --path-format=absolute --git-common-dir)")
@@ -36,9 +37,11 @@ dist: app-prd
 
 app-prd: build
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE)/Contents/Helpers
 	mkdir -p $(APP_BUNDLE)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
+	cp $(BUILD_DIR)/$(MCP_BRIDGE_NAME) $(APP_BUNDLE)/Contents/Helpers/
 	rm -rf $(APP_BUNDLE)/Contents/Frameworks/Sparkle.framework
 	ditto $(SPARKLE_FRAMEWORK) $(APP_BUNDLE)/Contents/Frameworks/Sparkle.framework
 	install_name_tool -add_rpath @executable_path/../Frameworks $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
@@ -106,9 +109,11 @@ build-dev:
 
 app-dev: build-dev
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE_DEV)/Contents/Helpers
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE_DEV)/Contents/Resources
 	cp $(BUILD_DIR_DEV)/$(APP_NAME) $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)
+	cp $(BUILD_DIR_DEV)/$(MCP_BRIDGE_NAME) $(APP_BUNDLE_DEV)/Contents/Helpers/
 	rm -rf $(APP_BUNDLE_DEV)/Contents/Frameworks/Sparkle.framework
 	ditto $(SPARKLE_FRAMEWORK_DEV) $(APP_BUNDLE_DEV)/Contents/Frameworks/Sparkle.framework
 	install_name_tool -add_rpath @executable_path/../Frameworks $(APP_BUNDLE_DEV)/Contents/MacOS/$(APP_NAME_DEV)

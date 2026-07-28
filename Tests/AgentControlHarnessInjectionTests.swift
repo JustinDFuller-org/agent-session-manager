@@ -6,6 +6,7 @@ import XCTest
 final class AgentControlHarnessInjectionTests: XCTestCase {
     private let endpoint = URL(string: "http://127.0.0.1:43123/mcp")!
     private let tokenKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
+    private let endpointKey = "AGENT_SESSION_MANAGER_MCP_ENDPOINT"
 
     func testClaudeUsesRuntimeEnvironmentReferenceAndNeverEmbedsToken() throws {
         let context = AgentControlHarnessLaunchContext(
@@ -89,14 +90,24 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertThrowsError(try OpenCodeAgentControlAdapter().prepare(invalidMCP))
     }
 
-    func testCursorUsesPrivatePluginDirectoryAndRuntimeTokenReference() throws {
+    func testCursorUsesPrivatePluginDirectoryAndBundledStdioBridge() throws {
         let paneID = UUID()
+        let bridgeExecutable = FileManager.default.temporaryDirectory.appending(
+            path: "agent-session-manager-mcp-bridge-\(UUID().uuidString)")
+        XCTAssertTrue(FileManager.default.createFile(atPath: bridgeExecutable.path, contents: Data()))
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700], ofItemAtPath: bridgeExecutable.path)
+        defer { try? FileManager.default.removeItem(at: bridgeExecutable) }
         let context = AgentControlHarnessLaunchContext(
             endpoint: endpoint,
             tokenEnvironmentKey: tokenKey,
             commandArguments: ["agent"],
-            environment: ["\(tokenKey)=runtime-secret"],
-            paneID: paneID
+            environment: [
+                "\(tokenKey)=runtime-secret",
+                "\(endpointKey)=\(endpoint.absoluteString)",
+            ],
+            paneID: paneID,
+            cursorBridgeExecutable: bridgeExecutable
         )
 
         let prepared = try CursorAgentControlAdapter().prepare(context)
@@ -112,11 +123,36 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         let mcp = try XCTUnwrap(JSONSerialization.jsonObject(with: mcpData) as? [String: Any])
         let servers = try XCTUnwrap(mcp["mcpServers"] as? [String: Any])
         let server = try XCTUnwrap(servers.values.first as? [String: Any])
-        XCTAssertEqual(server["url"] as? String, endpoint.absoluteString)
-        let headers = try XCTUnwrap(server["headers"] as? [String: String])
-        XCTAssertEqual(headers["Authorization"], "Bearer ${env:\(tokenKey)}")
+        XCTAssertEqual(server["type"] as? String, "stdio")
+        XCTAssertEqual(server["command"] as? String, bridgeExecutable.path)
+        XCTAssertNil(server["url"])
+        XCTAssertNil(server["headers"])
+        XCTAssertNil(server["env"])
+        XCTAssertFalse(String(decoding: mcpData, as: UTF8.self).contains("${env:"))
         XCTAssertFalse(String(decoding: mcpData, as: UTF8.self).contains("runtime-secret"))
         XCTAssertFalse(prepared.commandArguments.contains { $0.contains("runtime-secret") })
+    }
+
+    func testCursorRejectsMissingOrNonExecutableBridge() {
+        let missing = AgentControlHarnessLaunchContext(
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["agent"],
+            environment: [],
+            cursorBridgeExecutable: URL(filePath: "/tmp/missing-agent-control-bridge"))
+        XCTAssertThrowsError(try CursorAgentControlAdapter().prepare(missing))
+
+        let nonExecutable = FileManager.default.temporaryDirectory.appending(
+            path: "agent-session-manager-mcp-bridge-\(UUID().uuidString)")
+        XCTAssertTrue(FileManager.default.createFile(atPath: nonExecutable.path, contents: Data()))
+        defer { try? FileManager.default.removeItem(at: nonExecutable) }
+        let invalid = AgentControlHarnessLaunchContext(
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["agent"],
+            environment: [],
+            cursorBridgeExecutable: nonExecutable)
+        XCTAssertThrowsError(try CursorAgentControlAdapter().prepare(invalid))
     }
 
     @MainActor
@@ -147,16 +183,55 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             1)
     }
 
-    func testRemovingControlTokenKeepsOtherEnvironmentValues() {
+    @MainActor
+    func testCursorMissingBundledBridgeFallsBackWithoutCredentials() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Cursor Pane", harness: .cursor, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        TracingService.shared.enableTestCapture()
+        defer {
+            TracingService.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        let prepared = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["agent", "--model", "auto"],
+            environment: [
+                "PATH=/usr/bin",
+                "\(tokenKey)=stale-token",
+                "\(endpointKey)=http://127.0.0.1:1234/mcp",
+            ],
+            appSettings: settings)
+
+        XCTAssertEqual(prepared.0 ?? [], ["agent", "--model", "auto"])
+        XCTAssertEqual(prepared.1, ["PATH=/usr/bin"])
+        XCTAssertNil(pane.cursorAgentControlPluginDirectory)
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.harness.prepare"
+            })
+        XCTAssertEqual(event.attributes["result"], "fallback")
+        XCTAssertEqual(event.attributes["transport"], "stdio_bridge")
+        XCTAssertNil(event.attributes["endpoint"])
+        XCTAssertNil(event.attributes["token"])
+    }
+
+    func testRemovingControlEnvironmentKeepsOtherValues() {
         let environment = [
             "PATH=/usr/bin",
             "\(tokenKey)=stale-token",
             "\(tokenKey)=duplicate-token",
+            "\(endpointKey)=http://127.0.0.1:1234/mcp",
             "HOME=/tmp",
         ]
 
         XCTAssertEqual(
-            AgentControlHarnessInjection.removingControlToken(from: environment),
+            AgentControlHarnessInjection.removingControlEnvironment(from: environment),
             ["PATH=/usr/bin", "HOME=/tmp"])
     }
 

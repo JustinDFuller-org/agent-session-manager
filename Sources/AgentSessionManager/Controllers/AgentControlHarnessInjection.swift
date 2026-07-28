@@ -1,3 +1,4 @@
+import AgentSessionManagerMCPBridgeCore
 import Foundation
 
 enum AgentControlHarnessInjectionError: LocalizedError, Equatable {
@@ -25,6 +26,7 @@ struct AgentControlHarnessLaunchContext {
     let environment: [String]
     let paneID: UUID
     let cursorPluginDirectory: URL?
+    let cursorBridgeExecutable: URL?
 
     init(
         endpoint: URL,
@@ -32,7 +34,8 @@ struct AgentControlHarnessLaunchContext {
         commandArguments: [String],
         environment: [String],
         paneID: UUID = UUID(),
-        cursorPluginDirectory: URL? = nil
+        cursorPluginDirectory: URL? = nil,
+        cursorBridgeExecutable: URL? = nil
     ) {
         self.endpoint = endpoint
         self.tokenEnvironmentKey = tokenEnvironmentKey
@@ -40,6 +43,7 @@ struct AgentControlHarnessLaunchContext {
         self.environment = environment
         self.paneID = paneID
         self.cursorPluginDirectory = cursorPluginDirectory
+        self.cursorBridgeExecutable = cursorBridgeExecutable
     }
 }
 
@@ -166,6 +170,11 @@ enum CursorAgentControlPlugin {
 
 struct CursorAgentControlAdapter: AgentControlHarnessAdapter {
     func prepare(_ context: AgentControlHarnessLaunchContext) throws -> AgentControlHarnessLaunchContext {
+        guard let bridgeExecutable = context.cursorBridgeExecutable,
+            FileManager.default.isExecutableFile(atPath: bridgeExecutable.path)
+        else {
+            throw AgentControlHarnessInjectionError.invalidConfiguration(.cursor)
+        }
         let directory = CursorAgentControlPlugin.directory(for: context.paneID)
         let fileManager = FileManager.default
         do {
@@ -189,10 +198,8 @@ struct CursorAgentControlAdapter: AgentControlHarnessAdapter {
             let mcp: [String: Any] = [
                 "mcpServers": [
                     serverName: [
-                        "url": context.endpoint.absoluteString,
-                        "headers": [
-                            "Authorization": "Bearer ${env:\(context.tokenEnvironmentKey)}"
-                        ],
+                        "type": "stdio",
+                        "command": bridgeExecutable.path,
                     ]
                 ]
             ]
@@ -213,13 +220,15 @@ struct CursorAgentControlAdapter: AgentControlHarnessAdapter {
             commandArguments: arguments,
             environment: context.environment,
             paneID: context.paneID,
-            cursorPluginDirectory: directory)
+            cursorPluginDirectory: directory,
+            cursorBridgeExecutable: bridgeExecutable)
     }
 }
 
 @MainActor
 enum AgentControlHarnessInjection {
-    nonisolated static let tokenEnvironmentKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
+    nonisolated static let tokenEnvironmentKey = MCPBridgeEnvironment.tokenKey
+    nonisolated static let endpointEnvironmentKey = MCPBridgeEnvironment.endpointKey
 
     static func prepare(
         pane: Pane,
@@ -231,7 +240,7 @@ enum AgentControlHarnessInjection {
         let sanitizedCommandArguments = commandArguments.map {
             removingControlArguments(from: $0, harness: pane.harness)
         }
-        let sanitizedEnvironment = removingControlToken(from: environment)
+        let sanitizedEnvironment = removingControlEnvironment(from: environment)
         guard pane.harness != .shell, pane.agentControlInjectionEnabled, appSettings != nil else {
             CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
             pane.cursorAgentControlPluginDirectory = nil
@@ -248,13 +257,31 @@ enum AgentControlHarnessInjection {
             scope: settings.agentControlScope
         )
         do {
+            let cursorBridgeExecutable: URL?
+            if pane.harness == .cursor {
+                let executable = Bundle.main.bundleURL.appending(
+                    path: "Contents/Helpers/AgentSessionManagerMCPBridge")
+                guard FileManager.default.isExecutableFile(atPath: executable.path) else {
+                    throw AgentControlHarnessInjectionError.invalidConfiguration(.cursor)
+                }
+                cursorBridgeExecutable = executable
+            } else {
+                cursorBridgeExecutable = nil
+            }
             let credential = try AgentControlService.shared.register(source: source)
+            var preparedEnvironment =
+                sanitizedEnvironment + ["\(tokenEnvironmentKey)=\(credential.bearerToken)"]
+            if pane.harness == .cursor {
+                preparedEnvironment.append(
+                    "\(endpointEnvironmentKey)=\(credential.endpoint.absoluteString)")
+            }
             let context = AgentControlHarnessLaunchContext(
                 endpoint: credential.endpoint,
                 tokenEnvironmentKey: tokenEnvironmentKey,
                 commandArguments: sanitizedCommandArguments ?? [],
-                environment: sanitizedEnvironment + ["\(tokenEnvironmentKey)=\(credential.bearerToken)"],
-                paneID: pane.id
+                environment: preparedEnvironment,
+                paneID: pane.id,
+                cursorBridgeExecutable: cursorBridgeExecutable
             )
             let adapter: any AgentControlHarnessAdapter
             switch pane.harness {
@@ -289,8 +316,11 @@ enum AgentControlHarnessInjection {
         }
     }
 
-    nonisolated static func removingControlToken(from environment: [String]) -> [String] {
-        environment.filter { !$0.hasPrefix("\(tokenEnvironmentKey)=") }
+    nonisolated static func removingControlEnvironment(from environment: [String]) -> [String] {
+        environment.filter {
+            !$0.hasPrefix("\(tokenEnvironmentKey)=")
+                && !$0.hasPrefix("\(endpointEnvironmentKey)=")
+        }
     }
 
     nonisolated static func removingControlArguments(from arguments: [String], harness: Harness) -> [String] {
@@ -344,6 +374,7 @@ enum AgentControlHarnessInjection {
             "result": result,
         ]
         if let error { attributes["error"] = String(error.prefix(200)) }
+        if pane.harness == .cursor { attributes["transport"] = "stdio_bridge" }
         TracingService.shared.record("agent_control.harness.prepare", attributes: attributes)
     }
 }

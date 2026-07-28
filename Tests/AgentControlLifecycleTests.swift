@@ -1,3 +1,4 @@
+import AgentSessionManagerMCPBridgeCore
 import Foundation
 import MCP
 import XCTest
@@ -213,6 +214,41 @@ final class AgentControlLifecycleTests: XCTestCase {
             XCTFail("A revoked credential must not retain an active MCP session")
         } catch {
             XCTAssertNotNil(error)
+        }
+    }
+
+    func testStdioBridgeBindsAndReleasesAuthenticatedAgentControlSessions() async throws {
+        let store = AgentControlTokenStore()
+        let source = AgentControlSource(
+            paneID: UUID(),
+            paneName: "Cursor Pane",
+            tabID: UUID(),
+            tabName: "Cursor Tab",
+            scope: .pane
+        )
+        let application = AgentControlHTTPApplication(tokenStore: store, limits: .default)
+        let port = try await application.start()
+        let credential = try store.register(source: source, limits: .default)
+        defer { Task { await application.stop() } }
+
+        for iteration in 0..<10 {
+            let remoteTransport = AuthenticatedHTTPClientTransport(
+                endpoint: URL(string: "http://127.0.0.1:\(port)/mcp")!,
+                bearerToken: credential.bearerToken
+            )
+            let pair = await InMemoryTransport.createConnectedPair()
+            let bridgeTask = Task {
+                try await MCPTransportBridge(
+                    localTransport: pair.server,
+                    remoteTransport: remoteTransport
+                ).run()
+            }
+            let client = Client(name: "CursorBridgeTests-\(iteration)", version: "1.0")
+
+            try await client.connect(transport: pair.client)
+            _ = try await client.listResources()
+            await client.disconnect()
+            _ = try? await bridgeTask.value
         }
     }
 
