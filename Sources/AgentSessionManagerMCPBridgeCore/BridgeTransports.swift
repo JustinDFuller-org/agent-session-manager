@@ -23,9 +23,7 @@ public actor AuthenticatedHTTPClientTransport: Transport {
     private let bearerToken: String
     private let transport: HTTPClientTransport
     private let cleanupSession: URLSession
-    private let messageStream: AsyncThrowingStream<Data, Swift.Error>
-    private let messageContinuation: AsyncThrowingStream<Data, Swift.Error>.Continuation
-    private var receiveTask: Task<Void, Never>?
+    private var messageStream: AsyncThrowingStream<Data, Swift.Error>?
 
     public init(endpoint: URL, bearerToken: String) {
         self.endpoint = endpoint
@@ -39,31 +37,11 @@ public actor AuthenticatedHTTPClientTransport: Transport {
         cleanupConfiguration.timeoutIntervalForRequest = 2
         cleanupSession = URLSession(configuration: cleanupConfiguration)
         logger = transport.logger
-        var continuation: AsyncThrowingStream<Data, Swift.Error>.Continuation!
-        messageStream = AsyncThrowingStream(bufferingPolicy: .bufferingNewest(64)) {
-            continuation = $0
-        }
-        messageContinuation = continuation
     }
 
     public func connect() async throws {
         try await transport.connect()
-        receiveTask = Task {
-            let messages = await transport.receive()
-            do {
-                for try await message in messages {
-                    guard case .enqueued = messageContinuation.yield(message) else {
-                        messageContinuation.finish(
-                            throwing: MCPError.internalError(
-                                "Remote MCP message queue exceeds the allowed size."))
-                        return
-                    }
-                }
-                messageContinuation.finish()
-            } catch {
-                messageContinuation.finish(throwing: error)
-            }
-        }
+        messageStream = await transport.receive()
     }
 
     public func disconnect() async {
@@ -76,10 +54,7 @@ public actor AuthenticatedHTTPClientTransport: Transport {
             _ = try? await cleanupSession.data(for: request)
         }
         cleanupSession.invalidateAndCancel()
-        receiveTask?.cancel()
-        receiveTask = nil
         await transport.disconnect()
-        messageContinuation.finish()
     }
 
     public func send(_ data: Data) async throws {
@@ -87,7 +62,10 @@ public actor AuthenticatedHTTPClientTransport: Transport {
     }
 
     public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
-        messageStream
+        guard let messageStream else {
+            return AsyncThrowingStream { $0.finish(throwing: MCPError.connectionClosed) }
+        }
+        return messageStream
     }
 }
 
@@ -104,7 +82,7 @@ public actor BoundedStdioTransport: Transport {
     public init(
         input: FileDescriptor = .standardInput,
         output: FileDescriptor = .standardOutput,
-        maximumMessageBytes: Int = 1_048_576
+        maximumMessageBytes: Int = MCPBridgeLimits.maximumMessageBytes
     ) {
         self.input = input
         self.output = output
@@ -148,10 +126,19 @@ public actor BoundedStdioTransport: Transport {
                         let message = Data(pendingData[..<newlineIndex])
                         pendingData = pendingData[(newlineIndex + 1)...]
                         if !message.isEmpty {
-                            guard case .enqueued = messageContinuation.yield(message) else {
+                            switch messageContinuation.yield(message) {
+                            case .enqueued:
+                                break
+                            case .dropped:
                                 messageContinuation.finish(
                                     throwing: MCPError.internalError(
                                         "Stdio MCP message queue exceeds the allowed size."))
+                                isConnected = false
+                                return
+                            case .terminated:
+                                isConnected = false
+                                return
+                            @unknown default:
                                 isConnected = false
                                 return
                             }
@@ -187,18 +174,22 @@ public actor BoundedStdioTransport: Transport {
         var remaining = data
         remaining.append(UInt8(ascii: "\n"))
         while !remaining.isEmpty {
+            try Task.checkCancellation()
+            let written: Int
             do {
-                let written = try remaining.withUnsafeBytes { buffer in
+                written = try remaining.withUnsafeBytes { buffer in
                     try output.write(UnsafeRawBufferPointer(buffer))
                 }
-                if written > 0 {
-                    remaining = remaining.dropFirst(written)
-                }
             } catch let error where MCPError.isResourceTemporarilyUnavailable(error) {
-                usleep(10_000)
+                try await Task.sleep(for: .milliseconds(10))
+                continue
             } catch {
                 throw MCPError.transportError(error)
             }
+            guard written > 0 else {
+                throw MCPError.transportError(Errno(rawValue: CInt(EIO)))
+            }
+            remaining = remaining.dropFirst(written)
         }
     }
 

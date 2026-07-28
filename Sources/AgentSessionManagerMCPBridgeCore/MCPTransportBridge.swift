@@ -1,6 +1,11 @@
 import Foundation
 import MCP
 
+public enum MCPBridgeLimits {
+    public static let maximumMessageBytes = 1_048_576
+    public static let pendingSendBytes = 8 * maximumMessageBytes
+}
+
 public enum MCPBridgeEnvironment {
     public static let endpointKey = "AGENT_SESSION_MANAGER_MCP_ENDPOINT"
     public static let tokenKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
@@ -84,6 +89,7 @@ public struct MCPTransportBridge: Sendable {
             throw error
         }
 
+        let forwardingResult: Result<Void, Error>
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask {
@@ -96,100 +102,166 @@ public struct MCPTransportBridge: Sendable {
                 _ = try await group.next()
                 group.cancelAll()
             }
+            forwardingResult = .success(())
         } catch {
-            await localTransport.disconnect()
-            await remoteTransport.disconnect()
-            throw error
+            forwardingResult = .failure(error)
         }
 
         await localTransport.disconnect()
         await remoteTransport.disconnect()
+
+        if case .failure(let error) = forwardingResult {
+            throw error
+        }
     }
 
     private static func forward(from source: any Transport, to destination: any Transport) async throws {
         let messages = await source.receive()
-        let normalLimiter = BridgeSendLimiter(limit: 3)
-        let priorityLimiter = BridgeSendLimiter(limit: 1)
+        let concurrentLimiter = BridgeSendLimiter(capacity: 3)
+        let bypassLimiter = BridgeSendLimiter(capacity: 1)
+        let pendingBytes = BridgeSendLimiter(capacity: MCPBridgeLimits.pendingSendBytes)
+
         try await withThrowingTaskGroup(of: Void.self) { sends in
             var inFlight = 0
 
             for try await message in messages {
                 try Task.checkCancellation()
-                guard message.count <= 1_048_576 else {
+                guard message.count <= MCPBridgeLimits.maximumMessageBytes else {
                     throw MCPError.internalError("MCP message exceeds the allowed size.")
                 }
 
-                let object = try? JSONSerialization.jsonObject(with: message)
-                let methods: [String?]
-                if let request = object as? [String: Any] {
-                    methods = [request["method"] as? String]
-                } else if let batch = object as? [[String: Any]] {
-                    methods = batch.map { $0["method"] as? String }
-                } else {
-                    methods = []
-                }
-                let isPriority = methods.contains {
-                    $0 == nil || $0 == "notifications/cancelled"
-                }
-                if inFlight >= 64 {
-                    _ = try await sends.next()
-                    inFlight -= 1
-                }
+                switch BridgeFrame.classify(message) {
+                case .ordered:
+                    while inFlight > 0 {
+                        _ = try await sends.next()
+                        inFlight -= 1
+                    }
+                    try await destination.send(message)
 
-                sends.addTask {
-                    if isPriority {
-                        await priorityLimiter.wait()
-                    } else {
-                        await normalLimiter.wait()
+                case .bypass:
+                    try await pendingBytes.acquire(message.count)
+                    sends.addTask {
+                        try await Self.send(
+                            message, to: destination, limiter: bypassLimiter, pendingBytes: pendingBytes)
                     }
-                    do {
-                        try Task.checkCancellation()
-                        try await destination.send(message)
-                    } catch {
-                        if isPriority {
-                            await priorityLimiter.signal()
-                        } else {
-                            await normalLimiter.signal()
-                        }
-                        throw error
+                    inFlight += 1
+
+                case .concurrent:
+                    try await pendingBytes.acquire(message.count)
+                    sends.addTask {
+                        try await Self.send(
+                            message, to: destination, limiter: concurrentLimiter, pendingBytes: pendingBytes)
                     }
-                    if isPriority {
-                        await priorityLimiter.signal()
-                    } else {
-                        await normalLimiter.signal()
-                    }
+                    inFlight += 1
                 }
-                inFlight += 1
             }
 
             try await sends.waitForAll()
         }
     }
+
+    private static func send(
+        _ message: Data, to destination: any Transport, limiter: BridgeSendLimiter,
+        pendingBytes: BridgeSendLimiter
+    ) async throws {
+        try await limiter.acquire()
+        do {
+            try Task.checkCancellation()
+            try await destination.send(message)
+        } catch {
+            await limiter.release()
+            await pendingBytes.release(message.count)
+            throw error
+        }
+        await limiter.release()
+        await pendingBytes.release(message.count)
+    }
 }
 
-private actor BridgeSendLimiter {
-    private var available: Int
-    private var waiters: [CheckedContinuation<Void, Never>] = []
-
-    init(limit: Int) {
-        available = limit
+enum BridgeFrame {
+    enum Kind {
+        case bypass
+        case ordered
+        case concurrent
     }
 
-    func wait() async {
-        if available > 0 {
-            available -= 1
+    static func classify(_ message: Data) -> Kind {
+        guard let object = try? JSONSerialization.jsonObject(with: message) else {
+            return .ordered
+        }
+        let entries: [[String: Any]]
+        switch object {
+        case let single as [String: Any]:
+            entries = [single]
+        case let batch as [[String: Any]]:
+            entries = batch
+        default:
+            return .ordered
+        }
+        guard !entries.isEmpty else { return .ordered }
+
+        if entries.contains(where: { $0["method"] as? String == "notifications/cancelled" || $0["method"] == nil }) {
+            return .bypass
+        }
+        if entries.contains(where: { $0["id"] == nil }) {
+            return .ordered
+        }
+        return .concurrent
+    }
+}
+
+actor BridgeSendLimiter {
+    private struct Waiter {
+        let cost: Int
+        let continuation: CheckedContinuation<Void, Error>
+    }
+
+    private let capacity: Int
+    private var available: Int
+    private var nextWaiterID = 0
+    private var waiterOrder: [Int] = []
+    private var waiters: [Int: Waiter] = [:]
+
+    init(capacity: Int) {
+        self.capacity = capacity
+        available = capacity
+    }
+
+    func acquire(_ cost: Int = 1) async throws {
+        try Task.checkCancellation()
+        if waiterOrder.isEmpty, cost <= available {
+            available -= cost
             return
         }
-        await withCheckedContinuation { continuation in
-            waiters.append(continuation)
+        let id = nextWaiterID
+        nextWaiterID += 1
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                waiterOrder.append(id)
+                waiters[id] = Waiter(cost: cost, continuation: continuation)
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(id) }
         }
     }
 
-    func signal() {
-        if waiters.isEmpty {
-            available += 1
-        } else {
-            waiters.removeFirst().resume()
+    func release(_ cost: Int = 1) {
+        available += cost
+        admitWaiters()
+    }
+
+    private func admitWaiters() {
+        while let id = waiterOrder.first, let waiter = waiters[id], waiter.cost <= available {
+            available -= waiter.cost
+            waiterOrder.removeFirst()
+            waiters.removeValue(forKey: id)
+            waiter.continuation.resume()
         }
+    }
+
+    private func cancelWaiter(_ id: Int) {
+        guard let waiter = waiters.removeValue(forKey: id) else { return }
+        waiterOrder.removeAll { $0 == id }
+        waiter.continuation.resume(throwing: CancellationError())
     }
 }

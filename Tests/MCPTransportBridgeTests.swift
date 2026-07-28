@@ -1,7 +1,8 @@
-import AgentSessionManagerMCPBridgeCore
 import Foundation
 import MCP
 import XCTest
+
+@testable import AgentSessionManagerMCPBridgeCore
 
 final class MCPTransportBridgeTests: XCTestCase {
     func testConfigurationAcceptsOnlyLoopbackMCPURLAndRuntimeToken() throws {
@@ -130,11 +131,249 @@ final class MCPTransportBridgeTests: XCTestCase {
         do {
             try await bridgeTask.value
             XCTFail("The bridge must reject messages above its one MiB limit")
+        } catch let error as MCPError {
+            guard case .internalError = error else {
+                XCTFail("Expected MCPError.internalError, got \(error)")
+                return
+            }
         } catch {
-            XCTAssertNotNil(error)
+            XCTFail("Expected MCPError, got \(error)")
         }
         await localPair.client.disconnect()
         await remotePair.server.disconnect()
+    }
+
+    func testBridgePreservesNotificationOrderingAcrossTheHandshake() async throws {
+        let localPair = await InMemoryTransport.createConnectedPair()
+        let remoteTransport = OrderRecordingTransport()
+        try await localPair.client.connect()
+        let bridgeTask = Task {
+            try await MCPTransportBridge(
+                localTransport: localPair.server,
+                remoteTransport: remoteTransport
+            ).run()
+        }
+        try await Task.sleep(for: .milliseconds(20))
+
+        try await localPair.client.send(
+            Data(#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#.utf8))
+        try await localPair.client.send(
+            Data(#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#.utf8))
+        try await localPair.client.send(
+            Data(#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#.utf8))
+        try await Task.sleep(for: .milliseconds(200))
+
+        let observedMethods = await remoteTransport.observedMethods
+        XCTAssertEqual(
+            observedMethods, ["initialize", "notifications/initialized", "tools/list"],
+            "notifications/initialized must reach the peer before the request that follows it")
+
+        await localPair.client.disconnect()
+        _ = try? await bridgeTask.value
+    }
+
+    func testBridgeAllowsConcurrentRequestsToOverlap() async throws {
+        let localPair = await InMemoryTransport.createConnectedPair()
+        let remoteTransport = ConcurrencyTrackingTransport()
+        try await localPair.client.connect()
+        let bridgeTask = Task {
+            try await MCPTransportBridge(
+                localTransport: localPair.server,
+                remoteTransport: remoteTransport
+            ).run()
+        }
+        try await Task.sleep(for: .milliseconds(20))
+
+        for requestID in 1...3 {
+            try await localPair.client.send(
+                Data(#"{"jsonrpc":"2.0","id":\#(requestID),"method":"tools/call","params":{"slow":true}}"#.utf8))
+        }
+        try await Task.sleep(for: .milliseconds(200))
+
+        let observedMaxConcurrency = await remoteTransport.maxConcurrency
+        XCTAssertEqual(
+            observedMaxConcurrency, 3,
+            "Three concurrent requests must overlap rather than run one after another")
+
+        await localPair.client.disconnect()
+        _ = try? await bridgeTask.value
+    }
+
+    func testBridgeAdmitsMoreBytesThanTheBudgetWithoutLoss() async throws {
+        let localPair = await InMemoryTransport.createConnectedPair()
+        let remotePair = await InMemoryTransport.createConnectedPair()
+        try await localPair.client.connect()
+        try await remotePair.server.connect()
+        let bridgeTask = Task {
+            try await MCPTransportBridge(
+                localTransport: localPair.server,
+                remoteTransport: remotePair.client
+            ).run()
+        }
+        try await Task.sleep(for: .milliseconds(20))
+
+        let payloadSize = 400_000
+        let requestCount = (MCPBridgeLimits.pendingSendBytes / payloadSize) + 4
+        let padding = String(repeating: "a", count: payloadSize)
+        for requestID in 1...requestCount {
+            try await localPair.client.send(
+                Data(
+                    #"{"jsonrpc":"2.0","id":\#(requestID),"method":"tools/call","params":{"pad":"\#(padding)"}}"#
+                        .utf8))
+        }
+
+        var remoteMessages = await remotePair.server.receive().makeAsyncIterator()
+        var receivedIDs = Set<Int>()
+        for _ in 1...requestCount {
+            let message = try await remoteMessages.next()
+            let object = try JSONSerialization.jsonObject(with: message!) as? [String: Any]
+            receivedIDs.insert(object?["id"] as? Int ?? -1)
+        }
+        XCTAssertEqual(
+            receivedIDs, Set(1...requestCount),
+            "Every request must be forwarded despite exceeding the pending-byte budget")
+
+        await localPair.client.disconnect()
+        _ = try? await bridgeTask.value
+        await remotePair.server.disconnect()
+    }
+}
+
+final class BridgeSendLimiterTests: XCTestCase {
+    func testLimiterAdmitsUpToCapacityThenBlocksThenAdmitsAfterRelease() async throws {
+        let limiter = BridgeSendLimiter(capacity: 2)
+        try await limiter.acquire()
+        try await limiter.acquire()
+
+        let admitted = TestFlag()
+        let waiter = Task {
+            try await limiter.acquire()
+            await admitted.set(true)
+        }
+
+        try await Task.sleep(for: .milliseconds(50))
+        let stillBlocked = await admitted.value
+        XCTAssertFalse(stillBlocked, "an acquire beyond capacity must block")
+
+        await limiter.release()
+        try await Task.sleep(for: .milliseconds(50))
+        let admittedAfterRelease = await admitted.value
+        XCTAssertTrue(admittedAfterRelease, "the blocked acquire must be admitted once capacity is released")
+        _ = try await waiter.value
+    }
+
+    func testLimiterWaitsForACostLargerThanRemainingCapacity() async throws {
+        let limiter = BridgeSendLimiter(capacity: 10)
+        try await limiter.acquire(4)
+
+        let admitted = TestFlag()
+        let waiter = Task {
+            try await limiter.acquire(8)
+            await admitted.set(true)
+        }
+
+        try await Task.sleep(for: .milliseconds(50))
+        let stillWaiting = await admitted.value
+        XCTAssertFalse(stillWaiting, "a cost larger than the remaining capacity must wait")
+
+        await limiter.release(4)
+        try await Task.sleep(for: .milliseconds(50))
+        let admittedAfterEnoughCapacity = await admitted.value
+        XCTAssertTrue(admittedAfterEnoughCapacity, "the waiter must be admitted once enough capacity is released")
+        _ = try await waiter.value
+    }
+
+    func testCancelledWaiterResumesAndDoesNotStrandCapacity() async throws {
+        let limiter = BridgeSendLimiter(capacity: 1)
+        try await limiter.acquire()
+
+        let waiter = Task {
+            try await limiter.acquire()
+        }
+        try await Task.sleep(for: .milliseconds(30))
+        waiter.cancel()
+
+        do {
+            _ = try await waiter.value
+            XCTFail("A cancelled waiter must resume with an error rather than hang")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("Expected CancellationError, got \(error)")
+        }
+
+        await limiter.release()
+        try await limiter.acquire()
+    }
+}
+
+private actor TestFlag {
+    private(set) var value = false
+
+    func set(_ newValue: Bool) {
+        value = newValue
+    }
+}
+
+private actor ConcurrencyTrackingTransport: Transport {
+    nonisolated let logger = InMemoryTransport().logger
+    private let stream: AsyncThrowingStream<Data, Swift.Error>
+    private let continuation: AsyncThrowingStream<Data, Swift.Error>.Continuation
+    private var currentConcurrency = 0
+    private(set) var maxConcurrency = 0
+
+    init() {
+        var continuation: AsyncThrowingStream<Data, Swift.Error>.Continuation!
+        stream = AsyncThrowingStream { continuation = $0 }
+        self.continuation = continuation
+    }
+
+    func connect() async throws {}
+
+    func disconnect() async {
+        continuation.finish()
+    }
+
+    func send(_ data: Data) async throws {
+        currentConcurrency += 1
+        maxConcurrency = max(maxConcurrency, currentConcurrency)
+        try await Task.sleep(for: .milliseconds(100))
+        currentConcurrency -= 1
+    }
+
+    func receive() -> AsyncThrowingStream<Data, Swift.Error> {
+        stream
+    }
+}
+
+private actor OrderRecordingTransport: Transport {
+    nonisolated let logger = InMemoryTransport().logger
+    private let stream: AsyncThrowingStream<Data, Swift.Error>
+    private let continuation: AsyncThrowingStream<Data, Swift.Error>.Continuation
+    private(set) var observedMethods: [String] = []
+
+    init() {
+        var continuation: AsyncThrowingStream<Data, Swift.Error>.Continuation!
+        stream = AsyncThrowingStream { continuation = $0 }
+        self.continuation = continuation
+    }
+
+    func connect() async throws {}
+
+    func disconnect() async {
+        continuation.finish()
+    }
+
+    func send(_ data: Data) async throws {
+        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let method = object?["method"] as? String ?? ""
+        if method == "initialize" {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        observedMethods.append(method)
+    }
+
+    func receive() -> AsyncThrowingStream<Data, Swift.Error> {
+        stream
     }
 }
 
