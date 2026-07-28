@@ -90,22 +90,26 @@ public struct MCPTransportBridge: Sendable {
             throw error
         }
 
-        let forwardingResult: Result<Void, Error>
-        do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    try await Self.forward(from: localTransport, to: remoteTransport)
-                }
-                group.addTask {
-                    try await Self.forward(from: remoteTransport, to: localTransport)
-                }
-
-                _ = try await group.next()
-                group.cancelAll()
+        let forwardingResult = await withThrowingTaskGroup(of: Void.self) { group -> Result<Void, Error> in
+            group.addTask {
+                try await Self.forward(from: localTransport, to: remoteTransport)
             }
-            forwardingResult = .success(())
-        } catch {
-            forwardingResult = .failure(error)
+            group.addTask {
+                try await Self.forward(from: remoteTransport, to: localTransport)
+            }
+
+            let firstOutcome: Result<Void, Error>
+            do {
+                _ = try await group.next()
+                firstOutcome = .success(())
+            } catch {
+                firstOutcome = .failure(error)
+            }
+            // The other direction is now cancelled deliberately; its cancellation is not a
+            // bridge failure, so drain it without letting the error surface.
+            group.cancelAll()
+            _ = try? await group.next()
+            return firstOutcome
         }
 
         await localTransport.disconnect()

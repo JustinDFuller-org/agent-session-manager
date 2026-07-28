@@ -97,6 +97,7 @@ targets:
           helpers_dir="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
           mkdir -p "$helpers_dir"
           cp "$BUILT_PRODUCTS_DIR/AgentSessionManagerMCPBridge" "$helpers_dir/"
+          codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$helpers_dir/AgentSessionManagerMCPBridge"
         inputFiles:
           - "$(BUILT_PRODUCTS_DIR)/AgentSessionManagerMCPBridge"
         outputFiles:

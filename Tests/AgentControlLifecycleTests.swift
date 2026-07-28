@@ -248,7 +248,22 @@ final class AgentControlLifecycleTests: XCTestCase {
             try await client.connect(transport: pair.client)
             _ = try await client.listResources()
             await client.disconnect()
-            _ = try? await bridgeTask.value
+
+            do {
+                try await bridgeTask.value
+                XCTFail(
+                    "iteration \(iteration): the bridge should observe the client's disconnect as a closed connection"
+                )
+            } catch let error as MCPError {
+                guard case .connectionClosed = error else {
+                    XCTFail("iteration \(iteration): expected MCPError.connectionClosed, got \(error)")
+                    continue
+                }
+            }
+
+            XCTAssertEqual(
+                store.boundSessionCount(forPaneID: source.paneID), 0,
+                "iteration \(iteration): the MCP session must be released when the bridge tears down")
         }
     }
 

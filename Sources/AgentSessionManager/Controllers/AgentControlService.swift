@@ -213,6 +213,10 @@ final class AgentControlTokenStore: @unchecked Sendable {
         }
     }
 
+    func boundSessionCount(forPaneID paneID: UUID) -> Int {
+        lock.withLock { registrations[paneID]?.sessionIDs.count ?? 0 }
+    }
+
     func unbind(sessionID: String) {
         lock.withLock {
             guard let paneID = sessionToPane.removeValue(forKey: sessionID),

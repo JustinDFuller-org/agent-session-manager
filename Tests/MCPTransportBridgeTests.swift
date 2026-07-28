@@ -75,13 +75,14 @@ final class MCPTransportBridgeTests: XCTestCase {
         try await localPair.client.connect()
         try await remotePair.server.connect()
 
+        let readyGate = ReadyGate()
         let bridgeTask = Task {
             try await MCPTransportBridge(
-                localTransport: localPair.server,
+                localTransport: ReadySignalingTransport(wrapping: localPair.server, gate: readyGate),
                 remoteTransport: remotePair.client
             ).run()
         }
-        try await Task.sleep(for: .milliseconds(20))
+        await readyGate.wait()
 
         let request = Data(#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#.utf8)
         try await localPair.client.send(request)
@@ -104,13 +105,14 @@ final class MCPTransportBridgeTests: XCTestCase {
         let localPair = await InMemoryTransport.createConnectedPair()
         let remoteTransport = SlowRequestTransport()
         try await localPair.client.connect()
+        let readyGate = ReadyGate()
         let bridgeTask = Task {
             try await MCPTransportBridge(
-                localTransport: localPair.server,
+                localTransport: ReadySignalingTransport(wrapping: localPair.server, gate: readyGate),
                 remoteTransport: remoteTransport
             ).run()
         }
-        try await Task.sleep(for: .milliseconds(20))
+        await readyGate.wait()
 
         for requestID in 1...4 {
             try await localPair.client.send(
@@ -136,13 +138,14 @@ final class MCPTransportBridgeTests: XCTestCase {
         let remotePair = await InMemoryTransport.createConnectedPair()
         try await localPair.client.connect()
         try await remotePair.server.connect()
+        let readyGate = ReadyGate()
         let bridgeTask = Task {
             try await MCPTransportBridge(
-                localTransport: localPair.server,
+                localTransport: ReadySignalingTransport(wrapping: localPair.server, gate: readyGate),
                 remoteTransport: remotePair.client
             ).run()
         }
-        try await Task.sleep(for: .milliseconds(20))
+        await readyGate.wait()
 
         try await localPair.client.send(Data(repeating: 0x61, count: 1_048_577))
         do {
@@ -164,13 +167,14 @@ final class MCPTransportBridgeTests: XCTestCase {
         let localPair = await InMemoryTransport.createConnectedPair()
         let remoteTransport = OrderRecordingTransport()
         try await localPair.client.connect()
+        let readyGate = ReadyGate()
         let bridgeTask = Task {
             try await MCPTransportBridge(
-                localTransport: localPair.server,
+                localTransport: ReadySignalingTransport(wrapping: localPair.server, gate: readyGate),
                 remoteTransport: remoteTransport
             ).run()
         }
-        try await Task.sleep(for: .milliseconds(20))
+        await readyGate.wait()
 
         try await localPair.client.send(
             Data(#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#.utf8))
@@ -193,13 +197,14 @@ final class MCPTransportBridgeTests: XCTestCase {
         let localPair = await InMemoryTransport.createConnectedPair()
         let remoteTransport = ConcurrencyTrackingTransport()
         try await localPair.client.connect()
+        let readyGate = ReadyGate()
         let bridgeTask = Task {
             try await MCPTransportBridge(
-                localTransport: localPair.server,
+                localTransport: ReadySignalingTransport(wrapping: localPair.server, gate: readyGate),
                 remoteTransport: remoteTransport
             ).run()
         }
-        try await Task.sleep(for: .milliseconds(20))
+        await readyGate.wait()
 
         for requestID in 1...3 {
             try await localPair.client.send(
@@ -221,13 +226,14 @@ final class MCPTransportBridgeTests: XCTestCase {
         let remotePair = await InMemoryTransport.createConnectedPair()
         try await localPair.client.connect()
         try await remotePair.server.connect()
+        let readyGate = ReadyGate()
         let bridgeTask = Task {
             try await MCPTransportBridge(
-                localTransport: localPair.server,
+                localTransport: ReadySignalingTransport(wrapping: localPair.server, gate: readyGate),
                 remoteTransport: remotePair.client
             ).run()
         }
-        try await Task.sleep(for: .milliseconds(20))
+        await readyGate.wait()
 
         let payloadSize = 400_000
         let requestCount = (MCPBridgeLimits.pendingSendBytes / payloadSize) + 4
@@ -320,6 +326,57 @@ final class BridgeSendLimiterTests: XCTestCase {
 
         await limiter.release()
         try await limiter.acquire()
+    }
+}
+
+/// Signals once, and lets any number of waiters observe that signal even if they ask before
+/// or after it fires.
+private actor ReadyGate {
+    private var isReady = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func markReady() {
+        guard !isReady else { return }
+        isReady = true
+        for waiter in waiters { waiter.resume() }
+        waiters.removeAll()
+    }
+
+    func wait() async {
+        if isReady { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+}
+
+/// Wraps a transport and fires a `ReadyGate` once `connect()` returns, so a test can await the
+/// bridge's local side actually starting instead of guessing with a fixed sleep.
+private actor ReadySignalingTransport: Transport {
+    nonisolated let logger = InMemoryTransport().logger
+    private let wrapped: any Transport
+    private let gate: ReadyGate
+    private var cachedStream: AsyncThrowingStream<Data, Swift.Error>?
+
+    init(wrapping wrapped: any Transport, gate: ReadyGate) {
+        self.wrapped = wrapped
+        self.gate = gate
+    }
+
+    func connect() async throws {
+        try await wrapped.connect()
+        cachedStream = await wrapped.receive()
+        await gate.markReady()
+    }
+
+    func disconnect() async {
+        await wrapped.disconnect()
+    }
+
+    func send(_ data: Data) async throws {
+        try await wrapped.send(data)
+    }
+
+    func receive() -> AsyncThrowingStream<Data, Swift.Error> {
+        cachedStream ?? AsyncThrowingStream { $0.finish() }
     }
 }
 
