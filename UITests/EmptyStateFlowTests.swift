@@ -6,6 +6,10 @@ final class EmptyStateFlowTests: BaseTestCase {
         XCTAssertEqual(emptyStateHint.value as? String, "Press ⌘T to create a tab")
         screenshot("01-empty-state")
 
+        let mainWindow = app.windows["Agent Session Manager (Dev)"]
+        XCTAssertTrue(mainWindow.exists, "Expected the primary window after launch")
+        XCTAssertFalse(app.windows["Trace Dashboard"].exists, "Trace Dashboard must not open at launch")
+        XCTAssertFalse(app.windows["Invariant Dashboard"].exists, "Invariant Dashboard must not open at launch")
         let nonPanelWindows = app.windows.allElementsBoundByIndex.filter {
             $0.title != "Notification Center"
         }

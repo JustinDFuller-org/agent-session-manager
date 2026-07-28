@@ -7,6 +7,12 @@ struct AgentSessionManagerApp: App {
     @State private var cleanupService: TraceCleanupService?
 
     var body: some Scene {
+        // On macOS 14, the first Window scene opens at launch even when AppDelegate owns the main window.
+        // Keep a non-launching scene first so dashboards remain explicitly opened auxiliary windows.
+        Settings {
+            EmptyView()
+        }
+
         Window("Trace Dashboard", id: "trace-dashboard") {
             TraceDashboardView(
                 tracesDirectory: appDelegate.appSettings.resolvedTracingDirectoryURL
