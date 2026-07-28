@@ -331,7 +331,7 @@ final class SettingsFlowTests: BaseTestCase {
         app.typeKey("w", modifierFlags: .command)
         waitForDisappear(window)
 
-        let mainWindow = app.windows["Agent Session Manager (Dev)"]
+        let mainWindow = app.windows[mainWindowTitle]
         waitFor(mainWindow)
         XCTAssertTrue(mainWindow.exists)
         XCTAssertTrue(app.buttons["tab-button-Beta"].firstMatch.exists)

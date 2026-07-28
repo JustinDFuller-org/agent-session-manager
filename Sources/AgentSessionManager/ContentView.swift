@@ -7,7 +7,18 @@ struct AgentSessionManagerApp: App {
     @State private var cleanupService: TraceCleanupService?
 
     var body: some Scene {
-        Window("Trace Dashboard", id: "trace-dashboard") {
+        // SwiftUI opens the first scene in this body automatically at launch, regardless of
+        // whether AppDelegate already owns the visible main window (see #245, which removed
+        // this scene on the premise that a Settings scene was the one opening a window).
+        // `Window.defaultLaunchBehavior(.suppressed)` is the scene-level fix for this, but it
+        // needs macOS 15 and the deployment floor is macOS 14 (project.yml, Package.swift), so
+        // this Settings scene stays first as the non-launching placeholder. Keep it first —
+        // moving a Window scene above it reopens the bug this PR fixes.
+        Settings {
+            EmptyView()
+        }
+
+        Window(AuxiliaryWindow.traceDashboard.title, id: AuxiliaryWindow.traceDashboard.rawValue) {
             TraceDashboardView(
                 tracesDirectory: appDelegate.appSettings.resolvedTracingDirectoryURL
             )
@@ -16,9 +27,12 @@ struct AgentSessionManagerApp: App {
             .pinnedWindowChrome(Theme.dashboardWindowChrome)
         }
         .defaultSize(width: 900, height: 600)
+        // The whole menu bar hangs off this modifier: SwiftUI ignores `.commands` on a
+        // Settings scene, so AppCommands cannot move there even though this scene never
+        // opens at launch.
         .commands { AppCommands(appState: appDelegate.appState) }
 
-        Window("Invariant Dashboard", id: "invariant-dashboard") {
+        Window(AuxiliaryWindow.invariantDashboard.title, id: AuxiliaryWindow.invariantDashboard.rawValue) {
             InvariantDashboardView(
                 directory: appDelegate.appSettings.resolvedInvariantDirectoryURL
             )
@@ -49,12 +63,12 @@ private struct AppCommands: Commands {
 
         CommandGroup(after: .windowSize) {
             Button("Open Trace Dashboard") {
-                openWindow(id: "trace-dashboard")
+                AuxiliaryWindowRegistry.open(.traceDashboard, using: openWindow)
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
 
             Button("Open Invariant Dashboard") {
-                openWindow(id: "invariant-dashboard")
+                AuxiliaryWindowRegistry.open(.invariantDashboard, using: openWindow)
             }
             .keyboardShortcut("i", modifiers: [.command, .shift])
         }

@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: NSWindowController?
     private var settingsWindow: NSWindow?
     private var settingsWindowController: NSWindowController?
+    private var hasCheckedAuxiliaryWindowsAtLaunch = false
+    private var auxiliaryWindowVisibilityObserver: NSObjectProtocol?
 
     #if DEV_BUILD
     private var windowLifecycleObservers: [NSObjectProtocol] = []
@@ -51,6 +53,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.toggleSettings()
+            }
+        }
+
+        // Always on, unlike the WindowSnapshot observers below: a dashboard that opens
+        // spontaneously after launch (not just at the first activation) must still be caught,
+        // and `recordExplicitOpen` only matters if something re-checks after it runs.
+        auxiliaryWindowVisibilityObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                _ = AuxiliaryWindowRegistry.checkOpenWindows()
             }
         }
 
@@ -132,6 +145,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEV_BUILD
         WindowSnapshot.record(event: "app.did_become_active")
         #endif
+        if !hasCheckedAuxiliaryWindowsAtLaunch {
+            hasCheckedAuxiliaryWindowsAtLaunch = true
+            AuxiliaryWindowRegistry.checkOpenWindows()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

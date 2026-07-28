@@ -187,6 +187,18 @@ test-ui-dev: xcodeproj sign-dev-test-artifacts
 		-resultBundlePath $(RESULTS_PATH) \
 		-derivedDataPath $(DERIVED_DATA)
 
+test-ui-dev-launch: xcodeproj sign-dev-test-artifacts
+	rm -rf $(RESULTS_PATH)
+	xcodebuild test-without-building \
+		-project $(APP_NAME).xcodeproj \
+		-scheme $(SCHEME) \
+		-configuration Dev \
+		-destination 'platform=macOS' \
+		-resultBundlePath $(RESULTS_PATH) \
+		-derivedDataPath $(DERIVED_DATA) \
+		-only-testing:AgentSessionManagerUITests/EmptyStateFlowTests \
+		-only-testing:AgentSessionManagerUITests/SettingsFlowTests
+
 screenshots: xcodeproj sign-dev-test-artifacts
 	rm -rf $(SCREENSHOTS_DIR)
 	mkdir -p $(SCREENSHOTS_DIR)

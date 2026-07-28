@@ -1,0 +1,33 @@
+name: UI Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: make test-ui-dev-launch
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check supported toolchain floor
+        run: bash scripts/check-toolchain.sh
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Run launch-behavior UI tests
+        run: make test-ui-dev-launch
+
+      - name: Upload xcresult
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: .build/TestResults.xcresult
