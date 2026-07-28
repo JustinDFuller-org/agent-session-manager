@@ -20,6 +20,7 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 | `opencode.port.policy` | OpenCode | error | `opencode.port.policy_violated` |
 | `opencode.session.rebindable` | OpenCode | warning | `opencode.session.rebindable_violated` |
 | `opencode.tui.endpoints_unused` | OpenCode | error | `opencode.tui.endpoint_forbidden` |
+| `app.launch.auxiliary_windows_closed` | App Launch | error | `app.launch.auxiliary_window_opened` |
 
 Each occurrence has its own UUID. Repeated violations of the same invariant remain separate dashboard rows.
 

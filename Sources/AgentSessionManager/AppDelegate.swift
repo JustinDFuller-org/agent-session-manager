@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: NSWindowController?
     private var settingsWindow: NSWindow?
     private var settingsWindowController: NSWindowController?
+    private var hasCheckedAuxiliaryWindowsAtLaunch = false
 
     #if DEV_BUILD
     private var windowLifecycleObservers: [NSObjectProtocol] = []
@@ -132,6 +133,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEV_BUILD
         WindowSnapshot.record(event: "app.did_become_active")
         #endif
+        if !hasCheckedAuxiliaryWindowsAtLaunch {
+            hasCheckedAuxiliaryWindowsAtLaunch = true
+            AuxiliaryWindowRegistry.checkOpenWindows()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

@@ -78,6 +78,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "The app must not call OpenCode /tui/* endpoints; the terminal is the user surface.",
         traceEventName: "opencode.tui.endpoint_forbidden"
     )
+
+    static let appLaunchAuxiliaryWindowsClosed = Invariant(
+        id: "app.launch.auxiliary_windows_closed",
+        integration: "App Launch",
+        severity: .error,
+        description: "An auxiliary dashboard window must not be open unless something explicitly requested it.",
+        traceEventName: "app.launch.auxiliary_window_opened"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {

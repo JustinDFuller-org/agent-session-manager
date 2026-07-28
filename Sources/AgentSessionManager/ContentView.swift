@@ -63,11 +63,13 @@ private struct AppCommands: Commands {
 
         CommandGroup(after: .windowSize) {
             Button("Open Trace Dashboard") {
+                AuxiliaryWindowRegistry.recordExplicitOpen(id: "trace-dashboard")
                 openWindow(id: "trace-dashboard")
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
 
             Button("Open Invariant Dashboard") {
+                AuxiliaryWindowRegistry.recordExplicitOpen(id: "invariant-dashboard")
                 openWindow(id: "invariant-dashboard")
             }
             .keyboardShortcut("i", modifiers: [.command, .shift])

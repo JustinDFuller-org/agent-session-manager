@@ -28,10 +28,12 @@ struct DebugView: View {
             }
             Section("Dashboards") {
                 Button("Open Trace Dashboard") {
+                    AuxiliaryWindowRegistry.recordExplicitOpen(id: "trace-dashboard")
                     openWindow(id: "trace-dashboard")
                 }
                 .accessibilityIdentifier("settings-open-trace-dashboard-button")
                 Button("Open Invariant Dashboard") {
+                    AuxiliaryWindowRegistry.recordExplicitOpen(id: "invariant-dashboard")
                     openWindow(id: "invariant-dashboard")
                 }
                 .accessibilityIdentifier("settings-open-invariant-dashboard-button")
