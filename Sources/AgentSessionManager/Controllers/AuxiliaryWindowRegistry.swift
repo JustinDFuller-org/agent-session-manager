@@ -1,11 +1,23 @@
 import AppKit
 import Foundation
+import SwiftUI
+
+enum AuxiliaryWindow: String, CaseIterable {
+    case traceDashboard = "trace-dashboard"
+    case invariantDashboard = "invariant-dashboard"
+
+    var title: String {
+        switch self {
+        case .traceDashboard: "Trace Dashboard"
+        case .invariantDashboard: "Invariant Dashboard"
+        }
+    }
+}
 
 enum AuxiliaryWindowRegistry {
-    static let auxiliaryWindowIDsByTitle: [String: String] = [
-        "Trace Dashboard": "trace-dashboard",
-        "Invariant Dashboard": "invariant-dashboard",
-    ]
+    static let auxiliaryWindowIDsByTitle: [String: String] = Dictionary(
+        uniqueKeysWithValues: AuxiliaryWindow.allCases.map { ($0.title, $0.rawValue) }
+    )
 
     @discardableResult
     static func check(openTitles: [String], requestedIDs: Set<String>) -> Bool {
@@ -27,14 +39,37 @@ extension AuxiliaryWindowRegistry {
     @MainActor
     private static var requestedWindowIDs: Set<String> = []
 
+    /// Opens an auxiliary dashboard and records the request together, so no call site can
+    /// open one without the other — the requested-window bookkeeping only means something if
+    /// every opener goes through here.
+    @MainActor
+    static func open(_ window: AuxiliaryWindow, using openWindow: OpenWindowAction) {
+        recordExplicitOpen(id: window.rawValue)
+        openWindow(id: window.rawValue)
+    }
+
     @MainActor
     static func recordExplicitOpen(id: String) {
         requestedWindowIDs.insert(id)
     }
 
     @MainActor
+    static func resetForTesting() {
+        requestedWindowIDs = []
+    }
+
+    @MainActor
     @discardableResult
     static func checkOpenWindows() -> Bool {
-        check(openTitles: NSApp.windows.map(\.title), requestedIDs: requestedWindowIDs)
+        // NSApp is nil under plain `swift test`, which has no running NSApplication.
+        let openTitles = NSApp?.windows.filter(\.isVisible).map(\.title) ?? []
+        TracingService.shared.record(
+            "app.launch.auxiliary_windows_checked",
+            attributes: [
+                "window.titles": openTitles.joined(separator: ","),
+                "window.requested_ids": requestedWindowIDs.sorted().joined(separator: ","),
+            ]
+        )
+        return check(openTitles: openTitles, requestedIDs: requestedWindowIDs)
     }
 }

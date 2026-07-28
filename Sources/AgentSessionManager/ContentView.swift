@@ -18,7 +18,7 @@ struct AgentSessionManagerApp: App {
             EmptyView()
         }
 
-        Window("Trace Dashboard", id: "trace-dashboard") {
+        Window(AuxiliaryWindow.traceDashboard.title, id: AuxiliaryWindow.traceDashboard.rawValue) {
             TraceDashboardView(
                 tracesDirectory: appDelegate.appSettings.resolvedTracingDirectoryURL
             )
@@ -32,7 +32,7 @@ struct AgentSessionManagerApp: App {
         // opens at launch.
         .commands { AppCommands(appState: appDelegate.appState) }
 
-        Window("Invariant Dashboard", id: "invariant-dashboard") {
+        Window(AuxiliaryWindow.invariantDashboard.title, id: AuxiliaryWindow.invariantDashboard.rawValue) {
             InvariantDashboardView(
                 directory: appDelegate.appSettings.resolvedInvariantDirectoryURL
             )
@@ -63,14 +63,12 @@ private struct AppCommands: Commands {
 
         CommandGroup(after: .windowSize) {
             Button("Open Trace Dashboard") {
-                AuxiliaryWindowRegistry.recordExplicitOpen(id: "trace-dashboard")
-                openWindow(id: "trace-dashboard")
+                AuxiliaryWindowRegistry.open(.traceDashboard, using: openWindow)
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
 
             Button("Open Invariant Dashboard") {
-                AuxiliaryWindowRegistry.recordExplicitOpen(id: "invariant-dashboard")
-                openWindow(id: "invariant-dashboard")
+                AuxiliaryWindowRegistry.open(.invariantDashboard, using: openWindow)
             }
             .keyboardShortcut("i", modifiers: [.command, .shift])
         }

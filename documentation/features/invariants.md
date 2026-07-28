@@ -24,6 +24,8 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 
 Each occurrence has its own UUID. Repeated violations of the same invariant remain separate dashboard rows.
 
+`AuxiliaryWindowRegistry.checkOpenWindows()` records `app.launch.auxiliary_windows_checked` (observed window titles and requested ids) every time it runs, regardless of outcome, so a quiet launch is distinguishable from a check that never executed.
+
 ## File
 
 Violations are appended synchronously to:
