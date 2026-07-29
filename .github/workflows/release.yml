@@ -15,12 +15,12 @@ jobs:
     environment: release
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Install Developer ID certificate
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.DEV_ID_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.DEV_ID_CERTIFICATE_PASSWORD }}
@@ -59,7 +59,7 @@ jobs:
             scripts/update-appcast.sh "$dmg_path" "$version_short" "$version_build"
 
       - name: Upload release publication artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-publication
           path: .build/release-pages
@@ -76,16 +76,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download release publication artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-publication
           path: .build/release-pages
 
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Build Jekyll site
         uses: actions/jekyll-build-pages@v1
@@ -100,13 +100,13 @@ jobs:
           scripts/stage-pages-assets.sh _site release "$dmg_path" .build/release-pages/appcast.xml
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./_site
 
       - name: Deploy Pages artifact
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   release:
     needs: publish-pages
@@ -115,7 +115,7 @@ jobs:
       contents: write
     steps:
       - name: Download release publication artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-publication
           path: .build/release-pages
