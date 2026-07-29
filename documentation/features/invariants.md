@@ -21,8 +21,11 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 | `opencode.session.rebindable` | OpenCode | warning | `opencode.session.rebindable_violated` |
 | `opencode.tui.endpoints_unused` | OpenCode | error | `opencode.tui.endpoint_forbidden` |
 | `cursor.agent_control.bridge_available` | Cursor | error | `cursor.agent_control.bridge_missing` |
+| `app.launch.auxiliary_windows_closed` | App Launch | error | `app.launch.auxiliary_window_opened` |
 
 Each occurrence has its own UUID. Repeated violations of the same invariant remain separate dashboard rows.
+
+`AuxiliaryWindowRegistry.checkOpenWindows()` records `app.launch.auxiliary_windows_checked` (observed window titles and requested ids) every time it runs, regardless of outcome, so a quiet launch is distinguishable from a check that never executed.
 
 ## File
 

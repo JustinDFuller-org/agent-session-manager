@@ -86,6 +86,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "A Cursor pane with Agent Control enabled must find an executable bundled bridge.",
         traceEventName: "cursor.agent_control.bridge_missing"
     )
+
+    static let appLaunchAuxiliaryWindowsClosed = Invariant(
+        id: "app.launch.auxiliary_windows_closed",
+        integration: "App Launch",
+        severity: .error,
+        description: "An auxiliary dashboard window must not be open unless something explicitly requested it.",
+        traceEventName: "app.launch.auxiliary_window_opened"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {

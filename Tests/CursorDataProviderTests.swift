@@ -223,7 +223,7 @@ struct CursorDataProviderTests {
     }
 
     @MainActor
-    @Test func testStoppingProviderCleansPrivateDirectory() async throws {
+    @Test func testStoppedProviderDoesNotRestartAttentionWatcher() async throws {
         let provider = CursorDataProvider(
             workingDirectory: "/tmp/test", paneID: UUID(), processStartTime: Date())
         try FileManager.default.createDirectory(
@@ -233,6 +233,22 @@ struct CursorDataProviderTests {
         provider.configureAttentionWatcher(enabled: true)
 
         try await Task.sleep(for: .milliseconds(100))
+        #expect(!FileManager.default.fileExists(atPath: provider.hookDirectoryPath))
+    }
+
+    @MainActor
+    @Test func testStoppingActiveAttentionWatcherCleansPrivateDirectory() async throws {
+        let provider = CursorDataProvider(
+            workingDirectory: "/tmp/test", paneID: UUID(), processStartTime: Date())
+        try FileManager.default.createDirectory(
+            at: URL(filePath: provider.hookDirectoryPath), withIntermediateDirectories: true)
+        provider.configureAttentionWatcher(enabled: true)
+        try Data(#"{"hook_event_name":"stop"}"#.utf8)
+            .write(to: URL(filePath: provider.attentionFilePath), options: .atomic)
+
+        provider.stop()
+
+        try await Task.sleep(for: .milliseconds(200))
         #expect(!FileManager.default.fileExists(atPath: provider.hookDirectoryPath))
     }
 

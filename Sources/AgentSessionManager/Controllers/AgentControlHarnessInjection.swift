@@ -54,12 +54,14 @@ protocol AgentControlHarnessAdapter {
 struct ClaudeAgentControlAdapter: AgentControlHarnessAdapter {
     func prepare(_ context: AgentControlHarnessLaunchContext) throws -> AgentControlHarnessLaunchContext {
         let config: [String: Any] = [
-            "agent-session-manager": [
-                "type": "http",
-                "url": context.endpoint.absoluteString,
-                "headers": [
-                    "Authorization": "Bearer ${\(context.tokenEnvironmentKey)}"
-                ],
+            "mcpServers": [
+                "agent-session-manager": [
+                    "type": "http",
+                    "url": context.endpoint.absoluteString,
+                    "headers": [
+                        "Authorization": "Bearer ${\(context.tokenEnvironmentKey)}"
+                    ],
+                ]
             ]
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: config, options: []) else {

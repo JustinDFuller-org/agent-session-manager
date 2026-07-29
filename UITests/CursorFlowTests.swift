@@ -121,5 +121,20 @@ final class CursorFlowTests: BaseTestCase {
             XCTWaiter.wait(for: [revokedExpectation], timeout: 10),
             .completed,
             "Closing the Cursor pane should revoke its Agent Control credential")
+
+        waitFor(app.staticTexts["tab-empty-state-CursorControlTab"], timeout: 10)
+        XCTAssertEqual(app.state, .runningForeground)
+        let keptWorktree = GitUITestWorkspace.directoryURL
+            .appending(path: ".agent-session-manager/worktrees/cursor-control", directoryHint: .isDirectory)
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: keptWorktree.path),
+            "Keep Worktree should leave the managed checkout on disk"
+        )
+
+        app.typeKey("p", modifierFlags: .command)
+        let followUpPaneField = app.textFields["new-pane-name-field"]
+        waitFor(followUpPaneField)
+        app.buttons["new-pane-cancel-button"].click()
+        waitForDisappear(followUpPaneField)
     }
 }

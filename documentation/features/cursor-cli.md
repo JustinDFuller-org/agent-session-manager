@@ -66,6 +66,8 @@ Cursor uses app-owned baseline chips and an `afterAgentResponse` hook for model 
 
 Cursor uses `beforeSubmitPrompt` and `stop` hooks for lifecycle activity state, plus the `stop` hook for attention notifications. Existing Cursor panes, including panes in hidden tabs, refresh their attention watcher when that setting changes.
 
+The per-pane hook files use the app's shared main-actor filesystem watcher. Atomic hook-file replacement is followed automatically, and closing a pane cancels all pending watcher delivery before its temporary hook directory is removed.
+
 ## Session Persistence
 
 Cursor pane names, options, and resolved checkout paths are saved in `sessions.json`. On relaunch, Cursor panes are restored when their checkout still exists.

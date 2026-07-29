@@ -57,6 +57,13 @@ struct InvariantDashboardView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+            if let watcherError = repository.watcherError {
+                Text(watcherError)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
             invariantTable
 

@@ -1,5 +1,8 @@
 import XCTest
 
+/// Mirrors `AppDelegate.windowTitle` for the Dev configuration `make test-ui-dev` runs under.
+let mainWindowTitle = "Agent Session Manager (Dev)"
+
 extension XCTestCase {
     func screenshot(_ name: String, app: XCUIApplication) {
         let captured = app.windows.firstMatch.screenshot()

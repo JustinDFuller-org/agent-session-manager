@@ -260,6 +260,13 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
         XCTAssertEqual(monitor.currentData?.worktree?.branch, "develop")
+        XCTAssertTrue(
+            TracingService.shared.recordedEventsForTesting.contains {
+                $0.name == "statusline.watcher.lifecycle"
+                    && $0.attributes["watcher.role"] == "status_payload"
+                    && $0.attributes["result"] == "started"
+            }
+        )
     }
 
     func testI6FreshnessRecoveryAppliesLatestPayload() async throws {

@@ -316,6 +316,7 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
             guard let head else { return }
             let request = makeRequest(head: head)
             let requestTooLarge = bodyTooLarge
+            let channel = context.channel
             self.head = nil
             body = ByteBuffer()
             Task {
@@ -349,7 +350,7 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                         }
                     }
                 }
-                await write(response, version: head.version, context: context)
+                await write(response, version: head.version, channel: channel)
             }
         }
     }
@@ -368,14 +369,15 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
         )
     }
 
-    private func write(_ response: HTTPResponse, version: HTTPVersion, context: ChannelHandlerContext) async {
-        let eventLoop = context.eventLoop
+    private func write(_ response: HTTPResponse, version: HTTPVersion, channel: Channel) async {
+        let eventLoop = channel.eventLoop
         switch response {
         case .stream(let stream, let headers):
             eventLoop.execute {
                 var head = HTTPResponseHead(
                     version: version, status: HTTPResponseStatus(statusCode: response.statusCode))
                 for (name, value) in headers { head.headers.add(name: name, value: value) }
+                guard let context = try? channel.pipeline.syncOperations.context(handler: self) else { return }
                 context.write(self.wrapOutboundOut(.head(head)), promise: nil)
                 context.flush()
             }
@@ -391,7 +393,8 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
                         break
                     }
                     eventLoop.execute {
-                        var buffer = context.channel.allocator.buffer(capacity: chunk.count)
+                        guard let context = try? channel.pipeline.syncOperations.context(handler: self) else { return }
+                        var buffer = channel.allocator.buffer(capacity: chunk.count)
                         buffer.writeBytes(chunk)
                         context.writeAndFlush(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
                     }
@@ -407,9 +410,10 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
             eventLoop.execute {
                 if streamExceededLimit {
                     self.responseInFlight = false
-                    context.close(promise: nil)
+                    channel.close(promise: nil)
                 } else {
                     self.responseInFlight = false
+                    guard let context = try? channel.pipeline.syncOperations.context(handler: self) else { return }
                     context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
                 }
             }
@@ -428,9 +432,10 @@ private final class AgentControlHTTPHandler: ChannelInboundHandler, @unchecked S
             eventLoop.execute {
                 var head = HTTPResponseHead(version: version, status: HTTPResponseStatus(statusCode: statusCode))
                 for (name, value) in response.headers { head.headers.add(name: name, value: value) }
+                guard let context = try? channel.pipeline.syncOperations.context(handler: self) else { return }
                 context.write(self.wrapOutboundOut(.head(head)), promise: nil)
                 if let bodyData {
-                    var buffer = context.channel.allocator.buffer(capacity: bodyData.count)
+                    var buffer = channel.allocator.buffer(capacity: bodyData.count)
                     buffer.writeBytes(bodyData)
                     context.write(self.wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
                 }

@@ -175,6 +175,42 @@ final class AgentControlLifecycleTests: XCTestCase {
         XCTAssertEqual(response.statusCode, 401)
     }
 
+    func testAuthenticatedMCPClientCompletesSequentialResponses() async throws {
+        let store = AgentControlTokenStore()
+        let source = AgentControlSource(
+            paneID: UUID(),
+            paneName: "Pane",
+            tabID: UUID(),
+            tabName: "Tab",
+            scope: .global
+        )
+        let application = AgentControlHTTPApplication(tokenStore: store, limits: .default)
+        let port = try await application.start()
+        let credential = try store.register(source: source, limits: .default)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpAdditionalHeaders = [
+            "Authorization": "Bearer \(credential.bearerToken)"
+        ]
+        let transport = HTTPClientTransport(
+            endpoint: URL(string: "http://127.0.0.1:\(port)/mcp")!,
+            configuration: configuration
+        )
+        let client = Client(name: "AgentControlLifecycleTests", version: "1.0")
+        defer {
+            Task {
+                await client.disconnect()
+                await application.stop()
+            }
+        }
+
+        try await client.connect(transport: transport)
+        let resources = try await client.listResources()
+        let tools = try await client.listTools()
+
+        XCTAssertEqual(resources.resources.count, 0)
+        XCTAssertEqual(tools.tools.count, 0)
+    }
+
     func testAuthenticatedMCPSessionIsDisconnectedWhenCredentialIsRevoked() async throws {
         let store = AgentControlTokenStore()
         let source = AgentControlSource(

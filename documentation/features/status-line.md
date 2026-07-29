@@ -110,12 +110,16 @@ Migration-only events remain trace events:
 | `statusline.provider.stopped` | A provider stops for a pane |
 | `statusline.provider.update_applied` | A provider snapshot is applied to the pane monitor |
 | `statusline.provider.update_failed` | Reserved for provider snapshot failures |
+| `statusline.watcher.lifecycle` | A Claude status payload, attention, or hook-log watcher starts, waits for its file, recovers, or stops |
+| `statusline.cursor.<role>_watcher.<state>` | A Cursor hook, lifecycle, or attention watcher starts, fails to attach, recovers, or stops |
 | `statusline.codex.hook_waiting` | Codex provider is still waiting for a hook record; includes retry attempt, late-binding state, and hook availability |
 | `statusline.codex.hook_bound` | Codex hook record bound the pane to a session; includes hook availability, event name, session id prefix, retry attempt, late-binding state, and transcript availability |
 | `statusline.codex.hook_record_ignored` | Codex hook record was present but rejected, usually because the pane/tab ids did not match |
 | `statusline.codex.sqlite_enrichment` | Optional Codex SQLite enrichment result; includes exact-match outcome, retry attempt, selected session id prefix, and rollout path match |
 | `statusline.codex.selection_failed` | Codex hook binding failed or was still waiting; retryable startup failures include retry reason/attempt |
 | `statusline.codex.tailer_started` | Codex transcript/rollout tailer starts for the hook-bound session |
+| `statusline.codex.tailer_attachment` | Codex rollout watcher waits for its file or recovers after replacement |
+| `statusline.codex.tailer_stopped` | Codex rollout watcher stops |
 | `statusline.codex.tailer_read` | Codex rollout tailer reads a bounded batch; includes line/update counts and whether the read was startup catch-up |
 | `statusline.codex.parsed_update` | Codex rollout parsing produced a supported update; records model/token/context/rate-limit field presence |
 | `statusline.codex.state_unavailable` | Reserved legacy event for Codex state DB failures |

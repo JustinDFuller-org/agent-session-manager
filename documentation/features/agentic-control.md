@@ -62,10 +62,12 @@ private plugin directory through `--plugin-dir`; its plugin-root `mcp.json`
 starts the app-bundled `AgentSessionManagerMCPBridge` over stdio without
 modifying project or user configuration. The bridge inherits the loopback
 endpoint and credential from the Cursor process environment, then forwards MCP
-messages to the app-owned HTTP server. Credentials are high-entropy bearer
-tokens held only in memory and passed through a runtime environment variable.
-If control registration, bridge lookup, or Cursor plugin preparation is
-temporarily unavailable, the app opens a normal Cursor pane without injection
+messages to the app-owned HTTP server. Claude receives an inline
+`--mcp-config` document whose top-level `mcpServers` record contains the
+app-owned HTTP server. Credentials are high-entropy bearer tokens held only in
+memory and passed through a runtime environment variable. If control
+registration, bridge lookup, or Cursor plugin preparation is temporarily
+unavailable, the app opens a normal Cursor pane without injection
 instead of blocking pane creation. Credentials are revoked when a pane or tab
 is torn down and are never persisted, logged, or printed in the terminal. A
 missing or non-executable bundled bridge reports the

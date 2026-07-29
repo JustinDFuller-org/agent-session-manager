@@ -136,6 +136,69 @@ final class TraceRepositoryTests: XCTestCase {
         XCTAssertEqual(repo.selectedPaneSpans[0].name, "loaded.event")
     }
 
+    func testSelectedPaneFollowsAtomicReplacementAndLaterWrites() async throws {
+        let paneFile = testDir.appendingPathComponent("live.jsonl")
+        try
+            #"{"name":"initial","traceId":"t","spanId":"s1","startEpochMs":1,"endEpochMs":2,"durationMs":1,"attributes":{}}"#
+            .write(to: paneFile, atomically: true, encoding: .utf8)
+        let repo = TraceRepository(tracesDirectory: testDir)
+        repo.selectPane(paneFile)
+
+        try
+            #"{"name":"replacement","traceId":"t","spanId":"s2","startEpochMs":2,"endEpochMs":3,"durationMs":1,"attributes":{}}"#
+            .write(to: paneFile, atomically: true, encoding: .utf8)
+        let replacementDeadline = Date().addingTimeInterval(2)
+        while repo.selectedPaneSpans.first?.name != "replacement", Date() < replacementDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(repo.selectedPaneSpans.first?.name, "replacement")
+
+        let handle = try FileHandle(forWritingTo: paneFile)
+        try handle.seekToEnd()
+        try handle.write(
+            contentsOf: Data(
+                ("\n"
+                    + #"{"name":"appended","traceId":"t","spanId":"s3","startEpochMs":3,"endEpochMs":4,"durationMs":1,"attributes":{}}"#)
+                    .utf8
+            ))
+        try handle.close()
+        let appendDeadline = Date().addingTimeInterval(2)
+        while repo.selectedPaneSpans.count != 2, Date() < appendDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(repo.selectedPaneSpans.map(\.name), ["replacement", "appended"])
+    }
+
+    func testSelectedPaneClearsForMissingFileAndLoadsWhenItAppears() async throws {
+        let existingFile = testDir.appendingPathComponent("existing.jsonl")
+        try
+            #"{"name":"old","traceId":"t","spanId":"s1","startEpochMs":1,"endEpochMs":2,"durationMs":1,"attributes":{}}"#
+            .write(to: existingFile, atomically: true, encoding: .utf8)
+        let repo = TraceRepository(tracesDirectory: testDir)
+        repo.selectPane(existingFile)
+        XCTAssertEqual(repo.selectedPaneSpans.map(\.name), ["old"])
+
+        let missingFile = testDir.appendingPathComponent("created-later.jsonl")
+        repo.selectPane(missingFile)
+        XCTAssertTrue(repo.selectedPaneSpans.isEmpty)
+
+        try
+            #"{"name":"new","traceId":"t","spanId":"s2","startEpochMs":2,"endEpochMs":3,"durationMs":1,"attributes":{}}"#
+            .write(to: missingFile, atomically: true, encoding: .utf8)
+        let availableDeadline = Date().addingTimeInterval(2)
+        while repo.selectedPaneSpans.first?.name != "new", Date() < availableDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(repo.selectedPaneSpans.map(\.name), ["new"])
+
+        try FileManager.default.removeItem(at: missingFile)
+        let deletionDeadline = Date().addingTimeInterval(2)
+        while !repo.selectedPaneSpans.isEmpty, Date() < deletionDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(repo.selectedPaneSpans.isEmpty)
+    }
+
     // MARK: - Helpers
 
     private func createPane(
