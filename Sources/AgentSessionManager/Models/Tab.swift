@@ -612,7 +612,7 @@ final class Tab: Identifiable {
         let new = TerminalController()
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = old.pendingEnvironment.map {
-            AgentControlHarnessInjection.removingControlToken(from: $0)
+            AgentControlHarnessInjection.removingControlEnvironment(from: $0)
         }
         new.pendingShell = old.pendingShell
 
@@ -782,7 +782,7 @@ final class Tab: Identifiable {
         new.pendingCommandArgs = nil
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = old.pendingEnvironment.map {
-            AgentControlHarnessInjection.removingControlToken(from: $0)
+            AgentControlHarnessInjection.removingControlEnvironment(from: $0)
         }
         new.pendingShell = old.pendingShell
         old.terminate()

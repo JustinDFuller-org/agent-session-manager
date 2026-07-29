@@ -79,6 +79,35 @@ final class InvariantTests: XCTestCase {
         XCTAssertEqual(event?.attributes["path"], "/tui/submit-prompt")
     }
 
+    func testCursorAgentControlBridgeAvailableInvariantHasExpectedCatalogValues() {
+        XCTAssertEqual(Invariant.cursorAgentControlBridgeAvailable.id, "cursor.agent_control.bridge_available")
+        XCTAssertEqual(Invariant.cursorAgentControlBridgeAvailable.integration, "Cursor")
+        XCTAssertEqual(Invariant.cursorAgentControlBridgeAvailable.severity, .error)
+        XCTAssertEqual(
+            Invariant.cursorAgentControlBridgeAvailable.traceEventName, "cursor.agent_control.bridge_missing")
+    }
+
+    func testCursorAgentControlBridgeAvailableCheckPassesWithoutViolationWhenExecutable() {
+        InvariantReporter.shared.enableTestCapture()
+
+        XCTAssertTrue(
+            InvariantReporter.shared.check(.cursorAgentControlBridgeAvailable, true, context: ["path": "/tmp/bridge"]))
+        XCTAssertTrue(InvariantReporter.shared.violationsForTesting.isEmpty)
+    }
+
+    func testCursorAgentControlBridgeAvailableCheckReportsViolationWhenMissing() {
+        InvariantReporter.shared.enableTestCapture()
+
+        XCTAssertFalse(
+            InvariantReporter.shared.check(
+                .cursorAgentControlBridgeAvailable, false, context: ["pane_id": "abc", "path": "/tmp/bridge"]))
+        let violation = InvariantReporter.shared.violationsForTesting.first
+        XCTAssertEqual(violation?.invariantID, "cursor.agent_control.bridge_available")
+        XCTAssertEqual(violation?.context["pane_id"], "abc")
+        XCTAssertNil(violation?.context["token"])
+        XCTAssertNil(violation?.context["endpoint"])
+    }
+
     func testBundleIdentityPreferredURLMatchingPathPassesWithoutViolation() {
         InvariantReporter.shared.enableTestCapture()
         let runningURL = URL(filePath: "/tmp/AgentSessionManager.app")

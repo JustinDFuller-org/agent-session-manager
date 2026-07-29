@@ -3,6 +3,7 @@ set -euo pipefail
 
 app_bundle="${1:?app bundle path is required}"
 executable="$app_bundle/Contents/MacOS/$(basename "$app_bundle" .app)"
+bridge_executable="$app_bundle/Contents/Helpers/AgentSessionManagerMCPBridge"
 framework_binary="$app_bundle/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle"
 
 [[ -d "$app_bundle" ]] || {
@@ -11,6 +12,10 @@ framework_binary="$app_bundle/Contents/Frameworks/Sparkle.framework/Versions/B/S
 }
 [[ -x "$executable" ]] || {
     echo "app executable not found: $executable" >&2
+    exit 1
+}
+[[ -x "$bridge_executable" ]] || {
+    echo "Agent Control MCP bridge not found: $bridge_executable" >&2
     exit 1
 }
 [[ -f "$framework_binary" ]] || {
@@ -27,5 +32,6 @@ otool -l "$executable" | grep -Fq 'path @executable_path/../Frameworks' || {
     exit 1
 }
 codesign --verify --deep --strict "$app_bundle"
+codesign --verify --strict "$bridge_executable"
 
 echo "Standalone app bundle passed: $app_bundle"

@@ -10,11 +10,14 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.4"),
         .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", exact: "0.12.1"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-system.git", from: "1.2.0"),
     ],
     targets: [
         .executableTarget(
             name: "AgentSessionManager",
             dependencies: [
+                "AgentSessionManagerMCPBridgeCore",
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "OpenTelemetryApi", package: "opentelemetry-swift"),
                 .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift"),
@@ -32,9 +35,28 @@ let package = Package(
                 .linkedFramework("Network"),
             ]
         ),
+        .target(
+            name: "AgentSessionManagerMCPBridgeCore",
+            dependencies: [
+                .product(name: "MCP", package: "swift-sdk"),
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "SystemPackage", package: "swift-system"),
+            ],
+            path: "Sources/AgentSessionManagerMCPBridgeCore"
+        ),
+        .executableTarget(
+            name: "AgentSessionManagerMCPBridge",
+            dependencies: [
+                "AgentSessionManagerMCPBridgeCore"
+            ],
+            path: "Sources/AgentSessionManagerMCPBridge"
+        ),
         .testTarget(
             name: "AgentSessionManagerTests",
-            dependencies: ["AgentSessionManager"],
+            dependencies: [
+                "AgentSessionManager",
+                "AgentSessionManagerMCPBridgeCore",
+            ],
             path: "Tests",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../.."])]
         )

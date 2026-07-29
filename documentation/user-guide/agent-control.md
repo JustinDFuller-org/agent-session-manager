@@ -22,7 +22,7 @@ Agent Control is available for panes using Claude Code, Cursor, Codex, or OpenCo
 Agent Session Manager prepares the MCP connection before it starts the final harness command:
 
 - **Claude Code** receives an MCP configuration through its supported `--mcp-config` option.
-- **Cursor** receives a private plugin directory through `--plugin-dir`. The plugin contains the MCP configuration for that pane and does not modify project or user Cursor files. If the control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.
+- **Cursor** receives a private plugin directory through `--plugin-dir`. The plugin starts Agent Session Manager's bundled stdio bridge, which securely forwards to the app-owned local server using runtime-only connection details. It does not modify project or user Cursor files. If the bridge or control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.
 - **Codex** receives the MCP server URL and runtime credential through supported `-c` settings.
 - **OpenCode** receives the connection through its inline configuration. Existing OpenCode MCP entries and unrelated settings are preserved.
 
@@ -75,7 +75,7 @@ After the pane starts, the supported agent can use Agent Control within the sele
 ## If it does not work
 
 - If the control checkbox is not shown, check **Settings → Panes → Injection Policy**. **Always** and **Never** show a status message instead of a checkbox.
-- Cursor may still ask for normal MCP approval. Approve the Agent Session Manager server through Cursor, or enable Cursor's own MCP approval option if that is appropriate for your workflow.
+- A Cursor pane prompts to approve the Agent Session Manager server unless you enable **Approve MCPs** (`--approve-mcps`) under **New Pane → Cursor CLI options**. That option auto-approves every MCP server the pane sees, not only Agent Control's, so enable it only if that fits your workflow.
 - If a policy or scope change has no effect on a running pane, restart the pane.
 - If an action is unavailable, choose **Global** scope when the action needs access beyond the current pane or tab.
 

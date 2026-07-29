@@ -1,3 +1,4 @@
+import AgentSessionManagerMCPBridgeCore
 import Foundation
 import XCTest
 
@@ -6,6 +7,7 @@ import XCTest
 final class AgentControlHarnessInjectionTests: XCTestCase {
     private let endpoint = URL(string: "http://127.0.0.1:43123/mcp")!
     private let tokenKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
+    private let endpointKey = "AGENT_SESSION_MANAGER_MCP_ENDPOINT"
 
     func testClaudeUsesRuntimeEnvironmentReferenceAndNeverEmbedsToken() throws {
         let context = AgentControlHarnessLaunchContext(
@@ -99,14 +101,24 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertThrowsError(try OpenCodeAgentControlAdapter().prepare(invalidMCP))
     }
 
-    func testCursorUsesPrivatePluginDirectoryAndRuntimeTokenReference() throws {
+    func testCursorUsesPrivatePluginDirectoryAndBundledStdioBridge() throws {
         let paneID = UUID()
+        let bridgeExecutable = FileManager.default.temporaryDirectory.appending(
+            path: "agent-session-manager-mcp-bridge-\(UUID().uuidString)")
+        XCTAssertTrue(FileManager.default.createFile(atPath: bridgeExecutable.path, contents: Data()))
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700], ofItemAtPath: bridgeExecutable.path)
+        defer { try? FileManager.default.removeItem(at: bridgeExecutable) }
         let context = AgentControlHarnessLaunchContext(
             endpoint: endpoint,
             tokenEnvironmentKey: tokenKey,
             commandArguments: ["agent"],
-            environment: ["\(tokenKey)=runtime-secret"],
-            paneID: paneID
+            environment: [
+                "\(tokenKey)=runtime-secret",
+                "\(endpointKey)=\(endpoint.absoluteString)",
+            ],
+            paneID: paneID,
+            cursorBridgeExecutable: bridgeExecutable
         )
 
         let prepared = try CursorAgentControlAdapter().prepare(context)
@@ -122,11 +134,81 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         let mcp = try XCTUnwrap(JSONSerialization.jsonObject(with: mcpData) as? [String: Any])
         let servers = try XCTUnwrap(mcp["mcpServers"] as? [String: Any])
         let server = try XCTUnwrap(servers.values.first as? [String: Any])
-        XCTAssertEqual(server["url"] as? String, endpoint.absoluteString)
-        let headers = try XCTUnwrap(server["headers"] as? [String: String])
-        XCTAssertEqual(headers["Authorization"], "Bearer ${env:\(tokenKey)}")
+        XCTAssertEqual(server["type"] as? String, "stdio")
+        XCTAssertEqual(server["command"] as? String, bridgeExecutable.path)
+        XCTAssertNil(server["url"])
+        XCTAssertNil(server["headers"])
+        XCTAssertNil(server["env"])
+        XCTAssertFalse(String(decoding: mcpData, as: UTF8.self).contains("${env:"))
         XCTAssertFalse(String(decoding: mcpData, as: UTF8.self).contains("runtime-secret"))
         XCTAssertFalse(prepared.commandArguments.contains { $0.contains("runtime-secret") })
+    }
+
+    func testCursorAdapterRejectsAnUnresolvedBridge() {
+        let missing = AgentControlHarnessLaunchContext(
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["agent"],
+            environment: [],
+            cursorBridgeExecutable: nil)
+        XCTAssertThrowsError(try CursorAgentControlAdapter().prepare(missing))
+    }
+
+    func testResolveCursorBridgeExecutableRejectsMissingOrNonExecutablePaths() throws {
+        let bundleDirectory = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-resolution-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: bundleDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: bundleDirectory) }
+
+        XCTAssertNil(
+            AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+                bundleURL: bundleDirectory, executableURL: nil),
+            "A bundle with no bridge and no fallback executable must resolve to nil")
+
+        let helperPath = bundleDirectory.appending(
+            path: MCPBridgeEnvironment.bundledExecutableRelativePath)
+        try FileManager.default.createDirectory(
+            at: helperPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        XCTAssertTrue(FileManager.default.createFile(atPath: helperPath.path, contents: Data()))
+        XCTAssertNil(
+            AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+                bundleURL: bundleDirectory, executableURL: nil),
+            "A non-executable bundled bridge must not resolve")
+    }
+
+    func testResolveCursorBridgeExecutablePrefersTheBundledBridgeWhenExecutable() throws {
+        let bundleDirectory = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-resolution-\(UUID().uuidString)")
+        let helperPath = bundleDirectory.appending(
+            path: MCPBridgeEnvironment.bundledExecutableRelativePath)
+        try FileManager.default.createDirectory(
+            at: helperPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        XCTAssertTrue(FileManager.default.createFile(atPath: helperPath.path, contents: Data()))
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helperPath.path)
+        defer { try? FileManager.default.removeItem(at: bundleDirectory) }
+
+        let resolved = AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+            bundleURL: bundleDirectory, executableURL: nil)
+        XCTAssertEqual(resolved, helperPath)
+    }
+
+    func testResolveCursorBridgeExecutableFallsBackNextToTheRunningExecutable() throws {
+        let devDirectory = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-dev-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: devDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: devDirectory) }
+        let standInExecutable = devDirectory.appending(path: "AgentSessionManager")
+        XCTAssertTrue(FileManager.default.createFile(atPath: standInExecutable.path, contents: Data()))
+        let devBridge = devDirectory.appending(path: "AgentSessionManagerMCPBridge")
+        XCTAssertTrue(FileManager.default.createFile(atPath: devBridge.path, contents: Data()))
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: devBridge.path)
+
+        let bundleWithoutHelpers = FileManager.default.temporaryDirectory.appending(
+            path: "agent-control-bridge-no-helpers-\(UUID().uuidString)")
+
+        let resolved = AgentControlHarnessInjection.resolveCursorBridgeExecutable(
+            bundleURL: bundleWithoutHelpers, executableURL: standInExecutable)
+        XCTAssertEqual(resolved, devBridge)
     }
 
     @MainActor
@@ -160,16 +242,150 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             1)
     }
 
-    func testRemovingControlTokenKeepsOtherEnvironmentValues() {
+    @MainActor
+    func testCursorMissingBundledBridgeFallsBackWithoutCredentials() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Cursor Pane", harness: .cursor, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        TracingService.shared.enableTestCapture()
+        InvariantReporter.shared.enableTestCapture()
+        defer {
+            TracingService.shared.resetForTesting()
+            InvariantReporter.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        let prepared = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["agent", "--model", "auto"],
+            environment: [
+                "PATH=/usr/bin",
+                "\(tokenKey)=stale-token",
+                "\(endpointKey)=http://127.0.0.1:1234/mcp",
+            ],
+            appSettings: settings)
+
+        XCTAssertEqual(prepared.0 ?? [], ["agent", "--model", "auto"])
+        XCTAssertEqual(prepared.1, ["PATH=/usr/bin"])
+        XCTAssertNil(pane.cursorAgentControlPluginDirectory)
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.harness.prepare"
+            })
+        XCTAssertEqual(event.attributes["result"], "fallback")
+        XCTAssertEqual(event.attributes["transport"], "stdio_bridge")
+        XCTAssertEqual(event.attributes["approve_mcps"], "false")
+        XCTAssertNil(event.attributes["endpoint"])
+        XCTAssertNil(event.attributes["token"])
+
+        let violation = try XCTUnwrap(
+            InvariantReporter.shared.violationsForTesting.last {
+                $0.invariantID == Invariant.cursorAgentControlBridgeAvailable.id
+            })
+        XCTAssertEqual(violation.context["pane_id"], pane.id.uuidString)
+        XCTAssertNil(violation.context["token"])
+        XCTAssertNil(violation.context["endpoint"])
+    }
+
+    @MainActor
+    func testCursorApproveMCPsFlagIsRecordedInPrepareTelemetry() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Cursor Pane", harness: .cursor, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        TracingService.shared.enableTestCapture()
+        InvariantReporter.shared.enableTestCapture()
+        defer {
+            TracingService.shared.resetForTesting()
+            InvariantReporter.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        _ = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["agent", "--approve-mcps"],
+            environment: ["PATH=/usr/bin"],
+            appSettings: settings)
+
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.harness.prepare"
+            })
+        XCTAssertEqual(event.attributes["approve_mcps"], "true")
+    }
+
+    @MainActor
+    func testNonCursorHarnessOmitsApproveMCPsFromPrepareTelemetry() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Claude Pane", harness: .claude, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        TracingService.shared.enableTestCapture()
+        defer {
+            TracingService.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        _ = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["claude"],
+            environment: ["PATH=/usr/bin"],
+            appSettings: settings)
+
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.last {
+                $0.name == "agent_control.harness.prepare"
+            })
+        XCTAssertNil(event.attributes["approve_mcps"])
+    }
+
+    @MainActor
+    func testNonCursorHarnessRecordsNoBridgeInvariantViolation() async throws {
+        let settings = AppSettings()
+        let tab = Tab(name: "Tab", directory: URL(filePath: "/tmp"))
+        let pane = tab.addPane(name: "Claude Pane", harness: .claude, appSettings: settings)
+        pane.agentControlInjectionEnabled = true
+        let service = AgentControlService.shared
+        await service.start()
+        InvariantReporter.shared.enableTestCapture()
+        defer {
+            InvariantReporter.shared.resetForTesting()
+            Task { await service.stop() }
+        }
+
+        _ = try AgentControlHarnessInjection.prepare(
+            pane: pane,
+            tab: tab,
+            commandArguments: ["claude"],
+            environment: ["PATH=/usr/bin"],
+            appSettings: settings)
+
+        XCTAssertTrue(
+            InvariantReporter.shared.violationsForTesting.isEmpty,
+            "A harness that never resolves a Cursor bridge path must not report the bridge invariant")
+    }
+
+    func testRemovingControlEnvironmentKeepsOtherValues() {
         let environment = [
             "PATH=/usr/bin",
             "\(tokenKey)=stale-token",
             "\(tokenKey)=duplicate-token",
+            "\(endpointKey)=http://127.0.0.1:1234/mcp",
             "HOME=/tmp",
         ]
 
         XCTAssertEqual(
-            AgentControlHarnessInjection.removingControlToken(from: environment),
+            AgentControlHarnessInjection.removingControlEnvironment(from: environment),
             ["PATH=/usr/bin", "HOME=/tmp"])
     }
 

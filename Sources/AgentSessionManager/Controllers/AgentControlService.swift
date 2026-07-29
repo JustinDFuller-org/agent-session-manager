@@ -1,3 +1,4 @@
+import AgentSessionManagerMCPBridgeCore
 import CryptoKit
 import Foundation
 import MCP
@@ -212,6 +213,10 @@ final class AgentControlTokenStore: @unchecked Sendable {
         }
     }
 
+    func boundSessionCount(forPaneID paneID: UUID) -> Int {
+        lock.withLock { registrations[paneID]?.sessionIDs.count ?? 0 }
+    }
+
     func unbind(sessionID: String) {
         lock.withLock {
             guard let paneID = sessionToPane.removeValue(forKey: sessionID),
@@ -327,12 +332,12 @@ final class AgentControlService {
         TracingService.shared.record("agent_control.server.starting")
         do {
             let port = try await httpApplication.start()
-            let url = URL(string: "http://127.0.0.1:\(port)/mcp")!
+            let url = MCPBridgeEnvironment.makeLoopbackEndpoint(port: port)!
             endpoint = url
             state = .ready(endpoint: url)
             TracingService.shared.record(
                 "agent_control.server.started",
-                attributes: ["endpoint": "http://127.0.0.1:\(port)/mcp", "result": "ready"]
+                attributes: ["endpoint": url.absoluteString, "result": "ready"]
             )
         } catch {
             state = .failed(error.localizedDescription)

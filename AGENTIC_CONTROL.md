@@ -193,9 +193,9 @@ repository configuration:
 - Claude Code: use its supported MCP configuration mechanism.
 - OpenCode: merge an app-owned remote MCP configuration with existing config.
 - Codex: use its supported HTTP MCP configuration and bearer-token settings.
-- Cursor: resolve the documented project/global configuration limitation and
-  provide a per-pane strategy; never overwrite tracked or user-owned
-  `.cursor/mcp.json`.
+- Cursor: pass a private plugin through `--plugin-dir`; its bundled stdio bridge
+  inherits runtime connection details and never overwrites tracked or
+  user-owned `.cursor/mcp.json`.
 
 If injection is requested and an adapter cannot prepare valid configuration,
 the pane setup must report an actionable error instead of silently claiming
@@ -304,8 +304,8 @@ Each item is intended to be a separate implementation session.
      OpenCode, followed by Codex and Cursor.
    - Verify that disabled or declined injection produces no MCP configuration.
    - Verify that enabled injection is prepared before process launch and does
-     not print app plumbing in the terminal. [implemented for Claude Code,
-     OpenCode, and Codex; Cursor remains explicitly unsupported]
+     not print app plumbing in the terminal. [implemented for all four
+     harnesses]
 
 7. **Tab and pane mutations**
    - Add creation, deletion, focus, restart, and reordering tools.
@@ -360,8 +360,7 @@ Roadmap item 7 is implemented through the app-owned MCP router:
   and option validation, external-worktree management, and launch preparation.
 - Profile options and environment values seed pane creation, while explicit
   values override profile values. App-controlled environment variables are
-  rejected, runtime environment values are not persisted, and Cursor remains
-  unsupported for Agent Control injection.
+  rejected and runtime environment values are not persisted.
 - Worktree cleanup honors the persisted Keep, Delete, or Ask policy. Ask
   requires an explicit keep/delete input, and destructive cleanup reports one
   result per pane with `partial_failure` when removal completes but cleanup
@@ -371,8 +370,7 @@ Roadmap item 7 is implemented through the app-owned MCP router:
   and terminal output are excluded.
 - Unit and protocol coverage verifies scope boundaries, stateful focus and
   ordering, tab creation, cleanup policy enforcement, and partial-failure
-  reporting. Cross-tab pane moves, shell panes, and Cursor injection remain
-  outside this item.
+  reporting. Cross-tab pane moves and shell panes remain outside this item.
 
 ### Profiles and harness configuration record
 
@@ -440,7 +438,7 @@ Roadmap item 10 is implemented as the parity and hardening closeout:
 - `.agents/skills/feature-agentic-control/SKILL.md` and the `AGENTS.md` feature
   entry make the guide discoverable for future Agent Session Manager work.
 - `agent-harness-feature-matrix.md` now audits Agent Control across harnesses,
-  including the intentionally unsupported Cursor injection path.
+  including Cursor's private-plugin and bundled-bridge injection path.
 - The tracing span catalog includes resource reads, mutations, and harness
   preparation alongside the existing lifecycle, authorization, and diagnostic
   events.
@@ -451,10 +449,12 @@ Roadmap item 10 is implemented as the parity and hardening closeout:
   successful HTTP end marker, so clients observe a transport failure instead of
   accepting an incomplete response as successful.
 
-Cursor injection remains unsupported until a documented per-pane configuration
-surface exists. Existing local XCTest execution may remain unavailable on hosts
-where the test runner architecture does not match the generated arm64 bundle;
-compatible CI or Dev build validation is required in that environment.
+Cursor injection uses the documented local plugin surface for per-pane
+isolation. Its plugin starts an app-bundled stdio bridge so connection details
+stay in the inherited runtime environment rather than plugin configuration.
+Existing local XCTest execution may remain unavailable on hosts where the test
+runner architecture does not match the generated arm64 bundle; compatible CI
+or direct native XCTest validation is required in that environment.
 
 Validation for this closeout:
 
@@ -599,15 +599,18 @@ extends its existing `OPENCODE_CONFIG_CONTENT` JSON with a remote MCP server,
 Codex configuration file is written. Existing OpenCode safety settings and
 user-provided environment values remain in the launch environment.
 
-Cursor injection is intentionally blocked until a supported per-pane
-configuration surface exists. The pane setup error explains how to recover by
-disabling injection or selecting another harness. Disabled injection revokes
+Cursor receives a private plugin directory through `--plugin-dir`. The plugin's
+stdio MCP entry starts the bundled `AgentSessionManagerMCPBridge`, which reads
+the loopback endpoint and bearer token from its inherited environment and
+forwards raw MCP messages to the existing HTTP server. The plugin contains no
+credential or endpoint. Missing bridge or plugin preparation falls back to a
+normal Cursor launch after revoking the credential. Disabled injection revokes
 any prior credential and leaves the harness command and environment unchanged.
 
 The shared preparation path emits bounded, pane-scoped
-`agent_control.harness.prepare` telemetry with only harness, result, and
-identity metadata. Adapter serialization and the Cursor unsupported result are
-covered by `AgentControlHarnessInjectionTests`.
+`agent_control.harness.prepare` telemetry with harness, result, identity, and
+the bounded Cursor transport kind. Adapter serialization, bridge validation,
+and Cursor fallback are covered by `AgentControlHarnessInjectionTests`.
 
 ### Diagnostics and observability implementation record
 
@@ -675,9 +678,9 @@ repository configuration:
 | Claude Code | Pass a temporary JSON configuration through `--mcp-config`; compare normal loading with `--strict-mcp-config`. | Supported surface confirmed; isolated end-to-end loading remains part of adapter implementation. |
 | OpenCode | Add a remote MCP entry through app-owned configuration content with a URL and HTTP header. | Supported remote-server shape confirmed; merge and precedence behavior must be tested before implementation. |
 | Codex | Use Streamable HTTP `url` plus `bearer_token_env_var`, supplied through documented config or launch-time overrides. | Supported surface confirmed; exact per-pane preparation must avoid `~/.codex/config.toml` and project config writes. |
-| Cursor | Current documentation exposes project `.cursor/mcp.json` and global `~/.cursor/mcp.json`; the installed Agent CLI exposes no per-pane MCP-config flag. | Isolation remains unresolved. Do not write either location; this harness may remain blocked until a documented per-pane strategy exists. |
+| Cursor | Pass a private plugin through `--plugin-dir`; its stdio MCP entry launches the bundled bridge with inherited runtime connection details. | Supported and isolated without writing project or global MCP configuration. |
 
-The future adapter boundary is therefore documented but not implemented:
+The adapter boundary is implemented:
 configuration preparation receives the pane identity, endpoint, runtime token,
 working directory, and existing configuration context, then returns launch
 arguments, environment additions, app-owned artifacts, cleanup ownership, or an
