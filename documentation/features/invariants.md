@@ -22,6 +22,7 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 | `opencode.tui.endpoints_unused` | OpenCode | error | `opencode.tui.endpoint_forbidden` |
 | `cursor.agent_control.bridge_available` | Cursor | error | `cursor.agent_control.bridge_missing` |
 | `app.launch.auxiliary_windows_closed` | App Launch | error | `app.launch.auxiliary_window_opened` |
+| `terminal.clipboard.copy_requires_selection` | Terminal | warning | `terminal.clipboard.copy_without_selection` |
 
 Each occurrence has its own UUID. Repeated violations of the same invariant remain separate dashboard rows.
 

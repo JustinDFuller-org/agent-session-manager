@@ -32,6 +32,8 @@ To change a configurable shortcut:
 
 The **⌘1 through ⌘9** tab-switching shortcuts are fixed and cannot be changed.
 
+⌘C and ⌘V copy and paste in the active pane. Right-click a pane for the same actions as **Copy** and **Paste** in its context menu — see [Tabs and Panes]({{ '/documentation/user-guide/tabs-and-panes/' | relative_url }}).
+
 ## What you should see
 
 The changed shortcut is used for that action the next time you invoke it. The tab-switching shortcuts continue to use their fixed positions.
