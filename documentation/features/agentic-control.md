@@ -60,6 +60,8 @@ Claude Code, Cursor, OpenCode, and Codex receive app-owned, per-pane MCP
 configuration before the final harness command starts. Cursor receives a
 private plugin directory through `--plugin-dir`; its plugin-root `mcp.json`
 defines the connection without modifying project or user configuration.
+Claude receives an inline `--mcp-config` document whose top-level `mcpServers`
+record contains the app-owned HTTP server.
 Credentials are
 high-entropy bearer tokens held only in memory and passed through a runtime
 environment variable. If control registration or Cursor plugin preparation is

@@ -2,6 +2,52 @@ import Foundation
 import XCTest
 
 final class AgentControlFlowTests: BaseTestCase {
+    func testClaudePaneWithAgentControlInjectionStaysRunning() throws {
+        let shell = Process()
+        let output = Pipe()
+        shell.executableURL = URL(filePath: "/bin/zsh")
+        shell.arguments = ["-i", "-c", "command -v claude"]
+        shell.standardOutput = output
+        shell.standardError = FileHandle.nullDevice
+        try shell.run()
+        shell.waitUntilExit()
+        guard shell.terminationStatus == 0,
+            !output.fileHandleForReading.readDataToEndOfFile().isEmpty
+        else {
+            throw XCTSkip("Claude Code is not installed in the UI-test shell PATH")
+        }
+
+        createTab(named: "ClaudeControlTab")
+        app.typeKey("p", modifierFlags: .command)
+        let paneField = app.textFields["new-pane-name-field"]
+        waitFor(paneField)
+        let controlToggle = app.checkBoxes["new-pane-agent-control-toggle"]
+        waitFor(controlToggle)
+        if controlToggle.value as? Int != 1 {
+            controlToggle.click()
+        }
+        paneField.click()
+        paneField.typeText("claude-control")
+        app.buttons["new-pane-open-button"].click()
+
+        waitForDisappear(paneField, timeout: 25)
+        waitFor(app.staticTexts["pane-name-claude-control"].firstMatch, timeout: 15)
+        let exitPrompt = app.descendants(matching: .any)
+            .matching(identifier: "pane-exit-prompt-claude-control").firstMatch
+        XCTAssertFalse(
+            exitPrompt.waitForExistence(timeout: 5),
+            "Claude Code exited during startup with Agent Control enabled")
+
+        app.typeKey("i", modifierFlags: .command)
+        let settingsSheet = app.descendants(matching: .any)
+            .matching(identifier: "pane-settings-sheet").firstMatch
+        waitFor(settingsSheet)
+        let runningStatus = settingsSheet.staticTexts.matching(
+            NSPredicate(format: "label BEGINSWITH 'Running (pid '")
+        ).firstMatch
+        waitFor(runningStatus)
+    }
+
     func testAgentControlSettingsAndNewPaneDecisionFlow() throws {
         app.typeKey(",", modifierFlags: .command)
 

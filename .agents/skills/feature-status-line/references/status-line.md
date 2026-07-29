@@ -274,12 +274,16 @@ Catch-all "lenient" decoders (decode whatever arrives without validation) are no
 | `statusline.payload.applied` | `pane.name`, `reason`, `cost_usd`, `used_pct`, `inode` | I7: every successful payload apply |
 | `statusline.payload.decode_failed` | `pane.name`, `reason`, `error`, `byte_count`, `payload_prefix`, `decoding_error_kind`, `coding_path`†, `missing_key`† | I7: read or JSON decode failure. `decoding_error_kind`: `key_not_found`, `type_mismatch`, `value_not_found`, `data_corrupted`, or `decoding_error`. †Present only for `key_not_found` and `type_mismatch`. |
 | `statusline.payload.stale_recovered` | `pane.name`, `file_mtime`, `stale_age_seconds` | I6: vnode watcher missed a write; timer recovered |
+| `statusline.watcher.lifecycle` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `watcher.role`, `result`, `errno`† | Claude status payload, attention, or hook-log watcher starts, waits, recovers, or stops. †Present while waiting. |
+| `statusline.cursor.<role>_watcher.<state>` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`†, `errno`† | Cursor hook, lifecycle, or attention watcher starts, fails to attach, recovers, or stops. †Present on attachment failure. |
 | `statusline.codex.hook_waiting` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `retry_attempt`, `late_bound`, `hook_record_available` | Codex provider is still waiting for a hook record |
 | `statusline.codex.hook_bound` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `hook_record_available`, `hook_event_name`, `retry_attempt`, `late_bound`, `session_id_prefix`, `transcript_available` | Codex hook record bound the pane to a session |
 | `statusline.codex.hook_record_ignored` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`, `retry_attempt`, `late_bound`, `record_pane_id`, `record_tab_id`, `hook_event_name` | Codex hook record was present but rejected |
 | `statusline.codex.sqlite_enrichment` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result`, `retry_attempt`, `session_id_prefix`, `rollout_path_matched` | Codex SQLite enrichment by exact session id/path |
 | `statusline.codex.selection_failed` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `reason`, `retry_attempt`, `retry_reason`, `hook_record_available`, `hook_event_name` | Codex hook binding failed or was still waiting |
-| `statusline.codex.tailer_started` | `pane.id`, `pane.name`, `tab.id`, `tab.name` | Codex transcript tailer starts |
+| `statusline.codex.tailer_started` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result` | Codex transcript tailer starts |
+| `statusline.codex.tailer_attachment` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result`, `errno`† | Codex rollout watcher waits for its file or recovers. †Present while waiting. |
+| `statusline.codex.tailer_stopped` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result` | Codex rollout watcher stops |
 | `statusline.codex.tailer_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `line_count`, `update_count`, `catch_up` | Codex rollout tailer reads a bounded batch |
 | `statusline.codex.parsed_update` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `has_model`, `has_tokens`, `has_context`, `has_rate_limits` | Codex rollout parsing produced a supported update |
 | `statusline.custom_field.exec_succeeded` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `duration_ms`, `output_kind` (`text`\|`structured`) | I8: a custom field's command completed and its cached value was updated |

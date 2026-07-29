@@ -48,9 +48,9 @@ final class StatusLineMonitor {
     private let harness: Harness
     private let isClaude: Bool
     private let providerContext: StatusProviderContext?
-    private var source: DispatchSourceFileSystemObject?
-    private var attentionSource: DispatchSourceFileSystemObject?
-    private var hookLogSource: DispatchSourceFileSystemObject?
+    private var statusWatcher: FileSystemEventWatcher?
+    private var attentionWatcher: FileSystemEventWatcher?
+    private var hookLogWatcher: FileSystemEventWatcher?
     private var hookLogOffset: UInt64 = 0
     private var hookLogLineBuffer = Data()
     private var outstandingBackgroundAgents = 0
@@ -253,8 +253,42 @@ final class StatusLineMonitor {
             FileManager.default.createFile(atPath: hookLogFilePath, contents: nil)
             writeHookLogScript()
 
-            startStatusWatcher()
-            startHookLogWatcher()
+            statusWatcher = makeFileWatcher(
+                path: filePath,
+                role: "status_payload",
+                followsReplacement: true
+            ) { [weak self] event in
+                self?.applyLatestPayload(
+                    reason: event == .fileReplaced ? "vnode_reopen" : "vnode_write")
+            }
+            statusWatcher?.start()
+            hookLogOffset = 0
+            hookLogLineBuffer = Data()
+            hookLogWatcher = makeFileWatcher(
+                path: hookLogFilePath,
+                role: "hook_log",
+                followsReplacement: false
+            ) { [weak self] _ in
+                guard let self,
+                    let handle = FileHandle(forReadingAtPath: hookLogFilePath)
+                else { return }
+                defer { try? handle.close() }
+                do {
+                    try handle.seek(toOffset: hookLogOffset)
+                    let data = try handle.readToEnd() ?? Data()
+                    guard !data.isEmpty else { return }
+                    hookLogOffset += UInt64(data.count)
+                    hookLogLineBuffer.append(data)
+                    while let newlineIndex = hookLogLineBuffer.firstIndex(of: UInt8(ascii: "\n")) {
+                        let lineData = Data(hookLogLineBuffer[..<newlineIndex])
+                        let afterNewline = hookLogLineBuffer.index(after: newlineIndex)
+                        hookLogLineBuffer = Data(hookLogLineBuffer[afterNewline...])
+                        guard !lineData.isEmpty else { continue }
+                        applyClaudeActivityPayload(lineData)
+                    }
+                } catch {}
+            }
+            hookLogWatcher?.start()
 
             if let cwd = workingDirectory {
                 Task { [weak self] in
@@ -278,43 +312,37 @@ final class StatusLineMonitor {
 
             stopAttentionWatcher()
             FileManager.default.createFile(atPath: attentionSignalFilePath, contents: nil)
-            let attentionFD = open(attentionSignalFilePath, O_EVTONLY)
-            if attentionFD >= 0 {
-                let attentionWatcher = DispatchSource.makeFileSystemObjectSource(
-                    fileDescriptor: attentionFD,
-                    eventMask: [.write, .extend],
-                    queue: .main
-                )
-                attentionWatcher.setEventHandler { [weak self] in
-                    guard let self else { return }
-                    self.attentionDebounceWork?.cancel()
-                    let work = DispatchWorkItem { [weak self] in
-                        guard let self,
-                            let data = try? Data(contentsOf: URL(filePath: self.attentionSignalFilePath)),
-                            !data.isEmpty
-                        else { return }
-                        var hasher = Hasher()
-                        hasher.combine(data)
-                        let fingerprint = hasher.finalize()
-                        guard fingerprint != self.lastAttentionPayloadFingerprint else { return }
-                        self.lastAttentionPayloadFingerprint = fingerprint
-                        guard let event = PaneAttentionEvent.claudeHook(data) else { return }
-                        TracingService.shared.record(
-                            "statusline.attention.received",
-                            attributes: [
-                                "pane.name": self.paneName, "pane.id": self.paneID.uuidString,
-                                "tab.id": self.tabID.uuidString, "tab.name": self.tabName,
-                                "source": event.source.rawValue, "reason": event.reason,
-                            ])
-                        self.onClaudeHookAttention?(event)
-                    }
-                    self.attentionDebounceWork = work
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+            attentionWatcher = makeFileWatcher(
+                path: attentionSignalFilePath,
+                role: "attention",
+                followsReplacement: false
+            ) { [weak self] _ in
+                guard let self else { return }
+                attentionDebounceWork?.cancel()
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self,
+                        let data = try? Data(contentsOf: URL(filePath: attentionSignalFilePath)),
+                        !data.isEmpty
+                    else { return }
+                    var hasher = Hasher()
+                    hasher.combine(data)
+                    let fingerprint = hasher.finalize()
+                    guard fingerprint != lastAttentionPayloadFingerprint else { return }
+                    lastAttentionPayloadFingerprint = fingerprint
+                    guard let event = PaneAttentionEvent.claudeHook(data) else { return }
+                    TracingService.shared.record(
+                        "statusline.attention.received",
+                        attributes: [
+                            "pane.name": paneName, "pane.id": paneID.uuidString,
+                            "tab.id": tabID.uuidString, "tab.name": tabName,
+                            "source": event.source.rawValue, "reason": event.reason,
+                        ])
+                    onClaudeHookAttention?(event)
                 }
-                attentionWatcher.setCancelHandler { close(attentionFD) }
-                attentionWatcher.resume()
-                attentionSource = attentionWatcher
+                attentionDebounceWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
             }
+            attentionWatcher?.start()
         } else {
             TracingService.shared.record(
                 "statusline.provider.started",
@@ -340,10 +368,10 @@ final class StatusLineMonitor {
     }
 
     func stop() {
-        source?.cancel()
-        source = nil
-        hookLogSource?.cancel()
-        hookLogSource = nil
+        statusWatcher?.cancel()
+        statusWatcher = nil
+        hookLogWatcher?.cancel()
+        hookLogWatcher = nil
         gitDiffTimer?.invalidate()
         gitDiffTimer = nil
         for timer in customFieldTimers.values { timer.invalidate() }
@@ -397,29 +425,41 @@ final class StatusLineMonitor {
         cursorLifecycle = isWorking ? .working : .stopped
     }
 
-    private func startStatusWatcher() {
-        source?.cancel()
-        source = nil
-        let fd = open(filePath, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let newSource = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend, .delete, .rename, .revoke],
-            queue: .main
-        )
-        newSource.setEventHandler { [weak self, weak newSource] in
-            guard let self else { return }
-            let inodeLost = newSource?.data.isDisjoint(with: [.delete, .rename, .revoke]) == false
-            if inodeLost {
-                self.startStatusWatcher()
-                self.applyLatestPayload(reason: "vnode_reopen")
-            } else {
-                self.applyLatestPayload(reason: "vnode_write")
+    private func makeFileWatcher(
+        path: String,
+        role: String,
+        followsReplacement: Bool,
+        onEvent: @escaping @MainActor (FileSystemEventWatcher.Event) -> Void
+    ) -> FileSystemEventWatcher {
+        FileSystemEventWatcher(
+            url: URL(filePath: path),
+            followsReplacement: followsReplacement,
+            onEvent: onEvent,
+            onStateChange: { [weak self] state in
+                guard let self else { return }
+                let result: String
+                var attributes = [
+                    "pane.name": paneName,
+                    "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString,
+                    "tab.name": tabName,
+                    "watcher.role": role,
+                ]
+                switch state {
+                case .started:
+                    result = "started"
+                case .waitingForFile(let openError):
+                    result = "waiting"
+                    attributes["errno"] = String(openError)
+                case .recovered:
+                    result = "recovered"
+                case .stopped:
+                    result = "stopped"
+                }
+                attributes["result"] = result
+                TracingService.shared.record("statusline.watcher.lifecycle", attributes: attributes)
             }
-        }
-        newSource.setCancelHandler { close(fd) }
-        newSource.resume()
-        source = newSource
+        )
     }
 
     @MainActor
@@ -699,8 +739,8 @@ final class StatusLineMonitor {
     private func stopAttentionWatcher() {
         attentionDebounceWork?.cancel()
         attentionDebounceWork = nil
-        attentionSource?.cancel()
-        attentionSource = nil
+        attentionWatcher?.cancel()
+        attentionWatcher = nil
         lastAttentionPayloadFingerprint = nil
     }
 
@@ -1068,48 +1108,6 @@ extension StatusLineMonitor {
 
 extension StatusLineMonitor {
     // MARK: - Claude hook-event log
-
-    private func startHookLogWatcher() {
-        hookLogSource?.cancel()
-        hookLogSource = nil
-        hookLogOffset = 0
-        hookLogLineBuffer = Data()
-        let fd = open(hookLogFilePath, O_EVTONLY)
-        guard fd >= 0 else { return }
-        let watcher = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd,
-            eventMask: [.write, .extend],
-            queue: .main
-        )
-        watcher.setEventHandler { [weak self] in
-            self?.readNewHookLogLines()
-        }
-        watcher.setCancelHandler { close(fd) }
-        watcher.resume()
-        hookLogSource = watcher
-    }
-
-    /// Runs on the main actor; `hookLogOffset` and `hookLogLineBuffer` remain actor-isolated with the monitor.
-    private func readNewHookLogLines() {
-        guard let handle = FileHandle(forReadingAtPath: hookLogFilePath) else { return }
-        defer { try? handle.close() }
-        do {
-            try handle.seek(toOffset: hookLogOffset)
-            let data = try handle.readToEnd() ?? Data()
-            guard !data.isEmpty else { return }
-            hookLogOffset += UInt64(data.count)
-            hookLogLineBuffer.append(data)
-            while let newlineIndex = hookLogLineBuffer.firstIndex(of: UInt8(ascii: "\n")) {
-                let lineData = Data(hookLogLineBuffer[..<newlineIndex])
-                let afterNewline = hookLogLineBuffer.index(after: newlineIndex)
-                hookLogLineBuffer = Data(hookLogLineBuffer[afterNewline...])
-                guard !lineData.isEmpty else { continue }
-                Task { @MainActor [weak self] in
-                    self?.applyClaudeActivityPayload(lineData)
-                }
-            }
-        } catch {}
-    }
 
     private func recordHookEventSpan(_ payload: ClaudeActivityPayload, decision: String?) {
         TracingService.shared.record(

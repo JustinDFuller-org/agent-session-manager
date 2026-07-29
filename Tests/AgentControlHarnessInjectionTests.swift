@@ -16,9 +16,19 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         )
 
         let prepared = try ClaudeAgentControlAdapter().prepare(context)
-        XCTAssertTrue(prepared.commandArguments.contains("--mcp-config"))
-        XCTAssertTrue(prepared.commandArguments.contains { $0.contains("127.0.0.1:43123") })
-        XCTAssertTrue(prepared.commandArguments.contains { $0.contains("${AGENT_SESSION_MANAGER_MCP_TOKEN}") })
+        let configFlagIndex = try XCTUnwrap(prepared.commandArguments.firstIndex(of: "--mcp-config"))
+        let configArgumentIndex = prepared.commandArguments.index(after: configFlagIndex)
+        XCTAssertLessThan(configArgumentIndex, prepared.commandArguments.endIndex)
+        let configData = Data(prepared.commandArguments[configArgumentIndex].utf8)
+        let config = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: configData) as? [String: Any])
+        XCTAssertEqual(Set(config.keys), ["mcpServers"])
+        let servers = try XCTUnwrap(config["mcpServers"] as? [String: Any])
+        let server = try XCTUnwrap(servers["agent-session-manager"] as? [String: Any])
+        XCTAssertEqual(server["type"] as? String, "http")
+        XCTAssertEqual(server["url"] as? String, endpoint.absoluteString)
+        let headers = try XCTUnwrap(server["headers"] as? [String: String])
+        XCTAssertEqual(headers["Authorization"], "Bearer ${\(tokenKey)}")
         XCTAssertFalse(prepared.commandArguments.contains { $0.contains("runtime-secret") })
         XCTAssertEqual(prepared.environment, context.environment)
     }
@@ -134,7 +144,10 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         let prepared = try AgentControlHarnessInjection.prepare(
             pane: pane,
             tab: tab,
-            commandArguments: ["claude", "--mcp-config", "{\"agent-session-manager\":{}}"],
+            commandArguments: [
+                "claude", "--mcp-config",
+                "{\"mcpServers\":{\"agent-session-manager\":{}}}",
+            ],
             environment: ["PATH=/usr/bin", "\(tokenKey)=stale-token"],
             appSettings: settings)
 
@@ -174,13 +187,13 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
 
     func testRemovingControlArgumentsRemovesOnlyAgentControlConfiguration() {
         let claudeArguments = [
-            "claude", "--mcp-config", "{\"agent-session-manager\":{}}",
-            "--mcp-config", "{\"other-server\":{}}",
+            "claude", "--mcp-config", "{\"mcpServers\":{\"agent-session-manager\":{}}}",
+            "--mcp-config", "{\"mcpServers\":{\"other-server\":{}}}",
         ]
         XCTAssertEqual(
             AgentControlHarnessInjection.removingControlArguments(
                 from: claudeArguments, harness: .claude),
-            ["claude", "--mcp-config", "{\"other-server\":{}}"])
+            ["claude", "--mcp-config", "{\"mcpServers\":{\"other-server\":{}}}"])
 
         let codexArguments = [
             "codex", "-c", "mcp_servers.agent_session_manager.url=\"http://127.0.0.1\"",
