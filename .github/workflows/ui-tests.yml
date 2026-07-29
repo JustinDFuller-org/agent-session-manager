@@ -14,7 +14,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Check supported toolchain floor
         run: bash scripts/check-toolchain.sh
@@ -27,7 +27,7 @@ jobs:
 
       - name: Upload xcresult
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ui-test-results
           path: .build/TestResults.xcresult
