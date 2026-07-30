@@ -118,6 +118,32 @@ final class TabPaneFlowTests: BaseTestCase {
         waitFor(secondShellPane, timeout: 10)
     }
 
+    func testPaneContextMenuOffersCopyAndPaste() {
+        createTab(named: "ClipboardTab")
+        createPane(named: "reader")
+
+        let readerHeader = app.descendants(matching: .any).matching(identifier: "pane-header-reader").firstMatch
+        waitFor(readerHeader)
+        readerHeader.rightClick()
+
+        let copyItem = app.windows.firstMatch.menuItems["Copy"]
+        let pasteItem = app.windows.firstMatch.menuItems["Paste"]
+        waitFor(copyItem)
+        waitFor(pasteItem)
+        XCTAssertFalse(copyItem.isEnabled, "Copy should be disabled without an active selection")
+        XCTAssertTrue(pasteItem.isEnabled)
+        app.typeKey(.escape, modifierFlags: [])
+
+        let readerTerminal = app.descendants(matching: .any).matching(identifier: "pane-terminal-reader").firstMatch
+        waitFor(readerTerminal)
+        readerTerminal.rightClick()
+
+        let copyItemFromTerminal = app.windows.firstMatch.menuItems["Copy"]
+        waitFor(copyItemFromTerminal)
+        XCTAssertTrue(app.windows.firstMatch.menuItems["Paste"].exists)
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
     func testTabPaneFlow() {
         // Create first tab and assert initial state
         createTab(named: "WorkTab")

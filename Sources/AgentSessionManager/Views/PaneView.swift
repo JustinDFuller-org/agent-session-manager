@@ -64,6 +64,15 @@ struct PaneView: View {
             }
         }
         .contextMenu {
+            Button("Copy") {
+                pane.terminalController?.terminalView.copySelectionToPasteboard()
+            }
+            .disabled(!canCopy)
+            Button("Paste") {
+                appState.setActivePane(id: pane.id)
+                pane.terminalController?.terminalView.pasteFromPasteboard()
+            }
+            Divider()
             if isFocused {
                 Button("Show All Panes") {
                     showAllPanes(reason: "context_menu")
@@ -222,6 +231,10 @@ struct PaneView: View {
         }
     }
 
+    var canCopy: Bool {
+        pane.terminalController?.hasSelection ?? false
+    }
+
     private func focusPane(reason: String) {
         appState.setActivePane(id: pane.id)
         pane.tab?.setFocusedPane(id: pane.id, reason: reason)
@@ -267,6 +280,7 @@ struct PaneView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .layoutPriority(1)
             .id(pane.restartToken)
+            .accessibilityIdentifier("pane-terminal-\(pane.name)")
         } else if case .failed(let error) = pane.setupState {
             VStack(spacing: 12) {
                 Text(error)

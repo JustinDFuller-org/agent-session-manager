@@ -36,6 +36,13 @@ Create a tab for a Git repository by following the [Quickstart]({{ '/documentati
 4. Review any **CLI Options** or **Environment Variables**.
 5. Choose **Create Pane**.
 
+### Copy and paste in a pane
+
+Right-click anywhere on a pane to open its context menu. **Copy** and **Paste** appear at the top.
+
+- **Copy** — copies the selected text and clears the selection. The item is greyed out when nothing is selected.
+- **Paste** — sends clipboard text through the terminal's bracketed-paste path. Agent TUIs receive it as a single paste event. ⌘C and ⌘V work as before.
+
 ### Open a shell in a pane's working directory
 
 1. Open the pane's context menu.

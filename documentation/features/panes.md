@@ -26,6 +26,13 @@ Each pane shows a configurable status bar at the bottom (model, cost, context us
 
 When a tab contains multiple panes, double-click a pane header or right-click and choose **Focus This Pane** to give that terminal the full tab body while keeping the tab bar visible. See [focus-pane.md]({{ '/documentation/features/focus-pane/' | relative_url }}).
 
+## Clipboard
+
+Right-click anywhere on a pane to open the context menu. **Copy** and **Paste** appear at the top, above a divider.
+
+- **Copy** — copies the current selection to the clipboard and clears it as confirmation. The item is greyed out when nothing is selected.
+- **Paste** — sends clipboard text through SwiftTerm's bracketed-paste path, so agent TUIs receive it as a single paste event rather than line-by-line keystrokes. ⌘C and ⌘V continue to work as before.
+
 ## Open Shell Here
 
 Right-click a pane header and choose **Open Shell Here** to create a plain shell pane in the same working directory. The new shell pane is named from the source pane so you can tell where it came from, for example `shell:reader`, `shell:reader-2`, and so on.

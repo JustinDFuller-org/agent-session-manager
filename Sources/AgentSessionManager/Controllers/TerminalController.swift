@@ -5,6 +5,7 @@ import SwiftTerm
 final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onAttention: ((PaneAttentionEvent) -> Void)?
     var onUserInput: (() -> Void)?
+    var onSelectionChanged: ((Bool) -> Void)?
     /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryTabName: String = ""
     var telemetryTabUUID: UUID?
@@ -116,6 +117,69 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
             }
         }
     }
+
+    override func selectionChanged(source: Terminal) {
+        super.selectionChanged(source: source)
+        let active = selectionActive
+        if Thread.isMainThread {
+            onSelectionChanged?(active)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.onSelectionChanged?(active)
+            }
+        }
+    }
+
+    /// Returns `false` without touching the pasteboard when there is no active selection.
+    /// SwiftTerm's own `copy(_:)` writes the (possibly empty) selected text unconditionally,
+    /// which would clear the pasteboard on an empty-selection copy.
+    @discardableResult
+    func copySelectionToPasteboard() -> Bool {
+        guard let text = getSelection(), !text.isEmpty else {
+            InvariantReporter.shared.violated(
+                .terminalClipboardCopyRequiresSelection,
+                context: telemetryContext()
+            )
+            return false
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        selectNone()
+        TracingService.shared.record(
+            "terminal.clipboard.copied",
+            attributes: telemetryContext().merging(
+                ["source": "context_menu", "chars": String(text.count)]
+            ) { _, new in new }
+        )
+        return true
+    }
+
+    @discardableResult
+    func pasteFromPasteboard() -> Bool {
+        guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
+            return false
+        }
+        paste(self)
+        onUserInput?()
+        TracingService.shared.record(
+            "terminal.clipboard.pasted",
+            attributes: telemetryContext().merging(
+                ["source": "context_menu", "chars": String(text.count)]
+            ) { _, new in new }
+        )
+        return true
+    }
+
+    private func telemetryContext() -> [String: String] {
+        var attrs: [String: String] = [
+            "pane.name": telemetryPaneName,
+            "tab.name": telemetryTabName,
+        ]
+        if let id = telemetryPaneUUID { attrs["pane.id"] = id.uuidString }
+        if let id = telemetryTabUUID { attrs["tab.id"] = id.uuidString }
+        return attrs
+    }
 }
 
 @Observable
@@ -123,6 +187,7 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 final class TerminalController: NSObject {
     let terminalView: BellCapturingTerminalView
     var processState: ProcessState = .idle
+    var hasSelection: Bool = false
     /// Argument-vector form of the command to run. The shell is still used as the
     /// executable so that PATH resolution from `~/.zshrc` works, but each token is
     /// shell-quoted before concatenation, eliminating shell-injection risks.
@@ -143,6 +208,10 @@ final class TerminalController: NSObject {
         super.init()
         terminalView.processDelegate = self
         terminalView.onAttention = { [weak self] event in self?.onAttention?(event) }
+        terminalView.onSelectionChanged = { [weak self] active in
+            guard let self, self.hasSelection != active else { return }
+            self.hasSelection = active
+        }
     }
 
     /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.

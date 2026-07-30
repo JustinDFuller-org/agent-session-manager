@@ -87,6 +87,15 @@ struct Invariant: Identifiable, Hashable, Sendable {
         traceEventName: "cursor.agent_control.bridge_missing"
     )
 
+    static let terminalClipboardCopyRequiresSelection = Invariant(
+        id: "terminal.clipboard.copy_requires_selection",
+        integration: "Terminal",
+        severity: .warning,
+        description:
+            "A copy request must carry an active, non-empty selection; the pasteboard is never cleared without one.",
+        traceEventName: "terminal.clipboard.copy_without_selection"
+    )
+
     static let appLaunchAuxiliaryWindowsClosed = Invariant(
         id: "app.launch.auxiliary_windows_closed",
         integration: "App Launch",
