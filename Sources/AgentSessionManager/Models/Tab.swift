@@ -485,6 +485,7 @@ final class Tab: Identifiable {
         id: UUID? = nil,
         extraEnvVars: [String: String] = [:],
         profileID: UUID? = nil,
+        scrollbackOverride: ScrollbackLimit? = nil,
         agentControlInjectionEnabled: Bool = true,
         resumeOpencodeSessionID: String? = nil,
         statusLineConfigOverride: StatusLineConfig? = nil,
@@ -520,6 +521,7 @@ final class Tab: Identifiable {
             worktreeDirectory: worktreeDirectory,
             worktreeIsManaged: worktreeIsManaged,
             profileID: profileID,
+            scrollbackOverride: scrollbackOverride,
             agentControlInjectionEnabled: agentControlInjectionEnabled,
             appSettings: appSettings
         )

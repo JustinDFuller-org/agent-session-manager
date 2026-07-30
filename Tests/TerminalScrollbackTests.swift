@@ -4,34 +4,180 @@ import XCTest
 
 @MainActor
 final class TerminalScrollbackTests: XCTestCase {
-    func testDefaultScrollbackIs500() {
+    func testDefaultScrollbackIs5000() {
         let settings = AppSettings()
-        XCTAssertEqual(settings.scrollbackLines, 500)
+        XCTAssertEqual(settings.defaultScrollback, .finite(5_000))
+        XCTAssertEqual(settings.defaultScrollback.resolvedLines, 5_000)
     }
 
-    func testSaveRestoreRoundTrip() throws {
-        let settings = AppSettings()
-        settings.scrollbackLines = 2000
-
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
-
-        let url = tmpDir.appendingPathComponent("terminal-settings.json")
-        let payload = try JSONEncoder().encode(["scrollbackLines": 2000])
-        try payload.write(to: url)
-
-        let decoded = try JSONDecoder().decode([String: Int].self, from: Data(contentsOf: url))
-        XCTAssertEqual(decoded["scrollbackLines"], 2000)
-
-        let restored = AppSettings()
-        restored.scrollbackLines = decoded["scrollbackLines"] ?? 500
-        XCTAssertEqual(restored.scrollbackLines, 2000)
+    func testFiniteLimitsClampToSafeRange() {
+        XCTAssertEqual(
+            ScrollbackLimit(finiteLines: 1).resolvedLines,
+            ScrollbackLimit.minimumLines
+        )
+        XCTAssertEqual(
+            ScrollbackLimit(finiteLines: 1_000_000).resolvedLines,
+            ScrollbackLimit.maximumFiniteLines
+        )
     }
 
-    func testRestoreFromMissingFileKeepsDefault() {
+    func testUnlimitedUsesMemoryCap() {
+        XCTAssertEqual(ScrollbackLimit.unlimited.resolvedLines, 50_000)
+        XCTAssertEqual(ScrollbackLimit.unlimited.modeName, "unlimited")
+    }
+
+    func testScrollbackLimitRoundTrips() throws {
+        for limit in [ScrollbackLimit.finite(2_000), .unlimited] {
+            let data = try JSONEncoder().encode(limit)
+            XCTAssertEqual(try JSONDecoder().decode(ScrollbackLimit.self, from: data), limit)
+        }
+    }
+
+    func testFiniteDecodeNormalizesOutOfRangeValue() throws {
+        let data = Data(#"{"mode":"finite","lines":1000000}"#.utf8)
+        XCTAssertEqual(
+            try JSONDecoder().decode(ScrollbackLimit.self, from: data),
+            .finite(ScrollbackLimit.maximumFiniteLines)
+        )
+    }
+
+    func testInvalidModeFailsDecoding() {
+        let data = Data(#"{"mode":"forever"}"#.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(ScrollbackLimit.self, from: data))
+    }
+
+    func testTerminalSettingsMigratesLegacyFiniteValue() throws {
+        let data = Data(#"{"scrollbackLines":2000}"#.utf8)
+        let decoded = try JSONDecoder().decode(SettingsPersistence.TerminalSettings.self, from: data)
+        XCTAssertEqual(decoded.scrollback, .finite(2_000))
+    }
+
+    func testTerminalSettingsRoundTripsFiniteAndUnlimited() throws {
+        for limit in [ScrollbackLimit.finite(2_000), .unlimited] {
+            let settings = SettingsPersistence.TerminalSettings(scrollback: limit)
+            let data = try JSONEncoder().encode(settings)
+            let decoded = try JSONDecoder().decode(SettingsPersistence.TerminalSettings.self, from: data)
+            XCTAssertEqual(decoded.scrollback, limit)
+            XCTAssertNil(String(data: data, encoding: .utf8)?.range(of: "scrollbackLines"))
+        }
+    }
+
+    func testMissingTerminalSettingsValueUsesDefault() throws {
+        let decoded = try JSONDecoder().decode(
+            SettingsPersistence.TerminalSettings.self,
+            from: Data("{}".utf8)
+        )
+        XCTAssertEqual(decoded.scrollback, .defaultValue)
+    }
+
+    func testPaneScrollbackOverrideRoundTrips() throws {
+        let persisted = PersistedPane(
+            id: UUID(),
+            name: "history",
+            harness: .cursor,
+            scrollbackOverride: .unlimited
+        )
+
+        let data = try JSONEncoder().encode(persisted)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
+
+        XCTAssertEqual(decoded.scrollbackOverride, .unlimited)
+    }
+
+    func testLegacyPaneWithoutScrollbackOverrideInheritsGlobalDefault() throws {
+        let persisted = PersistedPane(
+            id: UUID(),
+            name: "legacy",
+            harness: .claude,
+            scrollbackOverride: .finite(2_000)
+        )
+        let encoded = try JSONEncoder().encode(persisted)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "scrollbackOverride")
+
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
+
+        XCTAssertNil(decoded.scrollbackOverride)
+    }
+
+    func testInvalidPaneScrollbackOverrideFallsBackToGlobalDefault() throws {
+        let persisted = PersistedPane(
+            id: UUID(),
+            name: "invalid",
+            harness: .codex
+        )
+        let encoded = try JSONEncoder().encode(persisted)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object["scrollbackOverride"] = ["mode": "forever"]
+
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(PersistedPane.self, from: data)
+
+        XCTAssertNil(decoded.scrollbackOverride)
+    }
+
+    func testPaneOverrideWinsOverGlobalDefault() {
         let settings = AppSettings()
-        XCTAssertEqual(settings.scrollbackLines, 500)
+        settings.defaultScrollback = .finite(8_000)
+        let tab = Tab(
+            name: "history",
+            directory: FileManager.default.temporaryDirectory
+        )
+        let pane = Pane(
+            name: "pane",
+            tab: tab,
+            scrollbackOverride: nil,
+            appSettings: settings
+        )
+
+        XCTAssertEqual(pane.effectiveScrollback, .finite(8_000))
+        pane.scrollbackOverride = .finite(2_000)
+        XCTAssertEqual(pane.effectiveScrollback, .finite(2_000))
+        pane.scrollbackOverride = .unlimited
+        XCTAssertEqual(pane.effectiveScrollback, .unlimited)
+    }
+
+    func testSessionSnapshotIncludesPaneScrollbackOverride() throws {
+        let settings = AppSettings()
+        let tab = Tab(
+            name: "history",
+            directory: FileManager.default.temporaryDirectory
+        )
+        let pane = Pane(
+            name: "pane",
+            tab: tab,
+            harness: .cursor,
+            scrollbackOverride: .unlimited,
+            appSettings: settings
+        )
+        tab.panes.append(pane)
+        let appState = AppState()
+        appState.tabs = [tab]
+
+        let snapshot = SessionPersistence.makePersistedSession(appState: appState)
+        let persistedPane = try XCTUnwrap(snapshot.tabs.first?.panes.first)
+
+        XCTAssertEqual(persistedPane.scrollbackOverride, .unlimited)
+    }
+
+    func testScrollbackTelemetryContainsRequiredPaneContext() {
+        let attributes = TerminalScrollbackTelemetry(
+            limit: .unlimited,
+            source: "pane_override",
+            paneID: "pane-id",
+            paneName: "pane-name",
+            tabID: "tab-id",
+            tabName: "tab-name"
+        ).attributes
+
+        XCTAssertEqual(attributes["pane.id"], "pane-id")
+        XCTAssertEqual(attributes["pane.name"], "pane-name")
+        XCTAssertEqual(attributes["tab.id"], "tab-id")
+        XCTAssertEqual(attributes["tab.name"], "tab-name")
+        XCTAssertEqual(attributes["scrollback.mode"], "unlimited")
+        XCTAssertEqual(attributes["scrollback.lines"], "50000")
+        XCTAssertEqual(attributes["scrollback.source"], "pane_override")
+        XCTAssertEqual(attributes["result"], "applied")
     }
 }

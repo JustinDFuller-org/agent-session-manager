@@ -340,7 +340,36 @@ struct SettingsPersistence {
     }
 
     struct TerminalSettings: Codable {
-        var scrollbackLines: Int = 500
+        var scrollback: ScrollbackLimit = .defaultValue
+
+        private enum CodingKeys: String, CodingKey {
+            case scrollback
+            case scrollbackLines
+        }
+
+        init(scrollback: ScrollbackLimit = .defaultValue) {
+            self.scrollback = scrollback
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            if let scrollback = try container.decodeIfPresent(
+                ScrollbackLimit.self,
+                forKey: .scrollback
+            ) {
+                self.scrollback = scrollback
+            } else if let legacyLines = try container.decodeIfPresent(
+                Int.self,
+                forKey: .scrollbackLines
+            ) {
+                scrollback = ScrollbackLimit(finiteLines: legacyLines)
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(scrollback, forKey: .scrollback)
+        }
     }
 
     struct PRPollingSettings: Codable {

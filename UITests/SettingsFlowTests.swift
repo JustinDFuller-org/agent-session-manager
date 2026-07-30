@@ -26,6 +26,38 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertFalse(sidebar.waitForExistence(timeout: 1), "Settings should dismiss after Escape")
     }
 
+    func testScrollbackSettingsDefaultAndUnlimitedMode() {
+        app.typeKey(",", modifierFlags: .command)
+        let panesTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-panes").firstMatch
+        waitFor(panesTab)
+        panesTab.click()
+
+        let picker = app.descendants(matching: .any)
+            .matching(identifier: "settings-scrollback-mode-picker").firstMatch
+        let linesField = app.textFields["settings-scrollback-lines-field"]
+        waitFor(picker)
+        waitFor(linesField)
+        XCTAssertEqual(linesField.value as? String, "5000")
+
+        picker.click()
+        let unlimited = app.menuItems["Unlimited (50,000-line cap)"]
+        waitFor(unlimited)
+        unlimited.click()
+        waitForDisappear(linesField)
+
+        picker.click()
+        let custom = app.menuItems["Custom Limit"]
+        waitFor(custom)
+        custom.click()
+        let warning = app.alerts["Reduce Scrollback History?"]
+        waitFor(warning)
+        warning.buttons["Reduce History"].click()
+
+        waitFor(linesField)
+        XCTAssertEqual(linesField.value as? String, "5000")
+    }
+
     func testAuxiliaryWindowsCloseWithCommandWWithoutAffectingMainWindowState() {
         createTab(named: "Alpha")
         createPane(named: "alpha-pane")

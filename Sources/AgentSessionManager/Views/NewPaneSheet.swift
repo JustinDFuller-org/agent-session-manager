@@ -15,6 +15,7 @@ struct NewPaneSheet: View {
     @State private var envVarStates: [String: OptionState] = [:]
     @State private var isPriority = false
     @State private var agentControlInjectionEnabled = true
+    @State private var scrollbackOverride: ScrollbackLimit?
 
     @State private var showSaveProfileSheet = false
     @State private var saveProfileName = ""
@@ -165,6 +166,7 @@ struct NewPaneSheet: View {
             }
 
             agentControlSection
+            scrollbackSection
 
             cliOptionsSection
             hiddenCLIOptionsSection
@@ -222,6 +224,7 @@ struct NewPaneSheet: View {
                 sessionInput = pane.name
                 selectedHarness = pane.harness
                 selectedProfileID = pane.profileID
+                scrollbackOverride = pane.scrollbackOverride
             }
             if !activeToolList.contains(selectedHarness) {
                 selectedHarness = activeToolList.first ?? .claude
@@ -244,6 +247,21 @@ struct NewPaneSheet: View {
     }
 
     // MARK: - Sections
+
+    private var scrollbackSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Scrollback History")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            ScrollbackLimitEditor(
+                value: scrollbackOverride,
+                allowsInheritance: true,
+                inheritedValue: appSettings.defaultScrollback,
+                accessibilityPrefix: "new-pane-scrollback",
+                onChange: { scrollbackOverride = $0 }
+            )
+        }
+    }
 
     @ViewBuilder
     private var profilePickerSection: some View {
@@ -617,6 +635,7 @@ struct NewPaneSheet: View {
         if let pane = refreshingPane {
             pane.agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
                 persistedDecision: agentControlInjectionEnabled)
+            pane.scrollbackOverride = scrollbackOverride
             tab.refreshPane(
                 pane, extraArgs: extraArgs, harness: selectedHarness, extraEnvVars: extraEnvVars,
                 appSettings: appSettings)
@@ -633,6 +652,7 @@ struct NewPaneSheet: View {
             harness: selectedHarness,
             worktreeIsManaged: true,
             profileID: selectedProfileID,
+            scrollbackOverride: scrollbackOverride,
             agentControlInjectionEnabled: appSettings.resolvedAgentControlInjectionDecision(
                 persistedDecision: agentControlInjectionEnabled),
             appSettings: appSettings

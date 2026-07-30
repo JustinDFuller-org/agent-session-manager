@@ -150,7 +150,7 @@ struct ContentView: View {
                 if let config = SettingsPersistence.load(
                     SettingsPersistence.TerminalSettings.self, from: "terminal-settings.json")
                 {
-                    appSettings.scrollbackLines = config.scrollbackLines
+                    appSettings.defaultScrollback = config.scrollback
                 }
                 if let value = SettingsPersistence.load(ExitBehavior.self, from: "exit-behavior.json") {
                     appSettings.exitBehavior = value

@@ -16,6 +16,82 @@ final class TabPaneFlowTests: BaseTestCase {
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
     }
 
+    func testPaneScrollbackOverrideFromCreationAndContextMenu() {
+        createTab(named: "HistoryTab")
+        app.typeKey("p", modifierFlags: .command)
+
+        let nameField = app.textFields["new-pane-name-field"]
+        let picker = app.descendants(matching: .any)
+            .matching(identifier: "new-pane-scrollback-mode-picker").firstMatch
+        waitFor(nameField)
+        waitFor(picker)
+        XCTAssertTrue(picker.label.contains("Use Global Default"))
+
+        picker.click()
+        let unlimited = app.menuItems["Unlimited (50,000-line cap)"]
+        waitFor(unlimited)
+        unlimited.click()
+
+        nameField.click()
+        nameField.typeText("history-pane")
+        app.buttons["new-pane-open-button"].click()
+
+        let header = app.descendants(matching: .any)
+            .matching(identifier: "pane-header-history-pane").firstMatch
+        waitFor(header, timeout: 15)
+        header.rightClick()
+        let historyMenu = app.windows.firstMatch.menuItems["Scrollback History"]
+        waitFor(historyMenu)
+        historyMenu.hover()
+        let useGlobal = app.menuItems["Use Global Default (5,000 lines)"]
+        waitFor(useGlobal)
+        useGlobal.click()
+
+        let warning = app.alerts["Reduce Scrollback History?"]
+        waitFor(warning)
+        warning.buttons["Reduce History"].click()
+
+        header.rightClick()
+        let historyMenuAfterReset = app.windows.firstMatch.menuItems["Scrollback History"]
+        waitFor(historyMenuAfterReset)
+        historyMenuAfterReset.hover()
+        let custom = app.menuItems["Custom\u{2026}"]
+        waitFor(custom)
+        custom.click()
+
+        let paneField = app.textFields["pane-scrollback-lines-field"]
+        waitFor(paneField)
+        XCTAssertEqual(paneField.value as? String, "5000")
+        paneField.click()
+        paneField.typeKey("a", modifierFlags: .command)
+        paneField.typeText("2000")
+        app.buttons["pane-scrollback-apply-button"].click()
+        app.buttons["Apply"].click()
+
+        let customWarning = app.alerts["Reduce Scrollback History?"]
+        waitFor(customWarning)
+        customWarning.buttons["Reduce History"].click()
+
+        header.rightClick()
+        let historyMenuAfterCustom = app.windows.firstMatch.menuItems["Scrollback History"]
+        waitFor(historyMenuAfterCustom)
+        historyMenuAfterCustom.hover()
+        waitFor(app.menuItems["Custom\u{2026}"])
+        app.menuItems["Custom\u{2026}"].click()
+        let persistedPaneField = app.textFields["pane-scrollback-lines-field"]
+        waitFor(persistedPaneField)
+        XCTAssertEqual(persistedPaneField.value as? String, "2000")
+        app.buttons["Cancel"].click()
+
+        header.rightClick()
+        let refresh = app.windows.firstMatch.menuItems["Refresh Pane\u{2026}"]
+        waitFor(refresh)
+        refresh.click()
+        let refreshedField = app.textFields["new-pane-scrollback-lines-field"]
+        waitFor(refreshedField)
+        XCTAssertEqual(refreshedField.value as? String, "2000")
+    }
+
     func testFocusPaneFlow() {
         createTab(named: "FocusTab")
         createPane(named: "reader")

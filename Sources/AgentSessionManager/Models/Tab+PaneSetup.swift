@@ -8,6 +8,7 @@ extension Tab {
         harness: Harness = .claude,
         worktreeIsManaged: Bool = false,
         profileID: UUID? = nil,
+        scrollbackOverride: ScrollbackLimit? = nil,
         agentControlInjectionEnabled: Bool = true,
         appSettings: AppSettings? = nil
     ) -> Pane {
@@ -23,6 +24,7 @@ extension Tab {
             harness: harness,
             worktreeIsManaged: worktreeIsManaged,
             profileID: profileID,
+            scrollbackOverride: scrollbackOverride,
             agentControlInjectionEnabled: agentControlInjectionEnabled,
             appSettings: appSettings
         )

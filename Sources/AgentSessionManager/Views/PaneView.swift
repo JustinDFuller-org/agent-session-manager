@@ -10,6 +10,10 @@ struct PaneView: View {
     let onClosePane: (Pane) -> Void
     let onRefreshPane: (Pane) -> Void
     let onViewPaneSettings: (Pane) -> Void
+    @State private var showsScrollbackEditor = false
+    @State private var scrollbackDraft: ScrollbackLimit?
+    @State private var pendingScrollback: ScrollbackLimit?
+    @State private var showsScrollbackReductionWarning = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -118,6 +122,89 @@ struct PaneView: View {
                     )
                 )
             }
+            Menu("Scrollback History") {
+                Button {
+                    requestScrollbackChange(nil)
+                } label: {
+                    if pane.scrollbackOverride == nil {
+                        Label(
+                            "Use Global Default (\(appSettings.defaultScrollback.resolvedLines.formatted()) lines)",
+                            systemImage: "checkmark"
+                        )
+                    } else {
+                        Text("Use Global Default (\(appSettings.defaultScrollback.resolvedLines.formatted()) lines)")
+                    }
+                }
+                Divider()
+                ForEach([1_000, 5_000, 10_000], id: \.self) { lines in
+                    Button {
+                        requestScrollbackChange(.finite(lines))
+                    } label: {
+                        if pane.scrollbackOverride == .finite(lines) {
+                            Label("\(lines.formatted()) Lines", systemImage: "checkmark")
+                        } else {
+                            Text("\(lines.formatted()) Lines")
+                        }
+                    }
+                }
+                Button {
+                    requestScrollbackChange(.unlimited)
+                } label: {
+                    if pane.scrollbackOverride == .unlimited {
+                        Label("Unlimited (50,000-line cap)", systemImage: "checkmark")
+                    } else {
+                        Text("Unlimited (50,000-line cap)")
+                    }
+                }
+                Divider()
+                Button("Custom\u{2026}") {
+                    scrollbackDraft =
+                        pane.scrollbackOverride
+                        ?? .finite(appSettings.defaultScrollback.resolvedLines)
+                    showsScrollbackEditor = true
+                }
+            }
+        }
+        .sheet(isPresented: $showsScrollbackEditor) {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Pane Scrollback History")
+                    .font(.headline)
+                ScrollbackLimitEditor(
+                    value: scrollbackDraft,
+                    allowsInheritance: true,
+                    inheritedValue: appSettings.defaultScrollback,
+                    accessibilityPrefix: "pane-scrollback",
+                    onChange: { scrollbackDraft = $0 }
+                )
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        showsScrollbackEditor = false
+                    }
+                    Button("Apply") {
+                        requestScrollbackChange(scrollbackDraft)
+                        showsScrollbackEditor = false
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(24)
+            .frame(width: 420)
+            .pinnedSheetBackground()
+        }
+        .alert(
+            "Reduce Scrollback History?",
+            isPresented: $showsScrollbackReductionWarning
+        ) {
+            Button("Reduce History", role: .destructive) {
+                applyScrollbackChange(pendingScrollback)
+                pendingScrollback = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingScrollback = nil
+            }
+        } message: {
+            Text("Oldest retained terminal lines are discarded immediately and cannot be recovered.")
         }
         .onTapGesture {
             appState.setActivePane(id: pane.id)
@@ -128,6 +215,22 @@ struct PaneView: View {
             }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private func requestScrollbackChange(_ override: ScrollbackLimit?) {
+        let currentLines = (pane.scrollbackOverride ?? appSettings.defaultScrollback).resolvedLines
+        let requestedLines = (override ?? appSettings.defaultScrollback).resolvedLines
+        if requestedLines < currentLines {
+            pendingScrollback = override
+            showsScrollbackReductionWarning = true
+        } else {
+            applyScrollbackChange(override)
+        }
+    }
+
+    private func applyScrollbackChange(_ override: ScrollbackLimit?) {
+        pane.scrollbackOverride = override
+        SessionPersistence.save(appState: appState)
     }
 
     private var paneHeader: some View {
@@ -275,7 +378,12 @@ struct PaneView: View {
             TerminalRepresentable(
                 controller: controller,
                 isActive: isActive,
-                scrollbackLines: appSettings.scrollbackLines
+                scrollbackLimit: pane.effectiveScrollback,
+                scrollbackSource: pane.scrollbackOverride == nil ? "global" : "pane_override",
+                paneID: pane.id.uuidString,
+                paneName: pane.name,
+                tabID: pane.tab?.id.uuidString ?? "",
+                tabName: pane.tab?.name ?? ""
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .layoutPriority(1)
