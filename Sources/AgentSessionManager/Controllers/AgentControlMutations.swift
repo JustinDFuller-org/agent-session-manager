@@ -163,12 +163,12 @@ final class AgentControlMutationRouter {
     let appSettings: AppSettings
 
     private static let mutationNames: Set<String> = [
-        "tabs.create", "tabs.delete", "tabs.focus", "tabs.reorder",
-        "panes.create", "panes.delete", "panes.focus", "panes.restart", "panes.reorder",
-        "profiles.create", "profiles.update", "profiles.delete", "profiles.reorder",
-        "status_lines.update_global", "status_lines.update_profile", "status_lines.clear_profile_override",
-        "notifications.acknowledge",
-        "harnesses.set_enabled", "harnesses.configure_cli_option",
+        "tabs_create", "tabs_delete", "tabs_focus", "tabs_reorder",
+        "panes_create", "panes_delete", "panes_focus", "panes_restart", "panes_reorder",
+        "profiles_create", "profiles_update", "profiles_delete", "profiles_reorder",
+        "status_lines_update_global", "status_lines_update_profile", "status_lines_clear_profile_override",
+        "notifications_acknowledge",
+        "harnesses_set_enabled", "harnesses_configure_cli_option",
     ]
 
     init(appState: AppState, appSettings: AppSettings) {
@@ -180,169 +180,208 @@ final class AgentControlMutationRouter {
         Self.mutationNames.contains(name)
     }
 
+    private static let harnessNames = Harness.allCases.map(\.rawValue)
+    private static let cleanupValues = ["keep", "delete"]
+    private static let baseRefValues = WorktreeBaseRef.allCases.map(\.rawValue)
+
+    private static let cliOptionInputSchema = AgentControlToolSchema.object(
+        "A CLI option to enable or disable for the new pane",
+        properties: [
+            "id": .string("CLI option catalog ID"),
+            "enabled": .boolean("Whether the option is enabled"),
+            "value": .string("Single option value, for options that accept one"),
+            "values": .array("Option values, for options that accept several", items: .string("Option value")),
+        ],
+        required: ["id", "enabled"])
+
+    private static let environmentInputSchema = AgentControlToolSchema.object(
+        "An environment variable to set for the new pane",
+        properties: [
+            "id": .string("Environment variable catalog ID"),
+            "enabled": .boolean("Whether the variable is set"),
+            "value": .string("Environment variable value"),
+        ],
+        required: ["id", "enabled", "value"])
+
+    private static let profileOptionPatchSchema = AgentControlToolSchema.object(
+        "A CLI option patch to apply to the profile",
+        properties: [
+            "id": .string("CLI option catalog ID"),
+            "enabled": .boolean("Whether the option is enabled"),
+            "value": .string("Single option value, for options that accept one"),
+            "values": .array("Option values, for options that accept several", items: .string("Option value")),
+            "showOnPaneCreate": .boolean("Whether to surface this option when creating a pane from the profile"),
+        ],
+        required: ["id", "enabled"])
+
+    private static let profileEnvironmentPatchSchema = AgentControlToolSchema.object(
+        "An environment variable patch to apply to the profile",
+        properties: [
+            "id": .string("Environment variable catalog ID"),
+            "enabled": .boolean("Whether the variable is set"),
+            "value": .string("Environment variable value"),
+            "showOnPaneCreate": .boolean("Whether to surface this variable when creating a pane from the profile"),
+        ],
+        required: ["id", "enabled"])
+
     func tools() -> [Tool] {
         [
             Tool(
-                name: "tabs.create",
+                name: "tabs_create",
                 description: "Create a tab in the Agent Session Manager workspace. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "name": .object(["type": .string("string")]),
-                        "directory": .object(["type": .string("string")]),
-                        "baseBranch": .object(["type": .string("string")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "name": .string("Tab name"),
+                        "directory": .string("Existing directory to open the tab in"),
+                        "baseBranch": .string("Base branch override for worktrees created in this tab"),
                     ], required: ["name", "directory"])),
             Tool(
-                name: "tabs.delete",
+                name: "tabs_delete",
                 description: "Delete a tab and optionally clean up its managed worktrees. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "tabID": .object(["type": .string("string")]),
-                        "cleanup": .object([
-                            "type": .string("string"),
-                            "enum": .array([.string("keep"), .string("delete")]),
-                        ]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "tabID": .string("Tab UUID"),
+                        "cleanup": .string(
+                            "Whether to keep or delete managed worktrees", enumValues: Self.cleanupValues),
                     ], required: ["tabID"])),
             Tool(
-                name: "tabs.focus",
+                name: "tabs_focus",
                 description: "Activate a visible tab.",
-                inputSchema: Self.objectSchema(
-                    properties: ["tabID": .object(["type": .string("string")])], required: ["tabID"])),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["tabID": .string("Tab UUID")], required: ["tabID"])),
             Tool(
-                name: "tabs.reorder",
+                name: "tabs_reorder",
                 description: "Move a tab to an insertion index. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "tabID": .object(["type": .string("string")]),
-                        "destinationIndex": .object(["type": .string("integer")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "tabID": .string("Tab UUID"),
+                        "destinationIndex": .integer("Insertion index within the tab list"),
                     ], required: ["tabID", "destinationIndex"])),
             Tool(
-                name: "panes.create",
+                name: "panes_create",
                 description: "Create a pane after resolving and preparing its worktree and harness.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "tabID": .object(["type": .string("string")]),
-                        "worktreeRef": .object(["type": .string("string")]),
-                        "harness": .object(["type": .string("string")]),
-                        "profileID": .object(["type": .string("string")]),
-                        "cliOptions": .object(["type": .string("array")]),
-                        "environment": .object(["type": .string("array")]),
-                        "defaultBranch": .object(["type": .string("string")]),
-                        "baseRef": .object([
-                            "type": .string("string"),
-                            "enum": .array([.string("fresh"), .string("head")]),
-                        ]),
-                        "priority": .object(["type": .string("boolean")]),
-                        "agentControlInjectionEnabled": .object(["type": .string("boolean")]),
-                        "manageExistingWorktree": .object(["type": .string("boolean")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "tabID": .string("Tab UUID to create the pane in"),
+                        "worktreeRef": .string("Branch, worktree path, or reference to resolve"),
+                        "harness": .string("Harness to run in the pane", enumValues: Self.harnessNames),
+                        "profileID": .string("Profile UUID to apply"),
+                        "cliOptions": .array("CLI options to enable or disable", items: Self.cliOptionInputSchema),
+                        "environment": .array("Environment variables to set", items: Self.environmentInputSchema),
+                        "defaultBranch": .string("Default branch override for the resolved worktree"),
+                        "baseRef": .string(
+                            "Base ref to create a new worktree from", enumValues: Self.baseRefValues),
+                        "priority": .boolean("Whether notifications from this pane are treated as priority"),
+                        "agentControlInjectionEnabled": .boolean("Whether to inject Agent Control into the pane"),
+                        "manageExistingWorktree": .boolean(
+                            "Whether to manage an existing worktree's lifecycle, when takeover is ambiguous"),
                     ], required: ["tabID", "worktreeRef", "harness"])),
             Tool(
-                name: "panes.delete",
+                name: "panes_delete",
                 description: "Delete a pane and optionally clean up its managed worktree.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "paneID": .object(["type": .string("string")]),
-                        "cleanup": .object([
-                            "type": .string("string"),
-                            "enum": .array([.string("keep"), .string("delete")]),
-                        ]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "paneID": .string("Pane UUID"),
+                        "cleanup": .string(
+                            "Whether to keep or delete a managed worktree", enumValues: Self.cleanupValues),
                     ], required: ["paneID"])),
             Tool(
-                name: "panes.focus",
+                name: "panes_focus",
                 description: "Activate and focus a visible pane.",
-                inputSchema: Self.objectSchema(
-                    properties: ["paneID": .object(["type": .string("string")])], required: ["paneID"])),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["paneID": .string("Pane UUID")], required: ["paneID"])),
             Tool(
-                name: "panes.restart",
+                name: "panes_restart",
                 description: "Restart a visible pane using its existing harness configuration.",
-                inputSchema: Self.objectSchema(
-                    properties: ["paneID": .object(["type": .string("string")])], required: ["paneID"])),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["paneID": .string("Pane UUID")], required: ["paneID"])),
             Tool(
-                name: "panes.reorder",
+                name: "panes_reorder",
                 description: "Move a pane within its current tab.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "paneID": .object(["type": .string("string")]),
-                        "destinationIndex": .object(["type": .string("integer")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "paneID": .string("Pane UUID"),
+                        "destinationIndex": .integer("Insertion index within the tab's pane list"),
                     ], required: ["paneID", "destinationIndex"])),
             Tool(
-                name: "profiles.create",
+                name: "profiles_create",
                 description: "Create a reusable harness profile. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "name": .object(["type": .string("string")]),
-                        "harness": .object(["type": .string("string")]),
-                        "cliOptions": .object(["type": .string("array")]),
-                        "environment": .object(["type": .string("array")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "name": .string("Profile name"),
+                        "harness": .string("Harness the profile applies to", enumValues: Self.harnessNames),
+                        "cliOptions": .array("CLI option patches", items: Self.profileOptionPatchSchema),
+                        "environment": .array(
+                            "Environment variable patches", items: Self.profileEnvironmentPatchSchema),
                     ], required: ["name", "harness"])),
             Tool(
-                name: "profiles.update",
+                name: "profiles_update",
                 description: "Patch a reusable harness profile. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "profileID": .object(["type": .string("string")]),
-                        "name": .object(["type": .string("string")]),
-                        "harness": .object(["type": .string("string")]),
-                        "cliOptions": .object(["type": .string("array")]),
-                        "environment": .object(["type": .string("array")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "profileID": .string("Profile UUID"),
+                        "name": .string("Profile name"),
+                        "harness": .string("Harness the profile applies to", enumValues: Self.harnessNames),
+                        "cliOptions": .array("CLI option patches", items: Self.profileOptionPatchSchema),
+                        "environment": .array(
+                            "Environment variable patches", items: Self.profileEnvironmentPatchSchema),
                     ], required: ["profileID"])),
             Tool(
-                name: "profiles.delete",
+                name: "profiles_delete",
                 description: "Delete a reusable harness profile. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: ["profileID": .object(["type": .string("string")])], required: ["profileID"])),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["profileID": .string("Profile UUID")], required: ["profileID"])),
             Tool(
-                name: "profiles.reorder",
+                name: "profiles_reorder",
                 description: "Move a profile to an insertion index. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "profileID": .object(["type": .string("string")]),
-                        "destinationIndex": .object(["type": .string("integer")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "profileID": .string("Profile UUID"),
+                        "destinationIndex": .integer("Insertion index within the profile list"),
                     ], required: ["profileID", "destinationIndex"])),
             Tool(
-                name: "status_lines.update_global",
+                name: "status_lines_update_global",
                 description: "Replace the global status-line configuration. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: ["configuration": .object(["type": .string("object")])],
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["configuration": .object("Status line configuration", properties: [:])],
                     required: ["configuration"])),
             Tool(
-                name: "status_lines.update_profile",
+                name: "status_lines_update_profile",
                 description: "Replace a profile's custom status-line configuration. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "profileID": .object(["type": .string("string")]),
-                        "configuration": .object(["type": .string("object")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "profileID": .string("Profile UUID"),
+                        "configuration": .object("Status line configuration", properties: [:]),
                     ], required: ["profileID", "configuration"])),
             Tool(
-                name: "status_lines.clear_profile_override",
+                name: "status_lines_clear_profile_override",
                 description: "Restore a profile's status line to the global configuration. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: ["profileID": .object(["type": .string("string")])],
-                    required: ["profileID"])),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["profileID": .string("Profile UUID")], required: ["profileID"])),
             Tool(
-                name: "notifications.acknowledge",
+                name: "notifications_acknowledge",
                 description: "Navigate to and acknowledge a visible notification.",
-                inputSchema: Self.objectSchema(
-                    properties: ["notificationID": .object(["type": .string("string")])],
-                    required: ["notificationID"])),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["notificationID": .string("Notification UUID")], required: ["notificationID"])),
             Tool(
-                name: "harnesses.set_enabled",
+                name: "harnesses_set_enabled",
                 description: "Enable or disable a harness for future pane creation. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "harness": .object(["type": .string("string")]),
-                        "enabled": .object(["type": .string("boolean")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "harness": .string("Harness to update", enumValues: Self.harnessNames),
+                        "enabled": .boolean("Whether the harness is available for pane creation"),
                     ], required: ["harness", "enabled"])),
             Tool(
-                name: "harnesses.configure_cli_option",
+                name: "harnesses_configure_cli_option",
                 description: "Update one harness CLI option catalog entry. Global scope required.",
-                inputSchema: Self.objectSchema(
-                    properties: [
-                        "harness": .object(["type": .string("string")]),
-                        "optionID": .object(["type": .string("string")]),
-                        "isAvailable": .object(["type": .string("boolean")]),
-                        "isDefaultEnabled": .object(["type": .string("boolean")]),
-                        "presetValues": .object(["type": .string("array")]),
-                        "allowsMultipleValues": .object(["type": .string("boolean")]),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    [
+                        "harness": .string("Harness that owns the CLI option", enumValues: Self.harnessNames),
+                        "optionID": .string("CLI option catalog ID"),
+                        "isAvailable": .boolean("Whether the option is offered for pane creation"),
+                        "isDefaultEnabled": .boolean("Whether the option is enabled by default"),
+                        "presetValues": .array("Preset values offered for the option", items: .string("Preset value")),
+                        "allowsMultipleValues": .boolean("Whether the option accepts multiple values"),
                     ], required: ["harness", "optionID"])),
         ]
     }
@@ -354,71 +393,71 @@ final class AgentControlMutationRouter {
             try Task.checkCancellation()
             let value: AgentControlMutationResult
             switch name {
-            case "tabs.create":
+            case "tabs_create":
                 try requireGlobal(source, name: name)
                 value = try createTab(decode(AgentControlTabCreateArguments.self, arguments: arguments), source: source)
-            case "tabs.delete":
+            case "tabs_delete":
                 try requireGlobal(source, name: name)
                 value = try await deleteTab(
                     decode(AgentControlTabCleanupArguments.self, arguments: arguments), source: source)
-            case "tabs.focus":
+            case "tabs_focus":
                 let args = try decode(AgentControlTabIDArguments.self, arguments: arguments)
                 value = try focusTab(args, source: source)
-            case "tabs.reorder":
+            case "tabs_reorder":
                 try requireGlobal(source, name: name)
                 value = try reorderTab(
                     decode(AgentControlTabReorderArguments.self, arguments: arguments), source: source)
-            case "panes.create":
+            case "panes_create":
                 let args = try decode(AgentControlPaneCreateArguments.self, arguments: arguments)
                 value = try await createPane(args, source: source)
-            case "panes.delete":
+            case "panes_delete":
                 let args = try decode(AgentControlPaneCleanupArguments.self, arguments: arguments)
                 value = try await deletePane(args, source: source)
-            case "panes.focus":
+            case "panes_focus":
                 value = try focusPane(
                     decode(AgentControlPaneIDArguments.self, arguments: arguments), source: source)
-            case "panes.restart":
+            case "panes_restart":
                 value = try restartPane(
                     decode(AgentControlPaneIDArguments.self, arguments: arguments), source: source)
-            case "panes.reorder":
+            case "panes_reorder":
                 value = try reorderPane(
                     decode(AgentControlPaneReorderArguments.self, arguments: arguments), source: source)
-            case "profiles.create":
+            case "profiles_create":
                 try requireGlobal(source, name: name)
                 value = try createProfile(
                     decode(AgentControlProfileCreateArguments.self, arguments: arguments), source: source)
-            case "profiles.update":
+            case "profiles_update":
                 try requireGlobal(source, name: name)
                 value = try updateProfile(
                     decode(AgentControlProfileUpdateArguments.self, arguments: arguments), source: source)
-            case "profiles.delete":
+            case "profiles_delete":
                 try requireGlobal(source, name: name)
                 value = try deleteProfile(
                     decode(AgentControlProfileIDArguments.self, arguments: arguments), source: source)
-            case "profiles.reorder":
+            case "profiles_reorder":
                 try requireGlobal(source, name: name)
                 value = try reorderProfile(
                     decode(AgentControlProfileReorderArguments.self, arguments: arguments), source: source)
-            case "status_lines.update_global":
+            case "status_lines_update_global":
                 try requireGlobal(source, name: name)
                 value = try updateGlobalStatusLine(
                     decode(AgentControlGlobalStatusLineArguments.self, arguments: arguments), source: source)
-            case "status_lines.update_profile":
+            case "status_lines_update_profile":
                 try requireGlobal(source, name: name)
                 value = try updateProfileStatusLine(
                     decode(AgentControlProfileStatusLineArguments.self, arguments: arguments), source: source)
-            case "status_lines.clear_profile_override":
+            case "status_lines_clear_profile_override":
                 try requireGlobal(source, name: name)
                 value = try clearProfileStatusLine(
                     decode(AgentControlProfileIDArguments.self, arguments: arguments), source: source)
-            case "notifications.acknowledge":
+            case "notifications_acknowledge":
                 value = try acknowledgeNotification(
                     decode(AgentControlNotificationAckArguments.self, arguments: arguments), source: source)
-            case "harnesses.set_enabled":
+            case "harnesses_set_enabled":
                 try requireGlobal(source, name: name)
                 value = try setHarnessEnabled(
                     decode(AgentControlHarnessEnabledArguments.self, arguments: arguments), source: source)
-            case "harnesses.configure_cli_option":
+            case "harnesses_configure_cli_option":
                 try requireGlobal(source, name: name)
                 value = try configureCLIOption(
                     decode(AgentControlCLIOptionConfigArguments.self, arguments: arguments), source: source)
@@ -457,22 +496,22 @@ final class AgentControlMutationRouter {
         appState.activePaneID = nil
         SessionPersistence.save(appState: appState)
         let result = mutationResult(
-            operation: "tabs.create", status: "succeeded", tabID: tab.id, tab: snapshotTab(tab, source: source))
-        record(name: "tabs.create", source: source, result: "succeeded", tabID: tab.id)
+            operation: "tabs_create", status: "succeeded", tabID: tab.id, tab: snapshotTab(tab, source: source))
+        record(name: "tabs_create", source: source, result: "succeeded", tabID: tab.id)
         return result
     }
 
     private func focusTab(
         _ args: AgentControlTabIDArguments, source: AgentControlSource
     ) throws -> AgentControlMutationResult {
-        let tab = try visibleTab(id: args.tabID, source: source, operation: "tabs.focus")
+        let tab = try visibleTab(id: args.tabID, source: source, operation: "tabs_focus")
         appState.switchToTab(id: tab.id, focusModeTabSwitchBehavior: appSettings.focusModeTabSwitchBehavior)
         SessionPersistence.save(appState: appState)
         let result = mutationResult(
-            operation: "tabs.focus", status: "succeeded", tabID: tab.id,
+            operation: "tabs_focus", status: "succeeded", tabID: tab.id,
             activeTabID: appState.activeTabID, activePaneID: appState.activePaneID,
             tab: snapshotTab(tab, source: source))
-        record(name: "tabs.focus", source: source, result: "succeeded", tabID: tab.id)
+        record(name: "tabs_focus", source: source, result: "succeeded", tabID: tab.id)
         return result
     }
 
@@ -493,15 +532,15 @@ final class AgentControlMutationRouter {
         }
         appState.moveTab(from: IndexSet(integer: index), to: args.destinationIndex)
         let result = mutationResult(
-            operation: "tabs.reorder", status: "succeeded", tabID: tab.id, tabOrder: appState.tabs.map(\.id))
-        record(name: "tabs.reorder", source: source, result: "succeeded", tabID: tab.id)
+            operation: "tabs_reorder", status: "succeeded", tabID: tab.id, tabOrder: appState.tabs.map(\.id))
+        record(name: "tabs_reorder", source: source, result: "succeeded", tabID: tab.id)
         return result
     }
 
     private func createPane(
         _ args: AgentControlPaneCreateArguments, source: AgentControlSource
     ) async throws -> AgentControlMutationResult {
-        let tab = try visibleTab(id: args.tabID, source: source, operation: "panes.create")
+        let tab = try visibleTab(id: args.tabID, source: source, operation: "panes_create")
         guard source.scope != .pane else {
             throw MCPError.invalidRequest("Pane scope cannot create another pane")
         }
@@ -588,34 +627,34 @@ final class AgentControlMutationRouter {
         }()
         let status = failed == nil ? "succeeded" : "failed"
         let result = mutationResult(
-            operation: "panes.create", status: status, tabID: tab.id, paneID: pane.id,
+            operation: "panes_create", status: status, tabID: tab.id, paneID: pane.id,
             activeTabID: appState.activeTabID, activePaneID: appState.activePaneID,
             pane: snapshotPane(pane), error: failed)
-        record(name: "panes.create", source: source, result: status, tabID: tab.id, paneID: pane.id)
+        record(name: "panes_create", source: source, result: status, tabID: tab.id, paneID: pane.id)
         return result
     }
 
     private func focusPane(
         _ args: AgentControlPaneIDArguments, source: AgentControlSource
     ) throws -> AgentControlMutationResult {
-        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes.focus")
+        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes_focus")
         guard let tab = pane.tab else { throw MCPError.internalError("Pane has no parent tab") }
         appState.switchToTab(id: tab.id, focusModeTabSwitchBehavior: .rememberFocus)
         appState.setActivePane(id: pane.id)
         tab.setFocusedPane(id: pane.id, reason: "agent_control")
         SessionPersistence.save(appState: appState)
         let result = mutationResult(
-            operation: "panes.focus", status: "succeeded", tabID: tab.id, paneID: pane.id,
+            operation: "panes_focus", status: "succeeded", tabID: tab.id, paneID: pane.id,
             activeTabID: appState.activeTabID, activePaneID: appState.activePaneID,
             focusedPaneID: tab.focusedPaneID, pane: snapshotPane(pane))
-        record(name: "panes.focus", source: source, result: "succeeded", tabID: tab.id, paneID: pane.id)
+        record(name: "panes_focus", source: source, result: "succeeded", tabID: tab.id, paneID: pane.id)
         return result
     }
 
     private func restartPane(
         _ args: AgentControlPaneIDArguments, source: AgentControlSource
     ) throws -> AgentControlMutationResult {
-        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes.restart")
+        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes_restart")
         guard let tab = pane.tab else { throw MCPError.internalError("Pane has no parent tab") }
         guard pane.terminalController != nil else {
             throw MCPError.invalidRequest("Pane is not ready to restart")
@@ -627,16 +666,16 @@ final class AgentControlMutationRouter {
         }
         SessionPersistence.save(appState: appState)
         let result = mutationResult(
-            operation: "panes.restart", status: "succeeded", tabID: tab.id, paneID: pane.id,
+            operation: "panes_restart", status: "succeeded", tabID: tab.id, paneID: pane.id,
             pane: snapshotPane(pane))
-        record(name: "panes.restart", source: source, result: "succeeded", tabID: tab.id, paneID: pane.id)
+        record(name: "panes_restart", source: source, result: "succeeded", tabID: tab.id, paneID: pane.id)
         return result
     }
 
     private func reorderPane(
         _ args: AgentControlPaneReorderArguments, source: AgentControlSource
     ) throws -> AgentControlMutationResult {
-        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes.reorder")
+        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes_reorder")
         guard let tab = pane.tab else { throw MCPError.internalError("Pane has no parent tab") }
         guard (0...tab.panes.count).contains(args.destinationIndex) else {
             throw MCPError.invalidParams("Pane destination index is out of range")
@@ -647,16 +686,16 @@ final class AgentControlMutationRouter {
         tab.movePane(from: IndexSet(integer: index), to: args.destinationIndex)
         SessionPersistence.save(appState: appState)
         let result = mutationResult(
-            operation: "panes.reorder", status: "succeeded", tabID: tab.id, paneID: pane.id,
+            operation: "panes_reorder", status: "succeeded", tabID: tab.id, paneID: pane.id,
             paneOrder: tab.panes.map(\.id))
-        record(name: "panes.reorder", source: source, result: "succeeded", tabID: tab.id, paneID: pane.id)
+        record(name: "panes_reorder", source: source, result: "succeeded", tabID: tab.id, paneID: pane.id)
         return result
     }
 
     private func deletePane(
         _ args: AgentControlPaneCleanupArguments, source: AgentControlSource
     ) async throws -> AgentControlMutationResult {
-        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes.delete")
+        let pane = try visiblePane(id: args.paneID, source: source, operation: "panes_delete")
         guard let tab = pane.tab else { throw MCPError.internalError("Pane has no parent tab") }
         let cleanup = try cleanupDecision(args.cleanup, panes: [pane])
         let paneID = pane.id
@@ -666,16 +705,16 @@ final class AgentControlMutationRouter {
         let cleanupResults = await cleanupWorktrees(cleanup, panes: [pane], tab: tab)
         let status = cleanupResults.contains(where: { $0.status == "failed" }) ? "partial_failure" : "succeeded"
         let result = mutationResult(
-            operation: "panes.delete", status: status, tabID: tab.id, paneID: paneID,
+            operation: "panes_delete", status: status, tabID: tab.id, paneID: paneID,
             cleanup: cleanupResults)
-        record(name: "panes.delete", source: source, result: status, tabID: tab.id, paneID: paneID)
+        record(name: "panes_delete", source: source, result: status, tabID: tab.id, paneID: paneID)
         return result
     }
 
     private func deleteTab(
         _ args: AgentControlTabCleanupArguments, source: AgentControlSource
     ) async throws -> AgentControlMutationResult {
-        let tab = try visibleTab(id: args.tabID, source: source, operation: "tabs.delete")
+        let tab = try visibleTab(id: args.tabID, source: source, operation: "tabs_delete")
         let panes = tab.panes
         let cleanup = try cleanupDecision(args.cleanup, panes: panes)
         let tabID = tab.id
@@ -683,10 +722,10 @@ final class AgentControlMutationRouter {
         let cleanupResults = await cleanupWorktrees(cleanup, panes: panes, tab: tab)
         let status = cleanupResults.contains(where: { $0.status == "failed" }) ? "partial_failure" : "succeeded"
         let result = mutationResult(
-            operation: "tabs.delete", status: status, tabID: tabID,
+            operation: "tabs_delete", status: status, tabID: tabID,
             activeTabID: appState.activeTabID, activePaneID: appState.activePaneID,
             cleanup: cleanupResults)
-        record(name: "tabs.delete", source: source, result: status, tabID: tabID)
+        record(name: "tabs_delete", source: source, result: status, tabID: tabID)
         return result
     }
 
@@ -755,9 +794,9 @@ final class AgentControlMutationRouter {
             throw MCPError.internalError("Profile could not be persisted")
         }
 
-        record(name: "profiles.create", source: source, result: "succeeded", profileID: profile.id)
+        record(name: "profiles_create", source: source, result: "succeeded", profileID: profile.id)
         return profileMutationResult(
-            operation: "profiles.create", status: "succeeded", profile: profile)
+            operation: "profiles_create", status: "succeeded", profile: profile)
     }
 
     private func updateProfile(
@@ -792,9 +831,9 @@ final class AgentControlMutationRouter {
             throw MCPError.internalError("Profile could not be persisted")
         }
 
-        record(name: "profiles.update", source: source, result: "succeeded", profileID: profileID)
+        record(name: "profiles_update", source: source, result: "succeeded", profileID: profileID)
         return profileMutationResult(
-            operation: "profiles.update", status: "succeeded", profile: updated)
+            operation: "profiles_update", status: "succeeded", profile: updated)
     }
 
     private func deleteProfile(
@@ -810,9 +849,9 @@ final class AgentControlMutationRouter {
             throw MCPError.internalError("Profile could not be persisted")
         }
 
-        record(name: "profiles.delete", source: source, result: "succeeded", profileID: profileID)
+        record(name: "profiles_delete", source: source, result: "succeeded", profileID: profileID)
         return mutationResult(
-            operation: "profiles.delete", status: "succeeded", profileID: profileID,
+            operation: "profiles_delete", status: "succeeded", profileID: profileID,
             profileOrder: appSettings.profiles.map(\.id))
     }
 
@@ -834,9 +873,9 @@ final class AgentControlMutationRouter {
             throw MCPError.internalError("Profile order could not be persisted")
         }
 
-        record(name: "profiles.reorder", source: source, result: "succeeded", profileID: profileID)
+        record(name: "profiles_reorder", source: source, result: "succeeded", profileID: profileID)
         return mutationResult(
-            operation: "profiles.reorder", status: "succeeded", profileID: profileID,
+            operation: "profiles_reorder", status: "succeeded", profileID: profileID,
             profileOrder: appSettings.profiles.map(\.id))
     }
 
@@ -850,9 +889,9 @@ final class AgentControlMutationRouter {
             throw MCPError.internalError("Harness availability could not be persisted")
         }
 
-        record(name: "harnesses.set_enabled", source: source, result: "succeeded", harness: args.harness)
+        record(name: "harnesses_set_enabled", source: source, result: "succeeded", harness: args.harness)
         return mutationResult(
-            operation: "harnesses.set_enabled", status: "succeeded",
+            operation: "harnesses_set_enabled", status: "succeeded",
             harness: AgentControlResourceRouter(appState: appState, appSettings: appSettings)
                 .harnessSnapshots().first { $0.harness == args.harness },
             activeHarnesses: appSettings.activeHarnesses)
@@ -900,10 +939,10 @@ final class AgentControlMutationRouter {
         }
 
         record(
-            name: "harnesses.configure_cli_option", source: source, result: "succeeded",
+            name: "harnesses_configure_cli_option", source: source, result: "succeeded",
             harness: args.harness, optionID: args.optionID)
         return mutationResult(
-            operation: "harnesses.configure_cli_option", status: "succeeded",
+            operation: "harnesses_configure_cli_option", status: "succeeded",
             harness: AgentControlResourceRouter(appState: appState, appSettings: appSettings)
                 .harnessSnapshots().first { $0.harness == args.harness })
     }
@@ -1185,14 +1224,5 @@ final class AgentControlMutationRouter {
         return try CallTool.Result(
             content: [.text(text: String(decoding: data, as: UTF8.self), annotations: nil, _meta: nil)],
             structuredContent: value)
-    }
-
-    private static func objectSchema(properties: [String: Value], required: [String]) -> Value {
-        .object([
-            "type": .string("object"),
-            "additionalProperties": .bool(false),
-            "properties": .object(properties),
-            "required": .array(required.map(Value.string)),
-        ])
     }
 }

@@ -144,7 +144,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
             eventName: "target.event", start: now - 1_000)
 
         let result = try await fixture.router.callTool(
-            name: "diagnostics.query_traces",
+            name: "diagnostics_query_traces",
             arguments: [
                 "sinceEpochMs": .int(Int(now - 2_000)),
                 "untilEpochMs": .int(Int(now)),
@@ -162,7 +162,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         let fixture = makeFixture()
         do {
             _ = try await fixture.router.callTool(
-                name: "diagnostics.query_traces",
+                name: "diagnostics_query_traces",
                 arguments: ["paneID": .string("not-a-uuid")],
                 source: fixture.globalSource)
             XCTFail("Malformed selectors must be rejected")
@@ -211,7 +211,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(summary.currentScope, .pane)
         XCTAssertTrue(summary.globalOnlyResources.contains(AgentControlResourceURI.harnesses.rawValue))
-        XCTAssertTrue(summary.globalOnlyTools.contains("debug.set_mode"))
+        XCTAssertTrue(summary.globalOnlyTools.contains("debug_set_mode"))
     }
 
     func testDiagnosticQueryTelemetryIncludesOutcomeAndScopeContext() async throws {
@@ -298,7 +298,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         let fixture = makeFixture()
         let router = fixture.router
         let result = try await router.callTool(
-            name: "debug.set_mode",
+            name: "debug_set_mode",
             arguments: ["enabled": .bool(true)],
             source: fixture.globalSource)
         XCTAssertNil(result.isError)
@@ -308,7 +308,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         XCTAssertTrue(fixture.settings.debugModeEnabled)
 
         _ = try await router.callTool(
-            name: "debug.set_mode",
+            name: "debug_set_mode",
             arguments: ["enabled": .bool(false)],
             source: fixture.globalSource)
     }
@@ -317,7 +317,7 @@ final class AgentControlDiagnosticsTests: XCTestCase {
         let fixture = makeFixture()
         do {
             _ = try await fixture.router.callTool(
-                name: "debug.set_mode",
+                name: "debug_set_mode",
                 arguments: ["enabled": .bool(true)],
                 source: fixture.paneSource)
             XCTFail("Pane scope must not change Debug Mode")
