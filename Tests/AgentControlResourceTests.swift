@@ -225,10 +225,10 @@ final class AgentControlResourceTests: XCTestCase {
         XCTAssertEqual(templates.templates.count, 4)
         let tools = try await client.listTools()
         XCTAssertEqual(tools.tools.count, 23)
-        XCTAssertTrue(tools.tools.contains { $0.name == "profiles.create" })
-        XCTAssertTrue(tools.tools.contains { $0.name == "harnesses.configure_cli_option" })
-        XCTAssertTrue(tools.tools.contains { $0.name == "status_lines.update_global" })
-        XCTAssertTrue(tools.tools.contains { $0.name == "notifications.acknowledge" })
+        XCTAssertTrue(tools.tools.contains { $0.name == "profiles_create" })
+        XCTAssertTrue(tools.tools.contains { $0.name == "harnesses_configure_cli_option" })
+        XCTAssertTrue(tools.tools.contains { $0.name == "status_lines_update_global" })
+        XCTAssertTrue(tools.tools.contains { $0.name == "notifications_acknowledge" })
 
         let contents = try await client.readResource(uri: AgentControlResourceURI.workspace.rawValue)
         XCTAssertEqual(contents.count, 1)
@@ -248,19 +248,19 @@ final class AgentControlResourceTests: XCTestCase {
         }
 
         let traceQuery = try await client.callTool(
-            name: "diagnostics.query_traces",
+            name: "diagnostics_query_traces",
             arguments: ["limit": .int(1)])
         XCTAssertNil(traceQuery.isError)
         XCTAssertTrue(toolText(traceQuery.content)?.contains("records") == true)
 
         let logQuery = try await client.callTool(
-            name: "diagnostics.query_logs",
+            name: "diagnostics_query_logs",
             arguments: ["limit": .int(1)])
         XCTAssertNil(logQuery.isError)
         XCTAssertTrue(toolText(logQuery.content)?.contains("records") == true)
 
         let debugModeResult = try await client.callTool(
-            name: "debug.set_mode",
+            name: "debug_set_mode",
             arguments: ["enabled": .bool(false)])
         XCTAssertNil(debugModeResult.isError)
     }
@@ -277,7 +277,7 @@ final class AgentControlResourceTests: XCTestCase {
         let summary = try JSONDecoder().decode(AgentControlDiagnosticSummary.self, from: summaryData)
         XCTAssertEqual(summary.currentScope, .pane)
         XCTAssertTrue(summary.globalOnlyResources.contains(AgentControlResourceURI.harnesses.rawValue))
-        XCTAssertTrue(summary.globalOnlyTools.contains("debug.set_mode"))
+        XCTAssertTrue(summary.globalOnlyTools.contains("debug_set_mode"))
 
         let traceData = try await fixture.router.read(
             uri: "\(AgentControlResourceURI.diagnosticTraces.rawValue)?limit=1",
@@ -305,6 +305,69 @@ final class AgentControlResourceTests: XCTestCase {
         XCTAssertEqual(event.attributes["result"], "success")
         XCTAssertNil(event.attributes["payload"])
         XCTAssertNil(event.attributes["token"])
+    }
+
+    func testToolNamesAreAPISafe() {
+        let fixture = makeFixture()
+        defer { stopPanes(in: fixture.state) }
+
+        let pattern = try! NSRegularExpression(pattern: "^[a-zA-Z0-9_-]{1,64}$")
+        for tool in fixture.router.tools() {
+            let range = NSRange(tool.name.startIndex..., in: tool.name)
+            XCTAssertNotNil(
+                pattern.firstMatch(in: tool.name, range: range),
+                "Tool name \(tool.name) is not a safe Anthropic API tool name")
+        }
+    }
+
+    func testToolSchemasAreWellFormed() throws {
+        let fixture = makeFixture()
+        defer { stopPanes(in: fixture.state) }
+
+        for tool in fixture.router.tools() {
+            let root = try XCTUnwrap(tool.inputSchema.objectValue, "\(tool.name) root schema is not an object")
+            XCTAssertEqual(root["type"]?.stringValue, "object", "\(tool.name) root type is not object")
+            let properties = try XCTUnwrap(
+                root["properties"]?.objectValue, "\(tool.name) properties is not an object")
+            for (propertyName, propertyValue) in properties {
+                try assertWellFormedSubschema(
+                    propertyValue, context: "\(tool.name).\(propertyName)")
+            }
+            let required = root["required"]?.arrayValue?.compactMap(\.stringValue) ?? []
+            for name in required {
+                XCTAssertNotNil(
+                    properties[name], "\(tool.name) requires \(name), which is not in properties")
+            }
+        }
+    }
+
+    func testEveryAdvertisedToolIsDispatchable() async throws {
+        let fixture = makeFixture()
+        defer { stopPanes(in: fixture.state) }
+
+        for tool in fixture.router.tools() {
+            do {
+                _ = try await fixture.router.callTool(
+                    name: tool.name, arguments: [:], source: fixture.globalSource)
+            } catch {
+                let message = (error as? MCPError)?.errorDescription ?? String(describing: error)
+                XCTAssertFalse(
+                    message.contains("Unknown Agent Session Manager mutation tool")
+                        || message.contains("Unknown Agent Session Manager diagnostic tool"),
+                    "\(tool.name) advertised in tools() but not dispatchable: \(message)")
+            }
+        }
+    }
+
+    private func assertWellFormedSubschema(_ value: Value, context: String) throws {
+        let object = try XCTUnwrap(value.objectValue, "\(context) is not an object")
+        let type = try XCTUnwrap(object["type"]?.stringValue, "\(context) has no type")
+        let validTypes: Set<String> = ["string", "integer", "number", "boolean", "array", "object"]
+        XCTAssertTrue(validTypes.contains(type), "\(context) has unrecognized type \(type)")
+        if type == "array" {
+            let items = try XCTUnwrap(object["items"], "\(context) array has no items schema")
+            try assertWellFormedSubschema(items, context: "\(context).items")
+        }
     }
 
     private struct Fixture {

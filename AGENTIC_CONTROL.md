@@ -152,7 +152,7 @@ pane- or tab-scoped caller merely because they share a time window. Log
 correlation must use safe structured IDs or an app-owned projection, never
 parsing private message text.
 
-Expose one narrowly scoped `debug.set_mode` tool for enabling or disabling
+Expose one narrowly scoped `debug_set_mode` tool for enabling or disabling
 Debug Mode. It must persist through the existing debug settings path and reuse
 the existing tracing and invariant reconfiguration behavior. Only a Global-
 scope token may call it. File deletion, retention changes, path changes, and
@@ -351,11 +351,11 @@ Roadmap item 2 is implemented as a transport-independent foundation:
 
 Roadmap item 7 is implemented through the app-owned MCP router:
 
-- `tabs.create`, `tabs.delete`, `tabs.focus`, and `tabs.reorder` expose global
+- `tabs_create`, `tabs_delete`, `tabs_focus`, and `tabs_reorder` expose global
   tab lifecycle operations with stable IDs, active-state results, and ordered
   tab IDs.
-- `panes.create`, `panes.delete`, `panes.focus`, `panes.restart`, and
-  `panes.reorder` use hierarchical pane and tab scope authorization. Pane
+- `panes_create`, `panes_delete`, `panes_focus`, `panes_restart`, and
+  `panes_reorder` use hierarchical pane and tab scope authorization. Pane
   creation awaits existing worktree resolution, duplicate detection, profile
   and option validation, external-worktree management, and launch preparation.
 - Profile options and environment values seed pane creation, while explicit
@@ -376,8 +376,8 @@ Roadmap item 7 is implemented through the app-owned MCP router:
 
 Roadmap item 8 is implemented through the app-owned MCP mutation router:
 
-- Global-scope `profiles.create`, `profiles.update`, `profiles.delete`, and
-  `profiles.reorder` tools manage the existing ordered profile store using
+- Global-scope `profiles_create`, `profiles_update`, `profiles_delete`, and
+  `profiles_reorder` tools manage the existing ordered profile store using
   stable profile IDs.
 - Profile creation seeds the selected harness defaults. Updates use keyed
   patches for CLI options and environment variables, so redacted environment
@@ -387,8 +387,8 @@ Roadmap item 8 is implemented through the app-owned MCP mutation router:
   including boolean, single-value, and multi-value rules. App-controlled
   environment variables cannot be changed, and profile mutation results expose
   only redacted environment metadata.
-- Global-scope `harnesses.set_enabled` and
-  `harnesses.configure_cli_option` tools update the existing harness and CLI
+- Global-scope `harnesses_set_enabled` and
+  `harnesses_configure_cli_option` tools update the existing harness and CLI
   option settings. Preset values are normalized, and user-added catalog
   entries remain intact.
 - Mutations persist through the existing settings files, roll back in-memory
@@ -403,9 +403,9 @@ Roadmap item 8 is implemented through the app-owned MCP mutation router:
 Roadmap item 9 is implemented through the existing resources and app-owned
 mutation router:
 
-- Global-scope `status_lines.update_global` replaces and persists the global
-  `StatusLineConfig`. Global-scope `status_lines.update_profile` replaces a
-  profile override, while `status_lines.clear_profile_override` removes only
+- Global-scope `status_lines_update_global` replaces and persists the global
+  `StatusLineConfig`. Global-scope `status_lines_update_profile` replaces a
+  profile override, while `status_lines_clear_profile_override` removes only
   that override. Configurations are semantically validated before mutation,
   including built-in and custom item IDs, custom-field identity, required
   labels and commands, duplicate items, and duplicate custom fields.
@@ -415,7 +415,7 @@ mutation router:
   unrelated settings.
 - The existing `agent-session-manager://notifications` resource remains the
   notification listing surface. Global, tab, and pane callers can use
-  `notifications.acknowledge` only for visible notifications within their
+  `notifications_acknowledge` only for visible notifications within their
   scope. Acknowledgement resolves the stable notification ID, navigates using
   the shared `AppState` path, removes the notification and delivered macOS
   notification, and preserves PR-resolution actions.
@@ -621,16 +621,16 @@ The first diagnostics slice now exposes the four planned diagnostic resources:
 - `agent-session-manager://diagnostics/invariants`
 - `agent-session-manager://diagnostics/logs`
 
-The corresponding bounded tools are `diagnostics.query_traces`,
-`diagnostics.query_invariants`, `diagnostics.query_logs`, and the
-Global-scope-only `debug.set_mode`. Trace and invariant readers use JSONL
+The corresponding bounded tools are `diagnostics_query_traces`,
+`diagnostics_query_invariants`, `diagnostics_query_logs`, and the
+Global-scope-only `debug_set_mode`. Trace and invariant readers use JSONL
 metadata for identity, preserve malformed-line and source-truncation metadata,
 keep legacy files separate, and apply the same pane/tab/global scope model as
 other resources. Diagnostic attributes and contexts are projected through a
 deny-by-default sensitive-field redactor; unified-log reads are restricted to
 the app's own process and subsystem and return structured fields only.
 
-`debug.set_mode` persists through `SettingsPersistence` and reuses the existing
+`debug_set_mode` persists through `SettingsPersistence` and reuses the existing
 `TracingService` and `InvariantReporter` configuration path. URI parsing,
 metadata identity, scope filtering, repeated invariant occurrences, redaction,
 and Global-only mutation behavior are covered by
@@ -729,7 +729,7 @@ work remains ordered Claude Code, OpenCode, Codex, then Cursor.
 - Scope: `Global`.
 - Debugging reads are available at the caller's configured scope; unscoped
   global records and Debug Mode mutation require `Global` scope.
-- The first debugging mutation is `debug.set_mode`; clearing, retention,
+- The first debugging mutation is `debug_set_mode`; clearing, retention,
   path-management, and export operations are deferred.
 - No extra Agent Session Manager confirmation for authorized MCP mutations.
 - Tokens are runtime-only and never persisted or logged.

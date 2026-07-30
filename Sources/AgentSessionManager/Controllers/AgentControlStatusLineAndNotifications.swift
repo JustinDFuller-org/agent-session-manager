@@ -37,9 +37,9 @@ extension AgentControlMutationRouter {
             throw MCPError.internalError("Global status-line configuration could not be persisted")
         }
 
-        record(name: "status_lines.update_global", source: source, result: "succeeded")
+        record(name: "status_lines_update_global", source: source, result: "succeeded")
         return mutationResult(
-            operation: "status_lines.update_global", status: "succeeded",
+            operation: "status_lines_update_global", status: "succeeded",
             statusLineConfiguration: args.configuration)
     }
 
@@ -62,9 +62,9 @@ extension AgentControlMutationRouter {
             throw MCPError.internalError("Profile status-line configuration could not be persisted")
         }
 
-        record(name: "status_lines.update_profile", source: source, result: "succeeded", profileID: profileID)
+        record(name: "status_lines_update_profile", source: source, result: "succeeded", profileID: profileID)
         return profileMutationResult(
-            operation: "status_lines.update_profile", status: "succeeded", profile: updated)
+            operation: "status_lines_update_profile", status: "succeeded", profile: updated)
     }
 
     func clearProfileStatusLine(
@@ -85,26 +85,26 @@ extension AgentControlMutationRouter {
             throw MCPError.internalError("Profile status-line configuration could not be persisted")
         }
 
-        record(name: "status_lines.clear_profile_override", source: source, result: "succeeded", profileID: profileID)
+        record(name: "status_lines_clear_profile_override", source: source, result: "succeeded", profileID: profileID)
         return profileMutationResult(
-            operation: "status_lines.clear_profile_override", status: "succeeded", profile: updated)
+            operation: "status_lines_clear_profile_override", status: "succeeded", profile: updated)
     }
 
     func acknowledgeNotification(
         _ args: AgentControlNotificationAckArguments, source: AgentControlSource
     ) throws -> AgentControlMutationResult {
         let notification = try visibleNotification(
-            id: args.notificationID, source: source, operation: "notifications.acknowledge")
+            id: args.notificationID, source: source, operation: "notifications_acknowledge")
         guard appState.acknowledgeNotification(id: notification.id) != nil else {
             throw MCPError.invalidRequest("Notification target no longer exists")
         }
 
         record(
-            name: "notifications.acknowledge", source: source, result: "succeeded",
+            name: "notifications_acknowledge", source: source, result: "succeeded",
             tabID: notification.tabID, paneID: notification.paneID,
             notificationID: notification.id)
         return mutationResult(
-            operation: "notifications.acknowledge", status: "succeeded",
+            operation: "notifications_acknowledge", status: "succeeded",
             tabID: notification.tabID, paneID: notification.paneID,
             activeTabID: appState.activeTabID, activePaneID: appState.activePaneID,
             acknowledgedNotificationID: notification.id)

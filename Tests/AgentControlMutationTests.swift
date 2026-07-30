@@ -26,7 +26,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "panes.focus",
+                name: "panes_focus",
                 arguments: ["paneID": .string(fixture.otherPane.id.uuidString)],
                 source: fixture.paneSource)
             XCTFail("Pane scope must not focus another pane")
@@ -36,7 +36,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "panes.create",
+                name: "panes_create",
                 arguments: [
                     "tabID": .string(fixture.tab.id.uuidString),
                     "worktreeRef": .string("new-pane"),
@@ -53,7 +53,7 @@ final class AgentControlMutationTests: XCTestCase {
         let fixture = makeFixture()
 
         let focus = try await fixture.router.callTool(
-            name: "panes.focus",
+            name: "panes_focus",
             arguments: ["paneID": .string(fixture.otherPane.id.uuidString)],
             source: fixture.tabSource)
         XCTAssertNil(focus.isError)
@@ -61,7 +61,7 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertEqual(fixture.tab.focusedPaneID, fixture.otherPane.id)
 
         let reorder = try await fixture.router.callTool(
-            name: "panes.reorder",
+            name: "panes_reorder",
             arguments: [
                 "paneID": .string(fixture.firstPane.id.uuidString),
                 "destinationIndex": .int(2),
@@ -72,7 +72,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "panes.focus",
+                name: "panes_focus",
                 arguments: ["paneID": .string(fixture.secondTabPane.id.uuidString)],
                 source: fixture.tabSource)
             XCTFail("Tab scope must not reach another tab")
@@ -85,14 +85,14 @@ final class AgentControlMutationTests: XCTestCase {
         let fixture = makeFixture()
 
         let focus = try await fixture.router.callTool(
-            name: "tabs.focus",
+            name: "tabs_focus",
             arguments: ["tabID": .string(fixture.secondTab.id.uuidString)],
             source: fixture.globalSource)
         XCTAssertNil(focus.isError)
         XCTAssertEqual(fixture.state.activeTabID, fixture.secondTab.id)
 
         let reorder = try await fixture.router.callTool(
-            name: "tabs.reorder",
+            name: "tabs_reorder",
             arguments: [
                 "tabID": .string(fixture.secondTab.id.uuidString),
                 "destinationIndex": .int(0),
@@ -108,7 +108,7 @@ final class AgentControlMutationTests: XCTestCase {
         fixture.state.activePaneID = fixture.secondTabPane.id
 
         let response = try await fixture.router.callTool(
-            name: "tabs.delete",
+            name: "tabs_delete",
             arguments: ["tabID": .string(fixture.secondTab.id.uuidString)],
             source: fixture.globalSource)
         let result = try decodeMutationResult(response)
@@ -124,7 +124,7 @@ final class AgentControlMutationTests: XCTestCase {
         let directory = URL(filePath: NSTemporaryDirectory(), directoryHint: .isDirectory)
 
         let response = try await fixture.router.callTool(
-            name: "tabs.create",
+            name: "tabs_create",
             arguments: [
                 "name": .string("Created Tab"),
                 "directory": .string(directory.path),
@@ -140,7 +140,7 @@ final class AgentControlMutationTests: XCTestCase {
     func testGlobalScopeCanToggleHarnessAvailability() async throws {
         let fixture = makeFixture()
         let response = try await fixture.router.callTool(
-            name: "harnesses.set_enabled",
+            name: "harnesses_set_enabled",
             arguments: [
                 "harness": .string("codex"),
                 "enabled": .bool(false),
@@ -151,7 +151,7 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertFalse(fixture.settings.isActive(.codex))
 
         let restored = try await fixture.router.callTool(
-            name: "harnesses.set_enabled",
+            name: "harnesses_set_enabled",
             arguments: [
                 "harness": .string("codex"),
                 "enabled": .bool(true),
@@ -178,7 +178,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await router.callTool(
-                name: "tabs.delete", arguments: ["tabID": .string(tab.id.uuidString)], source: source)
+                name: "tabs_delete", arguments: ["tabID": .string(tab.id.uuidString)], source: source)
             XCTFail("Ask cleanup policy must require an explicit choice")
         } catch let error as MCPError {
             XCTAssertTrue(String(describing: error).contains("cleanup"))
@@ -186,7 +186,7 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertEqual(state.tabs.count, 1)
 
         let response = try await router.callTool(
-            name: "tabs.delete",
+            name: "tabs_delete",
             arguments: [
                 "tabID": .string(tab.id.uuidString),
                 "cleanup": .string("delete"),
@@ -204,13 +204,13 @@ final class AgentControlMutationTests: XCTestCase {
         defer { TracingService.shared.resetForTesting() }
 
         _ = try await fixture.router.callTool(
-            name: "panes.focus",
+            name: "panes_focus",
             arguments: ["paneID": .string(fixture.otherPane.id.uuidString)],
             source: fixture.tabSource)
 
         let event = try XCTUnwrap(
             TracingService.shared.recordedEventsForTesting.last { $0.name == "agent_control.mutation" })
-        XCTAssertEqual(event.attributes["tool"], "panes.focus")
+        XCTAssertEqual(event.attributes["tool"], "panes_focus")
         XCTAssertEqual(event.attributes["scope"], "tab")
         XCTAssertEqual(event.attributes["target.pane.id"], fixture.otherPane.id.uuidString)
         XCTAssertNil(event.attributes["payload"])
@@ -220,7 +220,7 @@ final class AgentControlMutationTests: XCTestCase {
     func testGlobalScopeCanCreateUpdateReorderAndDeleteProfiles() async throws {
         let fixture = makeFixture()
         let response = try await fixture.router.callTool(
-            name: "profiles.create",
+            name: "profiles_create",
             arguments: [
                 "name": .string("Review Profile"),
                 "harness": .string("claude"),
@@ -247,7 +247,7 @@ final class AgentControlMutationTests: XCTestCase {
         let profileID = try XCTUnwrap(result.profileID)
 
         let update = try await fixture.router.callTool(
-            name: "profiles.update",
+            name: "profiles_update",
             arguments: [
                 "profileID": .string(profileID.uuidString),
                 "name": .string("Updated Profile"),
@@ -265,12 +265,12 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertEqual(fixture.state.tabs.count, 2)
 
         let second = try await fixture.router.callTool(
-            name: "profiles.create",
+            name: "profiles_create",
             arguments: ["name": .string("Second Profile"), "harness": .string("codex")],
             source: fixture.globalSource)
         let secondID = try XCTUnwrap(decodeMutationResult(second).profileID)
         let reorder = try await fixture.router.callTool(
-            name: "profiles.reorder",
+            name: "profiles_reorder",
             arguments: [
                 "profileID": .string(secondID.uuidString),
                 "destinationIndex": .int(0),
@@ -279,7 +279,7 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertEqual(try decodeMutationResult(reorder).profileOrder?.first, secondID)
 
         let deletion = try await fixture.router.callTool(
-            name: "profiles.delete",
+            name: "profiles_delete",
             arguments: ["profileID": .string(profileID.uuidString)],
             source: fixture.globalSource)
         XCTAssertEqual(try decodeMutationResult(deletion).profileID, profileID)
@@ -297,7 +297,7 @@ final class AgentControlMutationTests: XCTestCase {
         ]
 
         let response = try await fixture.router.callTool(
-            name: "status_lines.update_global",
+            name: "status_lines_update_global",
             arguments: ["configuration": try value(for: configuration)],
             source: fixture.globalSource)
         let result = try decodeMutationResult(response)
@@ -323,7 +323,7 @@ final class AgentControlMutationTests: XCTestCase {
             ])
         ]
         let update = try await fixture.router.callTool(
-            name: "status_lines.update_profile",
+            name: "status_lines_update_profile",
             arguments: [
                 "profileID": .string(profile.id.uuidString),
                 "configuration": try value(for: configuration),
@@ -336,7 +336,7 @@ final class AgentControlMutationTests: XCTestCase {
         XCTAssertEqual(updated.profile?.environment.first?.isConfigured, true)
 
         let cleared = try await fixture.router.callTool(
-            name: "status_lines.clear_profile_override",
+            name: "status_lines_clear_profile_override",
             arguments: ["profileID": .string(profile.id.uuidString)],
             source: fixture.globalSource)
         XCTAssertNil(try decodeMutationResult(cleared).profile?.statusLineConfig)
@@ -356,7 +356,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "status_lines.update_global",
+                name: "status_lines_update_global",
                 arguments: ["configuration": try value(for: duplicate)],
                 source: fixture.globalSource)
             XCTFail("Duplicate status-line items must be rejected")
@@ -366,7 +366,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "status_lines.update_global",
+                name: "status_lines_update_global",
                 arguments: ["configuration": try value(for: StatusLineConfig())],
                 source: fixture.tabSource)
             XCTFail("Status-line mutations must require Global scope")
@@ -384,7 +384,7 @@ final class AgentControlMutationTests: XCTestCase {
         fixture.state.notifications = [notification]
 
         let response = try await fixture.router.callTool(
-            name: "notifications.acknowledge",
+            name: "notifications_acknowledge",
             arguments: ["notificationID": .string(notification.id.uuidString)],
             source: fixture.tabSource)
         let result = try decodeMutationResult(response)
@@ -406,7 +406,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "notifications.acknowledge",
+                name: "notifications_acknowledge",
                 arguments: ["notificationID": .string(otherTabNotification.id.uuidString)],
                 source: fixture.tabSource)
             XCTFail("Tab scope must not acknowledge another tab's notification")
@@ -420,7 +420,7 @@ final class AgentControlMutationTests: XCTestCase {
         fixture.state.notifications = [stale]
         do {
             _ = try await fixture.router.callTool(
-                name: "notifications.acknowledge",
+                name: "notifications_acknowledge",
                 arguments: ["notificationID": .string(stale.id.uuidString)],
                 source: fixture.globalSource)
             XCTFail("Stale notification targets must be rejected")
@@ -439,13 +439,13 @@ final class AgentControlMutationTests: XCTestCase {
         TracingService.shared.enableTestCapture()
 
         _ = try await fixture.router.callTool(
-            name: "notifications.acknowledge",
+            name: "notifications_acknowledge",
             arguments: ["notificationID": .string(notification.id.uuidString)],
             source: fixture.tabSource)
 
         let event = try XCTUnwrap(
             TracingService.shared.recordedEventsForTesting.last {
-                $0.name == "agent_control.mutation" && $0.attributes["tool"] == "notifications.acknowledge"
+                $0.name == "agent_control.mutation" && $0.attributes["tool"] == "notifications_acknowledge"
             })
         XCTAssertEqual(event.attributes["notification.id"], notification.id.uuidString)
         XCTAssertNil(event.attributes["notification.text"])
@@ -455,11 +455,11 @@ final class AgentControlMutationTests: XCTestCase {
     func testProfileAndHarnessConfigurationRequireGlobalScope() async throws {
         let fixture = makeFixture()
 
-        for name in ["profiles.create", "harnesses.set_enabled", "harnesses.configure_cli_option"] {
+        for name in ["profiles_create", "harnesses_set_enabled", "harnesses_configure_cli_option"] {
             do {
                 _ = try await fixture.router.callTool(
                     name: name,
-                    arguments: name == "profiles.create"
+                    arguments: name == "profiles_create"
                         ? ["name": .string("Denied"), "harness": .string("claude")]
                         : ["harness": .string("codex"), "enabled": .bool(true)],
                     source: fixture.paneSource)
@@ -479,7 +479,7 @@ final class AgentControlMutationTests: XCTestCase {
         fixture.settings.cliOptions.append(custom)
 
         let response = try await fixture.router.callTool(
-            name: "harnesses.configure_cli_option",
+            name: "harnesses_configure_cli_option",
             arguments: [
                 "harness": .string("claude"),
                 "optionID": .string("--continue"),
@@ -503,7 +503,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "profiles.create",
+                name: "profiles_create",
                 arguments: [
                     "name": .string("Invalid"),
                     "harness": .string("claude"),
@@ -519,7 +519,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "profiles.create",
+                name: "profiles_create",
                 arguments: [
                     "name": .string("Invalid Environment"),
                     "harness": .string("opencode"),
@@ -549,7 +549,7 @@ final class AgentControlMutationTests: XCTestCase {
 
         do {
             _ = try await fixture.router.callTool(
-                name: "panes.create",
+                name: "panes_create",
                 arguments: [
                     "tabID": .string(fixture.secondTab.id.uuidString),
                     "worktreeRef": .string("prompt-test"),

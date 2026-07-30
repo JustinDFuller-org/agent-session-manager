@@ -237,10 +237,10 @@ enum AgentControlDiagnosticRedactor {
 final class AgentControlDiagnosticsRouter {
     private static let globalOnlyResources = ["agent-session-manager://harnesses"]
     private static let globalOnlyTools = [
-        "tabs.create", "tabs.delete", "tabs.reorder", "profiles.create", "profiles.update",
-        "profiles.delete", "profiles.reorder", "status_lines.update_global", "status_lines.update_profile",
-        "status_lines.clear_profile_override", "harnesses.set_enabled", "harnesses.configure_cli_option",
-        "diagnostics.query_logs", "debug.set_mode",
+        "tabs_create", "tabs_delete", "tabs_reorder", "profiles_create", "profiles_update",
+        "profiles_delete", "profiles_reorder", "status_lines_update_global", "status_lines_update_profile",
+        "status_lines_clear_profile_override", "harnesses_set_enabled", "harnesses_configure_cli_option",
+        "diagnostics_query_logs", "debug_set_mode",
     ]
 
     private let appState: AppState
@@ -280,40 +280,38 @@ final class AgentControlDiagnosticsRouter {
     func tools() -> [Tool] {
         [
             Tool(
-                name: "diagnostics.query_traces",
+                name: "diagnostics_query_traces",
                 description: "Query scoped trace records by time, IDs, and event names.",
                 inputSchema: Self.querySchema(properties: [
                     "tabID": .string("Optional tab UUID"),
                     "paneID": .string("Optional pane UUID"),
-                    "eventNames": .array([.string("Exact event name")]),
+                    "eventNames": .array("Exact event names to match", items: .string("Exact event name")),
                 ])),
             Tool(
-                name: "diagnostics.query_invariants",
+                name: "diagnostics_query_invariants",
                 description: "Query scoped invariant occurrences with bounded context.",
                 inputSchema: Self.querySchema(properties: [
                     "tabID": .string("Optional tab UUID"),
                     "paneID": .string("Optional pane UUID"),
-                    "invariantIDs": .array([.string("Invariant ID")]),
-                    "integrations": .array([.string("Integration name")]),
-                    "severities": .array([.string("warning or error")]),
+                    "invariantIDs": .array("Invariant IDs to match", items: .string("Invariant ID")),
+                    "integrations": .array("Integration names to match", items: .string("Integration name")),
+                    "severities": .array(
+                        "Severities to match", items: .string("Severity", enumValues: ["warning", "error"])),
                 ])),
             Tool(
-                name: "diagnostics.query_logs",
+                name: "diagnostics_query_logs",
                 description: "Query Global-scope unified-log event metadata.",
                 inputSchema: Self.querySchema(properties: [
-                    "categories": .array([.string("Logger category")]),
-                    "levels": .array([.string("Log level")]),
-                    "eventNames": .array([.string("Exact event name")]),
+                    "categories": .array("Logger categories to match", items: .string("Logger category")),
+                    "levels": .array("Log levels to match", items: .string("Log level")),
+                    "eventNames": .array("Exact event names to match", items: .string("Exact event name")),
                 ])),
             Tool(
-                name: "debug.set_mode",
+                name: "debug_set_mode",
                 description: "Enable or disable durable trace and invariant capture. Global scope required.",
-                inputSchema: .object([
-                    "type": .string("object"),
-                    "additionalProperties": .bool(false),
-                    "properties": .object(["enabled": .object(["type": .string("boolean")])]),
-                    "required": .array([.string("enabled")]),
-                ])),
+                inputSchema: AgentControlToolSchema.inputSchema(
+                    ["enabled": .boolean("Whether durable trace and invariant capture is enabled")],
+                    required: ["enabled"])),
         ]
     }
 
@@ -354,20 +352,20 @@ final class AgentControlDiagnosticsRouter {
     ) async throws -> CallTool.Result {
         do {
             switch name {
-            case "diagnostics.query_traces":
+            case "diagnostics_query_traces":
                 let decoded = try decode(AgentControlTraceQueryArguments.self, arguments: arguments)
                 return try result(try await traceResult(source: source, arguments: decoded))
-            case "diagnostics.query_invariants":
+            case "diagnostics_query_invariants":
                 let decoded = try decode(AgentControlInvariantQueryArguments.self, arguments: arguments)
                 return try result(try await invariantResult(source: source, arguments: decoded))
-            case "diagnostics.query_logs":
+            case "diagnostics_query_logs":
                 guard source.scope == .global else {
                     recordAuthorizationDenied(name: name, source: source)
                     throw MCPError.invalidRequest(scopeError(required: .global, current: source.scope))
                 }
                 let decoded = try decode(AgentControlLogQueryArguments.self, arguments: arguments)
                 return try result(try await logResult(source: source, arguments: decoded))
-            case "debug.set_mode":
+            case "debug_set_mode":
                 guard source.scope == .global else {
                     recordAuthorizationDenied(name: name, source: source)
                     throw MCPError.invalidRequest(scopeError(required: .global, current: source.scope))
@@ -852,17 +850,13 @@ final class AgentControlDiagnosticsRouter {
             structuredContent: value)
     }
 
-    private static func querySchema(properties: [String: Value]) -> Value {
-        var fields: [String: Value] = [
-            "sinceEpochMs": .object(["type": .string("integer")]),
-            "untilEpochMs": .object(["type": .string("integer")]),
-            "limit": .object(["type": .string("integer"), "maximum": .int(200)]),
+    private static func querySchema(properties: [String: AgentControlToolSchema]) -> Value {
+        var fields: [String: AgentControlToolSchema] = [
+            "sinceEpochMs": .integer("Start of the time window, in epoch milliseconds"),
+            "untilEpochMs": .integer("End of the time window, in epoch milliseconds"),
+            "limit": .integer("Maximum number of records to return", maximum: 200),
         ]
         fields.merge(properties, uniquingKeysWith: { _, new in new })
-        return .object([
-            "type": .string("object"),
-            "additionalProperties": .bool(false),
-            "properties": .object(fields),
-        ])
+        return AgentControlToolSchema.inputSchema(fields)
     }
 }
