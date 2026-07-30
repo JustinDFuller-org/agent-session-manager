@@ -25,7 +25,7 @@ final class TabPaneFlowTests: BaseTestCase {
             .matching(identifier: "new-pane-scrollback-mode-picker").firstMatch
         waitFor(nameField)
         waitFor(picker)
-        XCTAssertTrue(picker.label.contains("Use Global Default"))
+        XCTAssertTrue((picker.value as? String)?.contains("Use Global Default") == true)
 
         picker.click()
         let unlimited = app.menuItems["Unlimited (50,000-line cap)"]
@@ -43,13 +43,15 @@ final class TabPaneFlowTests: BaseTestCase {
         let historyMenu = app.windows.firstMatch.menuItems["Scrollback History"]
         waitFor(historyMenu)
         historyMenu.hover()
-        let useGlobal = app.menuItems["Use Global Default (5,000 lines)"]
+        let useGlobal = app.descendants(matching: .any)
+            .matching(identifier: "pane-scrollback-use-global").firstMatch
         waitFor(useGlobal)
         useGlobal.click()
 
         let warning = app.alerts["Reduce Scrollback History?"]
         waitFor(warning)
         warning.buttons["Reduce History"].click()
+        waitForDisappear(warning)
 
         header.rightClick()
         let historyMenuAfterReset = app.windows.firstMatch.menuItems["Scrollback History"]
@@ -65,12 +67,12 @@ final class TabPaneFlowTests: BaseTestCase {
         paneField.click()
         paneField.typeKey("a", modifierFlags: .command)
         paneField.typeText("2000")
-        app.buttons["pane-scrollback-apply-button"].click()
         app.buttons["Apply"].click()
 
         let customWarning = app.alerts["Reduce Scrollback History?"]
         waitFor(customWarning)
         customWarning.buttons["Reduce History"].click()
+        waitForDisappear(customWarning)
 
         header.rightClick()
         let historyMenuAfterCustom = app.windows.firstMatch.menuItems["Scrollback History"]
@@ -82,6 +84,7 @@ final class TabPaneFlowTests: BaseTestCase {
         waitFor(persistedPaneField)
         XCTAssertEqual(persistedPaneField.value as? String, "2000")
         app.buttons["Cancel"].click()
+        waitForDisappear(persistedPaneField)
 
         header.rightClick()
         let refresh = app.windows.firstMatch.menuItems["Refresh Pane\u{2026}"]

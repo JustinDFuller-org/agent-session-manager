@@ -6,7 +6,7 @@ struct ScrollbackLimitEditor: View {
     let inheritedValue: ScrollbackLimit
     let accessibilityPrefix: String
     let onChange: (ScrollbackLimit?) -> Void
-    @State private var finiteLinesText = ""
+    @Binding var finiteLinesText: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -62,7 +62,9 @@ struct ScrollbackLimitEditor: View {
                             finiteLinesText = String(lines)
                             return
                         }
-                        onChange(ScrollbackLimit(finiteLines: parsed))
+                        let normalized = ScrollbackLimit(finiteLines: parsed)
+                        finiteLinesText = String(normalized.resolvedLines)
+                        onChange(normalized)
                     }
 
                     Button("Apply Limit") {
@@ -70,7 +72,9 @@ struct ScrollbackLimitEditor: View {
                             finiteLinesText = String(lines)
                             return
                         }
-                        onChange(ScrollbackLimit(finiteLines: parsed))
+                        let normalized = ScrollbackLimit(finiteLines: parsed)
+                        finiteLinesText = String(normalized.resolvedLines)
+                        onChange(normalized)
                     }
                     .accessibilityIdentifier("\(accessibilityPrefix)-apply-button")
                 }

@@ -168,7 +168,8 @@ final class TerminalScrollbackTests: XCTestCase {
             paneID: "pane-id",
             paneName: "pane-name",
             tabID: "tab-id",
-            tabName: "tab-name"
+            tabName: "tab-name",
+            result: "applied"
         ).attributes
 
         XCTAssertEqual(attributes["pane.id"], "pane-id")

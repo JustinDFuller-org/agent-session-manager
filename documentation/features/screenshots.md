@@ -4,7 +4,7 @@ The screenshot walkthrough captures the app in one continuous session for docume
 
 ## Coverage
 
-ScreenshotTests captures all 25 views in order:
+ScreenshotTests captures all 31 views:
 
 - onboarding-welcome
 - onboarding-shell
@@ -17,11 +17,14 @@ ScreenshotTests captures all 25 views in order:
 - new-tab-sheet-filled
 - main-window-tab
 - new-pane-sheet
+- new-pane-agent-control
 - split-panes
+- pane-scrollback-menu
 - existing-worktree-prompt
 - worktree-cleanup-alert
 - reordered-tabs-and-panes
 - settings-panes
+- settings-agent-control
 - settings-notifications
 - settings-profiles
 - settings-tools
@@ -31,6 +34,9 @@ ScreenshotTests captures all 25 views in order:
 - pane-status-indicators
 - notification-sidebar
 - focused-pane
+- trace-dashboard
+- trace-waterfall
+- invariant-dashboard
 
 The app launches once and terminates once. Each screenshot is captured after the preceding real UI flow has completed, so later images show the same session continuing through the product.
 

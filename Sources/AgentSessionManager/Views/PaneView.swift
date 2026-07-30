@@ -12,6 +12,7 @@ struct PaneView: View {
     let onViewPaneSettings: (Pane) -> Void
     @State private var showsScrollbackEditor = false
     @State private var scrollbackDraft: ScrollbackLimit?
+    @State private var scrollbackLinesText = ""
     @State private var pendingScrollback: ScrollbackLimit?
     @State private var showsScrollbackReductionWarning = false
 
@@ -135,6 +136,7 @@ struct PaneView: View {
                         Text("Use Global Default (\(appSettings.defaultScrollback.resolvedLines.formatted()) lines)")
                     }
                 }
+                .accessibilityIdentifier("pane-scrollback-use-global")
                 Divider()
                 ForEach([1_000, 5_000, 10_000], id: \.self) { lines in
                     Button {
@@ -161,6 +163,9 @@ struct PaneView: View {
                     scrollbackDraft =
                         pane.scrollbackOverride
                         ?? .finite(appSettings.defaultScrollback.resolvedLines)
+                    scrollbackLinesText = String(
+                        (pane.scrollbackOverride ?? appSettings.defaultScrollback).resolvedLines
+                    )
                     showsScrollbackEditor = true
                 }
             }
@@ -174,7 +179,8 @@ struct PaneView: View {
                     allowsInheritance: true,
                     inheritedValue: appSettings.defaultScrollback,
                     accessibilityPrefix: "pane-scrollback",
-                    onChange: { scrollbackDraft = $0 }
+                    onChange: { scrollbackDraft = $0 },
+                    finiteLinesText: $scrollbackLinesText
                 )
                 HStack {
                     Spacer()
@@ -182,7 +188,13 @@ struct PaneView: View {
                         showsScrollbackEditor = false
                     }
                     Button("Apply") {
-                        requestScrollbackChange(scrollbackDraft)
+                        let committedScrollback: ScrollbackLimit?
+                        if case .finite? = scrollbackDraft, let lines = Int(scrollbackLinesText) {
+                            committedScrollback = ScrollbackLimit(finiteLines: lines)
+                        } else {
+                            committedScrollback = scrollbackDraft
+                        }
+                        requestScrollbackChange(committedScrollback)
                         showsScrollbackEditor = false
                     }
                     .keyboardShortcut(.defaultAction)

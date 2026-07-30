@@ -16,6 +16,7 @@ struct NewPaneSheet: View {
     @State private var isPriority = false
     @State private var agentControlInjectionEnabled = true
     @State private var scrollbackOverride: ScrollbackLimit?
+    @State private var scrollbackLinesText = ""
 
     @State private var showSaveProfileSheet = false
     @State private var saveProfileName = ""
@@ -258,7 +259,8 @@ struct NewPaneSheet: View {
                 allowsInheritance: true,
                 inheritedValue: appSettings.defaultScrollback,
                 accessibilityPrefix: "new-pane-scrollback",
-                onChange: { scrollbackOverride = $0 }
+                onChange: { scrollbackOverride = $0 },
+                finiteLinesText: $scrollbackLinesText
             )
         }
     }
@@ -631,11 +633,17 @@ struct NewPaneSheet: View {
         guard !trimmed.isEmpty, validationError == nil else { return }
         let extraArgs = buildExtraArgs()
         let extraEnvVars = buildExtraEnvVars()
+        let committedScrollbackOverride: ScrollbackLimit?
+        if case .finite? = scrollbackOverride, let lines = Int(scrollbackLinesText) {
+            committedScrollbackOverride = ScrollbackLimit(finiteLines: lines)
+        } else {
+            committedScrollbackOverride = scrollbackOverride
+        }
 
         if let pane = refreshingPane {
             pane.agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
                 persistedDecision: agentControlInjectionEnabled)
-            pane.scrollbackOverride = scrollbackOverride
+            pane.scrollbackOverride = committedScrollbackOverride
             tab.refreshPane(
                 pane, extraArgs: extraArgs, harness: selectedHarness, extraEnvVars: extraEnvVars,
                 appSettings: appSettings)
@@ -652,7 +660,7 @@ struct NewPaneSheet: View {
             harness: selectedHarness,
             worktreeIsManaged: true,
             profileID: selectedProfileID,
-            scrollbackOverride: scrollbackOverride,
+            scrollbackOverride: committedScrollbackOverride,
             agentControlInjectionEnabled: appSettings.resolvedAgentControlInjectionDecision(
                 persistedDecision: agentControlInjectionEnabled),
             appSettings: appSettings

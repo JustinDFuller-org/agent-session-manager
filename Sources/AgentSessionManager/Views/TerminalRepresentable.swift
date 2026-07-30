@@ -8,6 +8,7 @@ struct TerminalScrollbackTelemetry {
     let paneName: String
     let tabID: String
     let tabName: String
+    let result: String
 
     var attributes: [String: String] {
         [
@@ -18,7 +19,7 @@ struct TerminalScrollbackTelemetry {
             "scrollback.mode": limit.modeName,
             "scrollback.lines": String(limit.resolvedLines),
             "scrollback.source": source,
-            "result": "applied",
+            "result": result,
         ]
     }
 }
@@ -41,9 +42,14 @@ struct TerminalRepresentable: NSViewRepresentable {
         context.coordinator.startIfNeeded(view: nsView, controller: controller)
         context.coordinator.focusIfNeeded(view: nsView, isActive: isActive)
         let resolvedLines = scrollbackLimit.resolvedLines
-        if context.coordinator.lastAppliedScrollbackLines != resolvedLines {
+        let capacityChanged = context.coordinator.lastAppliedScrollbackLines != resolvedLines
+        if capacityChanged {
             nsView.changeScrollback(resolvedLines)
             context.coordinator.lastAppliedScrollbackLines = resolvedLines
+        }
+        if context.coordinator.lastReportedScrollbackLimit != scrollbackLimit
+            || context.coordinator.lastReportedScrollbackSource != scrollbackSource
+        {
             TracingService.shared.record(
                 "terminal.scrollback.changed",
                 attributes: TerminalScrollbackTelemetry(
@@ -52,9 +58,12 @@ struct TerminalRepresentable: NSViewRepresentable {
                     paneID: paneID,
                     paneName: paneName,
                     tabID: tabID,
-                    tabName: tabName
+                    tabName: tabName,
+                    result: capacityChanged ? "applied" : "capacity_unchanged"
                 ).attributes
             )
+            context.coordinator.lastReportedScrollbackLimit = scrollbackLimit
+            context.coordinator.lastReportedScrollbackSource = scrollbackSource
         }
     }
 
@@ -67,6 +76,8 @@ struct TerminalRepresentable: NSViewRepresentable {
         private var started = false
         private var wasActive = false
         fileprivate var lastAppliedScrollbackLines: Int?
+        fileprivate var lastReportedScrollbackLimit: ScrollbackLimit?
+        fileprivate var lastReportedScrollbackSource: String?
 
         func startIfNeeded(view: LocalProcessTerminalView, controller: TerminalController) {
             guard !started else { return }

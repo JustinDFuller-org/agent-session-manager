@@ -219,6 +219,7 @@ private struct PanesContent: View {
     @State private var shellPickerSelection: String = ""
     @State private var pendingDefaultScrollback: ScrollbackLimit?
     @State private var showsScrollbackReductionWarning = false
+    @State private var scrollbackLinesText = ""
 
     var body: some View {
         @Bindable var appSettings = appSettings
@@ -353,7 +354,8 @@ private struct PanesContent: View {
                                     to: "terminal-settings.json"
                                 )
                             }
-                        }
+                        },
+                        finiteLinesText: $scrollbackLinesText
                     )
                     .frame(width: 280, alignment: .leading)
                 }
@@ -397,6 +399,7 @@ private struct PanesContent: View {
             ) { limit in
                 Button("Reduce History", role: .destructive) {
                     appSettings.defaultScrollback = limit
+                    scrollbackLinesText = String(limit.resolvedLines)
                     SettingsPersistence.save(
                         SettingsPersistence.TerminalSettings(scrollback: limit),
                         to: "terminal-settings.json"
@@ -404,6 +407,7 @@ private struct PanesContent: View {
                     pendingDefaultScrollback = nil
                 }
                 Button("Cancel", role: .cancel) {
+                    scrollbackLinesText = String(appSettings.defaultScrollback.resolvedLines)
                     pendingDefaultScrollback = nil
                 }
             } message: { _ in
