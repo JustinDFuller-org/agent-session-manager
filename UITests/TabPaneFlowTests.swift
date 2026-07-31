@@ -146,38 +146,30 @@ final class TabPaneFlowTests: BaseTestCase {
         waitFor(optionsButton)
         XCTAssertFalse(app.buttons["new-pane-show-hidden-options-button"].exists)
         optionsButton.click()
-        let showCLIOptions = app.buttons["new-pane-show-hidden-options-button"]
-        waitFor(showCLIOptions)
-        showCLIOptions.click()
 
-        let cliOptionsScrollView = app.scrollViews["new-pane-hidden-cli-options-scroll-view"]
-        waitFor(cliOptionsScrollView)
-        XCTAssertLessThanOrEqual(cliOptionsScrollView.frame.height, 160)
-
-        let verboseToggle = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS '--verbose'")).firstMatch
-        waitFor(verboseToggle)
-        cliOptionsScrollView.swipeUp()
-        cliOptionsScrollView.swipeUp()
-        XCTAssertTrue(verboseToggle.isHittable, "The lower CLI options should be reachable by scrolling")
-        XCTAssertTrue(showCLIOptions.isHittable)
-        XCTAssertEqual(showCLIOptions.label, "Fewer options")
-
-        showCLIOptions.click()
+        let optionsScrollView = app.scrollViews["new-pane-cli-options-content-scroll-view"]
+        waitFor(optionsScrollView)
 
         let showEnvVars = app.buttons["new-pane-show-hidden-env-vars-button"]
         waitFor(showEnvVars)
         showEnvVars.click()
+        XCTAssertFalse(app.scrollViews["new-pane-hidden-env-vars-scroll-view"].exists)
 
-        let envVarsScrollView = app.scrollViews["new-pane-hidden-env-vars-scroll-view"]
-        waitFor(envVarsScrollView)
-        XCTAssertLessThanOrEqual(envVarsScrollView.frame.height, 120)
+        let showCLIOptions = app.buttons["new-pane-show-hidden-options-button"]
+        waitFor(showCLIOptions)
+        showCLIOptions.click()
+        XCTAssertFalse(app.scrollViews["new-pane-hidden-cli-options-scroll-view"].exists)
+
+        let verboseToggle = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS '--verbose'")).firstMatch
+        waitFor(verboseToggle)
+        optionsScrollView.swipeUp()
+        optionsScrollView.swipeUp()
+        XCTAssertTrue(verboseToggle.isHittable, "The lower CLI options should be reachable by scrolling")
+        XCTAssertEqual(showCLIOptions.label, "Fewer options")
 
         let debugVariable = app.checkBoxes.matching(NSPredicate(format: "label CONTAINS 'DEBUG'")).firstMatch
         waitFor(debugVariable)
-        envVarsScrollView.swipeUp()
-        envVarsScrollView.swipeUp()
         XCTAssertTrue(debugVariable.exists, "The environment-variable catalog should remain available while scrolling")
-        XCTAssertTrue(showEnvVars.isHittable)
         XCTAssertEqual(showEnvVars.label, "Fewer environment variables")
         let optionsDone = app.buttons["new-pane-cli-options-done-button"]
         XCTAssertTrue(optionsDone.isHittable)

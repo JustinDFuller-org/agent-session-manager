@@ -429,10 +429,11 @@ struct NewPaneSheet: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "slider.horizontal.3")
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(summary.title)
                                 .font(.subheadline)
+                                .foregroundStyle(.primary)
                             Text(summary.detail)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -441,11 +442,21 @@ struct NewPaneSheet: View {
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.primary.opacity(0.1))
+                )
                 .accessibilityIdentifier("new-pane-cli-options-button")
             }
         }
@@ -461,10 +472,11 @@ struct NewPaneSheet: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "gearshape")
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("More Settings")
                             .font(.subheadline)
+                            .foregroundStyle(.primary)
                         Text(advancedSettingsSummary)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -473,11 +485,21 @@ struct NewPaneSheet: View {
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.primary.opacity(0.1))
+            )
             .accessibilityIdentifier("new-pane-more-settings-button")
         }
     }

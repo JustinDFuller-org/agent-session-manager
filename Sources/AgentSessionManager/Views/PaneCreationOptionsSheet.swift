@@ -77,15 +77,11 @@ struct PaneCreationOptionsSheet: View {
             Text("Options shown for this pane")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(visibleCLIOptions) { option in
-                        CLIOptionToggleRow(option: option, state: stateBinding(for: option))
-                    }
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(visibleCLIOptions) { option in
+                    CLIOptionToggleRow(option: option, state: stateBinding(for: option))
                 }
             }
-            .frame(maxHeight: 160)
-            .accessibilityIdentifier("new-pane-visible-cli-options-scroll-view")
         }
     }
 
@@ -109,19 +105,15 @@ struct PaneCreationOptionsSheet: View {
                 Text("Options not shown by default are still applied when enabled in the selected profile.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(hiddenCLIOptions) { option in
-                            HiddenCLIOptionToggleRow(
-                                option: option,
-                                state: stateBinding(for: option),
-                                onAddToGlobal: option.isAvailable ? nil : { onAddCLIOptionToGlobal(option) }
-                            )
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(hiddenCLIOptions) { option in
+                        HiddenCLIOptionToggleRow(
+                            option: option,
+                            state: stateBinding(for: option),
+                            onAddToGlobal: option.isAvailable ? nil : { onAddCLIOptionToGlobal(option) }
+                        )
                     }
                 }
-                .frame(maxHeight: 160)
-                .accessibilityIdentifier("new-pane-hidden-cli-options-scroll-view")
             }
         }
     }
@@ -132,15 +124,11 @@ struct PaneCreationOptionsSheet: View {
             Text("Environment Variables")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(visibleEnvVars) { envVar in
-                        EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
-                    }
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(visibleEnvVars) { envVar in
+                    EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
                 }
             }
-            .frame(maxHeight: 120)
-            .accessibilityIdentifier("new-pane-visible-env-vars-scroll-view")
         }
     }
 
@@ -161,19 +149,15 @@ struct PaneCreationOptionsSheet: View {
             .accessibilityIdentifier("new-pane-show-hidden-env-vars-button")
 
             if showHiddenEnvVars {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(hiddenEnvVarOptions) { envVar in
-                            HiddenEnvVarToggleRow(
-                                envVar: envVar,
-                                state: envVarStateBinding(for: envVar),
-                                onAddToGlobal: envVar.isAvailable ? nil : { onAddEnvVarToGlobal(envVar) }
-                            )
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(hiddenEnvVarOptions) { envVar in
+                        HiddenEnvVarToggleRow(
+                            envVar: envVar,
+                            state: envVarStateBinding(for: envVar),
+                            onAddToGlobal: envVar.isAvailable ? nil : { onAddEnvVarToGlobal(envVar) }
+                        )
                     }
                 }
-                .frame(maxHeight: 120)
-                .accessibilityIdentifier("new-pane-hidden-env-vars-scroll-view")
             }
         }
     }
