@@ -217,6 +217,9 @@ struct SettingRow<Control: View>: View {
 private struct PanesContent: View {
     @Environment(AppSettings.self) private var appSettings
     @State private var shellPickerSelection: String = ""
+    @State private var pendingDefaultScrollback: ScrollbackLimit?
+    @State private var showsScrollbackReductionWarning = false
+    @State private var scrollbackLinesText = ""
 
     var body: some View {
         @Bindable var appSettings = appSettings
@@ -329,29 +332,32 @@ private struct PanesContent: View {
                     }
                 }
                 SettingRow(
-                    title: "Scrollback Lines",
-                    description: "Number of lines kept in the terminal scroll buffer (100–1,000,000).",
-                    defaultValue: "500"
+                    title: "Scrollback History",
+                    description:
+                        "Default history retained by terminal panes. Existing pane overrides are unchanged.",
+                    defaultValue: "5,000 lines"
                 ) {
-                    TextField(
-                        "",
-                        text: Binding(
-                            get: { String(appSettings.scrollbackLines) },
-                            set: { newValue in
-                                if let parsed = Int(newValue) {
-                                    appSettings.scrollbackLines = min(1_000_000, max(100, parsed))
-                                    SettingsPersistence.save(
-                                        SettingsPersistence.TerminalSettings(
-                                            scrollbackLines: appSettings.scrollbackLines),
-                                        to: "terminal-settings.json")
-                                }
+                    ScrollbackLimitEditor(
+                        value: appSettings.defaultScrollback,
+                        allowsInheritance: false,
+                        inheritedValue: .defaultValue,
+                        accessibilityPrefix: "settings-scrollback",
+                        onChange: { limit in
+                            guard let limit else { return }
+                            if limit.resolvedLines < appSettings.defaultScrollback.resolvedLines {
+                                pendingDefaultScrollback = limit
+                                showsScrollbackReductionWarning = true
+                            } else {
+                                appSettings.defaultScrollback = limit
+                                SettingsPersistence.save(
+                                    SettingsPersistence.TerminalSettings(scrollback: limit),
+                                    to: "terminal-settings.json"
+                                )
                             }
-                        )
+                        },
+                        finiteLinesText: $scrollbackLinesText
                     )
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(width: 120)
-                    .accessibilityIdentifier("settings-scrollback-lines-field")
+                    .frame(width: 280, alignment: .leading)
                 }
                 SettingRow(
                     title: "Auto Session Name",
@@ -385,6 +391,27 @@ private struct PanesContent: View {
                         SettingsPersistence.save(appSettings.exitBehavior, to: "exit-behavior.json")
                     }
                 }
+            }
+            .alert(
+                "Reduce Scrollback History?",
+                isPresented: $showsScrollbackReductionWarning,
+                presenting: pendingDefaultScrollback
+            ) { limit in
+                Button("Reduce History", role: .destructive) {
+                    appSettings.defaultScrollback = limit
+                    scrollbackLinesText = String(limit.resolvedLines)
+                    SettingsPersistence.save(
+                        SettingsPersistence.TerminalSettings(scrollback: limit),
+                        to: "terminal-settings.json"
+                    )
+                    pendingDefaultScrollback = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    scrollbackLinesText = String(appSettings.defaultScrollback.resolvedLines)
+                    pendingDefaultScrollback = nil
+                }
+            } message: { _ in
+                Text("Oldest retained terminal lines are discarded immediately and cannot be recovered.")
             }
             Section("Cleanup") {
                 SettingRow(

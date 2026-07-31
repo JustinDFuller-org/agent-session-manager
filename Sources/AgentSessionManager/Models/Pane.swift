@@ -54,6 +54,7 @@ final class Pane: Identifiable {
     var isClosed: Bool = false
     var restartToken = UUID()
     var profileID: UUID?
+    var scrollbackOverride: ScrollbackLimit?
     var extraArgs: [String] = []
     /// Runtime-only environment values resolved from pane setup or a selected profile.
     /// Secret values are intentionally not persisted with the pane.
@@ -80,6 +81,7 @@ final class Pane: Identifiable {
         worktreeDirectory: URL? = nil,
         worktreeIsManaged: Bool = false,
         profileID: UUID? = nil,
+        scrollbackOverride: ScrollbackLimit? = nil,
         agentControlInjectionEnabled: Bool = true,
         appSettings: AppSettings? = nil
     ) {
@@ -90,6 +92,7 @@ final class Pane: Identifiable {
         self.worktreeIsManaged = worktreeIsManaged
         self.tab = tab
         self.profileID = profileID
+        self.scrollbackOverride = scrollbackOverride
         self.agentControlInjectionEnabled = agentControlInjectionEnabled
         self.appSettings = appSettings
     }
@@ -98,6 +101,10 @@ final class Pane: Identifiable {
         if let worktreeDirectory { return worktreeDirectory }
         guard let tab else { return nil }
         return Tab.worktreeDirectoryURL(repoRoot: tab.directory, name: name)
+    }
+
+    var effectiveScrollback: ScrollbackLimit {
+        scrollbackOverride ?? appSettings?.defaultScrollback ?? .defaultValue
     }
 
     func installTerminalController(_ controller: TerminalController?) {

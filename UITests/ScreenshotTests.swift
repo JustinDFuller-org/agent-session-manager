@@ -66,6 +66,17 @@ final class ScreenshotTests: BaseTestCase {
         createPane(named: "feature-a")
         createPane(named: "feature-b")
         screenshot("split-panes")
+        let featureAHeader = app.descendants(matching: .any)
+            .matching(identifier: "pane-header-feature-a").firstMatch
+        waitFor(featureAHeader)
+        featureAHeader.rightClick()
+        let scrollbackMenu = app.windows.firstMatch.menuItems["Scrollback History"]
+        waitFor(scrollbackMenu)
+        scrollbackMenu.hover()
+        waitFor(app.menuItems["Unlimited (50,000-line cap)"])
+        screenshot("pane-scrollback-menu")
+        app.typeKey(.escape, modifierFlags: [])
+        app.typeKey(.escape, modifierFlags: [])
 
         GitUITestWorkspace.addManagedSecondaryWorktree(
             folder: "wt-cleanup",

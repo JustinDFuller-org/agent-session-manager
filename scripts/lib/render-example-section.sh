@@ -47,7 +47,9 @@ ORDER=(
     main-window-tab.png
     # 4. Create and use a pane
     new-pane-sheet.png
+    new-pane-agent-control.png
     split-panes.png
+    pane-scrollback-menu.png
     existing-worktree-prompt.png
     worktree-cleanup-alert.png
     reordered-tabs-and-panes.png
@@ -57,12 +59,17 @@ ORDER=(
     focused-pane.png
     # 6. Configure settings
     settings-panes.png
+    settings-agent-control.png
     settings-notifications.png
     settings-profiles.png
     settings-tools.png
     settings-shortcuts.png
     settings-status-line.png
     settings-debug.png
+    # 7. Inspect diagnostics
+    trace-dashboard.png
+    trace-waterfall.png
+    invariant-dashboard.png
 )
 
 in_array() {

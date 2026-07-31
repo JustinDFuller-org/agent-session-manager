@@ -12,6 +12,10 @@ Use **⌘P** (default; configurable under **Settings → Shortcuts → New Pane 
 
 **Session / name field** — One text field, shared across tools. Switching tools preserves whatever was typed. It accepts a session name, branch ref, or existing worktree name and routes every harness through the same app-owned Git resolution path.
 
+**Scrollback History** — Inherit the 5,000-line global default or choose a
+pane-specific finite or memory-capped limit. The choice is saved with the pane
+and is preserved by Refresh Pane.
+
 **CLI options** — Flags enabled in **Settings → Harnesses** appear as toggles and fields. Options marked default-on in Settings start checked.
 
 Use **Show all options** to expose the complete CLI or environment-variable catalog for the selected harness. Long catalogs stay within a bounded list that can be scrolled independently, so **Fewer options** and the pane actions remain available.
@@ -32,6 +36,9 @@ Right-click anywhere on a pane to open the context menu. **Copy** and **Paste** 
 
 - **Copy** — copies the current selection to the clipboard and clears it as confirmation. The item is greyed out when nothing is selected.
 - **Paste** — sends clipboard text through SwiftTerm's bracketed-paste path, so agent TUIs receive it as a single paste event rather than line-by-line keystrokes. ⌘C and ⌘V continue to work as before.
+- **Scrollback History** — switches the pane back to the global default, applies
+  a preset or capped unlimited mode, or opens a custom limit editor. Reducing
+  the effective limit requires confirmation because it discards oldest lines.
 
 ## Open Shell Here
 

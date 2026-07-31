@@ -140,7 +140,7 @@ final class AppSettings {
     var prRequestTimeoutSeconds: Int = 15
     var prBackgroundRefreshEnabled: Bool = true
     var prBackgroundPollingIntervalSeconds: Int = 60
-    var scrollbackLines: Int = 500
+    var defaultScrollback: ScrollbackLimit = .defaultValue
     var exitBehavior: ExitBehavior = .prompt
     var profiles: [Profile] = []
     var autoSetSessionName: Bool = true

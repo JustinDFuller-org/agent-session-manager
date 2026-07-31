@@ -1,10 +1,38 @@
 import SwiftTerm
 import SwiftUI
 
+struct TerminalScrollbackTelemetry {
+    let limit: ScrollbackLimit
+    let source: String
+    let paneID: String
+    let paneName: String
+    let tabID: String
+    let tabName: String
+    let result: String
+
+    var attributes: [String: String] {
+        [
+            "pane.id": paneID,
+            "pane.name": paneName,
+            "tab.id": tabID,
+            "tab.name": tabName,
+            "scrollback.mode": limit.modeName,
+            "scrollback.lines": String(limit.resolvedLines),
+            "scrollback.source": source,
+            "result": result,
+        ]
+    }
+}
+
 struct TerminalRepresentable: NSViewRepresentable {
     let controller: TerminalController
     let isActive: Bool
-    let scrollbackLines: Int
+    let scrollbackLimit: ScrollbackLimit
+    let scrollbackSource: String
+    let paneID: String
+    let paneName: String
+    let tabID: String
+    let tabName: String
 
     func makeNSView(context: Context) -> LocalProcessTerminalView {
         controller.terminalView
@@ -13,7 +41,30 @@ struct TerminalRepresentable: NSViewRepresentable {
     func updateNSView(_ nsView: LocalProcessTerminalView, context: Context) {
         context.coordinator.startIfNeeded(view: nsView, controller: controller)
         context.coordinator.focusIfNeeded(view: nsView, isActive: isActive)
-        nsView.changeScrollback(scrollbackLines)
+        let resolvedLines = scrollbackLimit.resolvedLines
+        let capacityChanged = context.coordinator.lastAppliedScrollbackLines != resolvedLines
+        if capacityChanged {
+            nsView.changeScrollback(resolvedLines)
+            context.coordinator.lastAppliedScrollbackLines = resolvedLines
+        }
+        if context.coordinator.lastReportedScrollbackLimit != scrollbackLimit
+            || context.coordinator.lastReportedScrollbackSource != scrollbackSource
+        {
+            TracingService.shared.record(
+                "terminal.scrollback.changed",
+                attributes: TerminalScrollbackTelemetry(
+                    limit: scrollbackLimit,
+                    source: scrollbackSource,
+                    paneID: paneID,
+                    paneName: paneName,
+                    tabID: tabID,
+                    tabName: tabName,
+                    result: capacityChanged ? "applied" : "capacity_unchanged"
+                ).attributes
+            )
+            context.coordinator.lastReportedScrollbackLimit = scrollbackLimit
+            context.coordinator.lastReportedScrollbackSource = scrollbackSource
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -24,6 +75,9 @@ struct TerminalRepresentable: NSViewRepresentable {
     final class Coordinator {
         private var started = false
         private var wasActive = false
+        fileprivate var lastAppliedScrollbackLines: Int?
+        fileprivate var lastReportedScrollbackLimit: ScrollbackLimit?
+        fileprivate var lastReportedScrollbackSource: String?
 
         func startIfNeeded(view: LocalProcessTerminalView, controller: TerminalController) {
             guard !started else { return }

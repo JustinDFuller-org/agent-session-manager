@@ -126,6 +126,7 @@ struct PersistedPane: Codable {
     var worktreeDirectory: String?
     var worktreeIsManaged: Bool
     var profileID: UUID?
+    var scrollbackOverride: ScrollbackLimit?
     var extraArgs: [String]
     var opencodeSessionID: String?
     var agentControlInjectionEnabled: Bool?
@@ -134,6 +135,7 @@ struct PersistedPane: Codable {
         case id, name, harness, isPriority, isMerged, isClosed, worktreeDirectory, worktreeIsManaged
         case claudeProcessDirectory
         case profileID
+        case scrollbackOverride
         case extraArgs
         case opencodeSessionID
         case agentControlInjectionEnabled
@@ -143,7 +145,7 @@ struct PersistedPane: Codable {
         id: UUID, name: String, harness: Harness, isPriority: Bool = false, isMerged: Bool = false,
         isClosed: Bool = false,
         worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil,
-        extraArgs: [String] = [], opencodeSessionID: String? = nil,
+        scrollbackOverride: ScrollbackLimit? = nil, extraArgs: [String] = [], opencodeSessionID: String? = nil,
         agentControlInjectionEnabled: Bool? = nil
     ) {
         self.id = id
@@ -155,6 +157,7 @@ struct PersistedPane: Codable {
         self.worktreeDirectory = worktreeDirectory
         self.worktreeIsManaged = worktreeIsManaged
         self.profileID = profileID
+        self.scrollbackOverride = scrollbackOverride
         self.extraArgs = extraArgs
         self.opencodeSessionID = opencodeSessionID
         self.agentControlInjectionEnabled = agentControlInjectionEnabled
@@ -173,6 +176,8 @@ struct PersistedPane: Codable {
             ?? container.decodeIfPresent(String.self, forKey: .claudeProcessDirectory)
         worktreeIsManaged = (try? container.decodeIfPresent(Bool.self, forKey: .worktreeIsManaged)) ?? false
         profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
+        scrollbackOverride =
+            (try? container.decodeIfPresent(ScrollbackLimit.self, forKey: .scrollbackOverride)) ?? nil
         extraArgs = (try? container.decodeIfPresent([String].self, forKey: .extraArgs)) ?? []
         opencodeSessionID = try container.decodeIfPresent(String.self, forKey: .opencodeSessionID)
         agentControlInjectionEnabled = try container.decodeIfPresent(Bool.self, forKey: .agentControlInjectionEnabled)
@@ -189,6 +194,7 @@ struct PersistedPane: Codable {
         try container.encode(worktreeDirectory, forKey: .worktreeDirectory)
         try container.encode(worktreeIsManaged, forKey: .worktreeIsManaged)
         try container.encodeIfPresent(profileID, forKey: .profileID)
+        try container.encodeIfPresent(scrollbackOverride, forKey: .scrollbackOverride)
         try container.encode(extraArgs, forKey: .extraArgs)
         try container.encodeIfPresent(opencodeSessionID, forKey: .opencodeSessionID)
         try container.encodeIfPresent(agentControlInjectionEnabled, forKey: .agentControlInjectionEnabled)
@@ -223,6 +229,7 @@ struct SessionPersistence {
                         worktreeDirectory: pane.worktreeDirectory?.path,
                         worktreeIsManaged: pane.worktreeIsManaged,
                         profileID: pane.profileID,
+                        scrollbackOverride: pane.scrollbackOverride,
                         extraArgs: pane.extraArgs,
                         opencodeSessionID: pane.opencodeSessionID,
                         agentControlInjectionEnabled: pane.agentControlInjectionEnabled
@@ -331,6 +338,7 @@ struct SessionPersistence {
                     id: persistedPane.id,
                     extraEnvVars: restoredEnvironment,
                     profileID: persistedPane.profileID,
+                    scrollbackOverride: persistedPane.scrollbackOverride,
                     agentControlInjectionEnabled: agentControlInjectionEnabled,
                     resumeOpencodeSessionID: resumeOpencodeSessionID,
                     appSettings: appSettings
