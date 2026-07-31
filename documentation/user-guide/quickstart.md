@@ -21,9 +21,10 @@ Complete [Install and First Launch]({{ '/documentation/user-guide/install/' | re
 4. Optionally enter a starting branch in **Base Branch**.
 5. Choose **Create**. The new tab becomes active.
 6. Press ⌘P, or choose **File → New Pane in Current Tab**.
-7. In **New Pane**, select an active tool in **Harness**.
+7. In **New Pane**, choose a **Profile**. If you use **Custom**, select an active tool in **Harness**.
 8. Enter a session name, branch, or worktree in **Session, branch, or worktree**. For a new task, use a simple name such as `feature-a`.
-9. Review any **CLI Options** or **Environment Variables** shown for the selected tool, then choose **Create Pane**.
+9. Select **CLI Options** if this pane needs one-off flags, MCP servers, or environment variables.
+10. Select **More Settings** only when changing Priority Pane, Agent Control, or Scrollback History, then choose **Create Pane**.
 
 ## What you should see
 
@@ -39,7 +40,7 @@ _New Tab is ready to create after the project directory and optional base branch
 
 ![Agent Session Manager New Pane sheet]({{ '/assets/img/docs/new-pane-sheet.png' | relative_url }})
 
-_New Pane combines the harness, session name, CLI options, and environment settings._
+_New Pane keeps the profile and session name in the primary path, with CLI options and less-frequent settings available on demand._
 
 ## If it does not work
 

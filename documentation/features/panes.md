@@ -6,21 +6,41 @@ A **pane** is a terminal session inside a tab. Each pane runs an AI agent CLI: C
 
 Use **⌘P** (default; configurable under **Settings → Shortcuts → New Pane in Current Tab**) or **File → New Pane in Current Tab** to open the New Pane sheet.
 
-### Fields
+### Progressive disclosure
 
-**CLI** — Pick the tool to launch. Only tools enabled in **Settings → Harnesses** appear.
+The New Pane sheet keeps the common path visible:
 
-**Session / name field** — One text field, shared across tools. Switching tools preserves whatever was typed. It accepts a session name, branch ref, or existing worktree name and routes every harness through the same app-owned Git resolution path.
+1. Choose a **Profile**. Profiles preconfigure the harness and saved options.
+2. Enter a session name, branch ref, or existing worktree in **Session, branch, or worktree**.
+3. Select **CLI Options** when this pane needs one-off flags, MCP servers, presets,
+   or environment values.
+4. Select **More Settings** only when changing Priority Pane, Agent Control, or
+   Scrollback History.
+5. Choose **Create Pane** or press Return.
+
+Only tools enabled in **Settings → Harnesses** appear when selecting a custom
+harness. Switching tools preserves the session field.
+
+### CLI options
+
+The **CLI Options** surface shows options marked for the selected profile, or
+the active catalog when using **Custom**. Presets, custom values, multi-select
+MCP options, and supported environment variables remain editable there.
+
+Use **Show all options** or **Show all environment variables** to expose the
+complete catalog for the selected harness. Long catalogs stay within bounded
+lists that can be scrolled independently, so the **Done** action remains
+available. Options saved in a profile but not shown by default continue to be
+applied when the pane starts.
+
+### More settings
 
 **Scrollback History** — Inherit the 5,000-line global default or choose a
 pane-specific finite or memory-capped limit. The choice is saved with the pane
 and is preserved by Refresh Pane.
 
-**CLI options** — Flags enabled in **Settings → Harnesses** appear as toggles and fields. Options marked default-on in Settings start checked.
-
-Use **Show all options** to expose the complete CLI or environment-variable catalog for the selected harness. Long catalogs stay within a bounded list that can be scrolled independently, so **Fewer options** and the pane actions remain available.
-
-Choose **Open** or press Return to create the pane.
+**Agent Control** and **Priority Pane** remain available under **More Settings**
+without occupying the primary creation path.
 
 ## Status line
 

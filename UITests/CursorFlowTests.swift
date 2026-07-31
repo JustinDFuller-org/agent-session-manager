@@ -57,11 +57,14 @@ final class CursorFlowTests: BaseTestCase {
             .firstMatch
         waitFor(cursorHarness)
         cursorHarness.click()
+        app.buttons["new-pane-more-settings-button"].click()
         let controlToggle = app.checkBoxes["new-pane-agent-control-toggle"]
         waitFor(controlToggle)
         if controlToggle.value as? Int != 1 {
             controlToggle.click()
         }
+        app.buttons["new-pane-advanced-settings-done-button"].click()
+        app.buttons["new-pane-cli-options-button"].click()
         let showAllOptions = app.buttons["new-pane-show-hidden-options-button"]
         waitFor(showAllOptions)
         showAllOptions.click()
@@ -70,6 +73,8 @@ final class CursorFlowTests: BaseTestCase {
         if approveMCPs.value as? Int != 1 {
             approveMCPs.click()
         }
+        app.buttons["new-pane-cli-options-done-button"].click()
+        paneField.click()
         paneField.typeText("cursor-control")
         app.buttons["new-pane-open-button"].click()
 

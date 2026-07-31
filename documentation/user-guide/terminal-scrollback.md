@@ -36,9 +36,9 @@ _Scrollback History appears in Settings → Panes → Terminal._
 
 ### Override one pane
 
-- In the New Pane or Refresh Pane sheet, choose a value under
-  **Scrollback History**. Leave **Use Global Default** selected to keep the pane
-  linked to the global setting.
+- In the New Pane or Refresh Pane sheet, open **More Settings** and choose a
+  value under **Scrollback History**. Leave **Use Global Default** selected to
+  keep the pane linked to the global setting.
 - For an open pane, right-click anywhere in it and use the
   **Scrollback History** submenu. Choose a preset, the capped unlimited mode,
   **Custom…**, or **Use Global Default**.

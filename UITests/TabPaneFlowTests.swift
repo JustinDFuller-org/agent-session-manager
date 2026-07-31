@@ -21,6 +21,9 @@ final class TabPaneFlowTests: BaseTestCase {
         app.typeKey("p", modifierFlags: .command)
 
         let nameField = app.textFields["new-pane-name-field"]
+        let moreSettings = app.buttons["new-pane-more-settings-button"]
+        waitFor(moreSettings)
+        moreSettings.click()
         let picker = app.descendants(matching: .any)
             .matching(identifier: "new-pane-scrollback-mode-picker").firstMatch
         waitFor(nameField)
@@ -31,6 +34,7 @@ final class TabPaneFlowTests: BaseTestCase {
         let unlimited = app.menuItems["Unlimited (50,000-line cap)"]
         waitFor(unlimited)
         unlimited.click()
+        app.buttons["new-pane-advanced-settings-done-button"].click()
 
         nameField.click()
         nameField.typeText("history-pane")
@@ -90,6 +94,7 @@ final class TabPaneFlowTests: BaseTestCase {
         let refresh = app.windows.firstMatch.menuItems["Refresh Pane\u{2026}"]
         waitFor(refresh)
         refresh.click()
+        app.buttons["new-pane-more-settings-button"].click()
         let refreshedField = app.textFields["new-pane-scrollback-lines-field"]
         waitFor(refreshedField)
         XCTAssertEqual(refreshedField.value as? String, "2000")
@@ -137,6 +142,10 @@ final class TabPaneFlowTests: BaseTestCase {
         let nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
 
+        let optionsButton = app.buttons["new-pane-cli-options-button"]
+        waitFor(optionsButton)
+        XCTAssertFalse(app.buttons["new-pane-show-hidden-options-button"].exists)
+        optionsButton.click()
         let showCLIOptions = app.buttons["new-pane-show-hidden-options-button"]
         waitFor(showCLIOptions)
         showCLIOptions.click()
@@ -169,7 +178,10 @@ final class TabPaneFlowTests: BaseTestCase {
         envVarsScrollView.swipeUp()
         XCTAssertTrue(debugVariable.exists, "The environment-variable catalog should remain available while scrolling")
         XCTAssertTrue(showEnvVars.isHittable)
-        XCTAssertEqual(showEnvVars.label, "Fewer options")
+        XCTAssertEqual(showEnvVars.label, "Fewer environment variables")
+        let optionsDone = app.buttons["new-pane-cli-options-done-button"]
+        XCTAssertTrue(optionsDone.isHittable)
+        optionsDone.click()
         XCTAssertTrue(app.buttons["new-pane-cancel-button"].isHittable)
     }
 
@@ -255,15 +267,21 @@ final class TabPaneFlowTests: BaseTestCase {
         waitFor(nameField)
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
 
-        // Priority toggle visible in pane sheet (default: priority notifications on)
+        // Less-frequent settings are hidden until More Settings is opened.
         let newPanePriorityToggle = app.checkBoxes["new-pane-priority-toggle"]
+        XCTAssertFalse(newPanePriorityToggle.exists)
+        let moreSettingsButton = app.buttons["new-pane-more-settings-button"]
+        waitFor(moreSettingsButton)
+        moreSettingsButton.click()
         XCTAssertTrue(newPanePriorityToggle.waitForExistence(timeout: 3))
+        app.buttons["new-pane-advanced-settings-done-button"].click()
 
         // CLI picker exists (Claude Code is always active)
         let cliPicker = app.descendants(matching: .any).matching(identifier: "new-pane-cli-picker").firstMatch
         XCTAssertTrue(cliPicker.waitForExistence(timeout: 3))
 
         // Session name autofocus: field accepts typed text immediately
+        nameField.click()
         nameField.typeText("my-session")
         XCTAssertEqual(nameField.value as? String, "my-session")
 
