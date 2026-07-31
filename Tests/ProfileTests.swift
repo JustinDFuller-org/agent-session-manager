@@ -94,11 +94,30 @@ struct ProfileTests {
 
     @Test("Different CLI types preserved in profiles")
     func harnessPreserved() throws {
-        for harness in [Harness.claude, .codex, .cursor] {
-            let profile = Profile(name: "Test", harness: harness)
+        for harness in [Harness.claude, .codex, .cursor, .opencode] {
+            let profile = Profile(
+                name: "Test",
+                harness: harness,
+                cliOptions: [
+                    ProfileCLIOption(
+                        id: "--model",
+                        isEnabled: true,
+                        value: "\(harness.rawValue)-model",
+                        showOnPaneCreate: true
+                    )
+                ],
+                envVars: harness == .opencode
+                    ? [ProfileEnvVar(id: "OPENCODE_CLIENT", isEnabled: true, value: "profile-client")]
+                    : []
+            )
             let data = try JSONEncoder().encode(profile)
             let decoded = try JSONDecoder().decode(Profile.self, from: data)
             #expect(decoded.harness == harness)
+            #expect(decoded.cliOptions.first?.value == "\(harness.rawValue)-model")
+            #expect(decoded.cliOptions.first?.showOnPaneCreate == true)
+            if harness == .opencode {
+                #expect(decoded.envVars.first?.value == "profile-client")
+            }
         }
     }
 
