@@ -31,10 +31,11 @@ Create a tab for a Git repository by following the [Quickstart]({{ '/documentati
 ### Create a pane
 
 1. Choose **File → New Pane in Current Tab** or press ⌘P.
-2. In **New Pane**, select a tool in **Harness**.
+2. In **New Pane**, choose a **Profile**, or choose **Custom** and select a tool in **Harness**.
 3. Enter a name, branch, or existing worktree in **Session, branch, or worktree**.
-4. Review any **CLI Options** or **Environment Variables**.
-5. Choose **Create Pane**.
+4. Open **CLI Options** for one-off flags, MCP servers, or environment variables.
+5. Open **More Settings** only when changing Priority Pane, Agent Control, or Scrollback History.
+6. Choose **Create Pane**.
 
 ### Copy and paste in a pane
 

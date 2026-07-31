@@ -4,7 +4,7 @@ The screenshot walkthrough captures the app in one continuous session for docume
 
 ## Coverage
 
-ScreenshotTests captures all 31 views:
+ScreenshotTests captures all 32 views:
 
 - onboarding-welcome
 - onboarding-shell
@@ -18,6 +18,7 @@ ScreenshotTests captures all 31 views:
 - main-window-tab
 - new-pane-sheet
 - new-pane-agent-control
+- new-pane-cli-options
 - split-panes
 - pane-scrollback-menu
 - existing-worktree-prompt

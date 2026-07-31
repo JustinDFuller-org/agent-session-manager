@@ -149,6 +149,7 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         let presetTestItem = app.menuItems.matching(NSPredicate(format: "label CONTAINS %@", profileName)).firstMatch
         waitFor(presetTestItem)
         presetTestItem.click()
+        app.buttons["new-pane-cli-options-button"].click()
 
         let effortMenu = valueMenu(forFlagID: "--effort")
         waitFor(effortMenu)
@@ -165,6 +166,7 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         mcpBItem.click()
         XCTAssertTrue(mcpMenu.label.contains("mcp-a"), "Deselecting one preset should leave the other selected")
 
+        app.buttons["new-pane-cli-options-done-button"].click()
         let nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
         nameField.click()
@@ -230,6 +232,7 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         ).firstMatch
         waitFor(multiModelProfileItem)
         multiModelProfileItem.click()
+        app.buttons["new-pane-cli-options-button"].click()
 
         let newPaneModelMenu = valueMenu(forFlagID: "--model")
         waitFor(newPaneModelMenu)

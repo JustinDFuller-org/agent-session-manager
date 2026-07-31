@@ -20,8 +20,8 @@ struct NewPaneSheet: View {
 
     @State private var showSaveProfileSheet = false
     @State private var saveProfileName = ""
-    @State private var showHiddenOptions = false
-    @State private var showHiddenEnvVars = false
+    @State private var showCLIOptionsSheet = false
+    @State private var showAdvancedSettingsSheet = false
 
     @FocusState private var isSessionInputFocused: Bool
 
@@ -95,11 +95,13 @@ struct NewPaneSheet: View {
     }
 
     private var hiddenCLIOptions: [CLIOptionConfig] {
-        activeOptions.filter { !$0.isAvailable }
+        let visibleIDs = Set(visibleCLIOptions.map(\.id))
+        return activeOptions.filter { !visibleIDs.contains($0.id) }
     }
 
     private var hiddenEnvVarOptions: [EnvVarConfig] {
-        currentEnvVarOptions.filter { !$0.isAvailable }
+        let visibleIDs = Set(visibleEnvVars.map(\.id))
+        return currentEnvVarOptions.filter { !visibleIDs.contains($0.id) }
     }
 
     private var currentEnvVarOptions: [EnvVarConfig] {
@@ -130,11 +132,41 @@ struct NewPaneSheet: View {
         return false
     }
 
-    private var profilePickerLabel: String {
-        if let profile = selectedProfile {
-            return isFormModifiedFromProfile ? "\(profile.name) (modified)" : profile.name
+    private var paneCreationSummary: PaneCreationSummary {
+        PaneCreationSummary(
+            configuredOptionIDs: activeOptions.compactMap { option in
+                let state =
+                    optionStates[option.id]
+                    ?? OptionState(enabled: option.isDefaultEnabled, value: "")
+                return state.enabled ? option.id : nil
+            },
+            configuredEnvironmentVariableIDs: currentEnvVarOptions.compactMap { envVar in
+                let state =
+                    envVarStates[envVar.id]
+                    ?? OptionState(enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
+                return state.enabled ? envVar.id : nil
+            },
+            additionalOptionCount: hiddenCLIOptions.count,
+            additionalEnvironmentVariableCount: hiddenEnvVarOptions.count
+        )
+    }
+
+    private var advancedSettingsSummary: String {
+        let control = appSettings.resolvedAgentControlInjectionDecision(
+            persistedDecision: agentControlInjectionEnabled
+        )
+        let controlText = control ? "Control on" : "Control off"
+        let scrollbackText: String
+        if let scrollbackOverride {
+            scrollbackText = "\(scrollbackOverride.resolvedLines.formatted()) lines"
+        } else {
+            scrollbackText = "Global scrollback"
         }
-        return "Custom"
+        let priorityText =
+            appSettings.isPriorityNotificationsEnabled
+            ? (isPriority ? "Priority on" : "Priority off")
+            : nil
+        return [priorityText, controlText, scrollbackText].compactMap { $0 }.joined(separator: " • ")
     }
 
     var body: some View {
@@ -152,32 +184,13 @@ struct NewPaneSheet: View {
 
             sessionNameSection
 
-            if appSettings.isPriorityNotificationsEnabled {
-                Toggle(isOn: $isPriority) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Priority Pane")
-                            .font(.subheadline)
-                        Text("Priority notifications jump to the top of the sidebar.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .toggleStyle(.checkbox)
-                .accessibilityIdentifier("new-pane-priority-toggle")
-            }
-
-            agentControlSection
-            scrollbackSection
-
-            cliOptionsSection
-            hiddenCLIOptionsSection
-            envVarSection
-            hiddenEnvVarSection
+            paneOptionsSection
+            moreSettingsSection
 
             actionButtons
         }
         .padding(24)
-        .frame(width: 620, alignment: .topLeading)
+        .frame(width: 460, alignment: .topLeading)
         .fixedSize(horizontal: false, vertical: true)
         .pinnedSheetBackground()
         .sheet(isPresented: $showSaveProfileSheet) {
@@ -220,6 +233,67 @@ struct NewPaneSheet: View {
                 }
             )
         }
+        .sheet(isPresented: $showCLIOptionsSheet) {
+            PaneCreationOptionsSheet(
+                selectedHarness: selectedHarness,
+                visibleCLIOptions: visibleCLIOptions,
+                hiddenCLIOptions: hiddenCLIOptions,
+                visibleEnvVars: visibleEnvVars,
+                hiddenEnvVarOptions: hiddenEnvVarOptions,
+                optionStates: $optionStates,
+                envVarStates: $envVarStates,
+                onAddCLIOptionToGlobal: { option in
+                    switch selectedHarness {
+                    case .claude:
+                        if let index = appSettings.cliOptions.firstIndex(where: { $0.id == option.id }) {
+                            appSettings.cliOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.save(appSettings: appSettings)
+                    case .codex:
+                        if let index = appSettings.codexCliOptions.firstIndex(where: { $0.id == option.id }) {
+                            appSettings.codexCliOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.saveCodexOptions(appSettings: appSettings)
+                    case .cursor:
+                        if let index = appSettings.cursorCliOptions.firstIndex(where: { $0.id == option.id }) {
+                            appSettings.cursorCliOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.saveCursorOptions(appSettings: appSettings)
+                    case .opencode:
+                        if let index = appSettings.opencodeCliOptions.firstIndex(where: { $0.id == option.id }) {
+                            appSettings.opencodeCliOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+                    case .shell:
+                        break
+                    }
+                },
+                onAddEnvVarToGlobal: { envVar in
+                    switch selectedHarness {
+                    case .claude:
+                        if let index = appSettings.envVarOptions.firstIndex(where: { $0.id == envVar.id }) {
+                            appSettings.envVarOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
+                    case .opencode:
+                        if let index = appSettings.opencodeEnvVarOptions.firstIndex(where: { $0.id == envVar.id }) {
+                            appSettings.opencodeEnvVarOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
+                    case .codex, .cursor, .shell:
+                        break
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showAdvancedSettingsSheet) {
+            PaneAdvancedSettingsSheet(
+                isPriority: $isPriority,
+                agentControlInjectionEnabled: $agentControlInjectionEnabled,
+                scrollbackOverride: $scrollbackOverride,
+                scrollbackLinesText: $scrollbackLinesText
+            )
+        }
         .onAppear {
             if let pane = refreshingPane {
                 sessionInput = pane.name
@@ -248,22 +322,6 @@ struct NewPaneSheet: View {
     }
 
     // MARK: - Sections
-
-    private var scrollbackSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Scrollback History")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            ScrollbackLimitEditor(
-                value: scrollbackOverride,
-                allowsInheritance: true,
-                inheritedValue: appSettings.defaultScrollback,
-                accessibilityPrefix: "new-pane-scrollback",
-                onChange: { scrollbackOverride = $0 },
-                finiteLinesText: $scrollbackLinesText
-            )
-        }
-    }
 
     @ViewBuilder
     private var profilePickerSection: some View {
@@ -359,195 +417,90 @@ struct NewPaneSheet: View {
     }
 
     @ViewBuilder
-    private var cliOptionsSection: some View {
-        if !visibleCLIOptions.isEmpty {
+    private var paneOptionsSection: some View {
+        if !activeOptions.isEmpty || !currentEnvVarOptions.isEmpty {
+            let summary = paneCreationSummary
             VStack(alignment: .leading, spacing: 8) {
                 Text("CLI Options")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(visibleCLIOptions) { option in
-                            CLIOptionToggleRow(option: option, state: stateBinding(for: option))
+                Button {
+                    showCLIOptionsSheet = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(summary.title)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                            Text(summary.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
                         }
-                    }
-                }
-                .frame(maxHeight: 160)
-                .accessibilityIdentifier("new-pane-visible-cli-options-scroll-view")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var agentControlSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Agent Control")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            if appSettings.agentControlInjectionPolicy.isAskPolicy {
-                Toggle(isOn: $agentControlInjectionEnabled) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Agent Session Manager control")
-                        Text("Allow this pane to use the app-owned control surface.")
-                            .font(.caption)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .toggleStyle(.checkbox)
-                .accessibilityIdentifier("new-pane-agent-control-toggle")
-            } else {
-                Text(
-                    appSettings.agentControlInjectionPolicy == .always
-                        ? "Agent Session Manager control will be enabled."
-                        : "Agent Session Manager control will be disabled."
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.primary.opacity(0.1))
                 )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("new-pane-agent-control-policy-status")
+                .accessibilityIdentifier("new-pane-cli-options-button")
             }
-            Text("Scope: \(appSettings.agentControlScope.displayName)")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
     }
 
-    @ViewBuilder
-    private var envVarSection: some View {
-        if selectedHarness == .claude || selectedHarness == .opencode {
-            if !visibleEnvVars.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Environment Variables")
-                        .font(.subheadline)
+    private var moreSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Pane Settings")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button {
+                showAdvancedSettingsSheet = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "gearshape")
                         .foregroundStyle(.secondary)
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(visibleEnvVars) { envVar in
-                                EnvVarToggleRow(envVar: envVar, state: envVarStateBinding(for: envVar))
-                            }
-                        }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("More Settings")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                        Text(advancedSettingsSummary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
                     }
-                    .frame(maxHeight: 120)
-                    .accessibilityIdentifier("new-pane-visible-env-vars-scroll-view")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-        }
-    }
-
-    @ViewBuilder
-    private var hiddenCLIOptionsSection: some View {
-        if !hiddenCLIOptions.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Button {
-                    showHiddenOptions.toggle()
-                } label: {
-                    Text(showHiddenOptions ? "Fewer options" : "Show all options")
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("new-pane-show-hidden-options-button")
-
-                if showHiddenOptions {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(hiddenCLIOptions) { option in
-                                HiddenCLIOptionToggleRow(
-                                    option: option,
-                                    state: stateBinding(for: option),
-                                    onAddToGlobal: {
-                                        switch selectedHarness {
-                                        case .claude:
-                                            if let index = appSettings.cliOptions.firstIndex(where: {
-                                                $0.id == option.id
-                                            }) {
-                                                appSettings.cliOptions[index].isAvailable = true
-                                            }
-                                            SettingsPersistence.save(appSettings: appSettings)
-                                        case .codex:
-                                            if let index = appSettings.codexCliOptions.firstIndex(where: {
-                                                $0.id == option.id
-                                            }) {
-                                                appSettings.codexCliOptions[index].isAvailable = true
-                                            }
-                                            SettingsPersistence.saveCodexOptions(appSettings: appSettings)
-                                        case .cursor:
-                                            if let index = appSettings.cursorCliOptions.firstIndex(where: {
-                                                $0.id == option.id
-                                            }) {
-                                                appSettings.cursorCliOptions[index].isAvailable = true
-                                            }
-                                            SettingsPersistence.saveCursorOptions(appSettings: appSettings)
-                                        case .opencode:
-                                            if let index = appSettings.opencodeCliOptions.firstIndex(where: {
-                                                $0.id == option.id
-                                            }) {
-                                                appSettings.opencodeCliOptions[index].isAvailable = true
-                                            }
-                                            SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
-                                        case .shell:
-                                            break
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    .frame(maxHeight: 160)
-                    .accessibilityIdentifier("new-pane-hidden-cli-options-scroll-view")
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var hiddenEnvVarSection: some View {
-        if (selectedHarness == .claude || selectedHarness == .opencode) && !hiddenEnvVarOptions.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Button {
-                    showHiddenEnvVars.toggle()
-                } label: {
-                    Text(showHiddenEnvVars ? "Fewer options" : "Show all options")
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("new-pane-show-hidden-env-vars-button")
-
-                if showHiddenEnvVars {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(hiddenEnvVarOptions) { envVar in
-                                HiddenEnvVarToggleRow(
-                                    envVar: envVar,
-                                    state: envVarStateBinding(for: envVar),
-                                    onAddToGlobal: {
-                                        switch selectedHarness {
-                                        case .claude:
-                                            if let index = appSettings.envVarOptions.firstIndex(where: {
-                                                $0.id == envVar.id
-                                            }) {
-                                                appSettings.envVarOptions[index].isAvailable = true
-                                            }
-                                            SettingsPersistence.saveEnvVarOptions(appSettings: appSettings)
-                                        case .opencode:
-                                            if let index = appSettings.opencodeEnvVarOptions.firstIndex(where: {
-                                                $0.id == envVar.id
-                                            }) {
-                                                appSettings.opencodeEnvVarOptions[index].isAvailable = true
-                                            }
-                                            SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
-                                        case .codex, .cursor, .shell:
-                                            break
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    .frame(maxHeight: 120)
-                    .accessibilityIdentifier("new-pane-hidden-env-vars-scroll-view")
-                }
-            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.primary.opacity(0.1))
+            )
+            .accessibilityIdentifier("new-pane-more-settings-button")
         }
     }
 
@@ -574,23 +527,6 @@ struct NewPaneSheet: View {
     }
 
     // MARK: - State management
-
-    private func stateBinding(for option: CLIOptionConfig) -> Binding<OptionState> {
-        Binding(
-            get: { optionStates[option.id] ?? OptionState(enabled: option.isDefaultEnabled, value: "") },
-            set: { optionStates[option.id] = $0 }
-        )
-    }
-
-    private func envVarStateBinding(for envVar: EnvVarConfig) -> Binding<OptionState> {
-        Binding(
-            get: {
-                envVarStates[envVar.id]
-                    ?? OptionState(enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
-            },
-            set: { envVarStates[envVar.id] = $0 }
-        )
-    }
 
     private func applyProfileOrDefaults() {
         if let profile = selectedProfile {
@@ -891,123 +827,5 @@ private struct SaveProfileSheet: View {
         guard isValid else { return }
         onSave(profileName.trimmingCharacters(in: .whitespacesAndNewlines))
         dismiss()
-    }
-}
-
-// MARK: - Reusable rows
-
-struct OptionState {
-    var enabled: Bool
-    var value: String
-    var values: [String] = []
-}
-
-private struct CLIOptionToggleRow: View {
-    let option: CLIOptionConfig
-    @Binding var state: OptionState
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Toggle(isOn: $state.enabled) {
-                Text(option.id)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            CLIOptionValueField(option: option, value: $state.value, values: $state.values, enabled: state.enabled)
-                .frame(maxWidth: .infinity)
-        }
-    }
-}
-
-private struct EnvVarToggleRow: View {
-    let envVar: EnvVarConfig
-    @Binding var state: OptionState
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Toggle(isOn: $state.enabled) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(envVar.id)
-                        .font(.system(.caption, design: .monospaced))
-                        .lineLimit(1)
-                    if envVar.isAppControlled {
-                        Text("Controlled by Agent Session Manager")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .disabled(envVar.isAppControlled)
-            TextField("Value", text: $state.value)
-                .textFieldStyle(.roundedBorder)
-                .disabled(!state.enabled || envVar.isAppControlled)
-                .frame(maxWidth: .infinity)
-        }
-    }
-}
-
-private struct HiddenCLIOptionToggleRow: View {
-    let option: CLIOptionConfig
-    @Binding var state: OptionState
-    let onAddToGlobal: () -> Void
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Toggle(isOn: $state.enabled) {
-                Text(option.id)
-                    .font(.system(.caption, design: .monospaced))
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            CLIOptionValueField(option: option, value: $state.value, values: $state.values, enabled: state.enabled)
-                .frame(maxWidth: .infinity)
-            if state.enabled {
-                Button("Show in all profiles", action: onAddToGlobal)
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                    .foregroundStyle(Theme.accent)
-            }
-        }
-    }
-}
-
-private struct HiddenEnvVarToggleRow: View {
-    let envVar: EnvVarConfig
-    @Binding var state: OptionState
-    let onAddToGlobal: () -> Void
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Toggle(isOn: $state.enabled) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(envVar.id)
-                        .font(.system(.caption, design: .monospaced))
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                    if envVar.isAppControlled {
-                        Text("Controlled by Agent Session Manager")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .disabled(envVar.isAppControlled)
-            TextField("Value", text: $state.value)
-                .textFieldStyle(.roundedBorder)
-                .disabled(!state.enabled || envVar.isAppControlled)
-                .frame(maxWidth: .infinity)
-            if state.enabled && !envVar.isAppControlled {
-                Button("Show in all profiles", action: onAddToGlobal)
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                    .foregroundStyle(Theme.accent)
-            }
-        }
     }
 }

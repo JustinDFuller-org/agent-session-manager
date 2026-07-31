@@ -21,11 +21,13 @@ final class AgentControlFlowTests: BaseTestCase {
         app.typeKey("p", modifierFlags: .command)
         let paneField = app.textFields["new-pane-name-field"]
         waitFor(paneField)
+        app.buttons["new-pane-more-settings-button"].click()
         let controlToggle = app.checkBoxes["new-pane-agent-control-toggle"]
         waitFor(controlToggle)
         if controlToggle.value as? Int != 1 {
             controlToggle.click()
         }
+        app.buttons["new-pane-advanced-settings-done-button"].click()
         paneField.click()
         paneField.typeText("claude-control")
         app.buttons["new-pane-open-button"].click()
@@ -77,11 +79,13 @@ final class AgentControlFlowTests: BaseTestCase {
         app.typeKey("p", modifierFlags: .command)
         let paneField = app.textFields["new-pane-name-field"]
         waitFor(paneField)
+        app.buttons["new-pane-more-settings-button"].click()
         let controlToggle = app.checkBoxes["new-pane-agent-control-toggle"]
         waitFor(controlToggle)
         XCTAssertEqual(controlToggle.value as? Int, 0)
         controlToggle.click()
         XCTAssertEqual(controlToggle.value as? Int, 1)
+        app.buttons["new-pane-advanced-settings-done-button"].click()
         paneField.click()
         paneField.typeText("controlled-pane")
         app.buttons["new-pane-open-button"].click()
@@ -113,6 +117,7 @@ final class AgentControlFlowTests: BaseTestCase {
         let alwaysField = app.textFields["new-pane-name-field"]
         waitFor(alwaysField)
         XCTAssertFalse(app.checkBoxes["new-pane-agent-control-toggle"].exists)
+        app.buttons["new-pane-more-settings-button"].click()
         XCTAssertTrue(app.staticTexts["Agent Session Manager control will be enabled."].exists)
         app.typeKey(.escape, modifierFlags: [])
         waitForDisappear(alwaysField)
