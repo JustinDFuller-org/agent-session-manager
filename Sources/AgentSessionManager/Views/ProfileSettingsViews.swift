@@ -162,8 +162,8 @@ private struct ProfileEditorSheet: View {
 
     @State private var name: String = ""
     @State private var harness: Harness = .claude
-    @State private var optionStates: [String: ProfileEditorOptionState] = [:]
-    @State private var envVarStates: [String: ProfileEditorOptionState] = [:]
+    @State private var optionStates: [String: ProfileOptionDraft] = [:]
+    @State private var envVarStates: [String: ProfileOptionDraft] = [:]
     @State private var useCustomStatusLine = false
     @State private var statusLineConfig = StatusLineConfig()
     /// True once we seeded from disk or after copying from global settings on first toggle.
@@ -172,6 +172,13 @@ private struct ProfileEditorSheet: View {
     @State private var showHiddenEnvVars = false
 
     @FocusState private var isNameFocused: Bool
+
+    init(profile: Profile?, appSettings: AppSettings, onSave: @escaping (Profile) -> Void) {
+        self.profile = profile
+        self.appSettings = appSettings
+        self.onSave = onSave
+        _harness = State(initialValue: profile?.harness ?? .claude)
+    }
 
     private var activeToolList: [Harness] {
         Harness.allCases.filter { appSettings.isActive($0) }
@@ -489,18 +496,12 @@ private struct ProfileEditorSheet: View {
         .onAppear {
             if let existing = profile {
                 name = existing.name
-                harness = existing.harness
                 for opt in existing.cliOptions {
                     let config = activeOptions.first { $0.id == opt.id }
-                    let seeded = opt.seededValues(allowsMultipleValues: config?.allowsMultipleValues ?? false)
-                    optionStates[opt.id] = ProfileEditorOptionState(
-                        enabled: opt.isEnabled, value: opt.value ?? "", values: seeded,
-                        showOnPaneCreate: opt.showOnPaneCreate)
+                    optionStates[opt.id] = opt.draft(using: config)
                 }
                 for ev in existing.envVars {
-                    envVarStates[ev.id] = ProfileEditorOptionState(
-                        enabled: ev.isEnabled, value: ev.value,
-                        showOnPaneCreate: ev.showOnPaneCreate)
+                    envVarStates[ev.id] = ev.draft()
                 }
                 if let slc = existing.statusLineConfig {
                     useCustomStatusLine = true
@@ -510,7 +511,7 @@ private struct ProfileEditorSheet: View {
                 if existing.cliOptions.contains(where: { $0.isEnabled && !availableIDs.contains($0.id) }) {
                     showHiddenOptions = true
                 }
-                let availableEnvIDs = Set(appSettings.envVarOptions.filter(\.isAvailable).map(\.id))
+                let availableEnvIDs = Set(currentEnvVarOptions.filter(\.isAvailable).map(\.id))
                 if existing.envVars.contains(where: { $0.isEnabled && !availableEnvIDs.contains($0.id) }) {
                     showHiddenEnvVars = true
                 }
@@ -528,72 +529,42 @@ private struct ProfileEditorSheet: View {
     private func initializeFromGlobal() {
         optionStates = [:]
         for option in activeOptions where option.isAvailable {
-            optionStates[option.id] = ProfileEditorOptionState(
+            optionStates[option.id] = ProfileOptionDraft(
                 enabled: option.isDefaultEnabled, value: "")
         }
         envVarStates = [:]
         if harness == .claude || harness == .opencode {
             for envVar in currentEnvVarOptions where envVar.isAvailable {
-                envVarStates[envVar.id] = ProfileEditorOptionState(
+                envVarStates[envVar.id] = ProfileOptionDraft(
                     enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
             }
         }
     }
 
-    private func editorStateBinding(for id: String) -> Binding<ProfileEditorOptionState> {
+    private func editorStateBinding(for id: String) -> Binding<ProfileOptionDraft> {
         Binding(
-            get: { optionStates[id] ?? ProfileEditorOptionState(enabled: false, value: "") },
+            get: { optionStates[id] ?? ProfileOptionDraft(enabled: false, value: "") },
             set: { optionStates[id] = $0 }
         )
     }
 
-    private func editorEnvVarStateBinding(for id: String) -> Binding<ProfileEditorOptionState> {
+    private func editorEnvVarStateBinding(for id: String) -> Binding<ProfileOptionDraft> {
         Binding(
-            get: { envVarStates[id] ?? ProfileEditorOptionState(enabled: false, value: "") },
+            get: { envVarStates[id] ?? ProfileOptionDraft(enabled: false, value: "") },
             set: { envVarStates[id] = $0 }
         )
     }
 
     private func save() {
         guard isValid else { return }
-        let visibleOptions = activeOptions.filter(\.isAvailable).map { opt in
-            let state = optionStates[opt.id] ?? ProfileEditorOptionState(enabled: false, value: "")
-            return ProfileCLIOption(
-                id: opt.id,
-                isEnabled: state.enabled,
-                value: state.value.isEmpty ? nil : state.value,
-                values: state.values.isEmpty ? nil : state.values,
-                showOnPaneCreate: state.showOnPaneCreate
+        let cliOptions = ProfileSnapshotBuilder.cliOptions(catalog: activeOptions, states: optionStates)
+        let envVars =
+            harness == .claude || harness == .opencode
+            ? ProfileSnapshotBuilder.environmentVariables(
+                catalog: currentEnvVarOptions,
+                states: envVarStates
             )
-        }
-        let hiddenEnabled = hiddenOptions.compactMap { opt -> ProfileCLIOption? in
-            guard let state = optionStates[opt.id], state.enabled else { return nil }
-            return ProfileCLIOption(
-                id: opt.id, isEnabled: true,
-                value: state.value.isEmpty ? nil : state.value,
-                values: state.values.isEmpty ? nil : state.values,
-                showOnPaneCreate: state.showOnPaneCreate)
-        }
-        let cliOptions = visibleOptions + hiddenEnabled
-
-        let envVars: [ProfileEnvVar]
-        if harness == .claude || harness == .opencode {
-            let visibleEnvVars = currentEnvVarOptions.filter(\.isAvailable).map { ev in
-                let state = envVarStates[ev.id] ?? ProfileEditorOptionState(enabled: false, value: "")
-                return ProfileEnvVar(
-                    id: ev.id, isEnabled: state.enabled, value: state.value,
-                    showOnPaneCreate: state.showOnPaneCreate)
-            }
-            let hiddenEnabledEnvVars = hiddenEnvVars.compactMap { ev -> ProfileEnvVar? in
-                guard let state = envVarStates[ev.id], state.enabled else { return nil }
-                return ProfileEnvVar(
-                    id: ev.id, isEnabled: true, value: state.value,
-                    showOnPaneCreate: state.showOnPaneCreate)
-            }
-            envVars = visibleEnvVars + hiddenEnabledEnvVars
-        } else {
-            envVars = []
-        }
+            : []
 
         let saved = Profile(
             id: profile?.id ?? UUID(),
@@ -608,16 +579,9 @@ private struct ProfileEditorSheet: View {
     }
 }
 
-private struct ProfileEditorOptionState {
-    var enabled: Bool
-    var value: String
-    var values: [String] = []
-    var showOnPaneCreate: Bool = false
-}
-
 private struct ProfileEditorOptionRow: View {
     let option: CLIOptionConfig
-    @Binding var state: ProfileEditorOptionState
+    @Binding var state: ProfileOptionDraft
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
@@ -642,7 +606,7 @@ private struct ProfileEditorOptionRow: View {
 
 private struct ProfileEditorEnvVarRow: View {
     let envVar: EnvVarConfig
-    @Binding var state: ProfileEditorOptionState
+    @Binding var state: ProfileOptionDraft
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
@@ -678,7 +642,7 @@ private struct ProfileEditorEnvVarRow: View {
 
 private struct ProfileEditorHiddenOptionRow: View {
     let option: CLIOptionConfig
-    @Binding var state: ProfileEditorOptionState
+    @Binding var state: ProfileOptionDraft
     let onAddToGlobal: () -> Void
 
     var body: some View {
@@ -704,7 +668,7 @@ private struct ProfileEditorHiddenOptionRow: View {
 
 private struct ProfileEditorHiddenEnvVarRow: View {
     let envVar: EnvVarConfig
-    @Binding var state: ProfileEditorOptionState
+    @Binding var state: ProfileOptionDraft
     let onAddToGlobal: () -> Void
 
     var body: some View {

@@ -23,6 +23,7 @@ final class TracingServiceTests: XCTestCase {
     override func tearDown() async throws {
         appSettings.debugModeEnabled = false
         TracingService.shared.configure(from: appSettings)
+        TracingService.shared.resetForTesting()
         if let testTraceDir {
             try? FileManager.default.removeItem(at: testTraceDir.deletingLastPathComponent())
         }
@@ -171,5 +172,50 @@ final class TracingServiceTests: XCTestCase {
         XCTAssertTrue(foundContent.contains("tab.worktree.base_branch_resolved"))
         XCTAssertTrue(foundContent.contains("tab-override"))
         XCTAssertTrue(foundContent.contains("base.branch"))
+    }
+
+    func testProfileSaveRecordsBoundedOutcome() {
+        TracingService.shared.enableTestCapture()
+        appSettings.profiles = [
+            Profile(
+                name: "Telemetry Profile",
+                harness: .cursor,
+                cliOptions: [
+                    ProfileCLIOption(id: "--model", isEnabled: true, value: "cursor-secret-model")
+                ],
+                envVars: [
+                    ProfileEnvVar(id: "CURSOR_API_KEY", isEnabled: true, value: "secret")
+                ]
+            )
+        ]
+
+        XCTAssertTrue(SettingsPersistence.saveProfiles(appSettings: appSettings))
+
+        let event = TracingService.shared.recordedEventsForTesting.first { $0.name == "profile.save" }
+        XCTAssertEqual(event?.attributes["result"], "success")
+        XCTAssertEqual(event?.attributes["profile.count"], "1")
+        XCTAssertEqual(event?.attributes["profile.enabled_cli_option.count"], "1")
+        XCTAssertEqual(event?.attributes["profile.enabled_env_var.count"], "1")
+        XCTAssertFalse(event?.attributes.values.contains("cursor-secret-model") ?? true)
+        XCTAssertFalse(event?.attributes.values.contains("secret") ?? true)
+    }
+
+    func testProfileSaveRecordsWriteFailure() throws {
+        TracingService.shared.enableTestCapture()
+        let originalSubdirectory = PersistenceHelpers.appSupportSubdirectory
+        let blockedSubdirectory = "\(originalSubdirectory)/profile-save-blocked"
+        let blockedURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: blockedSubdirectory)
+        try Data("blocked".utf8).write(to: blockedURL)
+        defer {
+            PersistenceHelpers.overrideAppSupportSubdirectory = originalSubdirectory
+            try? FileManager.default.removeItem(at: blockedURL)
+        }
+        PersistenceHelpers.overrideAppSupportSubdirectory = blockedSubdirectory
+
+        XCTAssertFalse(SettingsPersistence.saveProfiles(appSettings: appSettings))
+
+        let event = TracingService.shared.recordedEventsForTesting.first { $0.name == "profile.save" }
+        XCTAssertEqual(event?.attributes["result"], "write_failed")
     }
 }

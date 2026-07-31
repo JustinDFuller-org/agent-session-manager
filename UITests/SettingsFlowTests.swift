@@ -518,6 +518,127 @@ final class SettingsFlowTests: BaseTestCase {
         }
     }
 
+    func testNonClaudeProfileEditorRestoresSavedModelValue() {
+        enableHarness(label: "Cursor", toggleIdentifier: "settings-tool-enable-toggle-cursor")
+        enableHarness(label: "Codex", toggleIdentifier: "settings-tool-enable-toggle-codex")
+        enableHarness(label: "OpenCode", toggleIdentifier: "settings-tool-enable-toggle-opencode")
+
+        verifyProfileEditorRestoresModel(
+            harnessLabel: "Cursor",
+            profileName: "Cursor Model Profile",
+            modelValue: "cursor-test-model"
+        )
+        verifyProfileEditorRestoresModel(
+            harnessLabel: "Codex",
+            profileName: "Codex Model Profile",
+            modelValue: "codex-test-model"
+        )
+        verifyProfileEditorRestoresModel(
+            harnessLabel: "OpenCode",
+            profileName: "OpenCode Model Profile",
+            modelValue: "opencode-test-model"
+        )
+    }
+
+    private func enableHarness(label: String, toggleIdentifier: String) {
+        if !app.windows["AgentSessionManager Settings"].exists {
+            app.typeKey(",", modifierFlags: .command)
+        }
+        let settingsWindow = app.windows["AgentSessionManager Settings"]
+        waitFor(settingsWindow)
+        let toolsTab = settingsWindow.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-tools").firstMatch
+        waitFor(toolsTab)
+        toolsTab.click()
+
+        let harness = settingsWindow.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", label)).firstMatch
+        waitFor(harness)
+        harness.click()
+
+        let toggle = settingsWindow.checkBoxes[toggleIdentifier]
+        waitFor(toggle)
+        if toggle.value as? Int != 1 {
+            toggle.click()
+        }
+        XCTAssertEqual(toggle.value as? Int, 1, "\(label) should be enabled")
+    }
+
+    private func verifyProfileEditorRestoresModel(
+        harnessLabel: String,
+        profileName: String,
+        modelValue: String
+    ) {
+        let profilesTab = app.descendants(matching: .any)
+            .matching(identifier: "settings-sidebar-profiles").firstMatch
+        waitFor(profilesTab)
+        profilesTab.click()
+
+        let newProfileButton = app.buttons["New Profile"]
+        waitFor(newProfileButton)
+        newProfileButton.click()
+
+        let nameField = app.textFields["profile-editor-name-field"]
+        waitFor(nameField)
+        nameField.click()
+        nameField.typeText(profileName)
+
+        let harness = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", harnessLabel)).firstMatch
+        waitFor(harness)
+        harness.click()
+
+        let showAllButton = app.buttons["profile-editor-show-hidden-options-button"]
+        waitFor(showAllButton)
+        showAllButton.click()
+
+        let modelToggle = app.checkBoxes.matching(
+            NSPredicate(format: "label CONTAINS '--model'")
+        ).firstMatch
+        waitFor(modelToggle)
+        modelToggle.click()
+
+        let modelField = app.textFields["cli-option-value-field---model"]
+        waitFor(modelField)
+        modelField.click()
+        modelField.typeText(modelValue)
+
+        let saveButton = app.buttons["Save"]
+        waitFor(saveButton)
+        saveButton.click()
+        waitFor(app.staticTexts.matching(NSPredicate(format: "value == %@", profileName)).firstMatch)
+
+        let menuButton = app.buttons.matching(NSPredicate(format: "label == 'More'")).firstMatch
+        waitFor(menuButton)
+        menuButton.click()
+        let editButton = app.menuItems["Edit"]
+        waitFor(editButton)
+        editButton.click()
+
+        let showHiddenAgain = app.buttons["profile-editor-show-hidden-options-button"]
+        waitFor(showHiddenAgain)
+        XCTAssertEqual(
+            showHiddenAgain.label,
+            "Fewer options",
+            "\(harnessLabel) should expand saved hidden options when reopened"
+        )
+
+        let restoredToggle = app.checkBoxes.matching(
+            NSPredicate(format: "label CONTAINS '--model'")
+        ).firstMatch
+        waitFor(restoredToggle)
+        XCTAssertEqual(restoredToggle.value as? Int, 1, "\(harnessLabel) model option should remain enabled")
+
+        let restoredField = app.textFields["cli-option-value-field---model"]
+        waitFor(restoredField)
+        XCTAssertEqual(restoredField.value as? String, modelValue)
+
+        let cancelButton = app.buttons["Cancel"]
+        waitFor(cancelButton)
+        cancelButton.click()
+        waitForDisappear(showHiddenAgain)
+    }
+
     private func createProfile(named name: String) {
         let newProfileButton = app.buttons["New Profile"]
         waitFor(newProfileButton)

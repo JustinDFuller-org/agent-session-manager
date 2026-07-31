@@ -198,28 +198,40 @@ struct NewPaneSheet: View {
                 suggestedName: selectedProfile?.name ?? "",
                 harness: selectedHarness,
                 onSave: { name in
-                    let cliOptions = activeOptions.filter(\.isAvailable).map { option in
+                    var profileOptionStates: [String: ProfileOptionDraft] = [:]
+                    for option in activeOptions {
                         let state = optionStates[option.id] ?? OptionState(enabled: false, value: "")
                         let showOnCreate =
                             selectedProfile?.cliOptions.first { $0.id == option.id }?.showOnPaneCreate ?? false
-                        return ProfileCLIOption(
-                            id: option.id,
-                            isEnabled: state.enabled,
-                            value: state.value.isEmpty ? nil : state.value,
-                            values: state.values.isEmpty ? nil : state.values,
+                        profileOptionStates[option.id] = ProfileOptionDraft(
+                            enabled: state.enabled,
+                            value: state.value,
+                            values: state.values,
                             showOnPaneCreate: showOnCreate
                         )
                     }
+                    let cliOptions = ProfileSnapshotBuilder.cliOptions(
+                        catalog: activeOptions,
+                        states: profileOptionStates
+                    )
+
                     let envVars: [ProfileEnvVar]
                     if selectedHarness == .claude || selectedHarness == .opencode {
-                        envVars = currentEnvVarOptions.filter(\.isAvailable).map { envVar in
+                        var profileEnvironmentStates: [String: ProfileOptionDraft] = [:]
+                        for envVar in currentEnvVarOptions {
                             let state = envVarStates[envVar.id] ?? OptionState(enabled: false, value: "")
                             let showOnCreate =
                                 selectedProfile?.envVars.first { $0.id == envVar.id }?.showOnPaneCreate ?? false
-                            return ProfileEnvVar(
-                                id: envVar.id, isEnabled: state.enabled, value: state.value,
-                                showOnPaneCreate: showOnCreate)
+                            profileEnvironmentStates[envVar.id] = ProfileOptionDraft(
+                                enabled: state.enabled,
+                                value: state.value,
+                                showOnPaneCreate: showOnCreate
+                            )
                         }
+                        envVars = ProfileSnapshotBuilder.environmentVariables(
+                            catalog: currentEnvVarOptions,
+                            states: profileEnvironmentStates
+                        )
                     } else {
                         envVars = []
                     }
@@ -534,12 +546,17 @@ struct NewPaneSheet: View {
             optionStates = [:]
             for opt in profile.cliOptions {
                 let config = activeOptions.first { $0.id == opt.id }
-                let seeded = opt.seededValues(allowsMultipleValues: config?.allowsMultipleValues ?? false)
-                optionStates[opt.id] = OptionState(enabled: opt.isEnabled, value: opt.value ?? "", values: seeded)
+                let draft = opt.draft(using: config)
+                optionStates[opt.id] = OptionState(
+                    enabled: draft.enabled,
+                    value: draft.value,
+                    values: draft.values
+                )
             }
             envVarStates = [:]
             for envVar in profile.envVars {
-                envVarStates[envVar.id] = OptionState(enabled: envVar.isEnabled, value: envVar.value)
+                let draft = envVar.draft()
+                envVarStates[envVar.id] = OptionState(enabled: draft.enabled, value: draft.value)
             }
         } else {
             initializeOptionStatesFromGlobal()

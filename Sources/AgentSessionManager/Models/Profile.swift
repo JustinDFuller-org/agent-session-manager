@@ -84,3 +84,78 @@ struct Profile: Identifiable, Codable, Equatable {
         self.statusLineConfig = statusLineConfig
     }
 }
+
+struct ProfileOptionDraft: Equatable {
+    var enabled: Bool
+    var value: String
+    var values: [String]
+    var showOnPaneCreate: Bool
+
+    init(
+        enabled: Bool,
+        value: String = "",
+        values: [String] = [],
+        showOnPaneCreate: Bool = false
+    ) {
+        self.enabled = enabled
+        self.value = value
+        self.values = values
+        self.showOnPaneCreate = showOnPaneCreate
+    }
+}
+
+enum ProfileSnapshotBuilder {
+    static func cliOptions(
+        catalog: [CLIOptionConfig],
+        states: [String: ProfileOptionDraft]
+    ) -> [ProfileCLIOption] {
+        catalog.compactMap { option in
+            let state = states[option.id] ?? ProfileOptionDraft(enabled: false)
+            guard option.isAvailable || state.enabled else { return nil }
+            return ProfileCLIOption(
+                id: option.id,
+                isEnabled: state.enabled,
+                value: state.value.isEmpty ? nil : state.value,
+                values: state.values.isEmpty ? nil : state.values,
+                showOnPaneCreate: state.showOnPaneCreate
+            )
+        }
+    }
+
+    static func environmentVariables(
+        catalog: [EnvVarConfig],
+        states: [String: ProfileOptionDraft]
+    ) -> [ProfileEnvVar] {
+        catalog.compactMap { envVar in
+            let state = states[envVar.id] ?? ProfileOptionDraft(enabled: false)
+            guard envVar.isAvailable || state.enabled else { return nil }
+            return ProfileEnvVar(
+                id: envVar.id,
+                isEnabled: state.enabled,
+                value: state.value,
+                showOnPaneCreate: state.showOnPaneCreate
+            )
+        }
+    }
+}
+
+extension ProfileCLIOption {
+    func draft(using option: CLIOptionConfig?) -> ProfileOptionDraft {
+        ProfileOptionDraft(
+            enabled: isEnabled,
+            value: value ?? "",
+            values: seededValues(allowsMultipleValues: option?.allowsMultipleValues ?? false),
+            showOnPaneCreate: showOnPaneCreate
+        )
+    }
+}
+
+extension ProfileEnvVar {
+    func draft() -> ProfileOptionDraft {
+        ProfileOptionDraft(
+            enabled: isEnabled,
+            value: value,
+            showOnPaneCreate: showOnPaneCreate
+        )
+    }
+}

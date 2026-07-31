@@ -415,11 +415,34 @@ struct SettingsPersistence {
     @discardableResult
     static func saveProfiles(appSettings: AppSettings) -> Bool {
         let container = ProfilesContainer(profiles: appSettings.profiles)
-        guard let data = try? JSONEncoder().encode(container) else { return false }
+        let enabledCLIOptionCount = appSettings.profiles
+            .flatMap(\.cliOptions)
+            .filter(\.isEnabled)
+            .count
+        let enabledEnvironmentVariableCount = appSettings.profiles
+            .flatMap(\.envVars)
+            .filter(\.isEnabled)
+            .count
+        var telemetryAttributes = [
+            "profile.count": "\(appSettings.profiles.count)",
+            "profile.enabled_cli_option.count": "\(enabledCLIOptionCount)",
+            "profile.enabled_env_var.count": "\(enabledEnvironmentVariableCount)",
+        ]
+        guard let data = try? JSONEncoder().encode(container) else {
+            telemetryAttributes["result"] = "encode_failed"
+            TracingService.shared.record("profile.save", attributes: telemetryAttributes)
+            return false
+        }
         do {
             try data.write(to: profilesURL, options: .atomic)
+            telemetryAttributes["result"] = "success"
+            TracingService.shared.record("profile.save", attributes: telemetryAttributes)
             return true
-        } catch { return false }
+        } catch {
+            telemetryAttributes["result"] = "write_failed"
+            TracingService.shared.record("profile.save", attributes: telemetryAttributes)
+            return false
+        }
     }
 
     struct ShellSettings: Codable {

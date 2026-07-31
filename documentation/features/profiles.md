@@ -1,6 +1,6 @@
 # Profiles
 
-Profiles let you save a named harness type, harness-specific CLI flags, Claude-specific environment variables, and (optionally) a custom status line configuration. When you create a new pane, selecting a profile pre-fills the applicable settings automatically.
+Profiles let you save a named harness type, harness-specific CLI flags, supported environment variables, and (optionally) a custom status line configuration. When you create a new pane, selecting a profile pre-fills the applicable settings automatically.
 
 ## Creating a Profile
 
@@ -8,9 +8,9 @@ Open **Settings → Profiles** and click **+**. You can also click **Save Profil
 
 ## Editing a Profile
 
-In **Settings → Profiles**, select a profile and click **Edit**. Every available CLI flag for the selected harness is shown. Claude Code profiles also show the environment-variable catalog. For each option you can:
+In **Settings → Profiles**, select a profile and click **Edit**. Every available CLI flag for the selected harness is shown. Claude Code and OpenCode profiles also show their environment-variable catalogs. For each option you can:
 
-- **Enable/disable** the option (the checkbox on the left) — controls whether the flag or Claude environment variable is passed when the pane starts.
+- **Enable/disable** the option (the checkbox on the left) — controls whether the flag or environment variable is passed when the pane starts.
 - **Set a value** — for string flags like `--model`, type the value in the text field.
 - **Show on create** — tick the **Show** checkbox on the right to make the option visible in the New Pane sheet whenever this profile is selected (see below).
 
