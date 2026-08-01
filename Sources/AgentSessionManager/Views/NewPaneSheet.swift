@@ -81,17 +81,11 @@ struct NewPaneSheet: View {
     }
 
     private var visibleCLIOptions: [CLIOptionConfig] {
-        let allAvailable = activeOptions.filter(\.isAvailable)
-        guard let profile = selectedProfile else { return allAvailable }
-        let showSet = Set(profile.cliOptions.filter(\.showOnPaneCreate).map(\.id))
-        return allAvailable.filter { showSet.contains($0.id) }
+        Self.defaultVisibleCLIOptions(catalog: activeOptions, profile: selectedProfile)
     }
 
     private var visibleEnvVars: [EnvVarConfig] {
-        let allAvailable = currentEnvVarOptions.filter(\.isAvailable)
-        guard let profile = selectedProfile else { return allAvailable }
-        let showSet = Set(profile.envVars.filter(\.showOnPaneCreate).map(\.id))
-        return allAvailable.filter { showSet.contains($0.id) }
+        Self.defaultVisibleEnvVars(catalog: currentEnvVarOptions, profile: selectedProfile)
     }
 
     private var hiddenCLIOptions: [CLIOptionConfig] {
@@ -718,6 +712,32 @@ struct NewPaneSheet: View {
 // MARK: - Create helpers
 
 extension NewPaneSheet {
+    static func defaultVisibleCLIOptions(
+        catalog: [CLIOptionConfig],
+        profile: Profile?
+    ) -> [CLIOptionConfig] {
+        guard let profile else { return catalog.filter(\.isAvailable) }
+        let visibleIDs = Set(
+            profile.cliOptions
+                .filter { $0.isEnabled || $0.showOnPaneCreate }
+                .map(\.id)
+        )
+        return catalog.filter { visibleIDs.contains($0.id) }
+    }
+
+    static func defaultVisibleEnvVars(
+        catalog: [EnvVarConfig],
+        profile: Profile?
+    ) -> [EnvVarConfig] {
+        guard let profile else { return catalog.filter(\.isAvailable) }
+        let visibleIDs = Set(
+            profile.envVars
+                .filter { $0.isEnabled || $0.showOnPaneCreate }
+                .map(\.id)
+        )
+        return catalog.filter { visibleIDs.contains($0.id) }
+    }
+
     static func buildExtraArgs(options: [CLIOptionConfig], states: [String: OptionState]) -> [String] {
         var args: [String] = []
         for option in options {

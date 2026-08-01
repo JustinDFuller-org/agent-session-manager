@@ -23,15 +23,16 @@ harness. Switching tools preserves the session field.
 
 ### CLI options
 
-The **CLI Options** surface shows options marked for the selected profile, or
-the active catalog when using **Custom**. Presets, custom values, multi-select
-MCP options, and supported environment variables remain editable there.
+The **CLI Options** surface shows options enabled in the selected profile or
+marked **Show on new pane**. When using **Custom**, it shows the active
+catalog. Presets, custom values, multi-select MCP options, and supported
+environment variables remain editable there.
 
 Use **Show all options** or **Show all environment variables** to expose the
-complete catalog for the selected harness. Long catalogs stay within bounded
+remaining catalog for the selected harness. Long catalogs stay within bounded
 lists that can be scrolled independently, so the **Done** action remains
-available. Options saved in a profile but not shown by default continue to be
-applied when the pane starts.
+available. Enabled profile options are visible immediately; disabled options
+stored in a profile can still be enabled from the expanded catalog.
 
 ### More settings
 
