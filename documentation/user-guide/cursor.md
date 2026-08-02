@@ -31,7 +31,7 @@ Cursor starts in the Git worktree prepared for the pane. You can enable its atte
 
 The pane opens a Cursor terminal and remains part of the tab's saved layout.
 
-After a restart, Cursor panes reopen in their saved working copies without an added continuation option.
+After a restart, Cursor panes reopen in their saved working copies. With **Continue on Restart** enabled, the app passes Cursor `--continue` so the latest chat reopens automatically, unless the pane has an explicit `--resume` option.
 
 ## If it does not work
 

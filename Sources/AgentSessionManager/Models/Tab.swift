@@ -1149,9 +1149,12 @@ extension Tab {
         }
     }
 
-    /// Injects `--continue` into an extra-args array if not already present.
+    /// Injects `--continue` unless the arguments already select a resume mode.
     nonisolated static func injectContinueFlagIntoArgs(_ args: [String]) -> [String] {
-        guard !args.contains("--continue") else { return args }
+        guard !args.contains("--continue"),
+            !args.contains("--resume"),
+            !args.contains(where: { $0.hasPrefix("--resume=") })
+        else { return args }
         return args + ["--continue"]
     }
 }

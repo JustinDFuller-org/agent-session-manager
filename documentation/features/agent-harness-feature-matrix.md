@@ -27,7 +27,7 @@ This is the canonical, code-observed audit of Agent Session Manager integration 
 | External worktree attachment | Implemented | Implemented | Implemented | Implemented | Existing paths from `git worktree list --porcelain` can be reused. |
 | Managed worktree cleanup | Implemented | Implemented | Implemented | Implemented | Cleanup is based on pane worktree ownership, not harness type. |
 | Session restore | Implemented | Implemented | Implemented | Implemented | Persisted resolved checkout directories are restored for every harness when they still exist. |
-| Continue on app restart | Implemented | N/A | N/A | Implemented | Automatic restore-time `--continue` injection is Claude-only; OpenCode uses `--session <id>` with `--continue` fallback. |
+| Continue on app restart | Implemented | Implemented | N/A | Implemented | Claude and Cursor receive restore-time `--continue` unless an explicit resume option is saved; OpenCode uses `--session <id>` with `--continue` fallback. |
 | Auto session names | Implemented | N/A | N/A | Implemented | Claude uses `--name '<tab>/<pane>'`; OpenCode discovers the TUI-created session and renames it via `PATCH /session/:id`. |
 | Restart existing process | Implemented | Implemented | Implemented | Implemented | Controller replacement preserves the existing monitor and callback wiring. |
 | Quick refresh and continue | Implemented | Implemented | Implemented | Implemented | Monitor replacement goes through `Pane.installStatusLineMonitor`, which reattaches callbacks. Cursor quick refresh preserves `AGENT_SESSION_MANAGER_PANE_ID`. |

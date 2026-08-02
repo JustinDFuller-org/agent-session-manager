@@ -434,7 +434,9 @@ private struct PanesContent: View {
                 }
                 SettingRow(
                     title: "Continue on Restart",
-                    description: "Resume the last conversation when Claude panes reopen after a restart."
+                    description:
+                        "Resume the last conversation when Claude, Cursor, or OpenCode panes "
+                        + "reopen after a restart."
                 ) {
                     Toggle("Continue on Restart", isOn: $appSettings.continueOnRestart)
                         .toggleStyle(.checkbox)
