@@ -71,5 +71,6 @@ The per-pane hook files use the app's shared main-actor filesystem watcher. Atom
 ## Session Persistence
 
 Cursor pane names, options, and resolved checkout paths are saved in `sessions.json`. On relaunch, Cursor panes are restored when their checkout still exists.
+When **Continue on Restart** is enabled, restored Cursor panes receive `--continue` unless their saved options already select `--continue` or an explicit `--resume`.
 
 See [agent-harness-feature-matrix.md]({{ '/documentation/features/agent-harness-feature-matrix/' | relative_url }}) for the cross-harness audit.

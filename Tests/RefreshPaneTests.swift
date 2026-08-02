@@ -20,6 +20,16 @@ final class RefreshPaneTests: XCTestCase {
         XCTAssertEqual(result, ["--continue"])
     }
 
+    func testInjectContinueFlagIntoArgsPreservesExplicitResume() {
+        for args in [
+            ["--resume", "chat-id"],
+            ["--resume=chat-id"],
+            ["--continue", "--model", "opus"],
+        ] {
+            XCTAssertEqual(Tab.injectContinueFlagIntoArgs(args), args)
+        }
+    }
+
     // MARK: - buildClaudeCommand
 
     func testBuildClaudeCommandIncludesContinue() {

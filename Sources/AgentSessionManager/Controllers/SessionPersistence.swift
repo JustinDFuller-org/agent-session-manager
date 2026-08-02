@@ -304,10 +304,31 @@ struct SessionPersistence {
                 }
                 var extraArgs = persistedPane.extraArgs
                 var resumeOpencodeSessionID: String?
-                if persistedPane.harness == .claude && appSettings.continueOnRestart
-                    && !extraArgs.contains("--continue")
+                var cursorContinuationResult: String?
+                if persistedPane.harness == .claude || persistedPane.harness == .cursor,
+                    appSettings.continueOnRestart
                 {
-                    extraArgs.append("--continue")
+                    let originalExtraArgs = extraArgs
+                    extraArgs = Tab.injectContinueFlagIntoArgs(extraArgs)
+                    if persistedPane.harness == .cursor {
+                        cursorContinuationResult =
+                            extraArgs == originalExtraArgs ? "already_configured" : "injected"
+                    }
+                } else if persistedPane.harness == .cursor {
+                    cursorContinuationResult = "disabled"
+                }
+                if let cursorContinuationResult {
+                    TracingService.shared.record(
+                        "session.pane.restore.continuation",
+                        attributes: [
+                            "pane.id": persistedPane.id.uuidString,
+                            "pane.name": persistedPane.name,
+                            "tab.id": persistedTab.id.uuidString,
+                            "tab.name": persistedTab.name,
+                            "harness": persistedPane.harness.rawValue,
+                            "continue_on_restart": String(appSettings.continueOnRestart),
+                            "result": cursorContinuationResult,
+                        ])
                 }
                 if persistedPane.harness == .opencode && appSettings.continueOnRestart {
                     if let id = persistedPane.opencodeSessionID, !extraArgs.contains("--session") {
