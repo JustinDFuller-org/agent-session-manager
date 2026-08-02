@@ -71,15 +71,16 @@ The `worktree` fact renders as `name • branch` when both values are available,
 
 ## Onboarding
 
-On first launch the setup wizard presents a **Status Line** step (step 4 of 4) that pre-fills the wizard default layout:
+On first launch the setup wizard presents a **Status Line** step (step 4 of 4) that pre-fills the default layout:
 
-- Row 1: `pr`, `profileName`, `model`
-- Row 2: `context`, `contextRemaining`, `inputTokens`, `outputTokens`
-- Row 3: `worktree`, `linesAdded`, `linesRemoved`
+- Row 1: `pr`, `profileName`, `model`, `effort`
+- Row 2: `context`, `contextRemaining`, `contextSize`, `exceeds200k`
+- Row 3: `inputTokens`, `outputTokens`, `cacheRead`, `cacheCreation`
+- Row 4: `worktree`, `cost`, `linesAdded`, `linesRemoved`
 
-**Save** persists this config to `statusline-settings.json`. **Skip** writes an empty `rows` array, which renders no status bar. When the draft equals `wizardDefault()`, a **Clear** button empties all rows; once the layout diverges, the button becomes **Reset to Default** and restores the three-row spec.
+**Save** persists this config to `statusline-settings.json`. **Skip** writes an empty `rows` array, which renders no status bar. When the draft equals `wizardDefault()`, a **Clear** button empties all rows; once the layout diverges, the button becomes **Reset to Default** and restores the four-row spec.
 
-The wizard default (`StatusLineConfig.wizardDefault()`) is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default is unchanged and remains the fallback for code paths that skip the wizard (e.g. the welcome-step **Skip** button).
+The wizard default (`StatusLineConfig.wizardDefault()`) and catalog default (`StatusLineConfig()`) use this same four-row layout. The catalog default is used when no saved configuration exists and remains the fallback for code paths that skip the wizard (e.g. the welcome-step **Skip** button). Existing saved layouts and profile-specific overrides are preserved.
 
 See [setup-wizard.md]({{ '/documentation/features/setup-wizard/' | relative_url }}) for the full wizard flow.
 

@@ -353,6 +353,11 @@ final class OnboardingWizardTests: BaseTestCase {
         XCTAssertTrue(statusLineToggle.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(onboardingSheet.frame.height, 680)
         XCTAssertTrue(statusLineToggle.isHittable)
+        for label in ["Row 4", "Context Size", "Exceeds 200k", "Cache Read", "Cache Write"] {
+            XCTAssertTrue(
+                forcedApp.staticTexts[label].waitForExistence(timeout: 5),
+                "Expected default status-line item \(label) to appear in onboarding")
+        }
 
         let statusLineSkipButton = forcedApp.buttons["onboarding-statusline-skip-button"]
         let statusLineSaveButton = forcedApp.buttons["onboarding-statusline-save-button"]
