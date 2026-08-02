@@ -25,7 +25,7 @@ Enable the agent tool you want to use in [Agent Tools]({{ '/documentation/user-g
 2. Choose **New Profile**, or open an existing profile’s menu and choose **Edit**.
 3. Enter a **Profile Name** and choose a **Harness**.
 4. Enable the CLI options and environment variables the profile should apply.
-5. Mark **Show on new pane** for options you want to adjust each time. Options that are not shown are still applied.
+5. Mark **Show on new pane** for disabled options you want to adjust each time. Enabled options appear automatically, and options that are not shown remain available under the expanded catalog.
 6. Optionally enable a custom status line for the profile.
 7. Save the profile.
 
@@ -38,13 +38,20 @@ Use **Duplicate** to make a copy, **Delete** to remove a profile, or the up and 
 3. Review any options displayed in the sheet.
 4. Choose **Create Pane**.
 
-The profile selects its harness and applies its saved settings. If you change an option, the profile name is marked **(modified)**. Choose **Save Profile & Create** if you want to save the changed settings before creating the pane; this saves a new profile snapshot with the name you provide and then creates the pane.
+The profile selects its harness and applies its saved settings. Enabled
+options appear for review in the CLI Options sheet; options marked **Show on
+new pane** also appear when disabled. If you change an option, the profile name
+is marked **(modified)**. Choose **Save Profile & Create** if you want to save
+the changed settings before creating the pane; this saves a new profile
+snapshot with the name you provide and then creates the pane.
 
 The first profile in the list that matches the selected harness is preselected when a new pane opens.
 
 ## What you should see
 
-The profile appears in **Settings → Profiles** and in the **Profile** picker in **New Pane**. Options marked **Show on new pane** appear for editing; other saved options remain hidden while they are applied.
+The profile appears in **Settings → Profiles** and in the **Profile** picker in
+**New Pane**. Enabled options and options marked **Show on new pane** appear for
+editing; other saved options remain in the expanded catalog.
 
 ![Agent Session Manager Profiles settings with a saved profile]({{ '/assets/img/docs/settings-profiles.png' | relative_url }})
 
@@ -53,7 +60,7 @@ _Profiles are managed from the Profiles section of Settings and can be reused in
 ## If it does not work
 
 - If a profile does not appear in **New Pane**, enable its harness in [Agent Tools]({{ '/documentation/user-guide/agent-tools/' | relative_url }}).
-- If an option is not visible, edit the profile and enable **Show on new pane** for that option.
+- If a disabled option is not visible, edit the profile and enable **Show on new pane** for that option. Enabled options appear automatically.
 - If the profile is not preselected, move it higher than other profiles for the same harness.
 
 ## Related tasks
