@@ -16,6 +16,7 @@ exclude:
   - AppIcons
   - OPENCODE_SUPPORT.md
   - AGENTS.md
+  - CLAUDE.md
   - USER_FACING_DOCS.md
   - AgentSessionManager.entitlements
   - AgentSessionManagerUITests.entitlements
@@ -35,7 +36,6 @@ exclude:
   - documentation/dictionary.md
   - documentation/agent-control-mcp-qa-findings.md
   - documentation/features
-  - documentation/user-guide/_template.md
 
 defaults:
   - scope:

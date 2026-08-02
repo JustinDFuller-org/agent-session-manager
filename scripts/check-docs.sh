@@ -6,6 +6,7 @@ site_dir="$repo_root/.build/docs-site"
 
 cd "$repo_root"
 rm -rf "$site_dir"
+ruby scripts/check-docs-taxonomy.rb
 
 bundle exec jekyll build --destination "$site_dir" --trace
 
@@ -24,6 +25,7 @@ fi
 for path in \
   "$site_dir/documentation/features" \
   "$site_dir/AGENTS.html" \
+  "$site_dir/CLAUDE.html" \
   "$site_dir/USER_FACING_DOCS.html"; do
   if [[ -e "$path" ]]; then
     echo "error: internal documentation was rendered: ${path#$site_dir/}" >&2

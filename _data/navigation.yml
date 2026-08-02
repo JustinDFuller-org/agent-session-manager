@@ -1,64 +1,93 @@
-- title: Getting Started
+- title: Tutorials
+  type: tutorial
   items:
-    - title: Overview
-      url: /documentation/user-guide/overview/
-    - title: Download
-      url: /download/
-    - title: Install and First Launch
-      url: /documentation/user-guide/install/
     - title: Quickstart
       url: /documentation/user-guide/quickstart/
-    - title: Core Concepts
-      url: /documentation/user-guide/core-concepts/
-- title: Daily Work
+      type: tutorial
+- title: How-to Guides
+  type: how-to
   items:
-    - title: Tabs and Panes
-      url: /documentation/user-guide/tabs-and-panes/
-    - title: Project Isolation
-      url: /documentation/user-guide/project-isolation/
-    - title: Continue After Restart
-      url: /documentation/user-guide/continue-after-restart/
-    - title: Reorder Tabs and Panes
-      url: /documentation/user-guide/reorder-tabs-and-panes/
-    - title: Focus Pane
-      url: /documentation/user-guide/focus-pane/
-    - title: Activity Indicators
-      url: /documentation/user-guide/activity-indicators/
-- title: Integrations
-  items:
+    - title: Download
+      url: /download/
+      type: how-to
+    - title: Install and First Launch
+      url: /documentation/user-guide/install/
+      type: how-to
     - title: Agent Tools
       url: /documentation/user-guide/agent-tools/
-    - title: Agent Control
-      url: /documentation/user-guide/agent-control/
+      type: how-to
     - title: Claude Code
       url: /documentation/user-guide/claude-code/
+      type: how-to
     - title: Codex
       url: /documentation/user-guide/codex/
+      type: how-to
     - title: Cursor
       url: /documentation/user-guide/cursor/
+      type: how-to
     - title: OpenCode
       url: /documentation/user-guide/opencode/
-    - title: GitHub Pull Requests
-      url: /documentation/user-guide/github-pull-requests/
-- title: Configure
-  items:
+      type: how-to
+    - title: Agent Control
+      url: /documentation/user-guide/agent-control/
+      type: how-to
+    - title: Tabs and Panes
+      url: /documentation/user-guide/tabs-and-panes/
+      type: how-to
+    - title: Project Isolation
+      url: /documentation/user-guide/project-isolation/
+      type: how-to
+    - title: Continue After Restart
+      url: /documentation/user-guide/continue-after-restart/
+      type: how-to
+    - title: Reorder Tabs and Panes
+      url: /documentation/user-guide/reorder-tabs-and-panes/
+      type: how-to
+    - title: Focus Pane
+      url: /documentation/user-guide/focus-pane/
+      type: how-to
+    - title: Activity Indicators
+      url: /documentation/user-guide/activity-indicators/
+      type: how-to
     - title: Profiles
       url: /documentation/user-guide/profiles/
+      type: how-to
     - title: Tool Options
       url: /documentation/user-guide/tool-options/
+      type: how-to
     - title: Terminal Scrollback
       url: /documentation/user-guide/terminal-scrollback/
+      type: how-to
     - title: Status Line
       url: /documentation/user-guide/status-line/
+      type: how-to
     - title: Notifications
       url: /documentation/user-guide/notifications/
+      type: how-to
     - title: Worktree Cleanup
       url: /documentation/user-guide/worktree-cleanup/
-- title: Troubleshooting
-  items:
+      type: how-to
+    - title: GitHub Pull Requests
+      url: /documentation/user-guide/github-pull-requests/
+      type: how-to
     - title: Troubleshooting
       url: /documentation/user-guide/troubleshooting/
+      type: how-to
 - title: Reference
+  type: reference
   items:
     - title: Keyboard Shortcuts
       url: /documentation/user-guide/shortcuts/
+      type: reference
+    - title: Supported Tools
+      url: /documentation/reference/supported-tools/
+      type: reference
+- title: Explanation
+  type: explanation
+  items:
+    - title: Overview
+      url: /documentation/user-guide/overview/
+      type: explanation
+    - title: Core Concepts
+      url: /documentation/user-guide/core-concepts/
+      type: explanation
