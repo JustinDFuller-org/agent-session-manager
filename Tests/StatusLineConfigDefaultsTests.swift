@@ -13,6 +13,18 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         XCTAssertEqual(config.rowAlignment, .spaceBetween)
     }
 
+    func testDefaultInitUsesRequestedRows() {
+        let config = StatusLineConfig()
+        XCTAssertEqual(
+            config.rows.map { $0.items.map(\.id) },
+            [
+                ["pr", "profileName", "model", "effort"],
+                ["context", "contextRemaining", "contextSize", "exceeds200k"],
+                ["inputTokens", "outputTokens", "cacheRead", "cacheCreation"],
+                ["worktree", "cost", "linesAdded", "linesRemoved"],
+            ])
+    }
+
     func testDecodingMissingFieldsMigratesToSymbolsAndLabels() throws {
         let json = Data("{}".utf8)
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
@@ -29,6 +41,33 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         let json = Data("{}".utf8)
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
         XCTAssertEqual(config.rowAlignment, .spaceBetween)
+    }
+
+    func testDecodingMissingRowsFallsBackToRequestedRows() throws {
+        let json = Data("{}".utf8)
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        XCTAssertEqual(
+            config.rows.map { $0.items.map(\.id) },
+            [
+                ["pr", "profileName", "model", "effort"],
+                ["context", "contextRemaining", "contextSize", "exceeds200k"],
+                ["inputTokens", "outputTokens", "cacheRead", "cacheCreation"],
+                ["worktree", "cost", "linesAdded", "linesRemoved"],
+            ])
+    }
+
+    func testDecodingExplicitRowsPreservesSavedLayout() throws {
+        var savedConfig = StatusLineConfig()
+        savedConfig.rows = [
+            StatusLineRow(items: [
+                StatusLineItem(id: "model", label: "Model", sfSymbol: "cpu")
+            ])
+        ]
+
+        let encoded = try JSONEncoder().encode(savedConfig)
+        let decoded = try JSONDecoder().decode(StatusLineConfig.self, from: encoded)
+
+        XCTAssertEqual(decoded.rows.map { $0.items.map(\.id) }, [["model"]])
     }
 
     func testDecodingExplicitSymbolOnlyPreservesIt() throws {

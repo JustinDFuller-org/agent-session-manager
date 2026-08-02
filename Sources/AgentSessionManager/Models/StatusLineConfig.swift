@@ -253,7 +253,12 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         "repo", "contextSize", "cacheRead", "cacheCreation", "apiDuration",
     ]
 
-    private static let defaultVisible: Set<String> = ["model", "worktree", "cost", "context"]
+    private static let defaultRowItemIDs: [[String]] = [
+        ["pr", "profileName", "model", "effort"],
+        ["context", "contextRemaining", "contextSize", "exceeds200k"],
+        ["inputTokens", "outputTokens", "cacheRead", "cacheCreation"],
+        ["worktree", "cost", "linesAdded", "linesRemoved"],
+    ]
 
     static var allItems: [StatusLineItem] {
         itemOrder.compactMap { id in
@@ -272,13 +277,13 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     }
 
     init() {
-        let defaultItems = Self.itemOrder
-            .filter { Self.defaultVisible.contains($0) }
-            .compactMap { id -> StatusLineItem? in
-                guard let meta = Self.itemMetadata[id] else { return nil }
-                return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
-            }
-        rows = [StatusLineRow(items: defaultItems)]
+        rows = Self.defaultRowItemIDs.map { itemIDs in
+            StatusLineRow(
+                items: itemIDs.compactMap { id -> StatusLineItem? in
+                    guard let meta = Self.itemMetadata[id] else { return nil }
+                    return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
+                })
+        }
         factLabelStyle = .symbolAndLabel
         rowAlignment = .spaceBetween
         showPercentagesAsText = false
@@ -286,20 +291,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     }
 
     static func wizardDefault() -> StatusLineConfig {
-        func item(_ id: String) -> StatusLineItem {
-            let meta = itemMetadata[id]!
-            return StatusLineItem(id: id, label: meta.label, sfSymbol: meta.symbol)
-        }
-        var config = StatusLineConfig()
-        config.factLabelStyle = .symbolAndLabel
-        config.rowAlignment = .spaceBetween
-        config.rows = [
-            StatusLineRow(items: [item("pr"), item("profileName"), item("model")]),
-            StatusLineRow(
-                items: [item("context"), item("contextRemaining"), item("inputTokens"), item("outputTokens")]),
-            StatusLineRow(items: [item("worktree"), item("linesAdded"), item("linesRemoved")]),
-        ]
-        return config
+        StatusLineConfig()
     }
 
     init(from decoder: Decoder) throws {

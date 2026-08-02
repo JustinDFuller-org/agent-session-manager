@@ -5,17 +5,31 @@ import XCTest
 final class StatusLineConfigTests: XCTestCase {
     func testDefaultRowCount() {
         let config = StatusLineConfig()
-        XCTAssertEqual(config.rows.count, 1)
+        XCTAssertEqual(config.rows.count, 4)
     }
 
     func testDefaultRowItems() {
         let config = StatusLineConfig()
-        XCTAssertEqual(Set(config.rows[0].items.map(\.id)), ["model", "worktree", "cost", "context"])
+        XCTAssertEqual(
+            config.rows.map { $0.items.map(\.id) },
+            [
+                ["pr", "profileName", "model", "effort"],
+                ["context", "contextRemaining", "contextSize", "exceeds200k"],
+                ["inputTokens", "outputTokens", "cacheRead", "cacheCreation"],
+                ["worktree", "cost", "linesAdded", "linesRemoved"],
+            ])
     }
 
     func testDefaultUsedItemIDs() {
         let config = StatusLineConfig()
-        XCTAssertEqual(config.usedItemIDs, ["model", "worktree", "cost", "context"])
+        XCTAssertEqual(
+            config.usedItemIDs,
+            [
+                "pr", "profileName", "model", "effort",
+                "context", "contextRemaining", "contextSize", "exceeds200k",
+                "inputTokens", "outputTokens", "cacheRead", "cacheCreation",
+                "worktree", "cost", "linesAdded", "linesRemoved",
+            ])
     }
 
     func testAllItemsCount() {
@@ -32,12 +46,12 @@ final class StatusLineConfigTests: XCTestCase {
 
     func testNewFormatRoundTrip() throws {
         var config = StatusLineConfig()
-        let costItem = StatusLineConfig.allItems.first { $0.id == "cost" }!
-        config.rows.append(StatusLineRow(items: [costItem]))
+        let durationItem = StatusLineConfig.allItems.first { $0.id == "duration" }!
+        config.rows.append(StatusLineRow(items: [durationItem]))
         let encoded = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(StatusLineConfig.self, from: encoded)
-        XCTAssertEqual(decoded.rows.count, 2)
-        XCTAssertTrue(decoded.usedItemIDs.contains("cost"))
+        XCTAssertEqual(decoded.rows.count, 5)
+        XCTAssertTrue(decoded.usedItemIDs.contains("duration"))
         XCTAssertTrue(decoded.usedItemIDs.contains("model"))
     }
 

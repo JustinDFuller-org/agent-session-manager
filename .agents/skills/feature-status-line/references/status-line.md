@@ -243,9 +243,9 @@ Catch-all "lenient" decoders (decode whatever arrives without validation) are no
 
 ## Defaults
 
-`StatusLineConfig()` (catalog default): single row — `model`, `worktree`, `cost`, `context`. Used when no saved config exists and when the onboarding wizard is skipped from the welcome step.
+`StatusLineConfig()` (catalog default): four rows — Row 1: `pr`/`profileName`/`model`/`effort`; Row 2: `context`/`contextRemaining`/`contextSize`/`exceeds200k`; Row 3: `inputTokens`/`outputTokens`/`cacheRead`/`cacheCreation`; Row 4: `worktree`/`cost`/`linesAdded`/`linesRemoved`. Used when no saved config exists and when the onboarding wizard is skipped from the welcome step.
 
-`StatusLineConfig.wizardDefault()` (wizard default): three rows — Row 1: `pr`/`profileName`/`model`; Row 2: `context`/`contextRemaining`/`inputTokens`/`outputTokens`; Row 3: `worktree`/`linesAdded`/`linesRemoved`. Used exclusively by the onboarding wizard status line step and its Reset button.
+`StatusLineConfig.wizardDefault()` (wizard default): the same four-row layout as `StatusLineConfig()`. It is used by the onboarding status line step and its Reset button. Existing saved layouts and profile-specific overrides are preserved.
 
 ## Key Files
 

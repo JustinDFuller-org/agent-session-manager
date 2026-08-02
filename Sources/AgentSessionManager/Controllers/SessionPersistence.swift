@@ -177,7 +177,7 @@ struct PersistedPane: Codable {
         worktreeIsManaged = (try? container.decodeIfPresent(Bool.self, forKey: .worktreeIsManaged)) ?? false
         profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
         scrollbackOverride =
-            (try? container.decodeIfPresent(ScrollbackLimit.self, forKey: .scrollbackOverride)) ?? nil
+            try? container.decodeIfPresent(ScrollbackLimit.self, forKey: .scrollbackOverride)
         extraArgs = (try? container.decodeIfPresent([String].self, forKey: .extraArgs)) ?? []
         opencodeSessionID = try container.decodeIfPresent(String.self, forKey: .opencodeSessionID)
         agentControlInjectionEnabled = try container.decodeIfPresent(Bool.self, forKey: .agentControlInjectionEnabled)

@@ -7,7 +7,7 @@ See [documentation/features/setup-wizard.md](../../../../documentation/features/
 - `Sources/AgentSessionManager/Models/AppSettings.swift` — `preferredShell`, `hasCompletedOnboarding`
 - `Sources/AgentSessionManager/Models/CLIOptionConfig.swift` — `recommendedDefaults(for:)` factory (per-tool recommended flag set for wizard step)
 - `Sources/AgentSessionManager/Models/EnvVarConfig.swift` — `recommendedDefaults()` factory (recommended Claude env vars for wizard step)
-- `Sources/AgentSessionManager/Models/StatusLineConfig.swift` — `wizardDefault()` factory (three-row spec for wizard step)
+- `Sources/AgentSessionManager/Models/StatusLineConfig.swift` — `wizardDefault()` factory (four-row spec for wizard step)
 - `Sources/AgentSessionManager/Controllers/ShellResolver.swift` — shell detection and resolution
 - `Sources/AgentSessionManager/Controllers/CLIToolDetector.swift` — async tool detection
 - `Sources/AgentSessionManager/Controllers/SettingsPersistence.swift` — `saveShellSettings`, `restoreShellSettings`, `saveStatusLine`, `restoreStatusLine`, `saveOnboarding`, `restoreOnboarding`, `save`/`restore` (Claude CLI), `saveEnvVarOptions`/`restoreEnvVarOptions`

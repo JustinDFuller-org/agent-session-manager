@@ -7,7 +7,7 @@ The wizard uses three presentation sizes. `welcome`, `shell`, and `tools` stay c
 ## Steps
 
 ### 1. Welcome / Consent
-Brief explanation of what the wizard does. **Set Up** proceeds; **Skip** marks onboarding complete and leaves defaults untouched (Claude only, auto-detect shell, single-row catalog default for the status line).
+Brief explanation of what the wizard does. **Set Up** proceeds; **Skip** marks onboarding complete and leaves defaults untouched (Claude only, auto-detect shell, four-row catalog default for the status line).
 
 ### 2. Shell
 Shows the auto-detected shell (`$SHELL` env var, fallback `/bin/zsh`). The user can:
@@ -21,16 +21,17 @@ The selection is persisted in `shell-settings.json` as `preferredShell` when **C
 Runs `CLIToolDetector.detectInstalled(shell:)` in the user's chosen interactive shell (`-i -c "which <binary>"`). Each `CLIType` (claude, codex, cursor/agent) is probed concurrently. Detected tools appear pre-checked; the user may toggle. **Continue** persists active tools and advances to the Status Line step.
 
 ### 4. Status Line
-Pre-fills the three-row wizard default layout (see `StatusLineConfig.wizardDefault()`):
-- Row 1: `pr`, `profileName`, `model`
-- Row 2: `context`, `contextRemaining`, `inputTokens`, `outputTokens`
-- Row 3: `worktree`, `linesAdded`, `linesRemoved`
+Pre-fills the four-row default layout (see `StatusLineConfig.wizardDefault()`):
+- Row 1: `pr`, `profileName`, `model`, `effort`
+- Row 2: `context`, `contextRemaining`, `contextSize`, `exceeds200k`
+- Row 3: `inputTokens`, `outputTokens`, `cacheRead`, `cacheCreation`
+- Row 4: `worktree`, `cost`, `linesAdded`, `linesRemoved`
 
-The user can edit inline via `StatusLineConfigLayoutEditor`. When the draft equals `wizardDefault()`, a **Clear** button empties all rows so the user can start from scratch; once the layout diverges from the default, the button becomes **Reset to Default** and restores the three-row spec. **Save** persists the draft to `statusline-settings.json` and advances to CLI Flags. **Skip** clears all rows (empty `rows` array = no status bar rendered), persists, and advances to CLI Flags.
+The user can edit inline via `StatusLineConfigLayoutEditor`. When the draft equals `wizardDefault()`, a **Clear** button empties all rows so the user can start from scratch; once the layout diverges from the default, the button becomes **Reset to Default** and restores the four-row spec. **Save** persists the draft to `statusline-settings.json` and advances to CLI Flags. **Skip** clears all rows (empty `rows` array = no status bar rendered), persists, and advances to CLI Flags.
 
 During onboarding this step gets a `420pt` minimum editor viewport inside the tall sheet so the grouped status-line controls are visible without hunting through a cramped inner scroll area, while the `Save` / `Skip` footer remains in the measured sheet body.
 
-The wizard default layout is distinct from the catalog default (`StatusLineConfig()` — single row: model, worktree, cost, context). The catalog default remains the fallback for code paths that skip the wizard.
+The wizard default layout and catalog default (`StatusLineConfig()`) use the same four-row arrangement. The catalog default remains the fallback for code paths that skip the wizard.
 
 ### 5. CLI Flags
 Surfaces the most-used CLI options for the enabled tools so they appear in the New Pane sheet. Recommended defaults are seeded by `CLIOptionConfig.recommendedDefaults(for:)` and `EnvVarConfig.recommendedDefaults()`:
@@ -88,7 +89,7 @@ In **Settings ▸ General**, the **Shell** section exposes the same picker to ch
 - `ShellResolver` — static helpers: `detectedLoginShell()`, `resolved(_:)`, `commonShells`
 - `CLIToolDetector` — `detectInstalled(shell:runner:)` async, injectable runner for unit tests
 - `OnboardingWizardView` — multi-step sheet (welcome / shell / tools / statusLine / cliFlags / profiles steps), presented from `ContentView`
-- `StatusLineConfig.wizardDefault()` — three-row spec used by the wizard status line step
+- `StatusLineConfig.wizardDefault()` — four-row spec used by the wizard status line step
 - `CLIOptionConfig.recommendedDefaults(for:)` — per-tool recommended flag set used by the wizard CLI flags step
 - `EnvVarConfig.recommendedDefaults()` — recommended Claude env var set used by the wizard CLI flags step
 - `CLIOptionsContent` (internal, in `SettingsView.swift`) — reusable flag editor embedded in the CLI flags step
