@@ -1,6 +1,6 @@
 # User-Facing Documentation Plan
 
-Status: migration complete; source audit and maintenance updated 2026-07-22
+Status: Diátaxis migration in progress; source audit and maintenance updated 2026-08-02
 
 This document plans the migration from implementation-oriented project documentation to a user guide for the deployed GitHub Pages site. It is an internal planning document and is excluded from the Jekyll build.
 
@@ -88,9 +88,30 @@ User-facing language should use the exact labels visible in the app while explai
 
 ### Separate the audiences
 
-The deployed site should become user-only. Future public documentation should live under `documentation/user-guide/`, while `documentation/features/`, `documentation/dictionary.md`, `AGENTS.md`, skills, and release or test runbooks remain repository-only.
+The deployed site should remain user-only. Public documentation lives under
+`documentation/tutorials/`, `documentation/how-to/`,
+`documentation/reference/`, and `documentation/explanation/`, while
+`documentation/features/`, `documentation/dictionary.md`, `AGENTS.md`,
+`CLAUDE.md`, skills, and release or test runbooks remain repository-only.
 
-The Jekyll configuration should exclude internal documentation paths and the planning artifacts. The public navigation should contain only user guides. Internal documentation can still link to user guides when that helps maintainers verify the public explanation.
+Existing public permalinks remain stable while source files move into the
+Diátaxis categories. Internal documentation can still link to public routes
+when that helps maintainers verify the public explanation. The public
+navigation contains the four Diátaxis types rather than product development
+categories.
+
+### Use the Diátaxis information architecture
+
+The public source tree uses one dominant type per page:
+
+- `documentation/tutorials/` teaches a successful first experience.
+- `documentation/how-to/` helps a capable user complete a task.
+- `documentation/reference/` records neutral, exact facts.
+- `documentation/explanation/` describes concepts, relationships, and reasons.
+
+Each public page carries a matching `diataxis_type` front matter value. Pages
+that combine user workflow with implementation contracts keep the internal
+feature document and receive a separate public guide.
 
 ### Use a task-first information architecture
 
@@ -160,22 +181,31 @@ Reviewers should verify the copy against the current UI and source, confirm that
 
 ## 5. Migration TODO
 
+- [x] Establish Diátaxis authoring guidance in `AGENTS.md`, `CLAUDE.md`, and
+  `.agents/skills/diataxis-documentation/`.
+- [x] Classify every public page with one `diataxis_type` value.
+- [x] Move public source files into tutorial, how-to, reference, and
+  explanation directories while preserving their existing routes.
+- [x] Add a concise public supported-tools reference.
 - [x] Inventory every current feature document and classify it as user-facing, internal-only, or requiring two versions.
-- [x] Create `documentation/user-guide/` and establish the user-guide page template.
+- [x] Create the four public documentation directories and type-specific
+  authoring guidance.
 - [x] Update Jekyll exclusions so internal documentation and planning artifacts cannot be published.
-- [x] Replace the current mixed-audience navigation with user-guide navigation.
+- [x] Replace the current product-category navigation with Diátaxis
+  navigation.
 - [x] Rewrite the homepage and documentation index around user goals.
 - [x] Write the overview, requirements, quickstart, and core-concepts pages first.
 - [x] Migrate tabs, panes, agent-tool selection, project isolation, persistence, and cleanup into task guides.
 - [x] Migrate profiles, tool options, status information, notifications, focus mode, and shortcuts into task guides.
-- [x] Add one short public guide for each supported agent tool and group tool documentation under Integrations.
+- [x] Add one short public how-to guide for each supported agent tool and a
+  factual supported-tools reference.
 - [x] Add a public GitHub pull-request guide covering status tracking and merged or closed notifications.
 - [x] Add public activity-indicator and terminal-scrollback guides, and document session names in the pane guide.
 - [x] Add user-facing update, permissions, missing-tool, pane-startup, and checkout-conflict troubleshooting.
 - [x] Add and promote the first durable screenshot set from the real-flow UI tests.
 - [x] Remove internal source paths, schemas, class names, telemetry catalogs, and test commands from public pages.
 - [x] Add link checking and a documented local Jekyll build or equivalent rendered-site check.
-- [x] Verify the custom-domain deployment and representative user-guide URLs after each migration phase. Verified 2026-07-22 against Pages build `3e9f953` at `https://agent-session-manager.justindfuller.com`; the homepage, `/docs/`, representative user-guide pages, CSS, and documentation images returned HTTPS 200 responses, while internal-only paths were excluded by the local rendered-site check.
+- [x] Verify the custom-domain deployment and representative public URLs after each migration phase. Verified 2026-07-22 against Pages build `3e9f953` at `https://agent-session-manager.justindfuller.com`; the homepage, `/docs/`, representative public pages, CSS, and documentation images returned HTTPS 200 responses, while internal-only paths were excluded by the local rendered-site check.
 - [x] Recheck README and homepage claims against the current four-tool implementation before publishing changes. Audited 2026-07-22 against the harness catalog, settings labels, per-tool CLI catalogs, and status-line capabilities; removed stale three-tool, Claude-only, and fixed-count wording.
 
 ### Post-migration maintenance

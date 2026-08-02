@@ -24,6 +24,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Validate documentation
+        run: make docs-check
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
 

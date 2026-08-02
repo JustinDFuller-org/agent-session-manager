@@ -51,9 +51,9 @@ description: A native macOS app for managing and keeping track of many simultane
 
 <section class="home-section">
   <p class="eyebrow">Explore</p>
-  <h2>Documentation by task</h2>
+  <h2>Documentation by need</h2>
   <div class="doc-catalog">
-    {% for group in site.data.navigation limit: 6 %}
+    {% for group in site.data.navigation %}
     <section class="catalog-group">
       <h3>{{ group.title }}</h3>
       <ul>

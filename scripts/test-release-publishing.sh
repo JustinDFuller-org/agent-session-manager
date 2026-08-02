@@ -24,7 +24,10 @@ test -f "$test_root/site/appcast.xml"
 test "$(git -C "$repo_root" ls-files '*.dmg')" = ""
 if rg -n 'github\.com/JustinDFuller/agent-session-manager/releases|justinfuller\.github\.io' \
     "$repo_root/index.md" \
-    "$repo_root/documentation/user-guide" \
+    "$repo_root/documentation/tutorials" \
+    "$repo_root/documentation/how-to" \
+    "$repo_root/documentation/reference" \
+    "$repo_root/documentation/explanation" \
     "$repo_root/appcast.xml" \
     "$repo_root/scripts" \
     "$repo_root/documentation/features/distribution.md"; then

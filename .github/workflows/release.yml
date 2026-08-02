@@ -78,6 +78,15 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@v7
 
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Validate documentation
+        run: make docs-check
+
       - name: Download release publication artifact
         uses: actions/download-artifact@v8
         with:

@@ -163,6 +163,30 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 - Tasks and bugs are tracked as GitHub Issues: https://github.com/JustinDFuller/agent-session-manager/issues
 - Reference the relevant issue number in commit messages and PR descriptions.
 
+## Documentation
+
+Load `.agents/skills/diataxis-documentation` before creating, editing,
+moving, or reviewing documentation.
+
+Public documentation has four types, each serving one dominant need:
+
+- **Tutorials** teach a successful learning path.
+- **How-to guides** help a capable user complete a real task.
+- **Reference** pages provide neutral, exact facts for consultation.
+- **Explanation** pages provide context, relationships, and rationale.
+
+Public pages belong under `documentation/tutorials/`,
+`documentation/how-to/`, `documentation/reference/`, or
+`documentation/explanation/`. Internal feature, architecture, diagnostic,
+release, and agent documentation remains excluded from the Jekyll site.
+
+Preserve existing public permalinks when moving pages. Verify user-facing
+claims against the current UI, source, tests, or canonical internal feature
+documentation. Keep implementation-only details out of public pages, explain
+product terms at first use, and update navigation, related links, inventories,
+screenshots, and rendered-site checks when documentation changes. Use
+`Agent Session Manager` in full; do not use the acronym `ASM`.
+
 ## Skills
 
 Skills are stored in `.agents/skills/`. Load them when working on relevant features.
@@ -180,6 +204,7 @@ Skills are stored in `.agents/skills/`. Load them when working on relevant featu
 - `git-worktree-documentation` — Git worktree official doc index; **load before implementing any git worktree feature**, worktree creation, listing, removal, locking, pruning, repair, or any git worktree CLI behavior — do not guess at behavior.
 - `opentelemetry-swift-documentation` — OpenTelemetry Swift official doc index; **load before implementing any OpenTelemetry feature**, tracing, metrics, logging, instrumentation, exporters, or context propagation — do not guess at behavior.
 - `agents-documentation` — AGENTS.md and Agent Skills official doc index; **load before implementing any AGENTS.md or Agent Skills feature**, SKILL.md format, frontmatter fields, skill creation, client integration, skills-ref validation, or the agentskills.io spec — do not guess at behavior.
+- `diataxis-documentation` — classify, write, review, and reorganize public and internal documentation using the Diátaxis framework.
 - `instrument-runtime-telemetry` — mandatory telemetry checklist; **load before implementing any runtime behavior feature, fix, or refactor** so span context, failure coverage, bounded output, tests, and catalogs stay complete.
 - `agent-data-access` — read-only incident diagnosis workflow for current prod/dev sessions, per-pane traces, invariants, global spans, and separately reported legacy files.
 - `dictionary` — glossary of project domain terms (Tab, Pane, Worktree, Profile, Status line, Chip, CLI options, Tracing, Terminal Purity, …); load when you need a definition
