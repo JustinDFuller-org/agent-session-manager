@@ -1,6 +1,6 @@
 # Continue on Restart
 
-When the app relaunches and restores a saved session, Claude panes automatically pass `--continue` to the CLI so each conversation picks up where it left off. Codex panes are unaffected.
+When the app relaunches and restores a saved session, Claude and Cursor panes automatically pass `--continue` to the CLI so each conversation picks up where it left off. OpenCode uses its saved session ID when available, with `--continue` as a fallback. Codex panes are unaffected.
 
 ## Configuration
 
@@ -12,7 +12,7 @@ Accessibility identifier: `settings-continue-on-restart-toggle`.
 
 ## Behavior
 
-When enabled, `SessionPersistence.restore` passes `extraArgs: ["--continue"]` to `tab.addPane` for every Claude pane. This applies to both app-managed worktrees and external checkout panes. The flag is never passed to Codex panes regardless of the setting.
+When enabled, `SessionPersistence.restore` adds `--continue` to Claude and Cursor pane arguments unless the saved options already contain `--continue` or an explicit `--resume`. This applies to both app-managed worktrees and external checkout panes. The flag is never added to Codex panes regardless of the setting.
 
 ## Persistence
 

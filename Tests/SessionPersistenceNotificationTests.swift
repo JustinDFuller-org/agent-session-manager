@@ -200,6 +200,102 @@ final class SessionPersistenceNotificationTests: XCTestCase {
         XCTAssertEqual(extraArgs, ["--model", "claude-opus-4-5", "--continue"])
     }
 
+    func testRestoreInjectsCursorContinueAndRecordsBoundedOutcome() throws {
+        let subdirectory = "session-restore-cursor-\(UUID().uuidString)"
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: subdirectory)
+        let worktree = FileManager.default.temporaryDirectory
+            .appending(path: "cursor-restore-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let tabID = UUID()
+        let paneID = UUID()
+        let session = PersistedSession(
+            tabs: [
+                PersistedTab(
+                    id: tabID,
+                    name: "cursor-tab",
+                    directory: worktree.path,
+                    baseBranchOverride: nil,
+                    panes: [
+                        PersistedPane(
+                            id: paneID,
+                            name: "cursor-pane",
+                            harness: .cursor,
+                            worktreeDirectory: worktree.path,
+                            extraArgs: ["--model", "test"],
+                            agentControlInjectionEnabled: false
+                        )
+                    ]
+                )
+            ],
+            activeTabIndex: 0
+        )
+        try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        try JSONEncoder().encode(session).write(to: appSupport.appending(path: "sessions.json"))
+
+        PersistenceHelpers.overrideAppSupportSubdirectory = subdirectory
+        let settings = AppSettings()
+        settings.agentControlInjectionPolicy = .never
+        settings.continueOnRestart = true
+        let appState = AppState()
+        var restoredStates = [appState]
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+        defer {
+            for state in restoredStates {
+                for tab in state.tabs {
+                    for pane in tab.panes {
+                        pane.terminalController?.terminate()
+                        pane.removeStatusLineMonitor()
+                    }
+                }
+            }
+            TracingService.shared.resetForTesting()
+            PersistenceHelpers.overrideAppSupportSubdirectory = nil
+            try? FileManager.default.removeItem(at: appSupport)
+            try? FileManager.default.removeItem(at: worktree)
+        }
+
+        SessionPersistence.restore(into: appState, appSettings: settings)
+
+        let restoredPane = try XCTUnwrap(appState.tabs.first?.panes.first)
+        XCTAssertEqual(restoredPane.id, paneID)
+        XCTAssertEqual(restoredPane.extraArgs, ["--model", "test", "--continue"])
+        XCTAssertEqual(
+            Array(restoredPane.terminalController?.pendingCommandArgs?.prefix(4) ?? []),
+            ["agent", "--model", "test", "--continue"])
+
+        let event = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.first {
+                $0.name == "session.pane.restore.continuation"
+            })
+        XCTAssertEqual(event.attributes["pane.id"], paneID.uuidString)
+        XCTAssertEqual(event.attributes["pane.name"], "cursor-pane")
+        XCTAssertEqual(event.attributes["tab.id"], tabID.uuidString)
+        XCTAssertEqual(event.attributes["tab.name"], "cursor-tab")
+        XCTAssertEqual(event.attributes["harness"], Harness.cursor.rawValue)
+        XCTAssertEqual(event.attributes["result"], "injected")
+        XCTAssertFalse(event.attributes.values.contains("test"))
+
+        TracingService.shared.resetForTesting()
+        TracingService.shared.enableTestCapture()
+        let disabledSettings = AppSettings()
+        disabledSettings.agentControlInjectionPolicy = .never
+        disabledSettings.continueOnRestart = false
+        let disabledState = AppState()
+        restoredStates.append(disabledState)
+
+        SessionPersistence.restore(into: disabledState, appSettings: disabledSettings)
+
+        let disabledPane = try XCTUnwrap(disabledState.tabs.first?.panes.first)
+        XCTAssertEqual(disabledPane.extraArgs, ["--model", "test"])
+        let disabledEvent = try XCTUnwrap(
+            TracingService.shared.recordedEventsForTesting.first {
+                $0.name == "session.pane.restore.continuation"
+            })
+        XCTAssertEqual(disabledEvent.attributes["result"], "disabled")
+    }
+
     func testOpenCodeSessionIDRoundTripInPersistedPane() throws {
         let persisted = PersistedPane(
             id: UUID(), name: "p", harness: .opencode,
