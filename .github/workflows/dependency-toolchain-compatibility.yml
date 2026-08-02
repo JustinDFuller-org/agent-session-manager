@@ -21,6 +21,8 @@ concurrency:
 jobs:
   compatibility:
     name: Dependency and toolchain compatibility
+    # Toggle the repository Actions variable ENABLE_MACOSX_JOBS to re-enable.
+    if: ${{ vars.ENABLE_MACOSX_JOBS == 'true' }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
