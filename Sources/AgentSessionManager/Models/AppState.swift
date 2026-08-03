@@ -309,7 +309,8 @@ final class AppState {
     func runSavedStatusLineFieldNow(
         fieldID: String, profileID: UUID?, appSettings: AppSettings
     ) -> String {
-        var targetCount = 0
+        var startedCount = 0
+        var coalescedCount = 0
         for pane in tabs.flatMap(\.panes) {
             guard let monitor = pane.statusLineMonitor else { continue }
 
@@ -337,15 +338,29 @@ final class AppState {
             else {
                 continue
             }
-            monitor.runCustomFieldNow(field)
-            targetCount += 1
+            monitor.profileName = pane.profileID.flatMap { profileID in
+                appSettings.profiles.first(where: { $0.id == profileID })?.name
+            }
+            switch monitor.runCustomFieldNow(field) {
+            case .started:
+                startedCount += 1
+            case .coalesced:
+                coalescedCount += 1
+            case .unsupported:
+                continue
+            }
         }
 
+        let targetCount = startedCount + coalescedCount
         var attributes = [
             "field_id": fieldID,
             "scope": profileID == nil ? "global" : "profile",
             "target_count": "\(targetCount)",
-            "result": targetCount == 0 ? "no_matching_panes" : "started",
+            "started_count": "\(startedCount)",
+            "coalesced_count": "\(coalescedCount)",
+            "result": targetCount == 0
+                ? "no_matching_panes"
+                : coalescedCount == targetCount ? "coalesced" : "started",
         ]
         if let profileID {
             attributes["profile_id"] = profileID.uuidString
@@ -355,7 +370,15 @@ final class AppState {
         if targetCount == 0 {
             return "No matching saved panes."
         }
-        return "Started in \(targetCount) pane\(targetCount == 1 ? "" : "s")."
+        if startedCount == 0 {
+            return "Already running in \(coalescedCount) pane\(coalescedCount == 1 ? "" : "s")."
+        }
+        if coalescedCount == 0 {
+            return "Started in \(startedCount) pane\(startedCount == 1 ? "" : "s")."
+        }
+        return
+            "Started in \(startedCount) pane\(startedCount == 1 ? "" : "s"); "
+            + "already running in \(coalescedCount) pane\(coalescedCount == 1 ? "" : "s")."
     }
 
     func focusPane(tabID: UUID, paneID: UUID) {

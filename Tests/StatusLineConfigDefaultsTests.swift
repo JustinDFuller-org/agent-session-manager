@@ -223,6 +223,28 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         XCTAssertEqual(item.sfSymbol, "dollarsign.square")
     }
 
+    func testLegacyItemsMigrateWorktreeBranchToWorktree() throws {
+        let json = Data(
+            """
+            {
+              "items": [
+                {
+                  "id": "worktreeBranch",
+                  "label": "Worktree Branch",
+                  "sfSymbol": "arrow.branch",
+                  "isVisible": true
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+
+        XCTAssertEqual(config.rows.first?.items.map(\.id), ["worktree"])
+        XCTAssertTrue(config.needsPersistenceMigration)
+    }
+
     func testCustomFieldCapabilityUsesSelectedHarnesses() {
         var config = StatusLineConfig()
         let field = CustomStatusLineField(

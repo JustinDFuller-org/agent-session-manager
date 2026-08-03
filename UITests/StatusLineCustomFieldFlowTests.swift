@@ -46,7 +46,8 @@ final class StatusLineCustomFieldFlowTests: BaseTestCase {
         let harnessMenu = app.descendants(matching: .any)
             .matching(identifier: "custom-statusline-harness-menu").firstMatch
         waitFor(harnessMenu)
-        XCTAssertEqual(harnessMenu.label, "All harnesses")
+        XCTAssertEqual(harnessMenu.label, "Harnesses")
+        XCTAssertTrue((harnessMenu.value as? String)?.contains("All harnesses") == true)
 
         app.buttons["custom-statusline-save-button"].click()
         waitForDisappear(labelField)

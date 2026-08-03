@@ -2,6 +2,12 @@ import AppKit
 import Foundation
 import Observation
 
+enum CustomFieldRunOutcome: Equatable {
+    case started
+    case coalesced
+    case unsupported
+}
+
 enum SidebarSide: String, Codable, CaseIterable {
     case left, right
 
@@ -811,38 +817,46 @@ extension StatusLineMonitor {
                 scheduledCustomFields[id] = field
                 continue
             }
-            scheduledCustomFields[id] = field
-            customFieldGenerations[id, default: 0] += 1
-            customFieldTimers[id]?.invalidate()
-            customFieldTimers[id] = Timer.scheduledTimer(
-                withTimeInterval: TimeInterval(field.effectiveRefreshIntervalSeconds), repeats: true
-            ) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.runCustomField(field, trigger: "scheduled")
-                }
-            }
-            runCustomField(field, trigger: "scheduled")
+            scheduleCustomField(field)
         }
     }
 
-    func runCustomFieldNow(_ field: CustomStatusLineField) {
-        guard field.supports(harness) else { return }
-        if let scheduled = scheduledCustomFields[field.id],
-            scheduled.command != field.command
-                || scheduled.refreshIntervalSeconds != field.refreshIntervalSeconds
-                || scheduled.timeoutSeconds != field.timeoutSeconds
-        {
-            customFieldGenerations[field.id, default: 0] += 1
-        } else if scheduledCustomFields[field.id] == nil {
-            customFieldGenerations[field.id, default: 0] += 1
-        }
+    private func scheduleCustomField(
+        _ field: CustomStatusLineField, trigger: String = "scheduled"
+    ) {
         scheduledCustomFields[field.id] = field
-        runCustomField(field, trigger: "manual")
+        customFieldGenerations[field.id, default: 0] += 1
+        customFieldTimers[field.id]?.invalidate()
+        customFieldTimers[field.id] = Timer.scheduledTimer(
+            withTimeInterval: TimeInterval(field.effectiveRefreshIntervalSeconds), repeats: true
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.runCustomField(field, trigger: "scheduled")
+            }
+        }
+        _ = runCustomField(field, trigger: trigger)
     }
 
-    private func runCustomField(_ field: CustomStatusLineField, trigger: String) {
+    @discardableResult
+    func runCustomFieldNow(_ field: CustomStatusLineField) -> CustomFieldRunOutcome {
+        guard field.supports(harness) else { return .unsupported }
+        if let scheduled = scheduledCustomFields[field.id],
+            scheduled.command == field.command,
+            scheduled.refreshIntervalSeconds == field.refreshIntervalSeconds,
+            scheduled.timeoutSeconds == field.timeoutSeconds
+        {
+            return runCustomField(field, trigger: "manual")
+        }
+        scheduleCustomField(field, trigger: "manual")
+        return .started
+    }
+
+    @discardableResult
+    private func runCustomField(
+        _ field: CustomStatusLineField, trigger: String
+    ) -> CustomFieldRunOutcome {
         let generation = customFieldGenerations[field.id, default: 0]
-        guard customFieldInFlight[field.id] != generation else { return }
+        guard customFieldInFlight[field.id] != generation else { return .coalesced }
         customFieldInFlight[field.id] = generation
         let context = CustomFieldExecutionContext(
             currentData: currentData,
@@ -868,6 +882,7 @@ extension StatusLineMonitor {
                 )
             }
         }
+        return .started
     }
 
     /// I8: every execution attempt either updates the cached value or records `exec_failed` — a

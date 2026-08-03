@@ -830,6 +830,8 @@ struct AddCustomStatusLineFieldSheet: View {
                         .lineLimit(1)
                 }
                 .accessibilityIdentifier("custom-statusline-harness-menu")
+                .accessibilityLabel("Harnesses")
+                .accessibilityValue(harnessSelectionSummary)
                 Text("Choose one or more harnesses. New fields apply to all harnesses by default.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)

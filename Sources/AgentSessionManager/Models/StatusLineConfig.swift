@@ -130,6 +130,7 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
     var refreshIntervalSeconds: Int
     var timeoutSeconds: Int
     var supportedHarnesses: Set<Harness>
+    fileprivate(set) var needsPersistenceMigration = false
 
     init(
         id: String = "custom:\(UUID().uuidString)",
@@ -173,10 +174,22 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
         supportedHarnesses =
             try container.decodeIfPresent(Set<Harness>.self, forKey: .supportedHarnesses)
             ?? StatusLineConfig.allHarnesses
+        needsPersistenceMigration =
+            !container.contains(.supportedHarnesses) || sfSymbol != decodedIcon
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, label, sfSymbol, command, refreshIntervalSeconds, timeoutSeconds, supportedHarnesses
+    }
+
+    static func == (lhs: CustomStatusLineField, rhs: CustomStatusLineField) -> Bool {
+        lhs.id == rhs.id
+            && lhs.label == rhs.label
+            && lhs.sfSymbol == rhs.sfSymbol
+            && lhs.command == rhs.command
+            && lhs.refreshIntervalSeconds == rhs.refreshIntervalSeconds
+            && lhs.timeoutSeconds == rhs.timeoutSeconds
+            && lhs.supportedHarnesses == rhs.supportedHarnesses
     }
 }
 
@@ -197,6 +210,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     var rowAlignment: RowAlignment
     var showPercentagesAsText: Bool
     var customFields: [CustomStatusLineField]
+    fileprivate(set) var needsPersistenceMigration = false
 
     static let itemMetadata: [String: (label: String, symbol: String)] = [
         "model": ("Model", "cpu"),
@@ -368,6 +382,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         rowAlignment = .spaceBetween
         showPercentagesAsText = false
         customFields = []
+        needsPersistenceMigration = false
     }
 
     static func wizardDefault() -> StatusLineConfig {
@@ -383,6 +398,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         let decodedCustomFields =
             try container.decodeIfPresent([CustomStatusLineField].self, forKey: .customFields) ?? []
         customFields = decodedCustomFields
+        var migrationNeeded = decodedCustomFields.contains { $0.needsPersistenceMigration }
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows.enumerated().map { rowIndex, row in
@@ -390,12 +406,14 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                 let rowHasWorktree = row.items.contains { $0.id == "worktree" }
                 mutableRow.items = row.items.enumerated().compactMap { itemIndex, item in
                     if item.id == "gitWorktree" {
+                        migrationNeeded = true
                         TracingService.shared.record(
                             "statusline.migration.gitworktree_dropped",
                             attributes: ["row_index": "\(rowIndex)", "position": "\(itemIndex)"])
                         return nil
                     }
                     if item.id == "worktreeBranch" {
+                        migrationNeeded = true
                         let substituted = !rowHasWorktree
                         TracingService.shared.record(
                             "statusline.migration.worktreebranch_merged",
@@ -411,9 +429,15 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                         return nil
                     }
                     if let meta = StatusLineConfig.itemMetadata[item.id] {
+                        if item.label != meta.label || item.sfSymbol != meta.symbol {
+                            migrationNeeded = true
+                        }
                         return StatusLineItem(id: item.id, label: meta.label, sfSymbol: meta.symbol)
                     }
                     if let field = decodedCustomFields.first(where: { $0.id == item.id }) {
+                        if item.label != field.label || item.sfSymbol != field.sfSymbol {
+                            migrationNeeded = true
+                        }
                         return StatusLineItem(id: field.id, label: field.label, sfSymbol: field.sfSymbol)
                     }
                     return item
@@ -421,10 +445,31 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                 return mutableRow
             }
         } else if let legacyItems = try container.decodeIfPresent([LegacyStatusLineItem].self, forKey: .items) {
+            migrationNeeded = true
+            let visibleLegacyItems = legacyItems.enumerated().filter { $0.element.isVisible }
+            let hasWorktree = visibleLegacyItems.contains { $0.element.id == "worktree" }
             let visibleItems =
-                legacyItems
-                .filter(\.isVisible)
-                .compactMap { legacy -> StatusLineItem? in
+                visibleLegacyItems.compactMap { itemIndex, legacy -> StatusLineItem? in
+                    if legacy.id == "gitWorktree" {
+                        TracingService.shared.record(
+                            "statusline.migration.gitworktree_dropped",
+                            attributes: ["row_index": "0", "position": "\(itemIndex)"])
+                        return nil
+                    }
+                    if legacy.id == "worktreeBranch" {
+                        let substituted = !hasWorktree
+                        TracingService.shared.record(
+                            "statusline.migration.worktreebranch_merged",
+                            attributes: [
+                                "row_index": "0",
+                                "position": "\(itemIndex)",
+                                "substituted": substituted ? "true" : "false",
+                            ])
+                        guard substituted, let meta = StatusLineConfig.itemMetadata["worktree"] else {
+                            return nil
+                        }
+                        return StatusLineItem(id: "worktree", label: meta.label, sfSymbol: meta.symbol)
+                    }
                     guard let meta = StatusLineConfig.itemMetadata[legacy.id] else { return nil }
                     return StatusLineItem(
                         id: legacy.id,
@@ -437,6 +482,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             let defaults = StatusLineConfig()
             rows = defaults.rows
         }
+        needsPersistenceMigration = migrationNeeded
     }
 
     func encode(to encoder: Encoder) throws {
@@ -492,6 +538,21 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                 }
             }
         }
+    }
+
+    mutating func markPersistenceMigrationHandled() {
+        needsPersistenceMigration = false
+        for index in customFields.indices {
+            customFields[index].needsPersistenceMigration = false
+        }
+    }
+
+    static func == (lhs: StatusLineConfig, rhs: StatusLineConfig) -> Bool {
+        lhs.rows == rhs.rows
+            && lhs.factLabelStyle == rhs.factLabelStyle
+            && lhs.rowAlignment == rhs.rowAlignment
+            && lhs.showPercentagesAsText == rhs.showPercentagesAsText
+            && lhs.customFields == rhs.customFields
     }
 }
 

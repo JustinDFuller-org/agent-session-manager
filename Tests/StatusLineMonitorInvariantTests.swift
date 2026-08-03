@@ -714,9 +714,10 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let monitor = StatusLineMonitor(
             paneID: UUID(), workingDirectory: workDir, harness: .claude)
         let field = CustomStatusLineField(
-            id: "custom:manual", label: "Manual", command: "echo manual")
+            id: "custom:manual", label: "Manual", command: "sleep 0.2; echo manual")
 
-        monitor.runCustomFieldNow(field)
+        XCTAssertEqual(monitor.runCustomFieldNow(field), .started)
+        XCTAssertEqual(monitor.runCustomFieldNow(field), .coalesced)
         let resolved = await Self.pollUntilTrue {
             monitor.cachedCustomFieldValuesForTesting[field.id]?.text == "manual"
         }
@@ -817,6 +818,61 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
                 $0.name == "statusline.custom_field.exec_stale"
             }
         )
+        monitor.stop()
+    }
+
+    func testProfileRunNowThreadsResolvedProfileNameIntoCommandContext() async {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workDir) }
+
+        let settings = AppSettings()
+        let field = CustomStatusLineField(
+            id: "custom:profile-context",
+            label: "Profile",
+            command: "echo $AGENT_SESSION_MANAGER_PROFILE_NAME",
+            supportedHarnesses: [.claude]
+        )
+        var profileConfig = StatusLineConfig()
+        profileConfig.customFields = [field]
+        let profile = Profile(
+            name: "Profile Context",
+            harness: .claude,
+            statusLineConfig: profileConfig
+        )
+        settings.profiles = [profile]
+
+        let tab = Tab(name: "Profile Run Now", directory: workDir)
+        let pane = Pane(
+            name: "profile-pane",
+            tab: tab,
+            harness: .claude,
+            worktreeDirectory: workDir,
+            profileID: profile.id,
+            appSettings: settings
+        )
+        let monitor = StatusLineMonitor(
+            paneID: pane.id,
+            paneName: pane.name,
+            workingDirectory: workDir.path,
+            harness: .claude,
+            tabID: tab.id,
+            tabName: tab.name
+        )
+        pane.installStatusLineMonitor(monitor)
+        tab.panes = [pane]
+
+        let appState = AppState()
+        appState.tabs = [tab]
+        let summary = appState.runSavedStatusLineFieldNow(
+            fieldID: field.id, profileID: profile.id, appSettings: settings)
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting[field.id]?.text == "Profile Context"
+        }
+
+        XCTAssertEqual(summary, "Started in 1 pane.")
+        XCTAssertTrue(resolved, "expected the profile name to reach the saved command")
         monitor.stop()
     }
 
