@@ -83,6 +83,10 @@ struct Profile: Identifiable, Codable, Equatable {
         self.envVars = envVars
         self.statusLineConfig = statusLineConfig
     }
+
+    func resolvedStatusLineConfig(inheriting globalConfig: StatusLineConfig) -> StatusLineConfig {
+        statusLineConfig ?? globalConfig
+    }
 }
 
 struct ProfileOptionDraft: Equatable {

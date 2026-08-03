@@ -27,6 +27,8 @@ struct StatusLineConfigLayoutEditor: View {
     var filterCLI: Harness?
     let phases: StatusLineEditorPhases
     let onPersist: () -> Void
+    var onRunNow: ((String) -> String?)? = nil
+    var isRunNowAvailable: ((CustomStatusLineField) -> Bool)? = nil
 
     @State private var customFieldSheetTarget: CustomFieldSheetTarget?
 
@@ -80,7 +82,7 @@ struct StatusLineConfigLayoutEditor: View {
                 ForEach(Array(config.rows.indices), id: \.self) { rowIndex in
                     let rowCount = config.rows.count
                     let base = config.availableItems().filter { !config.usedItemIDs.contains($0.id) }
-                    let filtered = filterCLI.map { cli in base.filter { $0.supportedBy(cli) } } ?? base
+                    let filtered = filterCLI.map { cli in base.filter { config.supports($0, on: cli) } } ?? base
                     let available = filtered.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
                     Section {
                         ForEach(config.rows[rowIndex].items) { item in
@@ -228,6 +230,14 @@ struct StatusLineConfigLayoutEditor: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
+                                Text(
+                                    capabilityLabel(
+                                        for: StatusLineItem(
+                                            id: field.id, label: field.label, sfSymbol: field.sfSymbol
+                                        ))
+                                )
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Button {
@@ -236,6 +246,8 @@ struct StatusLineConfigLayoutEditor: View {
                                 Image(systemName: "pencil")
                             }
                             .buttonStyle(.borderless)
+                            .accessibilityLabel("Edit \(field.label)")
+                            .accessibilityIdentifier("settings-statusline-custom-field-edit-\(field.id)")
                             Button(role: .destructive) {
                                 touch { cfg in
                                     cfg.customFields.removeAll { $0.id == field.id }
@@ -256,20 +268,36 @@ struct StatusLineConfigLayoutEditor: View {
                         Label("Add Custom Field", systemImage: "plus")
                     }
                     .buttonStyle(.borderless)
+                    .accessibilityIdentifier("settings-statusline-add-custom-field-button")
                 }
             }
         }
         .sheet(item: $customFieldSheetTarget) { target in
             switch target {
             case .new:
-                AddCustomStatusLineFieldSheet(editingField: nil) { field in
+                AddCustomStatusLineFieldSheet(
+                    editingField: nil,
+                    onRunNow: onRunNow,
+                    isRunNowAvailable: isRunNowAvailable
+                ) { field in
                     touch { $0.customFields.append(field) }
                 }
             case .edit(let field):
-                AddCustomStatusLineFieldSheet(editingField: field) { updated in
+                AddCustomStatusLineFieldSheet(
+                    editingField: field,
+                    onRunNow: onRunNow,
+                    isRunNowAvailable: isRunNowAvailable
+                ) { updated in
                     touch { cfg in
                         if let index = cfg.customFields.firstIndex(where: { $0.id == updated.id }) {
                             cfg.customFields[index] = updated
+                            for rowIndex in cfg.rows.indices {
+                                for itemIndex in cfg.rows[rowIndex].items.indices
+                                where cfg.rows[rowIndex].items[itemIndex].id == updated.id {
+                                    cfg.rows[rowIndex].items[itemIndex] = StatusLineItem(
+                                        id: updated.id, label: updated.label, sfSymbol: updated.sfSymbol)
+                                }
+                            }
                         }
                     }
                 }
@@ -303,9 +331,9 @@ struct StatusLineConfigLayoutEditor: View {
     }
 
     private func capabilityLabel(for item: StatusLineItem) -> String {
-        let harnesses = item.capability.supportedHarnesses
+        let harnesses = config.capability(for: item).supportedHarnesses
         if harnesses == StatusLineConfig.allHarnesses {
-            return "All tools"
+            return "All harnesses"
         }
         return Harness.allCases
             .filter { harnesses.contains($0) }
@@ -315,6 +343,7 @@ struct StatusLineConfigLayoutEditor: View {
 }
 
 struct StatusLineContent: View {
+    @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
 
     var body: some View {
@@ -326,6 +355,13 @@ struct StatusLineContent: View {
                 phases: .display,
                 onPersist: {
                     SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                },
+                onRunNow: { fieldID in
+                    appState.runSavedStatusLineFieldNow(
+                        fieldID: fieldID, profileID: nil, appSettings: appSettings)
+                },
+                isRunNowAvailable: { field in
+                    appSettings.statusLineConfig.customField(withID: field.id) == field
                 })
             Section("GitHub PR Tracking") {
                 SettingRow(
@@ -453,6 +489,13 @@ struct StatusLineContent: View {
                 phases: .rows,
                 onPersist: {
                     SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                },
+                onRunNow: { fieldID in
+                    appState.runSavedStatusLineFieldNow(
+                        fieldID: fieldID, profileID: nil, appSettings: appSettings)
+                },
+                isRunNowAvailable: { field in
+                    appSettings.statusLineConfig.customField(withID: field.id) == field
                 })
         }
         .formStyle(.grouped)
@@ -720,6 +763,8 @@ struct AddCustomStatusLineFieldSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var editingField: CustomStatusLineField?
+    let onRunNow: ((String) -> String?)?
+    let isRunNowAvailable: ((CustomStatusLineField) -> Bool)?
     let onSave: (CustomStatusLineField) -> Void
 
     @State private var label = ""
@@ -727,8 +772,8 @@ struct AddCustomStatusLineFieldSheet: View {
     @State private var command = ""
     @State private var refreshIntervalSeconds = CustomStatusLineField.defaultRefreshIntervalSeconds
     @State private var timeoutSeconds = CustomStatusLineField.defaultTimeoutSeconds
-    @State private var isRunningPreview = false
-    @State private var previewResult: String?
+    @State private var supportedHarnesses = StatusLineConfig.allHarnesses
+    @State private var runNowResult: String?
 
     private var isValid: Bool {
         !label.trimmingCharacters(in: .whitespaces).isEmpty
@@ -742,14 +787,52 @@ struct AddCustomStatusLineFieldSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Label").font(.subheadline).foregroundStyle(.secondary)
-                TextField("Spend", text: $label).textFieldStyle(.roundedBorder)
+                TextField("Spend", text: $label)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("custom-statusline-label-field")
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("SF Symbol").font(.subheadline).foregroundStyle(.secondary)
-                TextField("dollarsign.circle", text: $sfSymbol)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
+                Picker("SF Symbol", selection: $sfSymbol) {
+                    ForEach(StatusLineConfig.customFieldIconOptions) { option in
+                        Label(option.displayName, systemImage: option.symbol)
+                            .tag(option.symbol)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .accessibilityIdentifier("custom-statusline-icon-picker")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Harnesses").font(.subheadline).foregroundStyle(.secondary)
+                Menu {
+                    ForEach(Harness.allCases, id: \.self) { harness in
+                        Toggle(
+                            harness.displayName,
+                            isOn: Binding(
+                                get: { supportedHarnesses.contains(harness) },
+                                set: { isSelected in
+                                    if isSelected {
+                                        supportedHarnesses.insert(harness)
+                                    } else if supportedHarnesses.count > 1 {
+                                        supportedHarnesses.remove(harness)
+                                    }
+                                }
+                            )
+                        )
+                        .disabled(supportedHarnesses.count == 1 && supportedHarnesses.contains(harness))
+                        .accessibilityIdentifier("custom-statusline-harness-\(harness.rawValue)")
+                    }
+                } label: {
+                    Text(harnessSelectionSummary)
+                        .lineLimit(1)
+                }
+                .accessibilityIdentifier("custom-statusline-harness-menu")
+                Text("Choose one or more harnesses. New fields apply to all harnesses by default.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -758,6 +841,7 @@ struct AddCustomStatusLineFieldSheet: View {
                     .font(.system(.body, design: .monospaced))
                     .frame(height: 70)
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.3)))
+                    .accessibilityIdentifier("custom-statusline-command-field")
                 Text(
                     "Runs via /bin/zsh -lc in the pane's working directory. Receives the app's status line "
                         + "context as stdin JSON plus AGENT_SESSION_MANAGER_* env vars. Print plain text, "
@@ -780,37 +864,46 @@ struct AddCustomStatusLineFieldSheet: View {
                     TextField("", value: $refreshIntervalSeconds, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
+                        .accessibilityIdentifier("custom-statusline-refresh-field")
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Timeout (seconds)").font(.subheadline).foregroundStyle(.secondary)
                     TextField("", value: $timeoutSeconds, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 80)
+                        .accessibilityIdentifier("custom-statusline-timeout-field")
                 }
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Button {
-                        runPreview()
+                        guard canRunNow, let fieldID = editingField?.id else { return }
+                        runNowResult = onRunNow?(fieldID) ?? "No matching saved panes."
                     } label: {
-                        if isRunningPreview {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Label("Run Now", systemImage: "play.fill")
-                        }
+                        Label("Run Now", systemImage: "play.fill")
                     }
-                    .disabled(command.trimmingCharacters(in: .whitespaces).isEmpty || isRunningPreview)
+                    .disabled(!canRunNow)
+                    .accessibilityIdentifier("custom-statusline-run-now-button")
                     Spacer()
                 }
-                if let previewResult {
-                    Text(previewResult)
+                if let runNowResult {
+                    Text(runNowResult)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .padding(8)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
+                }
+                if editingField == nil {
+                    Text("Save the field before using Run Now.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else if !canRunNow {
+                    Text("Save changes before using Run Now.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -821,6 +914,7 @@ struct AddCustomStatusLineFieldSheet: View {
                 Button(editingField == nil ? "Add" : "Save") { submit() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!isValid)
+                    .accessibilityIdentifier("custom-statusline-save-button")
             }
         }
         .padding(24)
@@ -832,62 +926,53 @@ struct AddCustomStatusLineFieldSheet: View {
             command = editingField.command
             refreshIntervalSeconds = editingField.refreshIntervalSeconds
             timeoutSeconds = editingField.timeoutSeconds
+            supportedHarnesses = editingField.supportedHarnesses
         }
+    }
+
+    private var harnessSelectionSummary: String {
+        if supportedHarnesses == StatusLineConfig.allHarnesses {
+            return "All harnesses"
+        }
+        if let harness = Harness.allCases.first(where: { supportedHarnesses == [$0] }) {
+            return harness.displayName
+        }
+        return "\(supportedHarnesses.count) selected"
+    }
+
+    private var persistedDraft: CustomStatusLineField? {
+        guard let editingField else { return nil }
+        return makeField(id: editingField.id)
+    }
+
+    private var canRunNow: Bool {
+        guard let editingField, onRunNow != nil,
+            isRunNowAvailable?(editingField) == true
+        else {
+            return false
+        }
+        return persistedDraft == editingField
     }
 
     private func submit() {
         guard isValid else { return }
-        let field = CustomStatusLineField(
-            id: editingField?.id ?? "custom:\(UUID().uuidString)",
-            label: label.trimmingCharacters(in: .whitespaces),
-            sfSymbol: sfSymbol.trimmingCharacters(in: .whitespaces).isEmpty ? "terminal" : sfSymbol,
-            command: command,
-            refreshIntervalSeconds: refreshIntervalSeconds,
-            timeoutSeconds: timeoutSeconds
-        )
+        let field = makeField(id: editingField?.id ?? "custom:\(UUID().uuidString)")
         onSave(field)
         dismiss()
     }
 
-    private func runPreview() {
-        isRunningPreview = true
-        previewResult = nil
-        let context = CustomFieldExecutionContext(
-            currentData: nil,
-            paneID: UUID(),
-            paneName: "preview",
-            tabID: UUID(),
-            tabName: "preview",
-            harness: .claude,
-            workingDirectory: NSHomeDirectory(),
-            profileName: nil
+    private func makeField(id: String) -> CustomStatusLineField {
+        CustomStatusLineField(
+            id: id,
+            label: label.trimmingCharacters(in: .whitespaces),
+            sfSymbol: sfSymbol,
+            command: command,
+            refreshIntervalSeconds: refreshIntervalSeconds,
+            timeoutSeconds: timeoutSeconds,
+            supportedHarnesses: supportedHarnesses
         )
-        let previewField = CustomStatusLineField(
-            label: label, sfSymbol: sfSymbol, command: command,
-            refreshIntervalSeconds: refreshIntervalSeconds, timeoutSeconds: timeoutSeconds)
-        Task {
-            let result = await CustomFieldRunner.run(field: previewField, context: context)
-            await MainActor.run {
-                isRunningPreview = false
-                previewResult = Self.describe(result)
-            }
-        }
     }
 
-    private static func describe(_ result: CustomFieldExecutionResult) -> String {
-        switch result {
-        // swiftlint:disable:next pattern_matching_keywords
-        case .success(let value, let outputKind):
-            var parts = [outputKind == .structured ? "structured" : "text"]
-            if let text = value.text { parts.append("text=\"\(text)\"") }
-            if let percent = value.percent { parts.append("percent=\(percent)") }
-            if let tint = value.tint { parts.append("tint=\(tint.rawValue)") }
-            if let icon = value.icon { parts.append("icon=\(icon)") }
-            return parts.joined(separator: "  ")
-        case .failure(let reason):
-            return "Failed: \(reason.rawValue)"
-        }
-    }
 }
 
 struct NotificationsContent: View {

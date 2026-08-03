@@ -26,9 +26,13 @@ Open **Settings** and select **Status Line**. The global editor lists the status
 4. Within a row, choose **Add Item** and select the facts you want to see.
 5. Use the up and down controls to reorder rows and the minus controls to remove items.
 6. Optionally choose **Add Custom Field** to run a command that supplies a value for the status line.
-7. Changes are saved as you edit the layout.
+7. Choose an icon from **SF Symbol** and select one or more **Harnesses**. New custom fields target all harnesses by default.
+8. Select **Add** or **Save**. Reopen a saved field without changing it and choose **Run Now** to run the saved command in matching live panes.
+9. Changes are saved as you edit the layout.
 
-Facts that are not supported by a pane’s harness are omitted. A supported fact with no current value may show a dash until data is available.
+Facts and custom fields that are not supported by a pane’s harness are omitted. A supported fact with no current value may show a dash until data is available.
+
+Custom fields in a profile status line are independent from the global status line. A pane using a profile uses that profile's saved custom field command instead of the global command. Run **Run Now** from the matching saved configuration when you want to refresh those panes.
 
 ### Show pull-request status
 
@@ -48,7 +52,7 @@ _Status Line settings control the layout and pull-request tracking options._
 
 - If an item is missing from **Add Item**, it may not be supported for the selected harness or may already be in a row.
 - If the status line is not visible, add at least one row and one item in **Settings → Status Line**.
-- If a custom field does not produce a value, use its preview in the editor and check the command, refresh interval, and timeout.
+- If a custom field does not produce a value, check that its harness selection includes the pane's harness, that the field is saved, and that the command, refresh interval, and timeout are correct. A profile status line can use a different saved command from the global status line.
 - If pull-request status is missing, confirm that `gh` is installed, authenticated, and that **Track pull requests** is enabled.
 
 ## Related tasks

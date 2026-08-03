@@ -120,6 +120,7 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         XCTAssertEqual(field.sfSymbol, "terminal")
         XCTAssertEqual(field.refreshIntervalSeconds, CustomStatusLineField.defaultRefreshIntervalSeconds)
         XCTAssertEqual(field.timeoutSeconds, CustomStatusLineField.defaultTimeoutSeconds)
+        XCTAssertEqual(field.supportedHarnesses, StatusLineConfig.allHarnesses)
     }
 
     func testCustomFieldEffectiveRefreshIntervalClampsToMinimum() {
@@ -135,12 +136,121 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
     func testCustomFieldRoundTripsThroughStatusLineConfigCoding() throws {
         let field = CustomStatusLineField(
             id: "custom:abc", label: "Spend", sfSymbol: "dollarsign.circle",
-            command: "litellm-metric.sh spend", refreshIntervalSeconds: 20, timeoutSeconds: 8)
+            command: "litellm-metric.sh spend", refreshIntervalSeconds: 20, timeoutSeconds: 8,
+            supportedHarnesses: [.claude, .cursor])
         var config = StatusLineConfig()
         config.customFields = [field]
         let encoded = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(StatusLineConfig.self, from: encoded)
         XCTAssertEqual(decoded.customFields, [field])
+    }
+
+    func testMissingCustomFieldHarnessesDecodeAsAll() throws {
+        let json = Data(
+            """
+            {
+              "customFields": [
+                {
+                  "id": "custom:abc",
+                  "label": "Spend",
+                  "sfSymbol": "dollarsign.circle",
+                  "command": "echo hi"
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+
+        XCTAssertEqual(config.customFields.first?.supportedHarnesses, StatusLineConfig.allHarnesses)
+    }
+
+    func testUnknownCustomFieldIconFallsBackToTerminal() throws {
+        let json = Data(
+            """
+            {
+              "customFields": [
+                {
+                  "id": "custom:abc",
+                  "label": "Spend",
+                  "sfSymbol": "not-a-real-symbol",
+                  "command": "echo hi"
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+
+        XCTAssertEqual(config.customFields.first?.sfSymbol, "terminal")
+    }
+
+    func testCustomRowMetadataFollowsDecodedField() throws {
+        let rowID = UUID().uuidString
+        let json = Data(
+            """
+            {
+              "customFields": [
+                {
+                  "id": "custom:abc",
+                  "label": "Current Spend",
+                  "sfSymbol": "dollarsign.square",
+                  "command": "echo hi"
+                }
+              ],
+              "rows": [
+                {
+                  "id": "\(rowID)",
+                  "items": [
+                    {
+                      "id": "custom:abc",
+                      "label": "Stale",
+                      "sfSymbol": "not-a-real-symbol"
+                    }
+                  ]
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        let item = try XCTUnwrap(config.rows.first?.items.first)
+
+        XCTAssertEqual(item.label, "Current Spend")
+        XCTAssertEqual(item.sfSymbol, "dollarsign.square")
+    }
+
+    func testCustomFieldCapabilityUsesSelectedHarnesses() {
+        var config = StatusLineConfig()
+        let field = CustomStatusLineField(
+            id: "custom:cursor", label: "Cursor", command: "echo cursor", supportedHarnesses: [.cursor])
+        config.customFields = [field]
+        let item = StatusLineItem(id: field.id, label: field.label, sfSymbol: field.sfSymbol)
+
+        XCTAssertTrue(config.supports(item, on: .cursor))
+        XCTAssertFalse(config.supports(item, on: .claude))
+    }
+
+    func testAgentControlValidationRejectsEmptyCustomFieldHarnesses() {
+        var config = StatusLineConfig()
+        config.customFields = [
+            CustomStatusLineField(
+                id: "custom:00000000-0000-0000-0000-000000000001",
+                label: "Empty",
+                command: "echo empty",
+                supportedHarnesses: []
+            )
+        ]
+
+        XCTAssertThrowsError(try config.validateForAgentControl()) { error in
+            XCTAssertEqual(
+                error as? StatusLineConfigurationValidationError,
+                .invalidCustomFieldHarnesses("custom:00000000-0000-0000-0000-000000000001")
+            )
+        }
     }
 
     func testAvailableItemsIncludesCustomFields() {

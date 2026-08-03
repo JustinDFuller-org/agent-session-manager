@@ -92,6 +92,20 @@ See [setup-wizard.md]({{ '/documentation/features/setup-wizard/' | relative_url 
 4. Click the minus icon to remove an item
 5. Use the up/down arrows to reorder rows
 
+## Custom Fields
+
+Custom fields run a shell command and add its plain-text or structured result to a status line.
+The **SF Symbol** picker uses the app's supported status-line icon catalog. **Harnesses** is a
+multi-select control that defaults to all user-facing harnesses; at least one harness must remain
+selected. A field is filtered from both execution and rendering when its selected harnesses do not
+include the pane's harness.
+
+**Run Now** runs only the saved field from the configuration being edited. Global settings target
+live panes that inherit the global status line; profile settings target panes using that profile's
+saved override. New fields and unsaved edits must be saved before Run Now is available. A profile
+override can therefore intentionally display a different result from the global field with the same
+ID.
+
 ## Invariant Violations
 
 When an invariant is violated, the app reports it through `InvariantReporter`, records the preserved trace event (see [tracing.md]({{ '/documentation/features/tracing/' | relative_url }})), and uses the authoritative value. With Debug mode enabled, occurrences are also appended to `invariants/invariants.jsonl` and shown in the Invariant Dashboard.

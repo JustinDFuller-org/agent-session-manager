@@ -10,7 +10,7 @@ struct StatusLineView: View {
 
     private var nonEmptyRows: [StatusLineRow] {
         config.rows.compactMap { row in
-            let supportedItems = row.items.filter { monitor.supportsFact($0) }
+            let supportedItems = row.items.filter { config.supports($0, on: monitor.harness) }
             guard !supportedItems.isEmpty else { return nil }
             var supportedRow = row
             supportedRow.items = supportedItems

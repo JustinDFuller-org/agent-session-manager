@@ -53,6 +53,47 @@ struct ProfileTests {
         #expect(profile.statusLineConfig == nil)
     }
 
+    @Test("Profile status line override wins over global configuration")
+    func profileStatusLineResolution() {
+        var global = StatusLineConfig()
+        global.customFields = [
+            CustomStatusLineField(
+                id: "custom:metric",
+                label: "Metric",
+                command: "echo global"
+            )
+        ]
+        var override = StatusLineConfig()
+        override.factLabelStyle = .labelOnly
+        override.customFields = [
+            CustomStatusLineField(
+                id: "custom:metric",
+                label: "Metric",
+                command: "echo profile"
+            )
+        ]
+        let profile = Profile(
+            name: "Override",
+            harness: .cursor,
+            statusLineConfig: override
+        )
+
+        #expect(profile.resolvedStatusLineConfig(inheriting: global) == override)
+        #expect(
+            profile.resolvedStatusLineConfig(inheriting: global).customFields.first?.command
+                == "echo profile"
+        )
+    }
+
+    @Test("Profile status line resolution inherits global configuration")
+    func profileStatusLineInheritance() {
+        var global = StatusLineConfig()
+        global.factLabelStyle = .labelOnly
+        let profile = Profile(name: "Inherited", harness: .cursor)
+
+        #expect(profile.resolvedStatusLineConfig(inheriting: global) == global)
+    }
+
     @Test("PersistedPane profileID round-trips")
     func persistedPaneProfileID() throws {
         let profileID = UUID()

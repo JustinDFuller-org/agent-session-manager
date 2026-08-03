@@ -45,7 +45,7 @@ final class StatusLineMonitor {
     /// App-owned Codex hook script invoked by lifecycle hooks for this pane.
     let codexHookScriptFilePath: String
     private let workingDirectory: String?
-    private let harness: Harness
+    let harness: Harness
     private let isClaude: Bool
     private let providerContext: StatusProviderContext?
     private var statusWatcher: FileSystemEventWatcher?
@@ -71,6 +71,8 @@ final class StatusLineMonitor {
     private var cachedCustomFieldValues: [String: CustomFieldRenderValue] = [:]
     private var customFieldTimers: [String: Timer] = [:]
     private var scheduledCustomFields: [String: CustomStatusLineField] = [:]
+    private var customFieldGenerations: [String: Int] = [:]
+    private var customFieldInFlight: [String: Int] = [:]
 
     /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
@@ -234,10 +236,6 @@ final class StatusLineMonitor {
         }
     }
 
-    func supportsFact(_ item: StatusLineItem) -> Bool {
-        item.supportedBy(harness)
-    }
-
     func start() {
         if isClaude {
             writeSettingsFile()
@@ -378,6 +376,8 @@ final class StatusLineMonitor {
         customFieldTimers = [:]
         scheduledCustomFields = [:]
         cachedCustomFieldValues = [:]
+        customFieldGenerations = [:]
+        customFieldInFlight = [:]
         TracingService.shared.record(
             "statusline.monitor.stopped",
             attributes: [
@@ -789,14 +789,17 @@ extension StatusLineMonitor {
     /// Starts/stops per-field timers to match `fields`, diffing by id+command+refreshIntervalSeconds+timeoutSeconds
     /// so an unchanged field's timer (and its in-flight cadence) is left alone.
     func setCustomFields(_ fields: [CustomStatusLineField]) {
-        let nextByID = Dictionary(uniqueKeysWithValues: fields.map { ($0.id, $0) })
+        let eligibleFields = fields.filter { $0.supports(harness) }
+        let nextByID = Dictionary(uniqueKeysWithValues: eligibleFields.map { ($0.id, $0) })
 
         for id in Set(scheduledCustomFields.keys).subtracting(nextByID.keys) {
             customFieldTimers[id]?.invalidate()
             customFieldTimers[id] = nil
             scheduledCustomFields[id] = nil
             cachedCustomFieldValues[id] = nil
+            customFieldGenerations[id, default: 0] += 1
         }
+        currentData?.customFields = cachedCustomFieldValues
 
         for (id, field) in nextByID {
             if let existing = scheduledCustomFields[id],
@@ -809,19 +812,38 @@ extension StatusLineMonitor {
                 continue
             }
             scheduledCustomFields[id] = field
+            customFieldGenerations[id, default: 0] += 1
             customFieldTimers[id]?.invalidate()
             customFieldTimers[id] = Timer.scheduledTimer(
                 withTimeInterval: TimeInterval(field.effectiveRefreshIntervalSeconds), repeats: true
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.runCustomField(field)
+                    self?.runCustomField(field, trigger: "scheduled")
                 }
             }
-            runCustomField(field)
+            runCustomField(field, trigger: "scheduled")
         }
     }
 
-    private func runCustomField(_ field: CustomStatusLineField) {
+    func runCustomFieldNow(_ field: CustomStatusLineField) {
+        guard field.supports(harness) else { return }
+        if let scheduled = scheduledCustomFields[field.id],
+            scheduled.command != field.command
+                || scheduled.refreshIntervalSeconds != field.refreshIntervalSeconds
+                || scheduled.timeoutSeconds != field.timeoutSeconds
+        {
+            customFieldGenerations[field.id, default: 0] += 1
+        } else if scheduledCustomFields[field.id] == nil {
+            customFieldGenerations[field.id, default: 0] += 1
+        }
+        scheduledCustomFields[field.id] = field
+        runCustomField(field, trigger: "manual")
+    }
+
+    private func runCustomField(_ field: CustomStatusLineField, trigger: String) {
+        let generation = customFieldGenerations[field.id, default: 0]
+        guard customFieldInFlight[field.id] != generation else { return }
+        customFieldInFlight[field.id] = generation
         let context = CustomFieldExecutionContext(
             currentData: currentData,
             paneID: paneID,
@@ -837,7 +859,13 @@ extension StatusLineMonitor {
             guard let self else { return }
             let result = await CustomFieldRunner.run(field: field, context: context)
             await MainActor.run {
-                self.applyCustomFieldResult(field: field, result: result, startedAt: startedAt)
+                self.applyCustomFieldResult(
+                    field: field,
+                    result: result,
+                    startedAt: startedAt,
+                    trigger: trigger,
+                    generation: generation
+                )
             }
         }
     }
@@ -845,18 +873,47 @@ extension StatusLineMonitor {
     /// I8: every execution attempt either updates the cached value or records `exec_failed` — a
     /// failure never silently reverts a previously-good value to "—".
     private func applyCustomFieldResult(
-        field: CustomStatusLineField, result: CustomFieldExecutionResult, startedAt: Date
+        field: CustomStatusLineField,
+        result: CustomFieldExecutionResult,
+        startedAt: Date,
+        trigger: String = "scheduled",
+        generation: Int? = nil
     ) {
+        if let generation {
+            let isCurrent =
+                scheduledCustomFields[field.id]?.command == field.command
+                && customFieldGenerations[field.id] == generation
+            guard isCurrent else {
+                if customFieldInFlight[field.id] == generation {
+                    customFieldInFlight[field.id] = nil
+                }
+                TracingService.shared.record(
+                    "statusline.custom_field.exec_stale",
+                    attributes: [
+                        "pane.name": paneName, "pane.id": paneID.uuidString,
+                        "tab.id": tabID.uuidString, "tab.name": tabName,
+                        "field_id": field.id, "trigger": trigger,
+                    ])
+                return
+            }
+            if customFieldInFlight[field.id] == generation {
+                customFieldInFlight[field.id] = nil
+            }
+        }
         let durationMs = Date().timeIntervalSince(startedAt) * 1000
         var attrs: [String: String] = [
             "pane.name": paneName, "pane.id": paneID.uuidString,
             "tab.id": tabID.uuidString, "tab.name": tabName,
             "field_id": field.id,
+            "trigger": trigger,
         ]
         switch result {
         // swiftlint:disable:next pattern_matching_keywords
         case .success(let value, let outputKind):
             cachedCustomFieldValues[field.id] = value
+            if currentData == nil {
+                currentData = .empty()
+            }
             currentData?.customFields = cachedCustomFieldValues
             attrs["duration_ms"] = String(format: "%.1f", durationMs)
             attrs["output_kind"] = outputKind.rawValue

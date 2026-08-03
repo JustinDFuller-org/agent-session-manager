@@ -97,6 +97,13 @@ enum CustomFieldTint: String, Codable {
     case critical
 }
 
+struct StatusLineIconOption: Identifiable, Hashable, Sendable {
+    let symbol: String
+    let displayName: String
+
+    var id: String { symbol }
+}
+
 /// The render contract a custom field's command emits on stdout. Plain text (the "echo hello" path)
 /// decodes to this with only `text` set; a script opts into a progress bar or state color by
 /// printing this shape as JSON instead.
@@ -122,6 +129,7 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
     var command: String
     var refreshIntervalSeconds: Int
     var timeoutSeconds: Int
+    var supportedHarnesses: Set<Harness>
 
     init(
         id: String = "custom:\(UUID().uuidString)",
@@ -129,18 +137,46 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
         sfSymbol: String = "terminal",
         command: String,
         refreshIntervalSeconds: Int = defaultRefreshIntervalSeconds,
-        timeoutSeconds: Int = defaultTimeoutSeconds
+        timeoutSeconds: Int = defaultTimeoutSeconds,
+        supportedHarnesses: Set<Harness> = StatusLineConfig.allHarnesses
     ) {
         self.id = id
         self.label = label
-        self.sfSymbol = sfSymbol
+        self.sfSymbol = StatusLineConfig.normalizedCustomFieldIcon(sfSymbol)
         self.command = command
         self.refreshIntervalSeconds = refreshIntervalSeconds
         self.timeoutSeconds = timeoutSeconds
+        self.supportedHarnesses = supportedHarnesses
     }
 
     var effectiveRefreshIntervalSeconds: Int {
         max(Self.minimumRefreshIntervalSeconds, refreshIntervalSeconds)
+    }
+
+    func supports(_ harness: Harness) -> Bool {
+        supportedHarnesses.contains(harness)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        label = try container.decode(String.self, forKey: .label)
+        let decodedIcon = try container.decodeIfPresent(String.self, forKey: .sfSymbol) ?? "terminal"
+        sfSymbol = StatusLineConfig.normalizedCustomFieldIcon(decodedIcon)
+        command = try container.decode(String.self, forKey: .command)
+        refreshIntervalSeconds =
+            try container.decodeIfPresent(Int.self, forKey: .refreshIntervalSeconds)
+            ?? Self.defaultRefreshIntervalSeconds
+        timeoutSeconds =
+            try container.decodeIfPresent(Int.self, forKey: .timeoutSeconds)
+            ?? Self.defaultTimeoutSeconds
+        supportedHarnesses =
+            try container.decodeIfPresent(Set<Harness>.self, forKey: .supportedHarnesses)
+            ?? StatusLineConfig.allHarnesses
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, label, sfSymbol, command, refreshIntervalSeconds, timeoutSeconds, supportedHarnesses
     }
 }
 
@@ -195,6 +231,27 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     ]
 
     static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor, .opencode]
+    static let customFieldIconOptions: [StatusLineIconOption] = {
+        let metadataOptions = itemMetadata.map {
+            StatusLineIconOption(symbol: $0.value.symbol, displayName: $0.value.label)
+        }
+        let additionalOptions = [
+            StatusLineIconOption(symbol: "terminal", displayName: "Terminal"),
+            StatusLineIconOption(symbol: "percent", displayName: "Percent"),
+            StatusLineIconOption(symbol: "dollarsign.square", displayName: "Dollars"),
+            StatusLineIconOption(symbol: "arrow.triangle.merge", displayName: "Merged"),
+            StatusLineIconOption(symbol: "xmark.circle", displayName: "Closed"),
+            StatusLineIconOption(symbol: "pencil.line", displayName: "Draft"),
+        ]
+        var optionsBySymbol = Dictionary(uniqueKeysWithValues: additionalOptions.map { ($0.symbol, $0) })
+        for option in metadataOptions where optionsBySymbol[option.symbol] == nil {
+            optionsBySymbol[option.symbol] = option
+        }
+        return optionsBySymbol.values.sorted {
+            $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+        }
+    }()
+    static let customFieldIconSymbols = Set(customFieldIconOptions.map(\.symbol))
     static let appCapability = StatusFactCapability(
         owner: .app, supportedHarnesses: allHarnesses, missingBehavior: .pending)
     static let mergedCapability = StatusFactCapability(
@@ -244,6 +301,10 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
 
     static let itemAvailability: [String: StatusFactCapability] = itemCapabilities
 
+    static func normalizedCustomFieldIcon(_ symbol: String) -> String {
+        customFieldIconSymbols.contains(symbol) ? symbol : "terminal"
+    }
+
     static let itemOrder: [String] = [
         "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
         "agentName", "sessionName", "linesAdded",
@@ -270,6 +331,25 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     /// Built-in catalog plus this config's own custom fields — the full set eligible for the Add Item picker.
     func availableItems() -> [StatusLineItem] {
         Self.allItems + customFields.map { StatusLineItem(id: $0.id, label: $0.label, sfSymbol: $0.sfSymbol) }
+    }
+
+    func customField(withID id: String) -> CustomStatusLineField? {
+        customFields.first { $0.id == id }
+    }
+
+    func capability(for item: StatusLineItem) -> StatusFactCapability {
+        guard let field = customField(withID: item.id) else {
+            return item.capability
+        }
+        return StatusFactCapability(
+            owner: .app,
+            supportedHarnesses: field.supportedHarnesses,
+            missingBehavior: .unsupported
+        )
+    }
+
+    func supports(_ item: StatusLineItem, on harness: Harness) -> Bool {
+        capability(for: item).supports(harness)
     }
 
     var usedItemIDs: Set<String> {
@@ -300,7 +380,9 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             try container.decodeIfPresent(FactLabelStyle.self, forKey: .factLabelStyle) ?? .symbolAndLabel
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
         showPercentagesAsText = try container.decodeIfPresent(Bool.self, forKey: .showPercentagesAsText) ?? false
-        customFields = try container.decodeIfPresent([CustomStatusLineField].self, forKey: .customFields) ?? []
+        let decodedCustomFields =
+            try container.decodeIfPresent([CustomStatusLineField].self, forKey: .customFields) ?? []
+        customFields = decodedCustomFields
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows.enumerated().map { rowIndex, row in
@@ -330,6 +412,9 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                     }
                     if let meta = StatusLineConfig.itemMetadata[item.id] {
                         return StatusLineItem(id: item.id, label: meta.label, sfSymbol: meta.symbol)
+                    }
+                    if let field = decodedCustomFields.first(where: { $0.id == item.id }) {
+                        return StatusLineItem(id: field.id, label: field.label, sfSymbol: field.sfSymbol)
                     }
                     return item
                 }
@@ -385,6 +470,14 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             else {
                 throw StatusLineConfigurationValidationError.emptyCustomField(field.id)
             }
+            guard !field.supportedHarnesses.isEmpty,
+                field.supportedHarnesses.isSubset(of: Self.allHarnesses)
+            else {
+                throw StatusLineConfigurationValidationError.invalidCustomFieldHarnesses(field.id)
+            }
+            guard Self.customFieldIconSymbols.contains(field.sfSymbol) else {
+                throw StatusLineConfigurationValidationError.unsupportedCustomFieldIcon(field.sfSymbol)
+            }
         }
 
         let knownIDs = Set(Self.itemMetadata.keys).union(customIDs)
@@ -406,6 +499,8 @@ enum StatusLineConfigurationValidationError: Error, Equatable, LocalizedError {
     case duplicateCustomFieldID
     case invalidCustomFieldID(String)
     case emptyCustomField(String)
+    case invalidCustomFieldHarnesses(String)
+    case unsupportedCustomFieldIcon(String)
     case unknownItemID(String)
     case duplicateItemID(String)
 
@@ -417,6 +512,10 @@ enum StatusLineConfigurationValidationError: Error, Equatable, LocalizedError {
             return "Status-line custom field ID is invalid: \(id)"
         case .emptyCustomField(let id):
             return "Status-line custom field must have a label and command: \(id)"
+        case .invalidCustomFieldHarnesses(let id):
+            return "Status-line custom field must target one or more supported harnesses: \(id)"
+        case .unsupportedCustomFieldIcon(let symbol):
+            return "Status-line custom field icon is not supported: \(symbol)"
         case .unknownItemID(let id):
             return "Status-line item is not in the catalog: \(id)"
         case .duplicateItemID(let id):

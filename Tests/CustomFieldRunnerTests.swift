@@ -33,6 +33,19 @@ final class CustomFieldRunnerTests: XCTestCase {
         XCTAssertEqual(kind, .text)
     }
 
+    func testPercentScriptOutputRemainsExactPlainText() async {
+        let field = CustomStatusLineField(label: "Percent", command: "printf '7.3%%'")
+        let result = await CustomFieldRunner.run(field: field, context: makeContext())
+        guard case .success(let value, let kind) = result else {
+            XCTFail("Expected success, got \(result)")
+            return
+        }
+
+        XCTAssertEqual(value.text, "7.3%")
+        XCTAssertNil(value.percent)
+        XCTAssertEqual(kind, .text)
+    }
+
     func testStructuredJSONOutputParsesAsStructured() async {
         let field = CustomStatusLineField(label: "Pct", command: #"echo '{"percent": 42, "tint": "warning"}'"#)
         let result = await CustomFieldRunner.run(field: field, context: makeContext())

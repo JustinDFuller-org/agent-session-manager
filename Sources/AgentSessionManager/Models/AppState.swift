@@ -305,6 +305,59 @@ final class AppState {
         return notification
     }
 
+    @discardableResult
+    func runSavedStatusLineFieldNow(
+        fieldID: String, profileID: UUID?, appSettings: AppSettings
+    ) -> String {
+        var targetCount = 0
+        for pane in tabs.flatMap(\.panes) {
+            guard let monitor = pane.statusLineMonitor else { continue }
+
+            let savedConfig: StatusLineConfig?
+            if let profileID {
+                guard pane.profileID == profileID,
+                    let profile = appSettings.profiles.first(where: { $0.id == profileID }),
+                    profile.statusLineConfig != nil
+                else {
+                    continue
+                }
+                savedConfig = profile.resolvedStatusLineConfig(inheriting: appSettings.statusLineConfig)
+            } else {
+                if let paneProfileID = pane.profileID,
+                    let profile = appSettings.profiles.first(where: { $0.id == paneProfileID }),
+                    profile.statusLineConfig != nil
+                {
+                    continue
+                }
+                savedConfig = appSettings.statusLineConfig
+            }
+
+            guard let field = savedConfig?.customField(withID: fieldID),
+                field.supports(monitor.harness)
+            else {
+                continue
+            }
+            monitor.runCustomFieldNow(field)
+            targetCount += 1
+        }
+
+        var attributes = [
+            "field_id": fieldID,
+            "scope": profileID == nil ? "global" : "profile",
+            "target_count": "\(targetCount)",
+            "result": targetCount == 0 ? "no_matching_panes" : "started",
+        ]
+        if let profileID {
+            attributes["profile_id"] = profileID.uuidString
+        }
+        TracingService.shared.record("statusline.custom_field.run_now", attributes: attributes)
+
+        if targetCount == 0 {
+            return "No matching saved panes."
+        }
+        return "Started in \(targetCount) pane\(targetCount == 1 ? "" : "s")."
+    }
+
     func focusPane(tabID: UUID, paneID: UUID) {
         activeTab?.setFocusedPane(id: nil, reason: "notification_navigation")
         guard let tab = tabs.first(where: { $0.id == tabID }),
