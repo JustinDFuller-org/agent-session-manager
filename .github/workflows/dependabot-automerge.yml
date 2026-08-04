@@ -8,6 +8,8 @@ jobs:
     name: Auto-merge Dependabot PRs
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
+    permissions:
+      pull-requests: read
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
