@@ -57,19 +57,7 @@ Click outside the popover to dismiss it.
 
 ## How it works
 
-When a pane starts, the app runs:
-
-```
-gh pr view <branch> --json number,title,state,url,isDraft,statusCheckRollup,mergeable
-```
-
-in the pane's working directory. The current branch is determined by `git branch --show-current`. If a PR is found, a second query fetches unresolved review comment counts:
-
-```
-gh api graphql -f owner="<owner>" -f repo="<repo>" -f pr=<number> -f query='...'
-```
-
-The owner and repo are extracted from `git remote get-url origin`. The queries repeat every 60 seconds to catch status changes.
+Each polling cycle determines the current branch for eligible panes and sends one batched, aliased GraphQL request. Each alias contains the PR metadata, status rollup, and review-thread count for one pane, so all eligible panes are updated from that single request. The owner and repository are extracted from `git remote get-url origin`. Polling repeats every 60 seconds to catch status changes.
 
 Finder and DMG launches use the app's sanitized environment, including macOS login-shell PATH entries. The app preserves GitHub CLI credential/configuration variables (`HOME`, `GH_CONFIG_DIR`, `XDG_CONFIG_HOME`, `GH_HOST`, and GitHub token variables) and disables prompts. `gh` remains the authentication boundary and must be installed and authenticated for PR tracking.
 

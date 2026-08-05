@@ -20,7 +20,6 @@ struct GitHubCLIResult: Sendable {
     let stdout: Data
     let stderrPrefix: String
     let exitCode: Int32?
-    let httpStatus: Int?
     let failure: GitHubCLIFailure?
 
     var succeeded: Bool { failure == nil && exitCode == 0 }
@@ -49,7 +48,7 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
     func run(arguments: [String], stdin: Data? = nil, timeout: TimeInterval) async -> GitHubCLIResult {
         guard let executable = Self.resolveExecutable(environment: environment, fileManager: fileManager) else {
             return GitHubCLIResult(
-                stdout: Data(), stderrPrefix: "", exitCode: nil, httpStatus: nil, failure: .missingExecutable)
+                stdout: Data(), stderrPrefix: "", exitCode: nil, failure: .missingExecutable)
         }
         let process = Process()
         process.executableURL = executable
@@ -70,30 +69,46 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
             }
         }
         do { try process.run() } catch {
-            return GitHubCLIResult(stdout: Data(), stderrPrefix: "", exitCode: nil, httpStatus: nil, failure: .launch)
+            return GitHubCLIResult(stdout: Data(), stderrPrefix: "", exitCode: nil, failure: .launch)
         }
 
-        async let output = Task.detached { stdout.fileHandleForReading.readDataToEndOfFile() }.value
-        async let errors = Task.detached { stderr.fileHandleForReading.readDataToEndOfFile() }.value
-        let finished = await withTaskCancellationHandler(
-            operation: { await waitForTermination(process, timeout: timeout) },
+        let failure = await withTaskCancellationHandler(
+            operation: {
+                await withTaskGroup(of: GitHubCLIFailure?.self, returning: GitHubCLIFailure?.self) { group in
+                    group.addTask {
+                        await Task.detached { process.waitUntilExit() }.value
+                        return nil
+                    }
+                    group.addTask {
+                        do {
+                            try await Task.sleep(for: .seconds(timeout))
+                        } catch {
+                            return nil
+                        }
+                        process.terminate()
+                        return .timeout
+                    }
+                    let result = await group.next() ?? .timeout
+                    group.cancelAll()
+                    return result
+                }
+            },
             onCancel: { process.terminate() })
-        if !finished { process.terminate() }
-        let (outData, errData) = await (output, errors)
+        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let errData = stderr.fileHandleForReading.readDataToEndOfFile()
         if Task.isCancelled {
             return GitHubCLIResult(
-                stdout: outData, stderrPrefix: "", exitCode: nil, httpStatus: nil, failure: .cancelled)
+                stdout: outData, stderrPrefix: "", exitCode: nil, failure: .cancelled)
         }
         let stderrText = String(data: errData.prefix(Self.stderrPrefixLimit), encoding: .utf8) ?? ""
-        if !finished {
+        if failure == .timeout {
             return GitHubCLIResult(
-                stdout: outData, stderrPrefix: stderrText, exitCode: nil, httpStatus: nil, failure: .timeout)
+                stdout: outData, stderrPrefix: stderrText, exitCode: nil, failure: .timeout)
         }
         let status = process.terminationStatus
-        let httpStatus = Self.httpStatus(in: stderrText)
-        let failure = Self.classify(exitCode: status, stderr: stderrText)
         return GitHubCLIResult(
-            stdout: outData, stderrPrefix: stderrText, exitCode: status, httpStatus: httpStatus, failure: failure)
+            stdout: outData, stderrPrefix: stderrText, exitCode: status,
+            failure: Self.classify(exitCode: status, stderr: stderrText))
     }
 
     nonisolated static func resolveExecutable(
@@ -110,26 +125,10 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
     }
 
     nonisolated private static func isExecutable(_ path: String, fileManager: FileManager) -> Bool {
-        fileManager.isExecutableFile(atPath: path) && !fileManager.directoryExists(atPath: path)
-    }
-
-    private func waitForTermination(_ process: Process, timeout: TimeInterval) async -> Bool {
-        guard process.isRunning else { return true }
-        return await withTaskGroup(of: Bool.self, returning: Bool.self) { group in
-            group.addTask {
-                await withCheckedContinuation { continuation in
-                    process.terminationHandler = { _ in continuation.resume(returning: ()) }
-                }
-                return true
-            }
-            group.addTask {
-                try? await Task.sleep(for: .seconds(timeout))
-                return false
-            }
-            let result = await group.next() ?? false
-            group.cancelAll()
-            return result
-        }
+        var isDirectory: ObjCBool = false
+        return fileManager.isExecutableFile(atPath: path)
+            && fileManager.fileExists(atPath: path, isDirectory: &isDirectory)
+            && !isDirectory.boolValue
     }
 
     static func classify(exitCode: Int32, stderr: String) -> GitHubCLIFailure? {
@@ -144,20 +143,5 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
             return .network
         }
         return .api
-    }
-
-    static func httpStatus(in text: String) -> Int? {
-        let expression = try? NSRegularExpression(pattern: "HTTP/[0-9.]+ ([0-9]{3})")
-        guard let match = expression?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-            let range = Range(match.range(at: 1), in: text)
-        else { return nil }
-        return Int(text[range])
-    }
-}
-
-extension FileManager {
-    fileprivate func directoryExists(atPath path: String) -> Bool {
-        var isDirectory: ObjCBool = false
-        return fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 }

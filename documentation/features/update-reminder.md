@@ -22,11 +22,7 @@ The same indicator is also surfaced in Settings → About.
 
 ## Source Builds
 
-`MainBranchUpdateDetector` runs `git rev-parse origin/main` and `git rev-parse HEAD` in the repository that built the app. If `origin/main` is ahead, it reports an available update. This only works when:
-
-- The build directory is a git checkout.
-- `origin/main` is reachable.
-- The GitHub API is available (a private repo requires `gh auth`).
+`MainBranchUpdateDetector` compares the build provenance embedded in the app with the SHA returned by the authenticated GitHub CLI request `gh api repos/JustinDFuller/agent-session-manager/commits/main --jq .sha`. If the returned SHA differs from the embedded build commit, it reports an available update. This requires an installed, authenticated `gh`; it does not require the app to run from a checkout or have an `origin/main` remote.
 
 ## DMG Builds
 

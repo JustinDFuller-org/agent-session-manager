@@ -34,4 +34,33 @@ final class GitHubCLIRunnerTests: XCTestCase {
         XCTAssertEqual(GitHubCLIRunner.classify(exitCode: 1, stderr: "no such host"), .network)
         XCTAssertEqual(GitHubCLIRunner.classify(exitCode: 1, stderr: "HTTP/2.0 500"), .api)
     }
+
+    func testExecutableDirectoryIsRejected() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "agent-session-manager-gh-runner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let executableDirectory = directory.appending(path: "gh")
+        try FileManager.default.createDirectory(at: executableDirectory, withIntermediateDirectories: true)
+
+        XCTAssertNil(GitHubCLIRunner.resolveExecutable(environment: ["GH_PATH": executableDirectory.path]))
+    }
+
+    func testTimeoutWaitsForReplacementProcessToExit() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "agent-session-manager-gh-runner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let executable = directory.appending(path: "gh")
+        try "#!/bin/sh\nrm \"$0\"\nexec /bin/sleep 2\n".write(
+            to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        let runner = GitHubCLIRunner(environment: ["GH_PATH": executable.path])
+        let start = Date()
+        let result = await runner.run(arguments: [], timeout: 0.1)
+
+        XCTAssertEqual(result.failure, .timeout)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 1)
+    }
 }
