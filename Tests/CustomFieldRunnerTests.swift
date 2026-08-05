@@ -4,7 +4,9 @@ import XCTest
 
 final class CustomFieldRunnerTests: XCTestCase {
     private func makeContext(
-        currentData: StatusLineData? = nil, profileName: String? = "TestProfile"
+        currentData: StatusLineData? = nil,
+        profileName: String? = "TestProfile",
+        extraEnvironment: [String: String] = [:]
     )
         -> CustomFieldExecutionContext
     {
@@ -16,7 +18,8 @@ final class CustomFieldRunnerTests: XCTestCase {
             tabName: "test-tab",
             harness: .claude,
             workingDirectory: NSTemporaryDirectory(),
-            profileName: profileName
+            profileName: profileName,
+            extraEnvironment: extraEnvironment
         )
     }
 
@@ -31,6 +34,37 @@ final class CustomFieldRunnerTests: XCTestCase {
         }
         XCTAssertEqual(value.text, "hello")
         XCTAssertEqual(kind, .text)
+    }
+
+    func testRunsCommandInInteractiveShell() async {
+        let field = CustomStatusLineField(
+            label: "Shell mode",
+            command: "if [[ -o interactive ]]; then printf interactive; else printf noninteractive; fi"
+        )
+        let result = await CustomFieldRunner.run(field: field, context: makeContext())
+        guard case .success(let value, _) = result else {
+            XCTFail("Expected success, got \(result)")
+            return
+        }
+
+        XCTAssertEqual(value.text, "interactive")
+    }
+
+    func testRunsWithPaneEnvironment() async {
+        let field = CustomStatusLineField(
+            label: "Pane environment",
+            command: "printf '%s' \"$CUSTOM_FIELD_TEST_VALUE\""
+        )
+        let result = await CustomFieldRunner.run(
+            field: field,
+            context: makeContext(extraEnvironment: ["CUSTOM_FIELD_TEST_VALUE": "from-pane"])
+        )
+        guard case .success(let value, _) = result else {
+            XCTFail("Expected success, got \(result)")
+            return
+        }
+
+        XCTAssertEqual(value.text, "from-pane")
     }
 
     func testPercentScriptOutputRemainsExactPlainText() async {

@@ -123,9 +123,10 @@ least one harness selected, and is dismissed with **Done** or a click outside.
 `StatusLineMonitor.setCustomFields(_:)` starts one repeating `Timer` per field (immediate first
 run + `effectiveRefreshIntervalSeconds` cadence), diffing against the previously-scheduled set so an
 unchanged field's timer isn't restarted. `CustomFieldRunner.run(field:context:)` runs the command via
-`/bin/zsh -lc` in the pane's working directory with a per-field timeout (`Process.terminate()` via a
-`DispatchWorkItem`, since `Process` has no built-in timeout), strips ANSI escape sequences from
-stdout, and parses the result.
+`/bin/zsh -i -c` in the pane's working directory with the same sanitized baseline used by terminal
+panes and any runtime environment values configured for the pane or profile. It applies a per-field
+timeout (`Process.terminate()` via a `DispatchWorkItem`, since `Process` has no built-in timeout),
+strips ANSI escape sequences from stdout, and parses the result.
 
 ### What the command receives
 
@@ -158,7 +159,8 @@ dependencies between custom fields.
 one-liners that don't want to shell out to `jq`, matching the prefix convention already used for
 Codex hook env vars: `_PANE_ID`, `_PANE_NAME`, `_TAB_ID`, `_TAB_NAME`, `_PROFILE_NAME`, `_HARNESS`,
 `_WORKING_DIRECTORY`, `_MODEL`, `_WORKTREE_NAME`, `_WORKTREE_BRANCH`, `_COST_USD`, `_LINES_ADDED`,
-`_LINES_REMOVED`, `_DURATION_MS`, `_REPO`. Built via `CustomFieldRunner.buildEnvironment(context:)`.
+`_LINES_REMOVED`, `_DURATION_MS`, `_REPO`. These are merged with the pane/profile runtime
+environment values before the command starts. Built via `CustomFieldRunner.buildEnvironment(context:)`.
 
 ### Render contract: plain text is the floor, structure is opt-in
 

@@ -54,6 +54,7 @@ _Status Line settings control the layout and pull-request tracking options._
 - If an item is missing from **Add Item**, it may not be supported for the selected harness or may already be in a row.
 - If the status line is not visible, add at least one row and one item in **Settings → Status Line**.
 - If a custom field does not produce a value, check that its harness selection includes the pane's harness, that the field is saved, and that the command, refresh interval, and timeout are correct. A profile status line can use a different saved command from the global status line.
+- If **Run Now** starts a command but the displayed value does not change, check whether the command uses its own cache or refresh interval. **Run Now** starts the command immediately but does not bypass a cache policy implemented by the command.
 - If an exact SF Symbol name is not available on this version of macOS, select a suggested icon instead.
 - If pull-request status is missing, confirm that `gh` is installed, authenticated, and that **Track pull requests** is enabled.
 

@@ -33,7 +33,9 @@ final class StatusLineCustomFieldFlowTests: BaseTestCase {
         waitFor(labelField)
         waitFor(commandField)
         labelField.typeText("Live")
-        commandField.typeText("printf live")
+        commandField.typeText(
+            "if [[ -o interactive ]]; then printf live; else printf noninteractive; fi"
+        )
 
         let iconPicker = app.descendants(matching: .any)
             .matching(identifier: "custom-statusline-icon-picker").firstMatch

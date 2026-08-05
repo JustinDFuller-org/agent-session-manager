@@ -882,8 +882,9 @@ struct AddCustomStatusLineFieldSheet: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.3)))
                     .accessibilityIdentifier("custom-statusline-command-field")
                 Text(
-                    "Runs via /bin/zsh -lc in the pane's working directory. Receives the app's status line "
-                        + "context as stdin JSON plus AGENT_SESSION_MANAGER_* env vars. Print plain text, "
+                    "Runs via /bin/zsh -i -c in the pane's working directory. Receives the pane's shell "
+                        + "environment and status line context as stdin JSON plus AGENT_SESSION_MANAGER_* env vars. "
+                        + "Print plain text, "
                         + "or JSON like {\"percent\": 42, \"tint\": \"warning\"} to render a progress bar."
                 )
                 .font(.caption2)

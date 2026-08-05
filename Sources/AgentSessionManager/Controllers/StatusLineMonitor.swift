@@ -74,6 +74,7 @@ final class StatusLineMonitor {
     private var lastAppliedModificationDate: Date?
     /// Set by the view alongside `setCustomFields`; resolved from `pane.profileID` against `appSettings.profiles`.
     var profileName: String?
+    private let customFieldEnvironment: [String: String]
     private var cachedCustomFieldValues: [String: CustomFieldRenderValue] = [:]
     private var customFieldTimers: [String: Timer] = [:]
     private var scheduledCustomFields: [String: CustomStatusLineField] = [:]
@@ -113,7 +114,8 @@ final class StatusLineMonitor {
         tabName: String = "",
         opencodePort: Int? = nil,
         opencodeSessionID: String? = nil,
-        opencodeEnvironment: [String: String] = [:]
+        opencodeEnvironment: [String: String] = [:],
+        customFieldEnvironment: [String: String] = [:]
     ) {
         self.paneID = paneID
         self.paneName = paneName.isEmpty ? String(paneID.uuidString.prefix(8)) : paneName
@@ -122,6 +124,7 @@ final class StatusLineMonitor {
         self.workingDirectory = workingDirectory
         self.harness = harness
         self.isClaude = harness == .claude
+        self.customFieldEnvironment = customFieldEnvironment
         filePath = NSTemporaryDirectory() + "agent-session-manager-status-\(paneID.uuidString).json"
         settingsFilePath = NSTemporaryDirectory() + "agent-session-manager-settings-\(paneID.uuidString).json"
         attentionSignalFilePath =
@@ -866,7 +869,8 @@ extension StatusLineMonitor {
             tabName: tabName,
             harness: harness,
             workingDirectory: workingDirectory,
-            profileName: profileName
+            profileName: profileName,
+            extraEnvironment: customFieldEnvironment
         )
         let startedAt = Date()
         Task { [weak self] in

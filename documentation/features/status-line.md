@@ -115,6 +115,11 @@ that use that saved configuration and selected harness. New fields and unsaved e
 before Run Now is available. A profile override can therefore intentionally display a different
 result from the global field with the same ID.
 
+Custom field commands run through the pane-equivalent interactive zsh shell in the pane's working
+directory. They inherit the sanitized pane environment and runtime environment values configured
+for the pane or profile, in addition to the curated `AGENT_SESSION_MANAGER_*` variables. Run Now
+starts the command immediately but does not bypass a cache or TTL implemented by that command.
+
 ## Invariant Violations
 
 When an invariant is violated, the app reports it through `InvariantReporter`, records the preserved trace event (see [tracing.md]({{ '/documentation/features/tracing/' | relative_url }})), and uses the authoritative value. With Debug mode enabled, occurrences are also appended to `invariants/invariants.jsonl` and shown in the Invariant Dashboard.

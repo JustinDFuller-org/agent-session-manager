@@ -690,7 +690,15 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     }
 
     func testCustomFieldSuccessRecordsExecSucceeded() {
-        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let paneID = UUID()
+        let tabID = UUID()
+        let monitor = StatusLineMonitor(
+            paneID: paneID,
+            paneName: "test-pane",
+            harness: .claude,
+            tabID: tabID,
+            tabName: "test-tab"
+        )
         let field = CustomStatusLineField(id: "custom:c", label: "C", command: "echo hi")
 
         monitor.testApplyCustomFieldResult(
@@ -704,6 +712,10 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(succeeded?.attributes["output_kind"], "text")
         XCTAssertEqual(succeeded?.attributes["field_id"], "custom:c")
         XCTAssertEqual(succeeded?.attributes["trigger"], "scheduled")
+        XCTAssertEqual(succeeded?.attributes["pane.id"], paneID.uuidString)
+        XCTAssertEqual(succeeded?.attributes["pane.name"], "test-pane")
+        XCTAssertEqual(succeeded?.attributes["tab.id"], tabID.uuidString)
+        XCTAssertEqual(succeeded?.attributes["tab.name"], "test-tab")
     }
 
     func testManualCustomFieldRunUpdatesCacheAndRecordsManualTrigger() async {
@@ -920,6 +932,35 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         XCTAssertTrue(resolved, "expected the custom field to resolve within the timeout")
         XCTAssertEqual(resolvedText, "Backend")
+    }
+
+    func testPaneEnvironmentThreadedIntoCustomFieldEnvironment() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            harness: .claude,
+            customFieldEnvironment: ["CUSTOM_FIELD_TEST_VALUE": "from-pane"]
+        )
+        let field = CustomStatusLineField(
+            id: "custom:pane-environment",
+            label: "Pane environment",
+            command: "printf '%s' \"$CUSTOM_FIELD_TEST_VALUE\"",
+            refreshIntervalSeconds: 5,
+            timeoutSeconds: 5
+        )
+        monitor.setCustomFields([field])
+
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting[field.id]?.text == "from-pane"
+        }
+        monitor.stop()
+
+        XCTAssertTrue(resolved, "expected the pane environment to reach the custom field")
     }
 
     private static func pollUntilTrue(timeout: TimeInterval = 3, _ condition: () -> Bool) async -> Bool {
