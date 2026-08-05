@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 enum StatusFactOwner: String, Codable {
@@ -97,11 +98,29 @@ enum CustomFieldTint: String, Codable {
     case critical
 }
 
+enum StatusLineIconCategory: String, CaseIterable, Hashable, Sendable {
+    case development = "Development"
+    case repository = "Repository"
+    case status = "Status"
+    case time = "Time"
+    case cost = "Cost"
+    case data = "Data"
+    case network = "Network"
+    case people = "People"
+    case alert = "Alert"
+}
+
 struct StatusLineIconOption: Identifiable, Hashable, Sendable {
     let symbol: String
     let displayName: String
+    let category: StatusLineIconCategory
+    let keywords: [String]
 
     var id: String { symbol }
+
+    var searchTerms: [String] {
+        [displayName, symbol] + keywords
+    }
 }
 
 /// The render contract a custom field's command emits on stdout. Plain text (the "echo hello" path)
@@ -143,7 +162,7 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
     ) {
         self.id = id
         self.label = label
-        self.sfSymbol = StatusLineConfig.normalizedCustomFieldIcon(sfSymbol)
+        self.sfSymbol = sfSymbol
         self.command = command
         self.refreshIntervalSeconds = refreshIntervalSeconds
         self.timeoutSeconds = timeoutSeconds
@@ -162,8 +181,7 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         label = try container.decode(String.self, forKey: .label)
-        let decodedIcon = try container.decodeIfPresent(String.self, forKey: .sfSymbol) ?? "terminal"
-        sfSymbol = StatusLineConfig.normalizedCustomFieldIcon(decodedIcon)
+        sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol) ?? "terminal"
         command = try container.decode(String.self, forKey: .command)
         refreshIntervalSeconds =
             try container.decodeIfPresent(Int.self, forKey: .refreshIntervalSeconds)
@@ -175,7 +193,7 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
             try container.decodeIfPresent(Set<Harness>.self, forKey: .supportedHarnesses)
             ?? StatusLineConfig.allHarnesses
         needsPersistenceMigration =
-            !container.contains(.supportedHarnesses) || sfSymbol != decodedIcon
+            !container.contains(.sfSymbol) || !container.contains(.supportedHarnesses)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -245,27 +263,181 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     ]
 
     static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor, .opencode]
-    static let customFieldIconOptions: [StatusLineIconOption] = {
-        let metadataOptions = itemMetadata.map {
-            StatusLineIconOption(symbol: $0.value.symbol, displayName: $0.value.label)
-        }
-        let additionalOptions = [
-            StatusLineIconOption(symbol: "terminal", displayName: "Terminal"),
-            StatusLineIconOption(symbol: "percent", displayName: "Percent"),
-            StatusLineIconOption(symbol: "dollarsign.square", displayName: "Dollars"),
-            StatusLineIconOption(symbol: "arrow.triangle.merge", displayName: "Merged"),
-            StatusLineIconOption(symbol: "xmark.circle", displayName: "Closed"),
-            StatusLineIconOption(symbol: "pencil.line", displayName: "Draft"),
-        ]
-        var optionsBySymbol = Dictionary(uniqueKeysWithValues: additionalOptions.map { ($0.symbol, $0) })
-        for option in metadataOptions where optionsBySymbol[option.symbol] == nil {
-            optionsBySymbol[option.symbol] = option
-        }
-        return optionsBySymbol.values.sorted {
-            $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
-        }
-    }()
-    static let customFieldIconSymbols = Set(customFieldIconOptions.map(\.symbol))
+    static let customFieldIconOptions: [StatusLineIconOption] = [
+        // Development
+        StatusLineIconOption(
+            symbol: "terminal", displayName: "Terminal", category: .development,
+            keywords: ["shell", "command", "console"]),
+        StatusLineIconOption(
+            symbol: "cpu", displayName: "CPU", category: .development,
+            keywords: ["processor", "compute", "performance"]),
+        StatusLineIconOption(
+            symbol: "brain", displayName: "Brain", category: .development,
+            keywords: ["thinking", "reasoning", "agent"]),
+        StatusLineIconOption(
+            symbol: "keyboard", displayName: "Keyboard", category: .development,
+            keywords: ["vim", "input", "editor"]),
+        StatusLineIconOption(
+            symbol: "curlybraces", displayName: "Code", category: .development,
+            keywords: ["source", "programming", "json"]),
+        StatusLineIconOption(
+            symbol: "pencil.line", displayName: "Draft", category: .development,
+            keywords: ["edit", "writing", "change"]),
+
+        // Repository
+        StatusLineIconOption(
+            symbol: "folder", displayName: "Folder", category: .repository,
+            keywords: ["directory", "project", "workspace"]),
+        StatusLineIconOption(
+            symbol: "folder.badge.gearshape", displayName: "Worktree", category: .repository,
+            keywords: ["git", "directory", "workspace"]),
+        StatusLineIconOption(
+            symbol: "arrow.branch", displayName: "Branch", category: .repository,
+            keywords: ["git", "version control", "fork"]),
+        StatusLineIconOption(
+            symbol: "arrow.triangle.merge", displayName: "Merged", category: .repository,
+            keywords: ["git", "pull request", "integrate"]),
+        StatusLineIconOption(
+            symbol: "arrow.triangle.pull", displayName: "Pull Request", category: .repository,
+            keywords: ["git", "review", "github"]),
+        StatusLineIconOption(
+            symbol: "tag", displayName: "Tag", category: .repository,
+            keywords: ["release", "version", "label"]),
+
+        // Status
+        StatusLineIconOption(
+            symbol: "checkmark.circle", displayName: "Complete", category: .status,
+            keywords: ["success", "passed", "done"]),
+        StatusLineIconOption(
+            symbol: "checkmark.seal", displayName: "Verified", category: .status,
+            keywords: ["approved", "success", "passed"]),
+        StatusLineIconOption(
+            symbol: "xmark.circle", displayName: "Closed", category: .status,
+            keywords: ["failed", "cancelled", "error"]),
+        StatusLineIconOption(
+            symbol: "circle.dotted", displayName: "In Progress", category: .status,
+            keywords: ["working", "pending", "loading"]),
+        StatusLineIconOption(
+            symbol: "info.circle", displayName: "Information", category: .status,
+            keywords: ["details", "help", "about"]),
+        StatusLineIconOption(
+            symbol: "text.alignleft", displayName: "Response Style", category: .status,
+            keywords: ["style", "text", "response"]),
+
+        // Time
+        StatusLineIconOption(
+            symbol: "clock", displayName: "Clock", category: .time,
+            keywords: ["duration", "time", "elapsed"]),
+        StatusLineIconOption(
+            symbol: "clock.arrow.2.circlepath", displayName: "API Duration", category: .time,
+            keywords: ["request", "latency", "elapsed"]),
+        StatusLineIconOption(
+            symbol: "timer", displayName: "Timer", category: .time,
+            keywords: ["deadline", "duration", "countdown"]),
+        StatusLineIconOption(
+            symbol: "calendar.badge.clock", displayName: "Scheduled", category: .time,
+            keywords: ["date", "reset", "calendar"]),
+        StatusLineIconOption(
+            symbol: "arrow.clockwise.circle", displayName: "Refresh", category: .time,
+            keywords: ["retry", "reload", "reset"]),
+        StatusLineIconOption(
+            symbol: "stopwatch", displayName: "Stopwatch", category: .time,
+            keywords: ["duration", "performance", "elapsed"]),
+
+        // Cost
+        StatusLineIconOption(
+            symbol: "dollarsign.circle", displayName: "Cost", category: .cost,
+            keywords: ["price", "spend", "budget"]),
+        StatusLineIconOption(
+            symbol: "dollarsign.square", displayName: "Dollars", category: .cost,
+            keywords: ["price", "spend", "budget"]),
+        StatusLineIconOption(
+            symbol: "creditcard", displayName: "Billing", category: .cost,
+            keywords: ["payment", "cost", "spend"]),
+        StatusLineIconOption(
+            symbol: "chart.line.uptrend.xyaxis", displayName: "Spend Trend", category: .cost,
+            keywords: ["cost", "budget", "chart"]),
+
+        // Data
+        StatusLineIconOption(
+            symbol: "gauge.with.needle", displayName: "Usage", category: .data,
+            keywords: ["context", "rate", "capacity"]),
+        StatusLineIconOption(
+            symbol: "gauge.with.needle.fill", displayName: "Usage Filled", category: .data,
+            keywords: ["context", "rate", "capacity"]),
+        StatusLineIconOption(
+            symbol: "percent", displayName: "Percent", category: .data,
+            keywords: ["percentage", "rate", "usage"]),
+        StatusLineIconOption(
+            symbol: "number", displayName: "Number", category: .data,
+            keywords: ["count", "metric", "value"]),
+        StatusLineIconOption(
+            symbol: "plus.square", displayName: "Lines Added", category: .data,
+            keywords: ["diff", "git", "added"]),
+        StatusLineIconOption(
+            symbol: "minus.square", displayName: "Lines Removed", category: .data,
+            keywords: ["diff", "git", "deleted"]),
+        StatusLineIconOption(
+            symbol: "arrow.down.circle", displayName: "Input", category: .data,
+            keywords: ["tokens", "received", "download"]),
+        StatusLineIconOption(
+            symbol: "arrow.up.circle", displayName: "Output", category: .data,
+            keywords: ["tokens", "sent", "upload"]),
+        StatusLineIconOption(
+            symbol: "ruler", displayName: "Context Size", category: .data,
+            keywords: ["tokens", "window", "limit"]),
+
+        // Network
+        StatusLineIconOption(
+            symbol: "network", displayName: "Network", category: .network,
+            keywords: ["connection", "service", "api"]),
+        StatusLineIconOption(
+            symbol: "globe", displayName: "Globe", category: .network,
+            keywords: ["internet", "remote", "web"]),
+        StatusLineIconOption(
+            symbol: "antenna.radiowaves.left.and.right", displayName: "Signal", category: .network,
+            keywords: ["connection", "wireless", "availability"]),
+        StatusLineIconOption(
+            symbol: "cloud", displayName: "Cloud", category: .network,
+            keywords: ["remote", "service", "sync"]),
+        StatusLineIconOption(
+            symbol: "link", displayName: "Link", category: .network,
+            keywords: ["url", "connection", "reference"]),
+
+        // People
+        StatusLineIconOption(
+            symbol: "person", displayName: "Person", category: .people,
+            keywords: ["user", "owner", "author"]),
+        StatusLineIconOption(
+            symbol: "person.2", displayName: "People", category: .people,
+            keywords: ["team", "collaboration", "users"]),
+        StatusLineIconOption(
+            symbol: "person.crop.circle", displayName: "Agent", category: .people,
+            keywords: ["profile", "assistant", "user"]),
+        StatusLineIconOption(
+            symbol: "person.crop.rectangle", displayName: "Profile", category: .people,
+            keywords: ["account", "user", "identity"]),
+        StatusLineIconOption(
+            symbol: "figure.walk", displayName: "Walking", category: .people,
+            keywords: ["activity", "progress", "movement"]),
+
+        // Alert
+        StatusLineIconOption(
+            symbol: "bell", displayName: "Bell", category: .alert,
+            keywords: ["notification", "attention", "alert"]),
+        StatusLineIconOption(
+            symbol: "bell.badge", displayName: "Notification", category: .alert,
+            keywords: ["attention", "unread", "alert"]),
+        StatusLineIconOption(
+            symbol: "exclamationmark.triangle", displayName: "Warning", category: .alert,
+            keywords: ["error", "attention", "risk"]),
+        StatusLineIconOption(
+            symbol: "shield", displayName: "Security", category: .alert,
+            keywords: ["safe", "protection", "warning"]),
+        StatusLineIconOption(
+            symbol: "flag", displayName: "Flag", category: .alert,
+            keywords: ["attention", "marker", "priority"]),
+    ]
     static let appCapability = StatusFactCapability(
         owner: .app, supportedHarnesses: allHarnesses, missingBehavior: .pending)
     static let mergedCapability = StatusFactCapability(
@@ -315,8 +487,19 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
 
     static let itemAvailability: [String: StatusFactCapability] = itemCapabilities
 
-    static func normalizedCustomFieldIcon(_ symbol: String) -> String {
-        customFieldIconSymbols.contains(symbol) ? symbol : "terminal"
+    static func isSFSymbolAvailable(_ symbol: String) -> Bool {
+        guard !symbol.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil
+    }
+
+    static func renderedCustomFieldSymbol(scriptOverride: String?, configuredSymbol: String) -> String {
+        if let scriptOverride, isSFSymbolAvailable(scriptOverride) {
+            return scriptOverride
+        }
+        if isSFSymbolAvailable(configuredSymbol) {
+            return configuredSymbol
+        }
+        return "terminal"
     }
 
     static let itemOrder: [String] = [
@@ -521,7 +704,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             else {
                 throw StatusLineConfigurationValidationError.invalidCustomFieldHarnesses(field.id)
             }
-            guard Self.customFieldIconSymbols.contains(field.sfSymbol) else {
+            guard Self.isSFSymbolAvailable(field.sfSymbol) else {
                 throw StatusLineConfigurationValidationError.unsupportedCustomFieldIcon(field.sfSymbol)
             }
         }

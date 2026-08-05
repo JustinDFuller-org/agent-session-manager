@@ -11,29 +11,34 @@ Facts show their SF Symbol and label by default. Explicit `labelOnly` and `symbo
 | ID | Label | Availability | Source |
 |----|-------|-------------|--------|
 | `agentName` | Agent | Claude only | Claude hook JSON `agent.name` |
-| `context` | Context % | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `last_token_usage.total_tokens / model_context_window` |
+| `context` | Context Used | Claude, Codex | Claude hook JSON; Codex rollout token usage |
 | `contextRemaining` | Context Remaining | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout context percentage remainder |
-| `cost` | Cost | Claude only | Claude hook JSON `cost.total_cost_usd` |
+| `cost` | Cost | Claude, OpenCode | Claude hook JSON; OpenCode provider |
 | `duration` | Duration | All | App-computed from process start time |
 | `effort` | Effort | Claude only | Claude hook JSON `effort.level` |
 | `exceeds200k` | Exceeds 200k | Claude only | Claude hook JSON `exceeds_200k_tokens` |
-| `inputTokens` | Input Tokens | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `total_token_usage.input_tokens` |
+| `inputTokens` | Input Tokens | Claude, Codex, OpenCode | Harness provider token usage |
 | `linesAdded` | Lines Added | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `linesRemoved` | Lines Removed | All | `git diff --shortstat HEAD` (polled every 15s) |
-| `model` | Model | All | Claude hook JSON; Cursor hook; Codex state DB/rollout metadata |
+| `model` | Model | All | Harness provider model data |
 | `outputStyle` | Output Style | Claude only | Claude hook JSON `output_style.name` |
-| `outputTokens` | Output Tokens | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `total_token_usage.output_tokens` |
+| `outputTokens` | Output Tokens | Claude, Codex, OpenCode | Harness provider token usage |
 | `pr` | PR | All | GitHub CLI (`gh pr view`) via PRTrackingCoordinator |
 | `profileName` | Profile | All | App state (selected profile) |
 | `rate5h` | 5h Rate | Claude, Codex | Claude hook JSON; Codex 300-minute primary rate window |
 | `rate5hReset` | 5h Resets At | Claude, Codex | Claude hook JSON; Codex 300-minute primary rate window |
 | `rate7d` | 7d Rate | Claude, Codex | Claude hook JSON; Codex 10,080-minute secondary rate window |
 | `rate7dReset` | 7d Resets At | Claude, Codex | Claude hook JSON; Codex 10,080-minute secondary rate window |
-| `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
+| `sessionName` | Session Name | Claude, OpenCode | Harness provider session metadata |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | Claude hook JSON / Cursor and Codex CLI `--version` |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
 | `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
+| `repo` | Repository | All | App-computed Git remote identity |
+| `contextSize` | Context Size | Claude only | Claude hook JSON context-window size |
+| `cacheRead` | Cache Read | Claude only | Claude hook JSON cache usage |
+| `cacheCreation` | Cache Write | Claude only | Claude hook JSON cache usage |
+| `apiDuration` | API Duration | Claude only | Claude hook JSON API duration |
 
 ## Providers
 
@@ -88,21 +93,25 @@ See [setup-wizard.md]({{ '/documentation/features/setup-wizard/' | relative_url 
 
 1. Open **Settings → Status Line**
 2. Use **+ Add Row** to add a new row
-3. Click **Add Item** inside any row to see available items (filtered by the harness of the current pane, alphabetically sorted)
+3. Click **Add Item** inside any row to see available items, alphabetically sorted. In a profile editor, the list is also filtered to that profile's harness.
 4. Click the minus icon to remove an item
 5. Use the up/down arrows to reorder rows
 
 ## Custom Fields
 
 Custom fields run a shell command and add its plain-text or structured result to a status line.
-The **SF Symbol** picker uses the app's supported status-line icon catalog. **Harnesses** is a
-multi-select control that defaults to all user-facing harnesses; at least one harness must remain
-selected. A field is filtered from both execution and rendering when its selected harnesses do not
-include the pane's harness.
+**SF Symbol** opens a searchable popover with curated, categorized suggestions. It searches labels,
+symbol names, and keywords, and accepts an exact installed SF Symbol name that is not in the
+curated suggestions. The configured name is preserved; an unavailable script override falls back to
+the configured icon, and an unavailable configured icon falls back to `terminal` while rendering.
+**Harnesses** opens a checklist popover that stays open while several harnesses are selected. It
+defaults to all user-facing harnesses, retains at least one selection, and dismisses with **Done**,
+or a click outside the popover. A field is filtered from both execution and rendering when its
+selected harnesses do not include the pane's harness.
 
 **Run Now** runs only the saved field from the configuration being edited. Global settings target
-live panes that inherit the global status line; profile settings target panes using that profile's
-saved override. New fields and unsaved edits must be saved before Run Now is available. A profile
+matching panes that inherit the global status line; profile settings target matching panes using
+that profile's saved override. New fields and unsaved edits must be saved before Run Now is available. A profile
 override can therefore intentionally display a different result from the global field with the same
 ID.
 
@@ -141,3 +150,7 @@ Migration-only events remain trace events:
 | `statusline.codex.session_ambiguous` | Reserved legacy event for ambiguous Codex state rows |
 | `statusline.codex.rollout_unavailable` | Reserved legacy event for missing Codex rollout paths |
 | `statusline.codex.schema_unsupported` | The detected Codex version has no rollout adapter |
+| `statusline.custom_field.exec_succeeded` | A custom field updated its cached value; includes pane/tab IDs and names, `field_id`, `trigger` (`scheduled` or `manual`), `duration_ms`, and `output_kind` |
+| `statusline.custom_field.exec_failed` | A custom field failed without clearing its cached value; includes pane/tab IDs and names, `field_id`, `trigger`, failure `reason`, and `retained_prior_value` |
+| `statusline.custom_field.exec_stale` | A result for an outdated command generation was ignored; includes pane/tab IDs and names, `field_id`, and `trigger` |
+| `statusline.custom_field.run_now` | A saved field was dispatched to matching panes; includes `field_id`, `scope`, `target_count`, `started_count`, `coalesced_count`, `result`, and `profile_id` for profile scope |

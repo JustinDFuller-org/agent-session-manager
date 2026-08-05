@@ -87,23 +87,30 @@ struct StatusLineConfigLayoutEditor: View {
                     Section {
                         ForEach(config.rows[rowIndex].items) { item in
                             HStack {
-                                Image(systemName: item.sfSymbol)
-                                    .frame(width: 16)
-                                    .foregroundStyle(.secondary)
+                                Image(
+                                    systemName: item.id.hasPrefix("custom:")
+                                        ? StatusLineConfig.renderedCustomFieldSymbol(
+                                            scriptOverride: nil,
+                                            configuredSymbol: item.sfSymbol
+                                        )
+                                        : item.sfSymbol
+                                )
+                                .frame(width: 16)
+                                .foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.label)
                                         .font(.system(.body, design: .monospaced))
                                         .fontWeight(.medium)
                                     let descriptions = [
-                                        "model": "Claude model name",
+                                        "model": "Selected model name",
                                         "worktree": "Git worktree name and current branch",
-                                        "cost": "Total session cost in USD (Claude only)",
+                                        "cost": "Total session cost in USD",
                                         "context": "Context window used (progress bar or text)",
                                         "effort": "Effort level (Claude only)",
                                         "thinking": "Whether extended thinking is on or off (Claude only)",
                                         "vimMode": "Vim editor mode (Claude only)",
                                         "agentName": "Agent name (Claude only)",
-                                        "sessionName": "Session name (Claude only)",
+                                        "sessionName": "Session name",
                                         "linesAdded": "Lines added vs HEAD (git diff --shortstat HEAD)",
                                         "linesRemoved": "Lines removed vs HEAD (git diff --shortstat HEAD)",
                                         "duration": "Total session duration",
@@ -219,9 +226,14 @@ struct StatusLineConfigLayoutEditor: View {
                 Section("Custom Fields") {
                     ForEach(config.customFields) { field in
                         HStack {
-                            Image(systemName: field.sfSymbol)
-                                .frame(width: 16)
-                                .foregroundStyle(.secondary)
+                            Image(
+                                systemName: StatusLineConfig.renderedCustomFieldSymbol(
+                                    scriptOverride: nil,
+                                    configuredSymbol: field.sfSymbol
+                                )
+                            )
+                            .frame(width: 16)
+                            .foregroundStyle(.secondary)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(field.label)
                                     .font(.system(.body, design: .monospaced))
@@ -774,10 +786,13 @@ struct AddCustomStatusLineFieldSheet: View {
     @State private var timeoutSeconds = CustomStatusLineField.defaultTimeoutSeconds
     @State private var supportedHarnesses = StatusLineConfig.allHarnesses
     @State private var runNowResult: String?
+    @State private var isIconPickerPresented = false
+    @State private var isHarnessPickerPresented = false
 
     private var isValid: Bool {
         !label.trimmingCharacters(in: .whitespaces).isEmpty
             && !command.trimmingCharacters(in: .whitespaces).isEmpty
+            && StatusLineConfig.isSFSymbolAvailable(sfSymbol)
     }
 
     var body: some View {
@@ -794,44 +809,66 @@ struct AddCustomStatusLineFieldSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("SF Symbol").font(.subheadline).foregroundStyle(.secondary)
-                Picker("SF Symbol", selection: $sfSymbol) {
-                    ForEach(StatusLineConfig.customFieldIconOptions) { option in
-                        Label(option.displayName, systemImage: option.symbol)
-                            .tag(option.symbol)
+                Button {
+                    isIconPickerPresented = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(
+                            systemName: StatusLineConfig.renderedCustomFieldSymbol(
+                                scriptOverride: nil,
+                                configuredSymbol: sfSymbol
+                            )
+                        )
+                        Text(sfSymbol)
+                            .font(.system(.body, design: .monospaced))
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("custom-statusline-icon-picker")
+                .accessibilityLabel("SF Symbol")
+                .accessibilityValue(sfSymbol)
+                .popover(isPresented: $isIconPickerPresented, arrowEdge: .bottom) {
+                    CustomStatusLineIconPickerPopover(
+                        selectedSymbol: $sfSymbol,
+                        isPresented: $isIconPickerPresented
+                    )
+                }
+                if !StatusLineConfig.isSFSymbolAvailable(sfSymbol) {
+                    Text("“\(sfSymbol)” is not available on this version of macOS. Select a different SF Symbol.")
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("custom-statusline-selected-icon-validation")
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Harnesses").font(.subheadline).foregroundStyle(.secondary)
-                Menu {
-                    ForEach(Harness.allCases, id: \.self) { harness in
-                        Toggle(
-                            harness.displayName,
-                            isOn: Binding(
-                                get: { supportedHarnesses.contains(harness) },
-                                set: { isSelected in
-                                    if isSelected {
-                                        supportedHarnesses.insert(harness)
-                                    } else if supportedHarnesses.count > 1 {
-                                        supportedHarnesses.remove(harness)
-                                    }
-                                }
-                            )
-                        )
-                        .disabled(supportedHarnesses.count == 1 && supportedHarnesses.contains(harness))
-                        .accessibilityIdentifier("custom-statusline-harness-\(harness.rawValue)")
-                    }
+                Button {
+                    isHarnessPickerPresented = true
                 } label: {
-                    Text(harnessSelectionSummary)
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(harnessSelectionSummary)
+                            .lineLimit(1)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("custom-statusline-harness-menu")
                 .accessibilityLabel("Harnesses")
                 .accessibilityValue(harnessSelectionSummary)
+                .popover(isPresented: $isHarnessPickerPresented, arrowEdge: .bottom) {
+                    CustomStatusLineHarnessPickerPopover(
+                        selectedHarnesses: $supportedHarnesses,
+                        isPresented: $isHarnessPickerPresented
+                    )
+                }
                 Text("Choose one or more harnesses. New fields apply to all harnesses by default.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -975,6 +1012,171 @@ struct AddCustomStatusLineFieldSheet: View {
         )
     }
 
+}
+
+private struct CustomStatusLineHarnessPickerPopover: View {
+    @Binding var selectedHarnesses: Set<Harness>
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Harnesses")
+                .font(.headline)
+
+            ForEach(Harness.allCases, id: \.self) { harness in
+                Toggle(
+                    harness.displayName,
+                    isOn: Binding(
+                        get: { selectedHarnesses.contains(harness) },
+                        set: { isSelected in
+                            if isSelected {
+                                selectedHarnesses.insert(harness)
+                            } else if selectedHarnesses.count > 1 {
+                                selectedHarnesses.remove(harness)
+                            }
+                        }
+                    )
+                )
+                .disabled(selectedHarnesses.count == 1 && selectedHarnesses.contains(harness))
+                .accessibilityIdentifier("custom-statusline-harness-\(harness.rawValue)")
+            }
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button("Done") {
+                    isPresented = false
+                }
+                .accessibilityIdentifier("custom-statusline-harness-done-button")
+            }
+        }
+        .padding(16)
+        .frame(width: 240)
+    }
+}
+
+private struct CustomStatusLineIconOptionRow: View {
+    let option: StatusLineIconOption
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 8) {
+                Image(systemName: option.symbol)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(option.displayName)
+                    Text(option.symbol)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("custom-statusline-icon-option-\(option.symbol)")
+        .accessibilityLabel(option.displayName)
+    }
+}
+
+private struct CustomStatusLineIconPickerPopover: View {
+    @Binding var selectedSymbol: String
+    @Binding var isPresented: Bool
+
+    @State private var searchText = ""
+
+    private var matchingOptions: [StatusLineIconOption] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return StatusLineConfig.customFieldIconOptions }
+        return StatusLineConfig.customFieldIconOptions.filter { option in
+            option.searchTerms.contains { $0.localizedCaseInsensitiveContains(query) }
+        }
+    }
+
+    private var exactSymbolName: String? {
+        let candidate = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !candidate.isEmpty,
+            !StatusLineConfig.customFieldIconOptions.contains(where: { $0.symbol == candidate }),
+            StatusLineConfig.isSFSymbolAvailable(candidate)
+        else {
+            return nil
+        }
+        return candidate
+    }
+
+    private var hasInvalidExactSymbolQuery: Bool {
+        let candidate = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !candidate.isEmpty && matchingOptions.isEmpty && !StatusLineConfig.isSFSymbolAvailable(candidate)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Search SF Symbols", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("custom-statusline-icon-search-field")
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(StatusLineIconCategory.allCases, id: \.self) { category in
+                        let options = matchingOptions.filter { $0.category == category }
+                        if !options.isEmpty {
+                            Text(category.rawValue)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 4)
+                            ForEach(options) { option in
+                                CustomStatusLineIconOptionRow(
+                                    option: option,
+                                    isSelected: selectedSymbol == option.symbol
+                                ) {
+                                    selectedSymbol = option.symbol
+                                    isPresented = false
+                                }
+                            }
+                        }
+                    }
+                    if matchingOptions.isEmpty && exactSymbolName == nil {
+                        Text("No curated icon matches this search.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 280)
+
+            if let exactSymbolName {
+                Divider()
+                Button {
+                    selectedSymbol = exactSymbolName
+                    isPresented = false
+                } label: {
+                    Label(
+                        "Use exact symbol name “\(exactSymbolName)”",
+                        systemImage: exactSymbolName
+                    )
+                }
+                .accessibilityIdentifier("custom-statusline-use-exact-symbol-button")
+                .accessibilityValue(exactSymbolName)
+            } else if hasInvalidExactSymbolQuery {
+                Text("“\(searchText)” is not an available SF Symbol.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .accessibilityIdentifier("custom-statusline-icon-validation")
+            }
+        }
+        .padding(16)
+        .frame(width: 360)
+        .onAppear {
+            searchText = ""
+        }
+    }
 }
 
 struct NotificationsContent: View {

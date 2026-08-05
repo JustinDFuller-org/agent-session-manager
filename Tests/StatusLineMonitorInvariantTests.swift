@@ -686,6 +686,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertNotNil(failed)
         XCTAssertEqual(failed?.attributes["reason"], "nonzero_exit")
         XCTAssertEqual(failed?.attributes["retained_prior_value"], "true")
+        XCTAssertEqual(failed?.attributes["trigger"], "scheduled")
     }
 
     func testCustomFieldSuccessRecordsExecSucceeded() {
@@ -780,6 +781,9 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         }
         XCTAssertEqual(runNow?.attributes["target_count"], "1")
         XCTAssertEqual(runNow?.attributes["scope"], "global")
+        XCTAssertEqual(runNow?.attributes["started_count"], "1")
+        XCTAssertEqual(runNow?.attributes["coalesced_count"], "0")
+        XCTAssertEqual(runNow?.attributes["result"], "started")
         monitor.stop()
     }
 
@@ -813,11 +817,11 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         XCTAssertTrue(resolved, "expected the replacement command to resolve")
         XCTAssertEqual(monitor.cachedCustomFieldValuesForTesting[newField.id]?.text, "new")
-        XCTAssertNotNil(
-            TracingService.shared.recordedEventsForTesting.first {
-                $0.name == "statusline.custom_field.exec_stale"
-            }
-        )
+        let stale = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "statusline.custom_field.exec_stale"
+        }
+        XCTAssertNotNil(stale)
+        XCTAssertEqual(stale?.attributes["trigger"], "scheduled")
         monitor.stop()
     }
 

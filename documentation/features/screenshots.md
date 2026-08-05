@@ -4,7 +4,7 @@ The screenshot walkthrough captures the app in one continuous session for docume
 
 ## Coverage
 
-ScreenshotTests captures all 32 views:
+ScreenshotTests captures all 34 views:
 
 - onboarding-welcome
 - onboarding-shell
@@ -31,6 +31,8 @@ ScreenshotTests captures all 32 views:
 - settings-tools
 - settings-shortcuts
 - settings-status-line
+- settings-status-line-custom-field-selector
+- settings-status-line-custom-field-harnesses
 - settings-debug
 - pane-status-indicators
 - notification-sidebar

@@ -234,6 +234,37 @@ final class ScreenshotTests: BaseTestCase {
         statusLineTab.click()
         screenshot("settings-status-line")
 
+        let addCustomField = settingsWindow.buttons["settings-statusline-add-custom-field-button"]
+        waitFor(addCustomField)
+        addCustomField.click()
+        let customFieldLabel = app.textFields["custom-statusline-label-field"]
+        let customFieldCommand = app.textViews["custom-statusline-command-field"]
+        waitFor(customFieldLabel)
+        waitFor(customFieldCommand)
+        customFieldLabel.typeText("Connection")
+        customFieldCommand.typeText("printf connected")
+        let iconPicker = app.buttons["custom-statusline-icon-picker"]
+        let harnessMenu = app.descendants(matching: .any)
+            .matching(identifier: "custom-statusline-harness-menu").firstMatch
+        waitFor(iconPicker)
+        waitFor(harnessMenu)
+        iconPicker.click()
+        let iconSearch = app.textFields["custom-statusline-icon-search-field"]
+        waitFor(iconSearch)
+        iconSearch.typeText("network")
+        screenshot("settings-status-line-custom-field-selector")
+        app.typeKey(.escape, modifierFlags: [])
+        waitForDisappear(iconSearch)
+        harnessMenu.click()
+        let claudeHarness = app.descendants(matching: .any)
+            .matching(identifier: "custom-statusline-harness-claude").firstMatch
+        waitFor(claudeHarness)
+        screenshot("settings-status-line-custom-field-harnesses")
+        app.buttons["custom-statusline-harness-done-button"].click()
+        waitForDisappear(claudeHarness)
+        app.buttons["Cancel"].click()
+        waitForDisappear(customFieldLabel)
+
         let debugTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-debug").firstMatch
         waitFor(debugTab)
         debugTab.click()

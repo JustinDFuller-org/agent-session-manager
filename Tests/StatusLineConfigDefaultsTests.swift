@@ -145,7 +145,8 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         XCTAssertEqual(decoded.customFields, [field])
     }
 
-    func testMissingCustomFieldHarnessesDecodeAsAll() throws {
+    func testMissingCustomFieldHarnessesMigratesWithoutChangingPersistedIcon() throws {
+        let persistedSymbol = "future.custom.symbol"
         let json = Data(
             """
             {
@@ -153,7 +154,7 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
                 {
                   "id": "custom:abc",
                   "label": "Spend",
-                  "sfSymbol": "dollarsign.circle",
+                  "sfSymbol": "\(persistedSymbol)",
                   "command": "echo hi"
                 }
               ]
@@ -163,10 +164,17 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
 
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
 
+        XCTAssertEqual(config.customFields.first?.sfSymbol, persistedSymbol)
         XCTAssertEqual(config.customFields.first?.supportedHarnesses, StatusLineConfig.allHarnesses)
+        let roundTripped = try JSONDecoder().decode(
+            StatusLineConfig.self,
+            from: JSONEncoder().encode(config)
+        )
+        XCTAssertEqual(roundTripped.customFields.first?.sfSymbol, persistedSymbol)
+        XCTAssertEqual(roundTripped.customFields.first?.supportedHarnesses, StatusLineConfig.allHarnesses)
     }
 
-    func testUnknownCustomFieldIconFallsBackToTerminal() throws {
+    func testMissingCustomFieldIconDefaultsToTerminal() throws {
         let json = Data(
             """
             {
@@ -174,8 +182,8 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
                 {
                   "id": "custom:abc",
                   "label": "Spend",
-                  "sfSymbol": "not-a-real-symbol",
-                  "command": "echo hi"
+                  "command": "echo hi",
+                  "supportedHarnesses": ["cursor"]
                 }
               ]
             }
@@ -185,6 +193,89 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         let config = try JSONDecoder().decode(StatusLineConfig.self, from: json)
 
         XCTAssertEqual(config.customFields.first?.sfSymbol, "terminal")
+        XCTAssertEqual(config.customFields.first?.supportedHarnesses, [.cursor])
+    }
+
+    func testArbitraryPersistedCustomFieldSymbolRoundTripsWithoutNormalization() throws {
+        let persistedSymbol = "future.custom.symbol"
+        let json = Data(
+            """
+            {
+              "customFields": [
+                {
+                  "id": "custom:abc",
+                  "label": "Spend",
+                  "sfSymbol": "\(persistedSymbol)",
+                  "command": "echo hi",
+                  "supportedHarnesses": ["cursor"]
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let decoded = try JSONDecoder().decode(StatusLineConfig.self, from: json)
+        let roundTripped = try JSONDecoder().decode(
+            StatusLineConfig.self,
+            from: JSONEncoder().encode(decoded)
+        )
+
+        XCTAssertEqual(decoded.customFields.first?.sfSymbol, persistedSymbol)
+        XCTAssertEqual(roundTripped.customFields.first?.sfSymbol, persistedSymbol)
+        XCTAssertEqual(roundTripped.customFields.first?.supportedHarnesses, [.cursor])
+    }
+
+    func testCustomFieldRuntimeIconResolutionFallsBackWithoutChangingConfiguredName() {
+        let configuredSymbol = "heart.fill"
+        let overrideSymbol = "star.fill"
+
+        XCTAssertTrue(StatusLineConfig.isSFSymbolAvailable(configuredSymbol))
+        XCTAssertTrue(StatusLineConfig.isSFSymbolAvailable(overrideSymbol))
+        XCTAssertEqual(
+            StatusLineConfig.renderedCustomFieldSymbol(
+                scriptOverride: overrideSymbol,
+                configuredSymbol: configuredSymbol
+            ),
+            overrideSymbol
+        )
+        XCTAssertEqual(
+            StatusLineConfig.renderedCustomFieldSymbol(
+                scriptOverride: "not.a.real.sf.symbol",
+                configuredSymbol: configuredSymbol
+            ),
+            configuredSymbol
+        )
+        XCTAssertEqual(
+            StatusLineConfig.renderedCustomFieldSymbol(
+                scriptOverride: "not.a.real.sf.symbol",
+                configuredSymbol: "another.unavailable.symbol"
+            ),
+            "terminal"
+        )
+    }
+
+    func testCustomFieldIconCatalogIsCategorizedOrderedSearchableAndUnique() throws {
+        let catalog = StatusLineConfig.customFieldIconOptions
+        let categoryRuns = catalog.reduce(into: [StatusLineIconCategory]()) { runs, option in
+            if runs.last != option.category {
+                runs.append(option.category)
+            }
+        }
+        let codeOption = try XCTUnwrap(catalog.first { $0.symbol == "curlybraces" })
+
+        XCTAssertEqual(categoryRuns, StatusLineIconCategory.allCases)
+        XCTAssertEqual(
+            catalog.prefix(6).map(\.symbol),
+            ["terminal", "cpu", "brain", "keyboard", "curlybraces", "pencil.line"]
+        )
+        XCTAssertEqual(Set(catalog.map(\.symbol)).count, catalog.count)
+        XCTAssertEqual(Set(catalog.map(\.displayName)).count, catalog.count)
+        XCTAssertEqual(codeOption.category, .development)
+        XCTAssertEqual(
+            codeOption.searchTerms,
+            ["Code", "curlybraces", "source", "programming", "json"]
+        )
+        XCTAssertFalse(StatusLineConfig.itemMetadata.values.contains { $0.symbol == codeOption.symbol })
     }
 
     func testCustomRowMetadataFollowsDecodedField() throws {
