@@ -17,7 +17,7 @@ import Musl
 #endif
 
 public actor AuthenticatedHTTPClientTransport: Transport {
-    public nonisolated let logger: Logger
+    nonisolated public let logger: Logger
 
     private let endpoint: URL
     private let bearerToken: String
@@ -70,7 +70,7 @@ public actor AuthenticatedHTTPClientTransport: Transport {
 }
 
 public actor BoundedStdioTransport: Transport {
-    public nonisolated let logger: Logger
+    nonisolated public let logger: Logger
 
     private let input: FileDescriptor
     private let output: FileDescriptor
