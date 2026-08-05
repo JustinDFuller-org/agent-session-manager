@@ -6,7 +6,7 @@ GitHub PR Tracking detects the pull request associated with the current git bran
 
 Clicking the PR fact opens a popover with detailed information: PR title, failing status checks (with links), unresolved comment count, and a link to open the PR in the browser.
 
-This works for all CLI tools (Claude Code, Codex, Cursor) because it runs independently of any tool's session data. It uses `gh pr view <branch>` to query the GitHub CLI and `gh api graphql` for unresolved review comment counts.
+This works for all CLI tools because it runs independently of session data. It uses authenticated `gh api graphql` queries for PR facts and unresolved review comment counts.
 
 ## How to use
 
@@ -71,7 +71,9 @@ gh api graphql -f owner="<owner>" -f repo="<repo>" -f pr=<number> -f query='...'
 
 The owner and repo are extracted from `git remote get-url origin`. The queries repeat every 60 seconds to catch status changes.
 
-If no PR exists for the branch, or `gh` is not installed or not authenticated, nothing is shown.
+Finder and DMG launches use the app's sanitized environment, including macOS login-shell PATH entries. The app preserves GitHub CLI credential/configuration variables (`HOME`, `GH_CONFIG_DIR`, `XDG_CONFIG_HOME`, `GH_HOST`, and GitHub token variables) and disables prompts. `gh` remains the authentication boundary and must be installed and authenticated for PR tracking.
+
+A successful query with no PR clears the item. Failed queries retain the last known PR and cannot trigger resolution notifications; later polls recover automatically.
 
 ### Fallback behavior
 

@@ -6,7 +6,7 @@ Agent Session Manager checks for newer versions in two mutually exclusive ways, 
 
 | Channel | Detection mechanism | Typical build |
 |---|---|---|
-| `sourceMain` | Compare local `main` commit SHA to `origin/main` via the GitHub API. | `make run`, ad-hoc-signed development builds |
+| `sourceMain` | Compare the built commit SHA to `main` through the authenticated GitHub CLI API. | `make run`, ad-hoc-signed development builds |
 | `dmg` | Sparkle checks `appcast.xml` and prompts to download a new DMG. | `make dist` Developer ID + notarized builds |
 
 The `ASMDistributionChannel` key in `Info.plist` determines which path is active. `scripts/dist.sh` writes `dmg` and strips `ASMSource*` keys; source builds leave the key absent or set to `sourceMain`.
@@ -31,6 +31,8 @@ The same indicator is also surfaced in Settings → About.
 ## DMG Builds
 
 `DMGReleaseDetector` hosts a Sparkle `SPUUpdater`. It reads `SUFeedURL` and `SUPublicEdKey` from `Info.plist` and checks the public `appcast.xml` at the configured GitHub Pages URL. Released DMGs do not require access to the private repository.
+
+DMG builds remain Sparkle-based and do not invoke `gh`. Source builds use the same sanitized, noninteractive GitHub CLI runner as PR tracking, so Finder launches retain standard CLI configuration and authentication lookup.
 
 Release signing uses EdDSA:
 

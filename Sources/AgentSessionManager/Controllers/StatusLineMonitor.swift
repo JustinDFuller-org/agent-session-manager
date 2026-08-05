@@ -354,7 +354,10 @@ final class StatusLineMonitor {
             PRTrackingCoordinator.shared.subscribe(
                 paneID: paneID,
                 workingDirectory: cwd,
-                isActive: true
+                isActive: true,
+                paneName: paneName,
+                tabID: tabID,
+                tabName: tabName
             ) { [weak self] pr in
                 guard let self else { return }
                 if self.currentData == nil {

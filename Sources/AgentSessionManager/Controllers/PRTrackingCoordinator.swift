@@ -13,6 +13,7 @@ final class PRTrackingCoordinator {
         var outData: Data
         var exitStatus: Int32
         var result: String
+        var failure: GitHubCLIFailure?
         var count: Int
         var startTime: Date
         var endTime: Date
@@ -23,16 +24,42 @@ final class PRTrackingCoordinator {
         var owner: String?
         var repo: String?
         var branchName: String?
+        var paneName: String
+        var tabID: UUID
+        var tabName: String
         var lastData: PullRequest?
         var callback: (PullRequest?) -> Void
         var isActive: Bool
+
+        init(
+            workingDirectory: String,
+            owner: String? = nil,
+            repo: String? = nil,
+            branchName: String? = nil,
+            paneName: String = "",
+            tabID: UUID = UUID(),
+            tabName: String = "",
+            lastData: PullRequest? = nil,
+            callback: @escaping (PullRequest?) -> Void,
+            isActive: Bool
+        ) {
+            self.workingDirectory = workingDirectory
+            self.owner = owner
+            self.repo = repo
+            self.branchName = branchName
+            self.paneName = paneName
+            self.tabID = tabID
+            self.tabName = tabName
+            self.lastData = lastData
+            self.callback = callback
+            self.isActive = isActive
+        }
     }
 
     var subscribers: [UUID: SubscriberRecord] = [:]
     private(set) var cycleTimer: Timer?
     var effectiveInterval: TimeInterval = 30
-    private var activeBatchProcess: Process?
-    private var timeoutWorkItem: DispatchWorkItem?
+    private var activeBatchTask: Task<Void, Never>?
     /// Incremented each time a new cycle starts; guards against stale async Tasks delivering results.
     private var cycleToken: UInt64 = 0
     /// Live span for the current poll cycle; ended when the cycle completes, errors, or is superseded.
@@ -71,10 +98,16 @@ final class PRTrackingCoordinator {
         paneID: UUID,
         workingDirectory: String,
         isActive: Bool,
+        paneName: String = "",
+        tabID: UUID = UUID(),
+        tabName: String = "",
         onPRData: @escaping (PullRequest?) -> Void
     ) {
         var record = SubscriberRecord(
             workingDirectory: workingDirectory,
+            paneName: paneName,
+            tabID: tabID,
+            tabName: tabName,
             callback: onPRData,
             isActive: isActive
         )
@@ -113,10 +146,8 @@ final class PRTrackingCoordinator {
         if subscribers.isEmpty {
             cycleTimer?.invalidate()
             cycleTimer = nil
-            timeoutWorkItem?.cancel()
-            timeoutWorkItem = nil
-            activeBatchProcess?.terminate()
-            activeBatchProcess = nil
+            activeBatchTask?.cancel()
+            activeBatchTask = nil
         }
     }
 
@@ -131,10 +162,8 @@ final class PRTrackingCoordinator {
             isPaused = true
             cycleTimer?.invalidate()
             cycleTimer = nil
-            timeoutWorkItem?.cancel()
-            timeoutWorkItem = nil
-            activeBatchProcess?.terminate()
-            activeBatchProcess = nil
+            activeBatchTask?.cancel()
+            activeBatchTask = nil
         } else {
             scheduleCycleTimer()
         }
@@ -176,10 +205,8 @@ final class PRTrackingCoordinator {
         TracingService.shared.end(handle: currentCycleHandle, attributes: ["result": "superseded"])
         currentCycleHandle = nil
 
-        timeoutWorkItem?.cancel()
-        timeoutWorkItem = nil
-        activeBatchProcess?.terminate()
-        activeBatchProcess = nil
+        activeBatchTask?.cancel()
+        activeBatchTask = nil
         cycleToken += 1
         let token = cycleToken
 
@@ -226,44 +253,20 @@ final class PRTrackingCoordinator {
         let query = buildBatchQuery()
         guard !query.isEmpty else { return }
         let settings = SettingsPersistence.prPollingSettings()
-        let tempPath = NSTemporaryDirectory() + "agent-session-manager-graphql-\(UUID().uuidString).json"
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: ["query": query]),
-            (try? jsonData.write(to: URL(filePath: tempPath))) != nil
-        else { return }
-        let task = Process()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
-        task.standardOutput = outPipe
-        task.standardError = errPipe
-        let timeoutWork = DispatchWorkItem { [weak task] in task?.terminate() }
-        timeoutWorkItem = timeoutWork
-        DispatchQueue.main.asyncAfter(deadline: .now() + Double(settings.timeoutSeconds), execute: timeoutWork)
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: ["query": query]) else { return }
         let count = subscribers.values.filter { $0.owner != nil && $0.repo != nil && $0.branchName != nil }.count
         let queryStartTime = Date()
-        task.terminationHandler = { [weak self] process in
-            let queryResult = QueryResult(
-                outData: outPipe.fileHandleForReading.readDataToEndOfFile(),
-                exitStatus: process.terminationStatus,
-                result: process.terminationStatus == 0 ? "ok" : "error",
-                count: count,
-                startTime: queryStartTime,
-                endTime: Date()
-            )
-            try? FileManager.default.removeItem(atPath: tempPath)
-            Task { @MainActor [weak self] in
-                self?.timeoutWorkItem?.cancel()
-                self?.timeoutWorkItem = nil
-                self?.handleBatchResponse(queryResult, token: token, cycleHandle: cycleHandle)
-            }
-        }
-        activeBatchProcess = task
-        do {
-            try task.run()
-        } catch {
-            activeBatchProcess = nil
-            try? FileManager.default.removeItem(atPath: tempPath)
+        activeBatchTask = Task { [weak self] in
+            let result = await GitHubCLIRunner.shared.run(
+                arguments: ["api", "graphql", "--include", "--input", "-"],
+                stdin: jsonData,
+                timeout: Double(settings.timeoutSeconds))
+            guard let self else { return }
+            self.handleBatchResponse(
+                QueryResult(
+                    outData: result.stdout, exitStatus: result.exitCode ?? -1,
+                    result: result.failure?.rawValue ?? "ok", failure: result.failure,
+                    count: count, startTime: queryStartTime, endTime: Date()), token: token, cycleHandle: cycleHandle)
         }
     }
 
@@ -282,7 +285,27 @@ final class PRTrackingCoordinator {
                 "result": queryResult.result,
                 "exit_code": String(queryResult.exitStatus),
             ])
-        activeBatchProcess = nil
+        activeBatchTask = nil
+        if queryResult.failure == .missingExecutable, SettingsPersistence.isPRTrackingEnabled(),
+            !Self.hasReportedMissingExecutable
+        {
+            Self.hasReportedMissingExecutable = true
+            InvariantReporter.shared.violated(.githubCLIAvailable)
+        }
+        if let failure = queryResult.failure {
+            for (paneID, record) in subscribers {
+                TracingService.shared.record(
+                    "pr.result.delivered",
+                    attributes: [
+                        "pane.id": paneID.uuidString, "pane.name": record.paneName,
+                        "tab.id": record.tabID.uuidString, "tab.name": record.tabName,
+                        "outcome": "failure", "failure": failure.rawValue,
+                    ])
+            }
+            TracingService.shared.end(handle: cycleHandle, attributes: ["result": failure.rawValue])
+            currentCycleHandle = nil
+            return
+        }
         guard !queryResult.outData.isEmpty, let text = String(data: queryResult.outData, encoding: .utf8) else {
             TracingService.shared.end(handle: cycleHandle, attributes: ["result": "empty_response"])
             currentCycleHandle = nil
@@ -341,16 +364,36 @@ final class PRTrackingCoordinator {
             else {
                 subscribers[paneID]?.lastData = nil
                 subscribers[paneID]?.callback(nil)
+                if let record = subscribers[paneID] {
+                    TracingService.shared.record(
+                        "pr.result.delivered",
+                        attributes: [
+                            "pane.id": paneID.uuidString, "pane.name": record.paneName,
+                            "tab.id": record.tabID.uuidString, "tab.name": record.tabName,
+                            "outcome": "not_found",
+                        ])
+                }
                 continue
             }
             if let pr = Self.parsePRFromGraphQLNode(node) {
                 parsedCount += 1
                 subscribers[paneID]?.lastData = pr
                 subscribers[paneID]?.callback(pr)
+                if let record = subscribers[paneID] {
+                    TracingService.shared.record(
+                        "pr.result.delivered",
+                        attributes: [
+                            "pane.id": paneID.uuidString, "pane.name": record.paneName,
+                            "tab.id": record.tabID.uuidString, "tab.name": record.tabName,
+                            "outcome": "found",
+                        ])
+                }
             }
         }
         return parsedCount
     }
+
+    private static var hasReportedMissingExecutable = false
 
     func buildBatchQuery() -> String {
         var fragments: [String] = []
@@ -396,6 +439,9 @@ final class PRTrackingCoordinator {
         var owner: String
         var repo: String
         var branch: String
+        var paneName: String = ""
+        var tabID = UUID()
+        var tabName: String = ""
     }
 
     /// Runs a single batched GraphQL query for the given branches and returns resolved PR info.
@@ -409,53 +455,33 @@ final class PRTrackingCoordinator {
         let query = buildStaticBatchQuery(branches: branches)
         guard !query.isEmpty else { return [] }
 
-        let tempPath = NSTemporaryDirectory() + "agent-session-manager-graphql-\(UUID().uuidString).json"
         let jsonBody = ["query": query]
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: jsonBody),
-            (try? jsonData.write(to: URL(filePath: tempPath))) != nil
-        else { return [] }
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: jsonBody) else { return [] }
 
         let jsonText: String? = await TracingService.shared.withSpan(
             "pr.graphql.query",
             parent: parent,
             attributes: ["context": "startup_check"]
         ) {
-            await withCheckedContinuation({ continuation in
-                let task = Process()
-                let outPipe = Pipe()
-                let errPipe = Pipe()
-                task.executableURL = URL(filePath: "/bin/zsh")
-                task.arguments = ["-c", "gh api graphql --include --input '\(tempPath)'"]
-                task.standardOutput = outPipe
-                task.standardError = errPipe
-                task.terminationHandler = { _ in
-                    try? FileManager.default.removeItem(atPath: tempPath)
-                    let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                    guard let text = String(data: outData, encoding: .utf8), !text.isEmpty else {
-                        continuation.resume(returning: nil)
-                        return
-                    }
-                    let separators = ["\r\n\r\n", "\n\n"]
-                    var jsonText = text
-                    for separator in separators {
-                        let parts = text.components(separatedBy: separator)
-                        if parts.count >= 2 {
-                            jsonText = parts.dropFirst().joined(separator: separator)
-                            break
-                        }
-                    }
-                    continuation.resume(returning: jsonText)
-                }
-                do {
-                    try task.run()
-                } catch {
-                    try? FileManager.default.removeItem(atPath: tempPath)
-                    continuation.resume(returning: nil)
-                }
-            })
+            let result = await GitHubCLIRunner.shared.run(
+                arguments: ["api", "graphql", "--include", "--input", "-"],
+                stdin: jsonData,
+                timeout: Double(SettingsPersistence.prPollingSettings().timeoutSeconds))
+            guard result.succeeded, let text = String(data: result.stdout, encoding: .utf8), !text.isEmpty else {
+                return nil
+            }
+            return Self.splitStaticHeaderAndBody(text)
         }
         guard let jsonText else { return [] }
         return parseStaticBatchResponse(jsonText, branches: branches)
+    }
+
+    nonisolated private static func splitStaticHeaderAndBody(_ text: String) -> String {
+        for separator in ["\r\n\r\n", "\n\n"] {
+            let parts = text.components(separatedBy: separator)
+            if parts.count >= 2 { return parts.dropFirst().joined(separator: separator) }
+        }
+        return text
     }
 
     static func buildStaticBatchQuery(branches: [BranchInfo]) -> String {

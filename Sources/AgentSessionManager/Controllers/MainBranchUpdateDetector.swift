@@ -18,8 +18,7 @@ final class MainBranchUpdateDetector: UpdateDetector {
     private var builtCommit: String?
     private var builtCommitDate: Date?
     private var timer: Timer?
-    private var activeProcess: Process?
-    private var timeoutWorkItem: DispatchWorkItem?
+    private var activeTask: Task<Void, Never>?
 
     init() {}
 
@@ -37,10 +36,8 @@ final class MainBranchUpdateDetector: UpdateDetector {
     func stop() {
         timer?.invalidate()
         timer = nil
-        timeoutWorkItem?.cancel()
-        timeoutWorkItem = nil
-        activeProcess?.terminate()
-        activeProcess = nil
+        activeTask?.cancel()
+        activeTask = nil
         isChecking = false
         updateAvailable = false
         latestVersion = nil
@@ -54,48 +51,24 @@ final class MainBranchUpdateDetector: UpdateDetector {
         guard let builtCommit else { return }
         guard SettingsPersistence.isUpdateReminderEnabled() else { return }
 
-        timeoutWorkItem?.cancel()
-        activeProcess?.terminate()
-        activeProcess = nil
-
-        let task = Process()
-        let outPipe = Pipe()
-        task.executableURL = URL(filePath: "/bin/zsh")
-        task.arguments = ["-c", "gh api repos/\(Self.githubRepoSlug)/commits/main --jq .sha"]
-        task.standardOutput = outPipe
-        task.standardError = FileHandle.nullDevice
-
         let startTime = Date()
-        let timeoutWork = DispatchWorkItem { [weak task] in task?.terminate() }
-        timeoutWorkItem = timeoutWork
-        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: timeoutWork)
-
-        task.terminationHandler = { [weak self] _ in
-            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-            let text = String(data: outData, encoding: .utf8) ?? ""
-            let latest = Self.parseCommitSHA(text)
-            Task { @MainActor [weak self] in
-                self?.handleCheckResult(latest: latest, builtCommit: builtCommit, startTime: startTime)
-            }
-        }
-
         isChecking = true
-        activeProcess = task
         reportState()
-        do {
-            try task.run()
-        } catch {
-            isChecking = false
-            activeProcess = nil
-            timeoutWork.cancel()
-            reportState()
+        activeTask?.cancel()
+        activeTask = Task { [weak self] in
+            let result = await GitHubCLIRunner.shared.run(
+                arguments: ["api", "repos/\(Self.githubRepoSlug)/commits/main", "--jq", ".sha"],
+                timeout: 15)
+            guard let self else { return }
+            let latest =
+                result.succeeded ? Self.parseCommitSHA(String(data: result.stdout, encoding: .utf8) ?? "") : nil
+            self.handleCheckResult(
+                latest: latest, failure: result.failure, builtCommit: builtCommit, startTime: startTime)
         }
     }
 
-    private func handleCheckResult(latest: String?, builtCommit: String, startTime: Date) {
-        timeoutWorkItem?.cancel()
-        timeoutWorkItem = nil
-        activeProcess = nil
+    private func handleCheckResult(latest: String?, failure: GitHubCLIFailure?, builtCommit: String, startTime: Date) {
+        activeTask = nil
         isChecking = false
         lastCheckedAt = Date()
 
@@ -104,7 +77,7 @@ final class MainBranchUpdateDetector: UpdateDetector {
                 "update.check.ran",
                 startTime: startTime,
                 endTime: Date(),
-                attributes: ["result": "error"])
+                attributes: ["result": failure?.rawValue ?? GitHubCLIFailure.parse.rawValue])
             reportState()
             return
         }
