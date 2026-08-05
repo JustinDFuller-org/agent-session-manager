@@ -253,7 +253,7 @@ reset-app-state:
     env-var-settings.json profiles.json session-name-settings.json \
     shell-settings.json onboarding-settings.json activity-indicator-settings.json \
 	    focus-mode-settings.json update-check-settings.json \
-	    agent-control-settings.json; do \
+	    agent-control-settings.json app-lifecycle.json app-lifecycle.lock; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager/$$f"; \
 	done
 	@rm -rf "$(HOME)/Library/Application Support/agent-session-manager/traces"
@@ -271,7 +271,7 @@ reset-app-state-dev:
     env-var-settings.json profiles.json session-name-settings.json \
     shell-settings.json onboarding-settings.json activity-indicator-settings.json \
 	    focus-mode-settings.json update-check-settings.json \
-	    agent-control-settings.json; do \
+	    agent-control-settings.json app-lifecycle.json app-lifecycle.lock; do \
 		rm -f "$(HOME)/Library/Application Support/agent-session-manager.dev/$$f"; \
 		rm -f "$(HOME)/Library/Application Support/dev/$$f"; \
 	done

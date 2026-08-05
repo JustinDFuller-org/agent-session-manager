@@ -884,8 +884,8 @@ struct AddCustomStatusLineFieldSheet: View {
             if let tint = value.tint { parts.append("tint=\(tint.rawValue)") }
             if let icon = value.icon { parts.append("icon=\(icon)") }
             return parts.joined(separator: "  ")
-        case .failure(let reason):
-            return "Failed: \(reason.rawValue)"
+        case .failure(let error):
+            return "Failed: \(error.reason.rawValue)"
         }
     }
 }

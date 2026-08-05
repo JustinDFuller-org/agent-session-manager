@@ -14,6 +14,7 @@ final class PRTrackingCoordinator {
         var exitStatus: Int32
         var result: String
         var failure: GitHubCLIFailure?
+        var inputFailure: ChildProcessInputWriteFailure?
         var count: Int
         var startTime: Date
         var endTime: Date
@@ -266,6 +267,7 @@ final class PRTrackingCoordinator {
                 QueryResult(
                     outData: result.stdout, exitStatus: result.exitCode ?? -1,
                     result: result.failure?.rawValue ?? "ok", failure: result.failure,
+                    inputFailure: result.inputFailure,
                     count: count, startTime: queryStartTime, endTime: Date()), token: token, cycleHandle: cycleHandle)
         }
     }
@@ -275,16 +277,21 @@ final class PRTrackingCoordinator {
             TracingService.shared.end(handle: cycleHandle, attributes: ["result": "cancelled"])
             return
         }
+        var queryAttributes = [
+            "pane_count": String(queryResult.count),
+            "result": queryResult.result,
+            "exit_code": String(queryResult.exitStatus),
+        ]
+        if let inputFailure = queryResult.inputFailure {
+            queryAttributes["input_failure_stage"] = inputFailure.stage.rawValue
+            queryAttributes["input_error_code"] = String(inputFailure.errorCode)
+        }
         TracingService.shared.record(
             "pr.graphql.query",
             parent: cycleHandle,
             startTime: queryResult.startTime,
             endTime: queryResult.endTime,
-            attributes: [
-                "pane_count": String(queryResult.count),
-                "result": queryResult.result,
-                "exit_code": String(queryResult.exitStatus),
-            ])
+            attributes: queryAttributes)
         activeBatchTask = nil
         if queryResult.failure == .missingExecutable, SettingsPersistence.isPRTrackingEnabled(),
             !Self.hasReportedMissingExecutable

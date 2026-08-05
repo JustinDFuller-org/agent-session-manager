@@ -838,6 +838,13 @@ extension StatusLineMonitor {
         let startedAt = Date()
         Task { [weak self] in
             guard let self else { return }
+            TracingService.shared.record(
+                "statusline.custom_field.exec_started",
+                attributes: [
+                    "pane.name": paneName, "pane.id": paneID.uuidString,
+                    "tab.id": tabID.uuidString, "tab.name": tabName,
+                    "field_id": field.id, "trigger": "scheduled",
+                ])
             let result = await CustomFieldRunner.run(field: field, context: context)
             await MainActor.run {
                 self.applyCustomFieldResult(field: field, result: result, startedAt: startedAt)
@@ -855,18 +862,26 @@ extension StatusLineMonitor {
             "pane.name": paneName, "pane.id": paneID.uuidString,
             "tab.id": tabID.uuidString, "tab.name": tabName,
             "field_id": field.id,
+            "trigger": "scheduled",
+            "duration_ms": String(format: "%.1f", durationMs),
         ]
         switch result {
         // swiftlint:disable:next pattern_matching_keywords
         case .success(let value, let outputKind):
             cachedCustomFieldValues[field.id] = value
             currentData?.customFields = cachedCustomFieldValues
-            attrs["duration_ms"] = String(format: "%.1f", durationMs)
             attrs["output_kind"] = outputKind.rawValue
             TracingService.shared.record("statusline.custom_field.exec_succeeded", attributes: attrs)
-        case .failure(let reason):
-            attrs["reason"] = reason.rawValue
+        case .failure(let error):
+            attrs["reason"] = error.reason.rawValue
             attrs["retained_prior_value"] = cachedCustomFieldValues[field.id] != nil ? "true" : "false"
+            if let exitCode = error.exitCode {
+                attrs["exit_code"] = String(exitCode)
+            }
+            if let inputFailure = error.inputFailure {
+                attrs["input_failure_stage"] = inputFailure.stage.rawValue
+                attrs["input_error_code"] = String(inputFailure.errorCode)
+            }
             TracingService.shared.record("statusline.custom_field.exec_failed", attributes: attrs)
         }
     }

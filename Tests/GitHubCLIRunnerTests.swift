@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import XCTest
 
@@ -62,5 +63,71 @@ final class GitHubCLIRunnerTests: XCTestCase {
 
         XCTAssertEqual(result.failure, .timeout)
         XCTAssertLessThan(Date().timeIntervalSince(start), 1)
+    }
+
+    func testClosedStdinReportsFailureWithoutTerminatingApp() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "agent-session-manager-gh-runner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let executable = directory.appending(path: "gh")
+        try "#!/bin/sh\nexec 0<&-\nsleep 1\necho unreachable\n".write(
+            to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        let runner = GitHubCLIRunner(environment: ["GH_PATH": executable.path])
+
+        for _ in 0..<3 {
+            let result = await runner.run(
+                arguments: [],
+                stdin: Data(repeating: 0x61, count: 1_000_000),
+                timeout: 2)
+            XCTAssertEqual(result.failure, .stdinWrite)
+            XCTAssertEqual(result.inputFailure?.stage, .write)
+            XCTAssertEqual(result.inputFailure?.errorCode, EPIPE)
+        }
+    }
+
+    func testClosedStdinPreservesAuthenticationFailure() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "agent-session-manager-gh-runner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let executable = directory.appending(path: "gh")
+        try "#!/bin/sh\nexec 0<&-\nsleep 0.1\necho auth >&2\nexit 4\n".write(
+            to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        let runner = GitHubCLIRunner(environment: ["GH_PATH": executable.path])
+
+        let result = await runner.run(
+            arguments: [],
+            stdin: Data(repeating: 0x61, count: 1_000_000),
+            timeout: 2)
+
+        XCTAssertEqual(result.failure, .authentication)
+        XCTAssertNotNil(result.inputFailure)
+    }
+
+    func testCancellationWithStdinReturnsCancelled() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: "agent-session-manager-gh-runner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let executable = directory.appending(path: "gh")
+        try "#!/bin/sh\ncat >/dev/null\nexec sleep 5\n".write(
+            to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        let runner = GitHubCLIRunner(environment: ["GH_PATH": executable.path])
+
+        let task = Task {
+            await runner.run(
+                arguments: [],
+                stdin: Data(repeating: 0x61, count: 1_000_000),
+                timeout: 10)
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        task.cancel()
+
+        let result = await task.value
+        XCTAssertEqual(result.failure, .cancelled)
     }
 }

@@ -101,6 +101,7 @@ class BaseTestCase: XCTestCase {
             "env-var-settings.json", "profiles.json", "session-name-settings.json",
             "shell-settings.json", "onboarding-settings.json",
             "activity-indicator-settings.json", "focus-mode-settings.json",
+            "app-lifecycle.json", "app-lifecycle.lock",
             "agent-control-settings.json",
         ] {
             try? FileManager.default.removeItem(at: support.appending(path: file))

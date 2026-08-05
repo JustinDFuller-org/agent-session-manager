@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 
 @testable import AgentSessionManager
@@ -646,7 +647,13 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         )
         XCTAssertEqual(monitor.cachedCustomFieldValuesForTesting["custom:b"]?.text, "good")
 
-        monitor.testApplyCustomFieldResult(field: field, result: .failure(.nonzeroExit))
+        monitor.testApplyCustomFieldResult(
+            field: field,
+            result: .failure(
+                CustomFieldExecutionError(
+                    reason: .nonzeroExit,
+                    exitCode: 1,
+                    inputFailure: nil)))
 
         XCTAssertEqual(
             monitor.cachedCustomFieldValuesForTesting["custom:b"]?.text, "good",
@@ -657,6 +664,8 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertNotNil(failed)
         XCTAssertEqual(failed?.attributes["reason"], "nonzero_exit")
         XCTAssertEqual(failed?.attributes["retained_prior_value"], "true")
+        XCTAssertEqual(failed?.attributes["exit_code"], "1")
+        XCTAssertEqual(failed?.attributes["trigger"], "scheduled")
     }
 
     func testCustomFieldSuccessRecordsExecSucceeded() {
@@ -673,6 +682,28 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertNotNil(succeeded)
         XCTAssertEqual(succeeded?.attributes["output_kind"], "text")
         XCTAssertEqual(succeeded?.attributes["field_id"], "custom:c")
+    }
+
+    func testCustomFieldInputFailureRecordsBoundedPipeDetails() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let field = CustomStatusLineField(id: "custom:pipe", label: "Pipe", command: "true")
+
+        monitor.testApplyCustomFieldResult(
+            field: field,
+            result: .failure(
+                CustomFieldExecutionError(
+                    reason: .stdinWrite,
+                    exitCode: nil,
+                    inputFailure: ChildProcessInputWriteFailure(
+                        stage: .write,
+                        errorCode: EPIPE))))
+
+        let failed = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "statusline.custom_field.exec_failed"
+        }
+        XCTAssertEqual(failed?.attributes["reason"], "stdin_write")
+        XCTAssertEqual(failed?.attributes["input_failure_stage"], "write")
+        XCTAssertEqual(failed?.attributes["input_error_code"], String(EPIPE))
     }
 
     func testSetCustomFieldsRemovesCachedValueWhenFieldRemoved() {
@@ -714,6 +745,11 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         XCTAssertTrue(resolved, "expected the custom field to resolve within the timeout")
         XCTAssertEqual(resolvedText, "Backend")
+        let started = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "statusline.custom_field.exec_started"
+        }
+        XCTAssertEqual(started?.attributes["field_id"], "custom:profile")
+        XCTAssertEqual(started?.attributes["trigger"], "scheduled")
     }
 
     private static func pollUntilTrue(timeout: TimeInterval = 3, _ condition: () -> Bool) async -> Bool {

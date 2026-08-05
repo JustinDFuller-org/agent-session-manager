@@ -12,6 +12,7 @@ enum GitHubCLIFailure: String, Sendable, Equatable {
     case network
     case timeout
     case cancelled
+    case stdinWrite = "stdin_write"
     case api
     case parse
 }
@@ -21,6 +22,7 @@ struct GitHubCLIResult: Sendable {
     let stderrPrefix: String
     let exitCode: Int32?
     let failure: GitHubCLIFailure?
+    let inputFailure: ChildProcessInputWriteFailure?
 
     var succeeded: Bool { failure == nil && exitCode == 0 }
 }
@@ -48,7 +50,8 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
     func run(arguments: [String], stdin: Data? = nil, timeout: TimeInterval) async -> GitHubCLIResult {
         guard let executable = Self.resolveExecutable(environment: environment, fileManager: fileManager) else {
             return GitHubCLIResult(
-                stdout: Data(), stderrPrefix: "", exitCode: nil, failure: .missingExecutable)
+                stdout: Data(), stderrPrefix: "", exitCode: nil, failure: .missingExecutable,
+                inputFailure: nil)
         }
         let process = Process()
         process.executableURL = executable
@@ -60,23 +63,54 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
         let stderr = Pipe()
         process.standardOutput = stdout
         process.standardError = stderr
-        if let stdin {
-            let input = Pipe()
-            process.standardInput = input
-            DispatchQueue.global(qos: .userInitiated).async {
-                input.fileHandleForWriting.write(stdin)
-                try? input.fileHandleForWriting.close()
+        let input = stdin.map { _ in Pipe() }
+        process.standardInput = input
+        let exitState = ChildProcessExitState()
+        process.terminationHandler = { finishedProcess in
+            exitState.lock.lock()
+            if let continuation = exitState.continuation {
+                exitState.continuation = nil
+                exitState.lock.unlock()
+                continuation.resume(returning: finishedProcess.terminationStatus)
+            } else {
+                exitState.status = finishedProcess.terminationStatus
+                exitState.lock.unlock()
             }
         }
-        do { try process.run() } catch {
-            return GitHubCLIResult(stdout: Data(), stderrPrefix: "", exitCode: nil, failure: .launch)
+        do {
+            try process.run()
+        } catch {
+            try? input?.fileHandleForWriting.close()
+            return GitHubCLIResult(
+                stdout: Data(), stderrPrefix: "", exitCode: nil, failure: .launch,
+                inputFailure: nil)
+        }
+        let inputWriteTask = stdin.flatMap { stdin in
+            input.map { input in
+                Task.detached(priority: .userInitiated) {
+                    ChildProcessInputWriter.write(
+                        stdin,
+                        to: input.fileHandleForWriting,
+                        timeout: timeout)
+                }
+            }
         }
 
         let failure = await withTaskCancellationHandler(
             operation: {
                 await withTaskGroup(of: GitHubCLIFailure?.self, returning: GitHubCLIFailure?.self) { group in
                     group.addTask {
-                        await Task.detached { process.waitUntilExit() }.value
+                        _ = await withCheckedContinuation {
+                            (continuation: CheckedContinuation<Int32, Never>) in
+                            exitState.lock.lock()
+                            if let status = exitState.status {
+                                exitState.lock.unlock()
+                                continuation.resume(returning: status)
+                            } else {
+                                exitState.continuation = continuation
+                                exitState.lock.unlock()
+                            }
+                        }
                         return nil
                     }
                     group.addTask {
@@ -96,19 +130,37 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
             onCancel: { process.terminate() })
         let outData = stdout.fileHandleForReading.readDataToEndOfFile()
         let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+        if failure == .timeout || Task.isCancelled {
+            try? input?.fileHandleForWriting.close()
+        }
+        let inputFailure = await inputWriteTask?.value
         if Task.isCancelled {
             return GitHubCLIResult(
-                stdout: outData, stderrPrefix: "", exitCode: nil, failure: .cancelled)
+                stdout: outData, stderrPrefix: "", exitCode: nil, failure: .cancelled,
+                inputFailure: inputFailure)
         }
         let stderrText = String(data: errData.prefix(Self.stderrPrefixLimit), encoding: .utf8) ?? ""
         if failure == .timeout {
             return GitHubCLIResult(
-                stdout: outData, stderrPrefix: stderrText, exitCode: nil, failure: .timeout)
+                stdout: outData, stderrPrefix: stderrText, exitCode: nil, failure: .timeout,
+                inputFailure: inputFailure)
         }
         let status = process.terminationStatus
+        let classifiedFailure = Self.classify(exitCode: status, stderr: stderrText)
+        if let classifiedFailure {
+            return GitHubCLIResult(
+                stdout: outData, stderrPrefix: stderrText, exitCode: status,
+                failure: classifiedFailure, inputFailure: inputFailure)
+        }
+        if inputFailure != nil {
+            return GitHubCLIResult(
+                stdout: outData, stderrPrefix: stderrText, exitCode: status,
+                failure: .stdinWrite, inputFailure: inputFailure)
+        }
         return GitHubCLIResult(
             stdout: outData, stderrPrefix: stderrText, exitCode: status,
-            failure: Self.classify(exitCode: status, stderr: stderrText))
+            failure: nil,
+            inputFailure: nil)
     }
 
     nonisolated static func resolveExecutable(
