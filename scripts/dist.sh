@@ -59,8 +59,10 @@ main() {
   local version_short version_build
   version_short=$(git -C "$repo_root" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)
   version_short=${version_short:-0.0.1}
-  version_build=$(git -C "$repo_root" rev-list --count HEAD 2>/dev/null || true)
-  version_build=${version_build:-1}
+  local git_build_count
+  git_build_count=$(git -C "$repo_root" rev-list --count HEAD 2>/dev/null || true)
+  git_build_count=${git_build_count:-1}
+  version_build=$("$repo_root/scripts/release-build-number.sh" "$git_build_count")
 
   info "Preparing distribution: $version_short ($version_build)"
 

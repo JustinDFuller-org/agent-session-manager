@@ -23,9 +23,6 @@ if [ ! -f "$dmg_path" ]; then
     exit 1
 fi
 
-signature=$("$repo_root/scripts/sign-update.sh" "$dmg_path")
-file_size=$(stat -f%z "$dmg_path")
-pub_date=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
 base_appcast="${APPCAST_BASE:-$repo_root/appcast.xml}"
 appcast="${APPCAST_OUTPUT:-$repo_root/appcast.xml}"
 
@@ -33,6 +30,22 @@ if [ ! -f "$base_appcast" ]; then
     echo "ERROR: appcast.xml not found at $base_appcast" >&2
     exit 1
 fi
+
+if [[ ! "$version_build" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: Sparkle build version must be a non-negative integer: $version_build" >&2
+    exit 1
+fi
+
+minimum_build=$(RELEASE_APPCAST_PATH="$base_appcast" \
+    "$repo_root/scripts/release-build-number.sh" 0)
+if (( version_build < minimum_build )); then
+    echo "ERROR: Sparkle build version $version_build must be at least $minimum_build" >&2
+    exit 1
+fi
+
+signature=$("$repo_root/scripts/sign-update.sh" "$dmg_path")
+file_size=$(stat -f%z "$dmg_path")
+pub_date=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
 
 mkdir -p "$(dirname "$appcast")"
 
