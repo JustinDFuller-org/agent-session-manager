@@ -41,25 +41,33 @@
         <a class="sidebar-home" href="/">Overview</a>
         
         <section class="nav-group">
-          <h2>Getting Started</h2>
+          <h2>Tutorials</h2>
           <ul>
             
-            <li><a class="current" aria-current="page" href="/documentation/user-guide/overview/">Overview</a></li>
-            
-            <li><a href="/download/">Download</a></li>
-            
-            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-            
             <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-            
-            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
         
         <section class="nav-group">
-          <h2>Daily Work</h2>
+          <h2>How-to Guides</h2>
           <ul>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
             
             <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
             
@@ -73,34 +81,6 @@
             
             <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Integrations</h2>
-          <ul>
-            
-            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
-            
-            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
-            
-            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
-            
-            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
-            
-            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
-            
-            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
-            
-            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
-            
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Configure</h2>
-          <ul>
-            
             <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
             
             <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
@@ -113,12 +93,7 @@
             
             <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Troubleshooting</h2>
-          <ul>
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
             
             <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
             
@@ -130,6 +105,19 @@
           <ul>
             
             <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+            <li><a href="/documentation/reference/supported-tools/">Supported Tools</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Explanation</h2>
+          <ul>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
@@ -146,34 +134,44 @@
     <h1>Overview</h1>
     <p class="lede">Manage and keep track of many simultaneous AI agent sessions from one macOS window.</p>
   </header>
-  <h2 id="what-it-is">What it is</h2>
+  <h2 id="what-agent-session-manager-is">What Agent Session Manager is</h2>
 
-<p>Agent Session Manager is a native macOS app for running multiple AI agent sessions in parallel. A tab represents a project directory, and each pane is a separate terminal session inside that tab.</p>
+<p>Agent Session Manager is a native macOS app for running multiple AI agent
+sessions in parallel. It keeps related sessions in one window while
+preserving a separate project and task context for each session.</p>
 
-<p>Each pane can run Claude Code, Cursor, Codex, or OpenCode. The app starts the selected tool in a Git worktree so separate task branches can stay isolated.</p>
+<h2 id="how-the-product-fits-together">How the product fits together</h2>
 
-<h2 id="why-you-might-use-it">Why you might use it</h2>
+<p>A <strong>tab</strong> represents a project directory. Each <strong>pane</strong> is one terminal session
+inside that tab. A pane can run Claude Code, Cursor, Codex, OpenCode, or a
+shell opened from another pane.</p>
 
-<p>Use Agent Session Manager when you have multiple agent sessions open at once. Keep them together in one window, track which tasks are active, and switch between sessions without hunting through separate terminal windows.</p>
+<p>Agent panes use Git worktrees for task isolation. A worktree is a separate
+working directory linked to the same repository, so one task’s files and
+branch can stay separate from another task’s files and branch.</p>
 
-<h2 id="before-you-start">Before you start</h2>
+<p>The result is a workflow with a fixed outer shape—project tab, task pane,
+terminal session—while the tool, model, options, profile, and workflow inside
+each pane remain configurable.</p>
 
-<p>You need a Mac running macOS 14 or later. To start an agent pane, you also need a supported agent tool available in the shell that Agent Session Manager uses and a Git repository to work in.</p>
+<h2 id="why-this-model-is-useful">Why this model is useful</h2>
 
-<h2 id="what-you-should-see">What you should see</h2>
-
-<p>After launch, the main window provides a tab bar and a pane area. When no tab is open, the empty state tells you to press ⌘T to create one.</p>
+<p>Several agent sessions are easier to supervise when their activity, status
+information, notifications, and pull-request updates are visible in one
+window. Tabs separate projects; panes separate tasks within a project.</p>
 
 <p><img src="/assets/img/docs/split-panes.png" alt="Agent Session Manager showing two panes in one tab" /></p>
 
-<p><em>The main window keeps related agent sessions together in one tab.</em></p>
+<p><em>A tab keeps related agent sessions together while each pane retains its own
+task context.</em></p>
 
-<h2 id="related-tasks">Related tasks</h2>
+<h2 id="read-next">Read next</h2>
 
 <ul>
-  <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-  <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-  <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
+  <li>Learn the terms in <a href="/documentation/user-guide/core-concepts/">Core Concepts</a>.</li>
+  <li>Complete the <a href="/documentation/user-guide/quickstart/">Quickstart</a>.</li>
+  <li>See <a href="/documentation/reference/supported-tools/">Supported Tools</a> for the factual tool list.</li>
+  <li>Follow <a href="/documentation/user-guide/install/">Install and First Launch</a> when you are ready to begin.</li>
 </ul>
 
 </article>

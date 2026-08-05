@@ -41,25 +41,33 @@
         <a class="sidebar-home" href="/">Overview</a>
         
         <section class="nav-group">
-          <h2>Getting Started</h2>
+          <h2>Tutorials</h2>
           <ul>
             
-            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
-            
-            <li><a href="/download/">Download</a></li>
-            
-            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-            
             <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-            
-            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
         
         <section class="nav-group">
-          <h2>Daily Work</h2>
+          <h2>How-to Guides</h2>
           <ul>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
             
             <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
             
@@ -73,34 +81,6 @@
             
             <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Integrations</h2>
-          <ul>
-            
-            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
-            
-            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
-            
-            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
-            
-            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
-            
-            <li><a class="current" aria-current="page" href="/documentation/user-guide/cursor/">Cursor</a></li>
-            
-            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
-            
-            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
-            
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Configure</h2>
-          <ul>
-            
             <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
             
             <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
@@ -113,12 +93,7 @@
             
             <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Troubleshooting</h2>
-          <ul>
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
             
             <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
             
@@ -130,6 +105,19 @@
           <ul>
             
             <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+            <li><a href="/documentation/reference/supported-tools/">Supported Tools</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Explanation</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
@@ -174,7 +162,7 @@
 
 <p>The pane opens a Cursor terminal and remains part of the tab’s saved layout.</p>
 
-<p>After a restart, Cursor panes reopen in their saved working copies without an added continuation option.</p>
+<p>After a restart, Cursor panes reopen in their saved working copies. With <strong>Continue on Restart</strong> enabled, the app passes Cursor <code class="language-plaintext highlighter-rouge">--continue</code> so the latest chat reopens automatically, unless the pane has an explicit <code class="language-plaintext highlighter-rouge">--resume</code> option.</p>
 
 <h2 id="if-it-does-not-work">If it does not work</h2>
 

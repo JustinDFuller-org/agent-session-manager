@@ -41,25 +41,33 @@
         <a class="sidebar-home" href="/">Overview</a>
         
         <section class="nav-group">
-          <h2>Getting Started</h2>
+          <h2>Tutorials</h2>
           <ul>
             
-            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
-            
-            <li><a href="/download/">Download</a></li>
-            
-            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-            
             <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-            
-            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
         
         <section class="nav-group">
-          <h2>Daily Work</h2>
+          <h2>How-to Guides</h2>
           <ul>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
             
             <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
             
@@ -73,34 +81,6 @@
             
             <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Integrations</h2>
-          <ul>
-            
-            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
-            
-            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
-            
-            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
-            
-            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
-            
-            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
-            
-            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
-            
-            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
-            
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Configure</h2>
-          <ul>
-            
             <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
             
             <li><a class="current" aria-current="page" href="/documentation/user-guide/tool-options/">Tool Options</a></li>
@@ -113,12 +93,7 @@
             
             <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Troubleshooting</h2>
-          <ul>
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
             
             <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
             
@@ -130,6 +105,19 @@
           <ul>
             
             <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+            <li><a href="/documentation/reference/supported-tools/">Supported Tools</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Explanation</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
@@ -173,13 +161,18 @@
   <li>For Claude Code or OpenCode, configure supported entries under <strong>Environment Variables</strong> when needed.</li>
 </ol>
 
-<p>The options shown in <strong>New Pane</strong> change when you select a different <strong>Harness</strong>. You can also configure options while editing a profile.</p>
+<p>The options available from <strong>New Pane → CLI Options</strong> change when you select a
+different <strong>Harness</strong>. You can also configure options while editing a profile.</p>
 
 <p>Text options without presets remain text fields. Options with presets use a single-selection menu unless <strong>Allow multiple selections</strong> is enabled. In either menu, choose <strong>Custom…</strong> or <strong>Add custom…</strong> when you need a value that is not in the preset list.</p>
 
 <h2 id="what-you-should-see">What you should see</h2>
 
-<p>Options marked <strong>Show</strong> appear in the selected tool’s <strong>CLI Options</strong> section in <strong>New Pane</strong>. Options marked <strong>Default on</strong> start enabled there. Custom flags and environment variables are saved with the tool configuration and can be included in profiles.</p>
+<p>Options marked <strong>Show</strong> appear in the selected tool’s <strong>CLI Options</strong> surface
+in <strong>New Pane</strong>. Options marked <strong>Default on</strong> start enabled there. Custom flags
+and environment variables are saved with the tool configuration and can be
+included in profiles. Choose <strong>Show all options</strong> when you need an option that
+is not part of the compact profile view.</p>
 
 <p><img src="/assets/img/docs/new-pane-sheet.png" alt="Agent Session Manager New Pane showing harness-specific CLI options" /></p>
 
@@ -189,7 +182,8 @@
 
 <ul>
   <li>If a tool’s options are unavailable, enable the tool first in <strong>Harnesses</strong>.</li>
-  <li>If an option does not appear in <strong>New Pane</strong>, turn on <strong>Show</strong> for that option.</li>
+  <li>If an option does not appear in the compact view, open <strong>New Pane → CLI
+Options → Show all options</strong>, or turn on <strong>Show</strong> for that option.</li>
   <li>If a custom flag has no effect, confirm that the installed version of the selected tool recognizes it.</li>
   <li>If an environment variable is not available for editing, it may be controlled by Agent Session Manager for that tool.</li>
 </ul>

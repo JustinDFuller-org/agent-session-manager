@@ -41,25 +41,33 @@
         <a class="sidebar-home" href="/">Overview</a>
         
         <section class="nav-group">
-          <h2>Getting Started</h2>
+          <h2>Tutorials</h2>
           <ul>
             
-            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
-            
-            <li><a href="/download/">Download</a></li>
-            
-            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-            
             <li><a class="current" aria-current="page" href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-            
-            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
         
         <section class="nav-group">
-          <h2>Daily Work</h2>
+          <h2>How-to Guides</h2>
           <ul>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
             
             <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
             
@@ -73,34 +81,6 @@
             
             <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Integrations</h2>
-          <ul>
-            
-            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
-            
-            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
-            
-            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
-            
-            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
-            
-            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
-            
-            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
-            
-            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
-            
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Configure</h2>
-          <ul>
-            
             <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
             
             <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
@@ -113,12 +93,7 @@
             
             <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Troubleshooting</h2>
-          <ul>
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
             
             <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
             
@@ -130,6 +105,19 @@
           <ul>
             
             <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+            <li><a href="/documentation/reference/supported-tools/">Supported Tools</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Explanation</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
@@ -146,15 +134,17 @@
     <h1>Quickstart</h1>
     <p class="lede">Open a project, create a tab, and start your first agent pane.</p>
   </header>
-  <h2 id="what-it-is">What it is</h2>
+  <h2 id="what-you-will-learn">What you will learn</h2>
 
-<p>This walkthrough takes you from the main window to a running agent session in a project directory.</p>
+<p>This lesson takes you from the main window to a running agent session in a
+project directory. You will create one tab, choose one task context, and
+recognize the pane that Agent Session Manager starts for you.</p>
 
 <h2 id="before-you-start">Before you start</h2>
 
 <p>Complete <a href="/documentation/user-guide/install/">Install and First Launch</a> and make sure at least one agent tool is active in <strong>Settings → Harnesses</strong>. Use a Git repository for the project directory.</p>
 
-<h2 id="how-to-use-it">How to use it</h2>
+<h2 id="start-the-lesson">Start the lesson</h2>
 
 <ol>
   <li>Open Agent Session Manager and press ⌘T, or choose <strong>File → New Tab</strong>.</li>
@@ -163,12 +153,15 @@
   <li>Optionally enter a starting branch in <strong>Base Branch</strong>.</li>
   <li>Choose <strong>Create</strong>. The new tab becomes active.</li>
   <li>Press ⌘P, or choose <strong>File → New Pane in Current Tab</strong>.</li>
-  <li>In <strong>New Pane</strong>, select an active tool in <strong>Harness</strong>.</li>
+  <li>In <strong>New Pane</strong>, choose a <strong>Profile</strong>. If you use <strong>Custom</strong>, select an active tool in <strong>Harness</strong>.</li>
   <li>Enter a session name, branch, or worktree in <strong>Session, branch, or worktree</strong>. For a new task, use a simple name such as <code class="language-plaintext highlighter-rouge">feature-a</code>.</li>
-  <li>Review any <strong>CLI Options</strong> or <strong>Environment Variables</strong> shown for the selected tool, then choose <strong>Create Pane</strong>.</li>
+  <li>Choose <strong>Create Pane</strong>.</li>
 </ol>
 
-<h2 id="what-you-should-see">What you should see</h2>
+<p>At this point, keep the first session simple. The configuration guides explain
+profiles, CLI options, and pane settings after the basic workflow is working.</p>
+
+<h2 id="check-your-result">Check your result</h2>
 
 <p>Agent Session Manager prepares the Git worktree and opens a pane for the selected tool. The pane contains the tool’s terminal session, and the tab remains available for creating additional task worktrees.</p>
 
@@ -182,7 +175,7 @@
 
 <p><img src="/assets/img/docs/new-pane-sheet.png" alt="Agent Session Manager New Pane sheet" /></p>
 
-<p><em>New Pane combines the harness, session name, CLI options, and environment settings.</em></p>
+<p><em>New Pane keeps the profile and session name in the primary path, with CLI options and less-frequent settings available on demand.</em></p>
 
 <h2 id="if-it-does-not-work">If it does not work</h2>
 

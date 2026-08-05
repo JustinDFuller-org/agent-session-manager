@@ -41,25 +41,33 @@
         <a class="sidebar-home" href="/">Overview</a>
         
         <section class="nav-group">
-          <h2>Getting Started</h2>
+          <h2>Tutorials</h2>
           <ul>
             
-            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
-            
-            <li><a href="/download/">Download</a></li>
-            
-            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-            
             <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-            
-            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
         
         <section class="nav-group">
-          <h2>Daily Work</h2>
+          <h2>How-to Guides</h2>
           <ul>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a class="current" aria-current="page" href="/documentation/user-guide/agent-control/">Agent Control</a></li>
             
             <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
             
@@ -73,34 +81,6 @@
             
             <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Integrations</h2>
-          <ul>
-            
-            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
-            
-            <li><a class="current" aria-current="page" href="/documentation/user-guide/agent-control/">Agent Control</a></li>
-            
-            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
-            
-            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
-            
-            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
-            
-            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
-            
-            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
-            
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Configure</h2>
-          <ul>
-            
             <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
             
             <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
@@ -113,12 +93,7 @@
             
             <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Troubleshooting</h2>
-          <ul>
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
             
             <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
             
@@ -130,6 +105,19 @@
           <ul>
             
             <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+            <li><a href="/documentation/reference/supported-tools/">Supported Tools</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Explanation</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
@@ -164,7 +152,7 @@
 
 <ul>
   <li><strong>Claude Code</strong> receives an MCP configuration through its supported <code class="language-plaintext highlighter-rouge">--mcp-config</code> option.</li>
-  <li><strong>Cursor</strong> receives a private plugin directory through <code class="language-plaintext highlighter-rouge">--plugin-dir</code>. The plugin contains the MCP configuration for that pane and does not modify project or user Cursor files. If the control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.</li>
+  <li><strong>Cursor</strong> receives a private plugin directory through <code class="language-plaintext highlighter-rouge">--plugin-dir</code>. The plugin starts Agent Session Manager’s bundled stdio bridge, which securely forwards to the app-owned local server using runtime-only connection details. It does not modify project or user Cursor files. If the bridge or control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.</li>
   <li><strong>Codex</strong> receives the MCP server URL and runtime credential through supported <code class="language-plaintext highlighter-rouge">-c</code> settings.</li>
   <li><strong>OpenCode</strong> receives the connection through its inline configuration. Existing OpenCode MCP entries and unrelated settings are preserved.</li>
 </ul>
@@ -194,7 +182,8 @@
     </ul>
   </li>
   <li>Open <strong>New Pane</strong> and select Claude Code, Cursor, Codex, or OpenCode in <strong>Harness</strong>.</li>
-  <li>If you chose an ask policy, enable or disable <strong>Agent Session Manager control</strong> in the <strong>Agent Control</strong> section.</li>
+  <li>Open <strong>New Pane → More Settings</strong>. If you chose an ask policy, enable or
+disable <strong>Agent Session Manager control</strong> in the <strong>Agent Control</strong> section.</li>
   <li>Choose <strong>Create Pane</strong>.</li>
 </ol>
 
@@ -245,15 +234,20 @@
 
 <h2 id="what-you-should-see">What you should see</h2>
 
-<p>With an ask policy, <strong>New Pane</strong> shows the <strong>Agent Session Manager control</strong> checkbox and the current scope. With <strong>Always</strong> or <strong>Never</strong>, the sheet shows whether control will be enabled or disabled instead of showing a checkbox.</p>
+<p>With an ask policy, <strong>New Pane → More Settings</strong> shows the <strong>Agent Session
+Manager control</strong> checkbox and the current scope. With <strong>Always</strong> or <strong>Never</strong>,
+the sheet shows whether control will be enabled or disabled instead of showing
+a checkbox.</p>
 
 <p>After the pane starts, the supported agent can use Agent Control within the selected scope. The pane continues to run the selected agent tool in its prepared Git worktree.</p>
 
 <h2 id="if-it-does-not-work">If it does not work</h2>
 
 <ul>
-  <li>If the control checkbox is not shown, check <strong>Settings → Panes → Injection Policy</strong>. <strong>Always</strong> and <strong>Never</strong> show a status message instead of a checkbox.</li>
-  <li>Cursor may still ask for normal MCP approval. Approve the Agent Session Manager server through Cursor, or enable Cursor’s own MCP approval option if that is appropriate for your workflow.</li>
+  <li>If the control checkbox is not shown, open <strong>New Pane → More Settings</strong> and
+check <strong>Settings → Panes → Injection Policy</strong>. <strong>Always</strong> and <strong>Never</strong> show
+a status message instead of a checkbox.</li>
+  <li>A Cursor pane prompts to approve the Agent Session Manager server unless you enable <strong>Approve MCPs</strong> (<code class="language-plaintext highlighter-rouge">--approve-mcps</code>) under <strong>New Pane → Cursor CLI options</strong>. That option auto-approves every MCP server the pane sees, not only Agent Control’s, so enable it only if that fits your workflow.</li>
   <li>If a policy or scope change has no effect on a running pane, restart the pane.</li>
   <li>If an action is unavailable, choose <strong>Global</strong> scope when the action needs access beyond the current pane or tab.</li>
 </ul>

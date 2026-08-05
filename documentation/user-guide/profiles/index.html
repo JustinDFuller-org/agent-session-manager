@@ -41,25 +41,33 @@
         <a class="sidebar-home" href="/">Overview</a>
         
         <section class="nav-group">
-          <h2>Getting Started</h2>
+          <h2>Tutorials</h2>
           <ul>
             
-            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
-            
-            <li><a href="/download/">Download</a></li>
-            
-            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-            
             <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-            
-            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
         
         <section class="nav-group">
-          <h2>Daily Work</h2>
+          <h2>How-to Guides</h2>
           <ul>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
             
             <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
             
@@ -73,34 +81,6 @@
             
             <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Integrations</h2>
-          <ul>
-            
-            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
-            
-            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
-            
-            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
-            
-            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
-            
-            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
-            
-            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
-            
-            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
-            
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Configure</h2>
-          <ul>
-            
             <li><a class="current" aria-current="page" href="/documentation/user-guide/profiles/">Profiles</a></li>
             
             <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
@@ -113,12 +93,7 @@
             
             <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Troubleshooting</h2>
-          <ul>
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
             
             <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
             
@@ -130,6 +105,19 @@
           <ul>
             
             <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+            <li><a href="/documentation/reference/supported-tools/">Supported Tools</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Explanation</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
@@ -167,7 +155,7 @@
   <li>Choose <strong>New Profile</strong>, or open an existing profile’s menu and choose <strong>Edit</strong>.</li>
   <li>Enter a <strong>Profile Name</strong> and choose a <strong>Harness</strong>.</li>
   <li>Enable the CLI options and environment variables the profile should apply.</li>
-  <li>Mark <strong>Show on new pane</strong> for options you want to adjust each time. Options that are not shown are still applied.</li>
+  <li>Mark <strong>Show on new pane</strong> for disabled options you want to adjust each time. Enabled options appear automatically, and options that are not shown remain available under the expanded catalog.</li>
   <li>Optionally enable a custom status line for the profile.</li>
   <li>Save the profile.</li>
 </ol>
@@ -183,13 +171,20 @@
   <li>Choose <strong>Create Pane</strong>.</li>
 </ol>
 
-<p>The profile selects its harness and applies its saved settings. If you change an option, the profile name is marked <strong>(modified)</strong>. Choose <strong>Save Profile &amp; Create</strong> if you want to save the changed settings before creating the pane; this saves a new profile snapshot with the name you provide and then creates the pane.</p>
+<p>The profile selects its harness and applies its saved settings. Enabled
+options appear for review in the CLI Options sheet; options marked <strong>Show on
+new pane</strong> also appear when disabled. If you change an option, the profile name
+is marked <strong>(modified)</strong>. Choose <strong>Save Profile &amp; Create</strong> if you want to save
+the changed settings before creating the pane; this saves a new profile
+snapshot with the name you provide and then creates the pane.</p>
 
 <p>The first profile in the list that matches the selected harness is preselected when a new pane opens.</p>
 
 <h2 id="what-you-should-see">What you should see</h2>
 
-<p>The profile appears in <strong>Settings → Profiles</strong> and in the <strong>Profile</strong> picker in <strong>New Pane</strong>. Options marked <strong>Show on new pane</strong> appear for editing; other saved options remain hidden while they are applied.</p>
+<p>The profile appears in <strong>Settings → Profiles</strong> and in the <strong>Profile</strong> picker in
+<strong>New Pane</strong>. Enabled options and options marked <strong>Show on new pane</strong> appear for
+editing; other saved options remain in the expanded catalog.</p>
 
 <p><img src="/assets/img/docs/settings-profiles.png" alt="Agent Session Manager Profiles settings with a saved profile" /></p>
 
@@ -199,7 +194,7 @@
 
 <ul>
   <li>If a profile does not appear in <strong>New Pane</strong>, enable its harness in <a href="/documentation/user-guide/agent-tools/">Agent Tools</a>.</li>
-  <li>If an option is not visible, edit the profile and enable <strong>Show on new pane</strong> for that option.</li>
+  <li>If a disabled option is not visible, edit the profile and enable <strong>Show on new pane</strong> for that option. Enabled options appear automatically.</li>
   <li>If the profile is not preselected, move it higher than other profiles for the same harness.</li>
 </ul>
 

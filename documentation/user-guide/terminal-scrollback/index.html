@@ -41,25 +41,33 @@
         <a class="sidebar-home" href="/">Overview</a>
         
         <section class="nav-group">
-          <h2>Getting Started</h2>
+          <h2>Tutorials</h2>
           <ul>
             
-            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
-            
-            <li><a href="/download/">Download</a></li>
-            
-            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
-            
             <li><a href="/documentation/user-guide/quickstart/">Quickstart</a></li>
-            
-            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
         
         <section class="nav-group">
-          <h2>Daily Work</h2>
+          <h2>How-to Guides</h2>
           <ul>
+            
+            <li><a href="/download/">Download</a></li>
+            
+            <li><a href="/documentation/user-guide/install/">Install and First Launch</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
+            
+            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
+            
+            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
+            
+            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
+            
+            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
+            
+            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
             
             <li><a href="/documentation/user-guide/tabs-and-panes/">Tabs and Panes</a></li>
             
@@ -73,34 +81,6 @@
             
             <li><a href="/documentation/user-guide/activity-indicators/">Activity Indicators</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Integrations</h2>
-          <ul>
-            
-            <li><a href="/documentation/user-guide/agent-tools/">Agent Tools</a></li>
-            
-            <li><a href="/documentation/user-guide/agent-control/">Agent Control</a></li>
-            
-            <li><a href="/documentation/user-guide/claude-code/">Claude Code</a></li>
-            
-            <li><a href="/documentation/user-guide/codex/">Codex</a></li>
-            
-            <li><a href="/documentation/user-guide/cursor/">Cursor</a></li>
-            
-            <li><a href="/documentation/user-guide/opencode/">OpenCode</a></li>
-            
-            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
-            
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Configure</h2>
-          <ul>
-            
             <li><a href="/documentation/user-guide/profiles/">Profiles</a></li>
             
             <li><a href="/documentation/user-guide/tool-options/">Tool Options</a></li>
@@ -113,12 +93,7 @@
             
             <li><a href="/documentation/user-guide/worktree-cleanup/">Worktree Cleanup</a></li>
             
-          </ul>
-        </section>
-        
-        <section class="nav-group">
-          <h2>Troubleshooting</h2>
-          <ul>
+            <li><a href="/documentation/user-guide/github-pull-requests/">GitHub Pull Requests</a></li>
             
             <li><a href="/documentation/user-guide/troubleshooting/">Troubleshooting</a></li>
             
@@ -130,6 +105,19 @@
           <ul>
             
             <li><a href="/documentation/user-guide/shortcuts/">Keyboard Shortcuts</a></li>
+            
+            <li><a href="/documentation/reference/supported-tools/">Supported Tools</a></li>
+            
+          </ul>
+        </section>
+        
+        <section class="nav-group">
+          <h2>Explanation</h2>
+          <ul>
+            
+            <li><a href="/documentation/user-guide/overview/">Overview</a></li>
+            
+            <li><a href="/documentation/user-guide/core-concepts/">Core Concepts</a></li>
             
           </ul>
         </section>
@@ -156,31 +144,59 @@
 
 <h2 id="before-you-start">Before you start</h2>
 
-<p>Open <strong>Settings → Panes → Terminal</strong>.</p>
+<p>The global default is 5,000 lines. Decide whether you want to change that
+default or override one pane.</p>
 
 <h2 id="how-to-use-it">How to use it</h2>
 
+<h3 id="change-the-global-default">Change the global default</h3>
+
 <ol>
-  <li>Find <strong>Scrollback Lines</strong>.</li>
-  <li>Enter a value from 100 to 1,000,000.</li>
-  <li>Leave the setting in place; it is saved for future launches.</li>
+  <li>Open <strong>Settings → Panes → Terminal</strong>.</li>
+  <li>Find <strong>Scrollback History</strong>.</li>
+  <li>Choose <strong>Custom Limit</strong> and enter 100–50,000 lines, or choose
+<strong>Unlimited (50,000-line cap)</strong>.</li>
 </ol>
 
-<p>The setting applies immediately to open terminal panes. Values outside the supported range are clamped to the nearest limit.</p>
+<p>The setting is saved for future launches and immediately updates open panes
+that use the global default.</p>
 
 <p><img src="/assets/img/docs/settings-panes.png" alt="Agent Session Manager terminal settings" /></p>
 
-<p><em>Scrollback Lines appears in Settings → Panes → Terminal.</em></p>
+<p><em>Scrollback History appears in Settings → Panes → Terminal.</em></p>
+
+<h3 id="override-one-pane">Override one pane</h3>
+
+<ul>
+  <li>In the New Pane or Refresh Pane sheet, open <strong>More Settings</strong> and choose a
+value under <strong>Scrollback History</strong>. Leave <strong>Use Global Default</strong> selected to
+keep the pane linked to the global setting.</li>
+  <li>For an open pane, right-click anywhere in it and use the
+<strong>Scrollback History</strong> submenu. Choose a preset, the capped unlimited mode,
+<strong>Custom…</strong>, or <strong>Use Global Default</strong>.</li>
+</ul>
+
+<p>Pane overrides are saved with the pane and survive app restarts.</p>
 
 <h2 id="what-you-should-see">What you should see</h2>
 
-<p>You can scroll farther back through terminal output when the buffer is larger.</p>
+<p>You can scroll farther back through terminal output when the buffer is larger.
+When lowering an open pane’s effective limit, Agent Session Manager asks you to
+confirm because SwiftTerm immediately discards the oldest retained lines.</p>
+
+<p>The unlimited option is intentionally capped at 50,000 lines per pane. SwiftTerm
+stores scrollback in memory and does not offer true unbounded history, so the
+cap prevents runaway memory use.</p>
 
 <h2 id="if-it-does-not-work">If it does not work</h2>
 
 <ul>
-  <li>If the value is adjusted, enter a whole number between 100 and 1,000,000.</li>
-  <li>If older output is unavailable, increase <strong>Scrollback Lines</strong> before the output scrolls out of the buffer.</li>
+  <li>If the value is adjusted, enter a whole number between 100 and 50,000.</li>
+  <li>If older output is unavailable, increase <strong>Scrollback History</strong> before the
+output scrolls out of the buffer. Increasing it cannot restore lines that
+were already discarded.</li>
+  <li>Full-screen terminal applications often use an alternate screen whose content
+is not added to scrollback.</li>
 </ul>
 
 <h2 id="related-tasks">Related tasks</h2>
