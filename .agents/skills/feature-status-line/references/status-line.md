@@ -88,9 +88,10 @@ The `worktree` fact renders as `name • branch` when both values are available,
 ## Custom Fields
 
 Engineers can extend the status line with their own fields backed by a shell command, without the
-app needing to know what those commands do. A custom field's id is always `custom:<uuid>` and lives
-in `StatusLineConfig.customFields: [CustomStatusLineField]` — both the global config and any
-profile's `statusLineConfig` override can define their own set independently.
+app needing to know what those commands do. Fields created by Settings use `custom:<uuid>` IDs, and
+Agent Control updates enforce that format. They live in
+`StatusLineConfig.customFields: [CustomStatusLineField]` — both the global config and any profile's
+`statusLineConfig` override can define their own set independently.
 
 ### Config shape
 
@@ -109,10 +110,10 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
 ### Icon and harness selection
 
 The settings sheet offers categorized icon suggestions that search labels, symbol names, and
-keywords. A valid exact SF Symbol name can be selected even when it is not in the curated list.
-`sfSymbol` remains the opaque persisted name; unavailable persisted names are not rewritten during
-decode. The selector validates names at entry time, while rendering falls back without changing
-configuration.
+keywords. A valid exact SF Symbol name available on the current macOS version can be selected even
+when it is not in the curated list. `sfSymbol` remains the opaque persisted name; unavailable
+persisted names are not rewritten during decode. The selector validates names at entry time, while
+rendering falls back without changing configuration.
 
 **Harnesses** uses a checklist popover that remains open for consecutive selections, keeps at
 least one harness selected, and is dismissed with **Done** or a click outside.

@@ -1,6 +1,6 @@
 # UI Test Screenshots
 
-The screenshot walkthrough captures the app in one continuous session for documentation and PR review.
+The screenshot suite captures real UI flows for documentation and PR review.
 
 ## Coverage
 
@@ -41,7 +41,8 @@ ScreenshotTests captures all 34 views:
 - trace-waterfall
 - invariant-dashboard
 
-The app launches once and terminates once. Each screenshot is captured after the preceding real UI flow has completed, so later images show the same session continuing through the product.
+`testWalkthrough` captures 31 screenshots in one continuous app session. The trace-dashboard and
+invariant-dashboard screenshots each run in their own clean session.
 
 BaseTestCase.screenshot() writes PNG files only when SCREENSHOTS_OUTPUT_PATH is set. Normal make test-ui-dev runs retain screenshots as XCTest attachments; make screenshots additionally writes them to screenshots/ in the repository root.
 
@@ -59,7 +60,10 @@ The Makefile passes the absolute worktree screenshots directory through TEST_RUN
 
 ## Authenticity
 
-Screenshots are produced through one continuous app session and real UI flows. Panes are created through the New Pane sheet, worktree prompts use real Git worktrees, reordering uses real drag gestures, and terminal attention uses the existing bell handling. The walkthrough does not inject sessions, panes, notification arrays, activity states, or GitHub pull-request data.
+Screenshots are produced through real UI flows. Panes are created through the New Pane sheet,
+worktree prompts use real Git worktrees, reordering uses real drag gestures, and terminal attention
+uses the existing bell handling. The walkthrough does not inject sessions, panes, notification
+arrays, activity states, or GitHub pull-request data.
 
 ## Workflow integration
 
