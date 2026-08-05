@@ -22,6 +22,27 @@ cmp \
     "$test_root/site/downloads/AgentSessionManager-latest.dmg"
 test -f "$test_root/site/appcast.xml"
 test "$(git -C "$repo_root" ls-files '*.dmg')" = ""
+
+cat > "$test_root/input/published-appcast.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <item><sparkle:version>250</sparkle:version></item>
+  </channel>
+</rss>
+EOF
+
+test "$(RELEASE_APPCAST_PATH="$test_root/input/published-appcast.xml" \
+    "$repo_root/scripts/release-build-number.sh" 227)" = "251"
+
+if APPCAST_BASE="$test_root/input/published-appcast.xml" \
+    APPCAST_OUTPUT="$test_root/output-appcast.xml" \
+    "$repo_root/scripts/update-appcast.sh" \
+    "$test_root/input/AgentSessionManager-0.0.1-1.dmg" 0.0.3 225 >/dev/null 2>&1; then
+    echo "appcast accepted a build version older than a published release" >&2
+    exit 1
+fi
+
 if rg -n 'github\.com/JustinDFuller/agent-session-manager/releases|justinfuller\.github\.io' \
     "$repo_root/index.md" \
     "$repo_root/documentation/tutorials" \

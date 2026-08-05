@@ -54,10 +54,10 @@ AgentSessionManager-0.0.1-197.dmg
 
 ### Version Stamping
 
-`make dist` derives version numbers from git state:
+`make dist` derives version numbers from git state and the published Sparkle appcast:
 
 - `CFBundleShortVersionString` comes from the latest git tag with the leading `v` removed. If no tag exists, it falls back to `0.0.1`.
-- `CFBundleVersion` comes from `git rev-list --count HEAD` and is guaranteed to be monotonic.
+- `CFBundleVersion` is the greater of `git rev-list --count HEAD` and one above the highest build published in the public Sparkle appcast. The appcast is the authoritative release sequence, so the number remains monotonic across divergent branches and merge strategies.
 
 Create the first release tag before running `make dist`:
 
