@@ -103,6 +103,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
         description: "An auxiliary dashboard window must not be open unless something explicitly requested it.",
         traceEventName: "app.launch.auxiliary_window_opened"
     )
+
+    static let githubCLIAvailable = Invariant(
+        id: "github.cli.available",
+        integration: "GitHub CLI",
+        severity: .warning,
+        description: "PR tracking requires a discoverable GitHub CLI executable.",
+        traceEventName: "github.cli.missing_executable"
+    )
 }
 
 struct InvariantViolation: Codable, Identifiable, Equatable, Sendable {

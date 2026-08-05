@@ -441,9 +441,12 @@ struct SessionPersistence {
 
         var branchInfos: [PRTrackingCoordinator.BranchInfo] = []
         await withTaskGroup(of: PRTrackingCoordinator.BranchInfo?.self) { group in
-            for (pane, _) in candidates {
+            for (pane, tab) in candidates {
                 guard let cwd = pane.worktreeDirectory?.path else { continue }
                 let paneID = pane.id
+                let paneName = pane.name
+                let tabID = tab.id
+                let tabName = tab.name
                 group.addTask {
                     async let branchResult = PRTrackingCoordinator.fetchBranch(workingDirectory: cwd)
                     async let ownerRepoResult: (owner: String, repo: String)? = withCheckedContinuation {
@@ -475,7 +478,8 @@ struct SessionPersistence {
                         let (owner, repo) = await ownerRepoResult
                     else { return nil }
                     return PRTrackingCoordinator.BranchInfo(
-                        paneID: paneID, owner: owner, repo: repo, branch: branch)
+                        paneID: paneID, owner: owner, repo: repo, branch: branch,
+                        paneName: paneName, tabID: tabID, tabName: tabName)
                 }
             }
             for await info in group {

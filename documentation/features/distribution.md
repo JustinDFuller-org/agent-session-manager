@@ -8,6 +8,8 @@ The Mac App Store and TestFlight for macOS require the App Sandbox to be enabled
 
 The app uses the existing `AgentSessionManager.entitlements` file only to record the automation Apple Events entitlement; it does not enable the App Sandbox.
 
+Released DMGs use Sparkle for update checks. GitHub PR tracking still requires the user-installed, authenticated GitHub CLI; Finder launches use the app's sanitized environment so standard CLI locations and GitHub CLI configuration remain available.
+
 ## Distribution Pipeline
 
 The shippable artifact is produced by:

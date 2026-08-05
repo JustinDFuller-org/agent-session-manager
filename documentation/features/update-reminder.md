@@ -6,7 +6,7 @@ Agent Session Manager checks for newer versions in two mutually exclusive ways, 
 
 | Channel | Detection mechanism | Typical build |
 |---|---|---|
-| `sourceMain` | Compare local `main` commit SHA to `origin/main` via the GitHub API. | `make run`, ad-hoc-signed development builds |
+| `sourceMain` | Compare the built commit SHA to `main` through the authenticated GitHub CLI API. | `make run`, ad-hoc-signed development builds |
 | `dmg` | Sparkle checks `appcast.xml` and prompts to download a new DMG. | `make dist` Developer ID + notarized builds |
 
 The `ASMDistributionChannel` key in `Info.plist` determines which path is active. `scripts/dist.sh` writes `dmg` and strips `ASMSource*` keys; source builds leave the key absent or set to `sourceMain`.
@@ -22,15 +22,13 @@ The same indicator is also surfaced in Settings → About.
 
 ## Source Builds
 
-`MainBranchUpdateDetector` runs `git rev-parse origin/main` and `git rev-parse HEAD` in the repository that built the app. If `origin/main` is ahead, it reports an available update. This only works when:
-
-- The build directory is a git checkout.
-- `origin/main` is reachable.
-- The GitHub API is available (a private repo requires `gh auth`).
+`MainBranchUpdateDetector` compares the build provenance embedded in the app with the SHA returned by the authenticated GitHub CLI request `gh api repos/JustinDFuller/agent-session-manager/commits/main --jq .sha`. If the returned SHA differs from the embedded build commit, it reports an available update. This requires an installed, authenticated `gh`; it does not require the app to run from a checkout or have an `origin/main` remote.
 
 ## DMG Builds
 
 `DMGReleaseDetector` hosts a Sparkle `SPUUpdater`. It reads `SUFeedURL` and `SUPublicEdKey` from `Info.plist` and checks the public `appcast.xml` at the configured GitHub Pages URL. Released DMGs do not require access to the private repository.
+
+DMG builds remain Sparkle-based and do not invoke `gh`. Source builds use the same sanitized, noninteractive GitHub CLI runner as PR tracking, so Finder launches retain standard CLI configuration and authentication lookup.
 
 Release signing uses EdDSA:
 

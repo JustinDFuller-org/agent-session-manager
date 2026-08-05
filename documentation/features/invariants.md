@@ -15,6 +15,7 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 | `statusline.worktree.name` | Status Line | warning | `statusline.worktree.name_mismatch` |
 | `statusline.lines.source` | Status Line | warning | `statusline.lines.source_mismatch` |
 | `app.bundle_identity.preferred_url` | App Bundle | warning | `app.bundle_identity.preferred_url_mismatch` |
+| `github.cli.available` | GitHub CLI | warning | `github.cli.missing_executable` |
 | `opencode.config_content.app_controlled` | OpenCode | warning | `opencode.config_content.user_override_silenced` |
 | `opencode.port_missing` | OpenCode | error | `statusline.opencode.port_missing` |
 | `opencode.port.policy` | OpenCode | error | `opencode.port.policy_violated` |
