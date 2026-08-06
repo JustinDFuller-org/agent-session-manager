@@ -18,12 +18,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: NSWindowController?
     private var hasCheckedAuxiliaryWindowsAtLaunch = false
     private var auxiliaryWindowVisibilityObserver: NSObjectProtocol?
+    private let lifecycleLaunchID = UUID()
 
     #if DEV_BUILD
     private var windowLifecycleObservers: [NSObjectProtocol] = []
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let launchLifecycleResult = ApplicationLifecycleMarker.record(
+            .running,
+            launchID: lifecycleLaunchID)
         NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.setActivationPolicy(.regular)
         if let icon = MacNotificationCoordinator.bundleAppIcon() {
@@ -33,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MacNotificationCoordinator.shared.bind(appState: appState, appSettings: appSettings)
 
         let hosting = NSHostingController(
-            rootView: ContentView()
+            rootView: ContentView(launchLifecycleResult: launchLifecycleResult)
                 .environment(appState)
                 .environment(appSettings)
                 .frame(minWidth: 900, minHeight: 600)
@@ -96,6 +100,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task { @MainActor in
             await AgentControlService.shared.stop()
+            let lifecycleResult = ApplicationLifecycleMarker.record(
+                .clean,
+                launchID: lifecycleLaunchID)
+            TracingService.shared.record(
+                "app.termination.requested",
+                attributes: [
+                    "result": lifecycleResult.writeResult.rawValue
+                ])
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

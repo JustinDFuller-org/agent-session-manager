@@ -52,7 +52,7 @@ Codex rollout parsing is intentionally bounded and content-avoiding. It accepts 
 
 ## Invariants
 
-The status line enforces five invariants that guarantee consistent values regardless of which CLI is in use.
+The status line enforces runtime invariants that guarantee consistent values regardless of which CLI is in use.
 
 ### I1. Worktree name is the pane's working directory
 
@@ -73,6 +73,22 @@ Items in the Add Item dropdown are sorted by label using `localizedStandardCompa
 ### I5. Worktree fact is a single item (name + branch)
 
 The `worktree` fact renders as `name • branch` when both values are available, or just `name` when branch is absent. The old `worktreeBranch` item, which duplicated the branch half of this fact, has been removed. Saved configurations containing `worktreeBranch` rows are migrated on first load: if the row does not already have a `worktree` item, `worktreeBranch` is replaced by `worktree`; otherwise it is dropped.
+
+### I8. Custom field failures preserve the last good value
+
+Custom status line fields run shell commands on their configured cadence and receive the pane context
+as JSON on standard input. Each scheduled or **Run Now** execution records a start followed by either
+`statusline.custom_field.exec_succeeded`, `statusline.custom_field.exec_failed`, or
+`statusline.custom_field.exec_stale`. Runs of the same generation coalesce, and a result from a
+replaced or removed field is discarded. Failures retain the last successful value instead of replacing
+it with `—`.
+
+Child-process standard input is nonblocking and configured to return a bounded `stdin_write` failure
+when the command closes its input. If the command leaves input open without consuming it, the same
+absolute command deadline returns `timeout`. A custom command can therefore finish or fail without
+blocking past its timeout or sending `SIGPIPE` to Agent Session Manager. Failure telemetry includes the
+dynamic trigger, duration, child exit status when available, and bounded input-failure stage and error
+code for write failures.
 
 ## Onboarding
 
@@ -139,6 +155,11 @@ Migration-only events remain trace events:
 | `statusline.provider.stopped` | A provider stops for a pane |
 | `statusline.provider.update_applied` | A provider snapshot is applied to the pane monitor |
 | `statusline.provider.update_failed` | Reserved for provider snapshot failures |
+| `statusline.custom_field.exec_started` | A scheduled or Run Now custom field execution starts; includes pane/tab identity, field id, and trigger |
+| `statusline.custom_field.exec_succeeded` | A custom field updates its cached value; includes trigger, duration, and output kind |
+| `statusline.custom_field.exec_failed` | A custom field fails while retaining its prior value; includes trigger, duration, reason, child exit status when available, and bounded input failure details |
+| `statusline.custom_field.exec_stale` | A result for an outdated field generation was ignored; includes pane/tab identity, field id, and trigger |
+| `statusline.custom_field.run_now` | A saved field was dispatched to matching panes; includes scope, target, started/coalesced counts, result, and profile id for profile scope |
 | `statusline.watcher.lifecycle` | A Claude status payload, attention, or hook-log watcher starts, waits for its file, recovers, or stops |
 | `statusline.cursor.<role>_watcher.<state>` | A Cursor hook, lifecycle, or attention watcher starts, fails to attach, recovers, or stops |
 | `statusline.codex.hook_waiting` | Codex provider is still waiting for a hook record; includes retry attempt, late-binding state, and hook availability |
@@ -155,7 +176,3 @@ Migration-only events remain trace events:
 | `statusline.codex.session_ambiguous` | Reserved legacy event for ambiguous Codex state rows |
 | `statusline.codex.rollout_unavailable` | Reserved legacy event for missing Codex rollout paths |
 | `statusline.codex.schema_unsupported` | The detected Codex version has no rollout adapter |
-| `statusline.custom_field.exec_succeeded` | A custom field updated its cached value; includes pane/tab IDs and names, `field_id`, `trigger` (`scheduled` or `manual`), `duration_ms`, and `output_kind` |
-| `statusline.custom_field.exec_failed` | A custom field failed without clearing its cached value; includes pane/tab IDs and names, `field_id`, `trigger`, failure `reason`, and `retained_prior_value` |
-| `statusline.custom_field.exec_stale` | A result for an outdated command generation was ignored; includes pane/tab IDs and names, `field_id`, and `trigger` |
-| `statusline.custom_field.run_now` | A saved field was dispatched to matching panes; includes `field_id`, `scope`, `target_count`, `started_count`, `coalesced_count`, `result`, and `profile_id` for profile scope |

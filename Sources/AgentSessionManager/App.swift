@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct ContentView: View {
+    let launchLifecycleResult: ApplicationLifecycleRecordResult
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var appSettings
     @State private var traceCleanupService: TraceCleanupService?
@@ -216,6 +217,12 @@ struct ContentView: View {
                     appSettings.agentControlScope = config.scope
                 }
                 TracingService.shared.configure(from: appSettings)
+                TracingService.shared.record(
+                    "app.launched",
+                    attributes: [
+                        "previous_exit": launchLifecycleResult.previousExit.rawValue,
+                        "marker_result": launchLifecycleResult.writeResult.rawValue,
+                    ])
                 InvariantReporter.shared.configure(from: appSettings)
                 await AgentControlService.shared.configure(appState: appState, appSettings: appSettings)
                 await AgentControlService.shared.start()

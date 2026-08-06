@@ -19,6 +19,7 @@ enum CustomFieldExecutionFailure: String {
     case timeout
     case spawnError = "spawn_error"
     case emptyOutput = "empty_output"
+    case stdinWrite = "stdin_write"
 }
 
 enum CustomFieldOutputKind: String {
@@ -26,9 +27,15 @@ enum CustomFieldOutputKind: String {
     case structured
 }
 
+struct CustomFieldExecutionError: Equatable {
+    let reason: CustomFieldExecutionFailure
+    let exitCode: Int32?
+    let inputFailure: ChildProcessInputWriteFailure?
+}
+
 enum CustomFieldExecutionResult {
     case success(CustomFieldRenderValue, outputKind: CustomFieldOutputKind)
-    case failure(CustomFieldExecutionFailure)
+    case failure(CustomFieldExecutionError)
 }
 
 /// Runs a `CustomStatusLineField`'s command: builds the stdin JSON context and env vars, executes
@@ -192,13 +199,23 @@ enum CustomFieldRunner {
             process.terminationHandler = { finishedProcess in
                 let data = outPipe.fileHandleForReading.readDataToEndOfFile()
                 guard finishedProcess.terminationStatus == 0 else {
-                    resumeOnce(.failure(.nonzeroExit))
+                    resumeOnce(
+                        .failure(
+                            CustomFieldExecutionError(
+                                reason: .nonzeroExit,
+                                exitCode: finishedProcess.terminationStatus,
+                                inputFailure: nil)))
                     return
                 }
                 let stripped = stripANSI(String(data: data, encoding: .utf8) ?? "")
                 let trimmed = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {
-                    resumeOnce(.failure(.emptyOutput))
+                    resumeOnce(
+                        .failure(
+                            CustomFieldExecutionError(
+                                reason: .emptyOutput,
+                                exitCode: finishedProcess.terminationStatus,
+                                inputFailure: nil)))
                     return
                 }
                 let (value, outputKind) = parse(trimmed)
@@ -208,18 +225,52 @@ enum CustomFieldRunner {
             do {
                 try process.run()
             } catch {
-                resumeOnce(.failure(.spawnError))
+                resumeOnce(
+                    .failure(
+                        CustomFieldExecutionError(
+                            reason: .spawnError,
+                            exitCode: nil,
+                            inputFailure: nil)))
                 return
             }
 
-            inPipe.fileHandleForWriting.write(stdinPayload)
-            try? inPipe.fileHandleForWriting.close()
+            let timeout = Double(max(1, timeoutSeconds))
+            let deadline = ProcessInfo.processInfo.systemUptime + timeout
+            if let inputFailure = ChildProcessInputWriter.write(
+                stdinPayload,
+                to: inPipe.fileHandleForWriting,
+                timeout: timeout)
+            {
+                if process.isRunning { process.terminate() }
+                resumeOnce(
+                    .failure(
+                        CustomFieldExecutionError(
+                            reason: inputFailure.errorCode == ETIMEDOUT ? .timeout : .stdinWrite,
+                            exitCode: nil,
+                            inputFailure: inputFailure)))
+                return
+            }
 
-            let clampedTimeout = max(1, timeoutSeconds)
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .seconds(clampedTimeout)) {
+            let remainingTimeout = deadline - ProcessInfo.processInfo.systemUptime
+            guard remainingTimeout > 0 else {
+                if process.isRunning { process.terminate() }
+                resumeOnce(
+                    .failure(
+                        CustomFieldExecutionError(
+                            reason: .timeout,
+                            exitCode: nil,
+                            inputFailure: nil)))
+                return
+            }
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + remainingTimeout) {
                 guard process.isRunning else { return }
                 process.terminate()
-                resumeOnce(.failure(.timeout))
+                resumeOnce(
+                    .failure(
+                        CustomFieldExecutionError(
+                            reason: .timeout,
+                            exitCode: nil,
+                            inputFailure: nil)))
             }
         }
     }

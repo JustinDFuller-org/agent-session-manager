@@ -103,7 +103,7 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
     var command: String
     var refreshIntervalSeconds: Int    // effectiveRefreshIntervalSeconds clamps to a 5s minimum
     var timeoutSeconds: Int            // default 10s — a cold-cache refresh needs headroom
-    var supportedHarnesses: Set<Harness>
+    var supportedHarnesses: Set<Harness> // defaults to all user-facing harnesses
 }
 ```
 
@@ -120,13 +120,15 @@ least one harness selected, and is dismissed with **Done** or a click outside.
 
 ### Execution model
 
-`StatusLineMonitor.setCustomFields(_:)` starts one repeating `Timer` per field (immediate first
-run + `effectiveRefreshIntervalSeconds` cadence), diffing against the previously-scheduled set so an
-unchanged field's timer isn't restarted. `CustomFieldRunner.run(field:context:)` runs the command via
+`StatusLineMonitor.setCustomFields(_:)` first filters fields by the pane's harness, then starts one
+repeating `Timer` per eligible field (immediate first run + `effectiveRefreshIntervalSeconds`
+cadence), diffing against the previously-scheduled set so an unchanged field's timer isn't restarted.
+`Run Now` uses the same monitor context and runner for a saved global or profile field and never
+executes an unsaved draft. `CustomFieldRunner.run(field:context:)` runs the command via
 `/bin/zsh -i -c` in the pane's working directory with the same sanitized baseline used by terminal
-panes and any runtime environment values configured for the pane or profile. It applies a per-field
-timeout (`Process.terminate()` via a `DispatchWorkItem`, since `Process` has no built-in timeout),
-strips ANSI escape sequences from stdout, and parses the result.
+panes and any runtime environment values configured for the pane or profile. It writes the JSON input
+through a bounded, SIGPIPE-safe pipe, applies one absolute per-field deadline, strips ANSI escape
+sequences from stdout, and parses the result.
 
 ### What the command receives
 
@@ -306,7 +308,8 @@ Catch-all "lenient" decoders (decode whatever arrives without validation) are no
 | `statusline.codex.tailer_stopped` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result` | Codex rollout watcher stops |
 | `statusline.codex.tailer_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `line_count`, `update_count`, `catch_up` | Codex rollout tailer reads a bounded batch |
 | `statusline.codex.parsed_update` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `has_model`, `has_tokens`, `has_context`, `has_rate_limits` | Codex rollout parsing produced a supported update |
+| `statusline.custom_field.exec_started` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`) | A scheduled or Run Now custom field execution started |
 | `statusline.custom_field.exec_succeeded` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`), `duration_ms`, `output_kind` (`text`\|`structured`) | I8: a custom field's command completed and its cached value was updated |
-| `statusline.custom_field.exec_failed` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`), `reason` (`nonzero_exit`\|`timeout`\|`spawn_error`\|`empty_output`), `retained_prior_value` | I8: a custom field's command failed; the prior cached value is kept, never reverted to `—` |
+| `statusline.custom_field.exec_failed` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`), `duration_ms`, `reason` (`nonzero_exit`\|`timeout`\|`spawn_error`\|`empty_output`\|`stdin_write`), `retained_prior_value`, `exit_code`†, `input_failure_stage`†, `input_error_code`† | I8: a custom field's command failed; the prior cached value is kept, never reverted to `—`. †Present when available. |
 | `statusline.custom_field.exec_stale` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`) | A result for an obsolete command generation was ignored |
 | `statusline.custom_field.run_now` | `field_id`, `scope` (`global`\|`profile`), `target_count`, `started_count`, `coalesced_count`, `result`, `profile_id`† | A saved field was dispatched to matching panes. †Present for profile scope. |

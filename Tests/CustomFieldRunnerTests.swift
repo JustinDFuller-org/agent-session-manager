@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 
 @testable import AgentSessionManager
@@ -6,6 +7,7 @@ final class CustomFieldRunnerTests: XCTestCase {
     private func makeContext(
         currentData: StatusLineData? = nil,
         profileName: String? = "TestProfile",
+        paneName: String = "test-pane",
         extraEnvironment: [String: String] = [:]
     )
         -> CustomFieldExecutionContext
@@ -13,7 +15,7 @@ final class CustomFieldRunnerTests: XCTestCase {
         CustomFieldExecutionContext(
             currentData: currentData,
             paneID: UUID(),
-            paneName: "test-pane",
+            paneName: paneName,
             tabID: UUID(),
             tabName: "test-tab",
             harness: .claude,
@@ -112,21 +114,23 @@ final class CustomFieldRunnerTests: XCTestCase {
     func testNonzeroExitReportsFailure() async {
         let field = CustomStatusLineField(label: "Fail", command: "exit 1")
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
-        guard case .failure(let reason) = result else {
+        guard case .failure(let error) = result else {
             XCTFail("Expected failure, got \(result)")
             return
         }
-        XCTAssertEqual(reason, .nonzeroExit)
+        XCTAssertEqual(error.reason, .nonzeroExit)
+        XCTAssertEqual(error.exitCode, 1)
     }
 
     func testEmptyOutputReportsFailure() async {
         let field = CustomStatusLineField(label: "Empty", command: "true")
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
-        guard case .failure(let reason) = result else {
+        guard case .failure(let error) = result else {
             XCTFail("Expected failure, got \(result)")
             return
         }
-        XCTAssertEqual(reason, .emptyOutput)
+        XCTAssertEqual(error.reason, .emptyOutput)
+        XCTAssertEqual(error.exitCode, 0)
     }
 
     func testTimeoutTerminatesLongRunningCommand() async {
@@ -134,12 +138,50 @@ final class CustomFieldRunnerTests: XCTestCase {
         let startedAt = Date()
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
         let elapsed = Date().timeIntervalSince(startedAt)
-        guard case .failure(let reason) = result else {
+        guard case .failure(let error) = result else {
             XCTFail("Expected failure, got \(result)")
             return
         }
-        XCTAssertEqual(reason, .timeout)
+        XCTAssertEqual(error.reason, .timeout)
         XCTAssertLessThan(elapsed, 4, "should be killed near the 1s timeout, not run the full 5s sleep")
+    }
+
+    func testClosedStdinReportsFailureWithoutTerminatingApp() async {
+        let field = CustomStatusLineField(
+            label: "Closed stdin",
+            command: "exec 0<&-; sleep 1; echo unreachable")
+        let largeContext = makeContext(paneName: String(repeating: "x", count: 1_000_000))
+
+        for _ in 0..<3 {
+            let result = await CustomFieldRunner.run(field: field, context: largeContext)
+            guard case .failure(let error) = result else {
+                XCTFail("Expected stdin write failure, got \(result)")
+                return
+            }
+            XCTAssertEqual(error.reason, .stdinWrite)
+            XCTAssertEqual(error.inputFailure?.stage, .write)
+            XCTAssertEqual(error.inputFailure?.errorCode, EPIPE)
+        }
+    }
+
+    func testOpenUnreadStdinDoesNotBlockPastCommandTimeout() async {
+        let field = CustomStatusLineField(
+            label: "Unread stdin",
+            command: "exec sleep 5",
+            timeoutSeconds: 1)
+        let largeContext = makeContext(paneName: String(repeating: "x", count: 1_000_000))
+        let startedAt = Date()
+
+        let result = await CustomFieldRunner.run(field: field, context: largeContext)
+
+        guard case .failure(let error) = result else {
+            XCTFail("Expected stdin write failure, got \(result)")
+            return
+        }
+        XCTAssertEqual(error.reason, .timeout)
+        XCTAssertEqual(error.inputFailure?.stage, .write)
+        XCTAssertEqual(error.inputFailure?.errorCode, ETIMEDOUT)
+        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 2.5)
     }
 
     // MARK: - Output parsing

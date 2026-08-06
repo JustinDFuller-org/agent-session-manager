@@ -44,6 +44,21 @@ override; `device.id` may also appear.
 
 The exporter routes every span with `pane.id` to a pane file. Spans without `pane.id` route to `_global/global.jsonl`. Tab and pane names are sanitized only for paths; diagnosis should read metadata rather than derive filenames.
 
+## App Lifecycle Correlation
+
+The app synchronously writes `app-lifecycle.json` in its application-support directory. Launch writes
+`running` with a launch UUID; an approved AppKit termination writes `clean` after Agent Control stops
+only when the on-disk marker still belongs to that launch. This ownership check prevents an older
+concurrent instance from marking a newer instance clean; an interprocess file lock keeps the
+read/check/write sequence atomic across instances. A later launch that finds `running` reports
+`previous_exit=unclean`, while a missing, unsupported, or unreadable marker reports
+`previous_exit=unknown`.
+
+`app.launched` records the previous-exit classification and marker write result after tracing is
+configured. `app.termination.requested` records whether the clean marker was written. A force kill,
+signal crash, or power loss cannot emit a final span, so the next launch's marker classification is the
+durable evidence for an unclean process exit.
+
 ## Auto-forwarding to other signals
 
 Every `TracingService.startSpan`/`record`/`withSpan` call also, unconditionally:
@@ -64,10 +79,11 @@ Each file is trimmed at the fixed 10 MB cap. `TraceCleanupService` removes files
 |---|---|
 | Pane lifecycle | `pane.activated`, `pane.focus_mode.changed`, `pane.notification.added`, `pane.notification.cleared`, `pane.activity.changed`, `pane.pr_merged.cleared`, `pane.pr_closed.cleared`, `tab.pane.added`, `tab.worktree.resolved` |
 | Session restore | `session.pane.restore.continuation` |
+| App lifecycle | `app.launched`, `app.termination.requested` |
 | Profiles | `profile.save` |
 | Agent control | `agent_control.injection_decision.resolved`, `agent_control.server.starting`, `agent_control.server.started`, `agent_control.server.start_failed`, `agent_control.server.stopped`, `agent_control.credential.registered`, `agent_control.credential.revoked`, `agent_control.scope.updated`, `agent_control.session.bound`, `agent_control.session.closed`, `agent_control.request.authorization_failed`, `agent_control.request.cancelled`, `agent_control.request.timed_out`, `agent_control.request.response_too_large`, `agent_control.request.stream_failed`, `agent_control.resource.read`, `agent_control.mutation`, `agent_control.harness.prepare`, `agent_control.diagnostic.query`, `agent_control.tool.authorization_denied`, `agent_control.debug_mode.changed` |
 | Terminal | `terminal.process.started`, `terminal.process.exited`, `terminal.attention.delivered`, `terminal.clipboard.copied`, `terminal.clipboard.pasted`, `terminal.scrollback.changed` |
-| Status line | `statusline.monitor.started`, `statusline.monitor.stopped`, `statusline.settings_file.written`, `statusline.attention.received`, `statusline.payload.applied`, `statusline.payload.decode_failed`, `statusline.payload.stale_recovered`, `statusline.pr_transition`, `statusline.migration.gitworktree_dropped`, `statusline.migration.worktreebranch_merged`, `statusline.hook.event` |
+| Status line | `statusline.monitor.started`, `statusline.monitor.stopped`, `statusline.settings_file.written`, `statusline.attention.received`, `statusline.payload.applied`, `statusline.payload.decode_failed`, `statusline.payload.stale_recovered`, `statusline.pr_transition`, `statusline.migration.gitworktree_dropped`, `statusline.migration.worktreebranch_merged`, `statusline.custom_field.exec_started`, `statusline.custom_field.exec_succeeded`, `statusline.custom_field.exec_failed`, `statusline.custom_field.exec_stale`, `statusline.custom_field.run_now`, `statusline.hook.event` |
 | Invariants | `statusline.worktree.name_mismatch`, `statusline.lines.source_mismatch`, `app.bundle_identity.preferred_url_mismatch`, `cursor.agent_control.bridge_missing`, `app.launch.auxiliary_window_opened`, `app.launch.auxiliary_windows_checked`, `invariant.log.write_failed`, `terminal.clipboard.copy_without_selection` |
 | Notifications | `notification.auth.requested`, `notification.pane_attention.posted`, `notification.pane_attention.skipped`, `notification.pr_merged.posted`, `notification.pr_merged.skipped`, `notification.pr_closed.posted`, `notification.pr_closed.skipped`, `notification.response.navigation` |
 | PR tracking | `pr.poll.cycle`, `pr.graphql.query`, `pr.response.parsed`, `pr.result.delivered`, `session.pr_check` |
