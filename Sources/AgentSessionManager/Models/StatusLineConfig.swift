@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 enum StatusFactOwner: String, Codable {
@@ -97,6 +98,31 @@ enum CustomFieldTint: String, Codable {
     case critical
 }
 
+enum StatusLineIconCategory: String, CaseIterable, Hashable, Sendable {
+    case development = "Development"
+    case repository = "Repository"
+    case status = "Status"
+    case time = "Time"
+    case cost = "Cost"
+    case data = "Data"
+    case network = "Network"
+    case people = "People"
+    case alert = "Alert"
+}
+
+struct StatusLineIconOption: Identifiable, Hashable, Sendable {
+    let symbol: String
+    let displayName: String
+    let category: StatusLineIconCategory
+    let keywords: [String]
+
+    var id: String { symbol }
+
+    var searchTerms: [String] {
+        [displayName, symbol] + keywords
+    }
+}
+
 /// The render contract a custom field's command emits on stdout. Plain text (the "echo hello" path)
 /// decodes to this with only `text` set; a script opts into a progress bar or state color by
 /// printing this shape as JSON instead.
@@ -122,6 +148,8 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
     var command: String
     var refreshIntervalSeconds: Int
     var timeoutSeconds: Int
+    var supportedHarnesses: Set<Harness>
+    fileprivate(set) var needsPersistenceMigration = false
 
     init(
         id: String = "custom:\(UUID().uuidString)",
@@ -129,7 +157,8 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
         sfSymbol: String = "terminal",
         command: String,
         refreshIntervalSeconds: Int = defaultRefreshIntervalSeconds,
-        timeoutSeconds: Int = defaultTimeoutSeconds
+        timeoutSeconds: Int = defaultTimeoutSeconds,
+        supportedHarnesses: Set<Harness> = StatusLineConfig.allHarnesses
     ) {
         self.id = id
         self.label = label
@@ -137,10 +166,48 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
         self.command = command
         self.refreshIntervalSeconds = refreshIntervalSeconds
         self.timeoutSeconds = timeoutSeconds
+        self.supportedHarnesses = supportedHarnesses
     }
 
     var effectiveRefreshIntervalSeconds: Int {
         max(Self.minimumRefreshIntervalSeconds, refreshIntervalSeconds)
+    }
+
+    func supports(_ harness: Harness) -> Bool {
+        supportedHarnesses.contains(harness)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        label = try container.decode(String.self, forKey: .label)
+        sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol) ?? "terminal"
+        command = try container.decode(String.self, forKey: .command)
+        refreshIntervalSeconds =
+            try container.decodeIfPresent(Int.self, forKey: .refreshIntervalSeconds)
+            ?? Self.defaultRefreshIntervalSeconds
+        timeoutSeconds =
+            try container.decodeIfPresent(Int.self, forKey: .timeoutSeconds)
+            ?? Self.defaultTimeoutSeconds
+        supportedHarnesses =
+            try container.decodeIfPresent(Set<Harness>.self, forKey: .supportedHarnesses)
+            ?? StatusLineConfig.allHarnesses
+        needsPersistenceMigration =
+            !container.contains(.sfSymbol) || !container.contains(.supportedHarnesses)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, label, sfSymbol, command, refreshIntervalSeconds, timeoutSeconds, supportedHarnesses
+    }
+
+    static func == (lhs: CustomStatusLineField, rhs: CustomStatusLineField) -> Bool {
+        lhs.id == rhs.id
+            && lhs.label == rhs.label
+            && lhs.sfSymbol == rhs.sfSymbol
+            && lhs.command == rhs.command
+            && lhs.refreshIntervalSeconds == rhs.refreshIntervalSeconds
+            && lhs.timeoutSeconds == rhs.timeoutSeconds
+            && lhs.supportedHarnesses == rhs.supportedHarnesses
     }
 }
 
@@ -161,6 +228,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     var rowAlignment: RowAlignment
     var showPercentagesAsText: Bool
     var customFields: [CustomStatusLineField]
+    fileprivate(set) var needsPersistenceMigration = false
 
     static let itemMetadata: [String: (label: String, symbol: String)] = [
         "model": ("Model", "cpu"),
@@ -195,6 +263,181 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
     ]
 
     static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor, .opencode]
+    static let customFieldIconOptions: [StatusLineIconOption] = [
+        // Development
+        StatusLineIconOption(
+            symbol: "terminal", displayName: "Terminal", category: .development,
+            keywords: ["shell", "command", "console"]),
+        StatusLineIconOption(
+            symbol: "cpu", displayName: "CPU", category: .development,
+            keywords: ["processor", "compute", "performance"]),
+        StatusLineIconOption(
+            symbol: "brain", displayName: "Brain", category: .development,
+            keywords: ["thinking", "reasoning", "agent"]),
+        StatusLineIconOption(
+            symbol: "keyboard", displayName: "Keyboard", category: .development,
+            keywords: ["vim", "input", "editor"]),
+        StatusLineIconOption(
+            symbol: "curlybraces", displayName: "Code", category: .development,
+            keywords: ["source", "programming", "json"]),
+        StatusLineIconOption(
+            symbol: "pencil.line", displayName: "Draft", category: .development,
+            keywords: ["edit", "writing", "change"]),
+
+        // Repository
+        StatusLineIconOption(
+            symbol: "folder", displayName: "Folder", category: .repository,
+            keywords: ["directory", "project", "workspace"]),
+        StatusLineIconOption(
+            symbol: "folder.badge.gearshape", displayName: "Worktree", category: .repository,
+            keywords: ["git", "directory", "workspace"]),
+        StatusLineIconOption(
+            symbol: "arrow.branch", displayName: "Branch", category: .repository,
+            keywords: ["git", "version control", "fork"]),
+        StatusLineIconOption(
+            symbol: "arrow.triangle.merge", displayName: "Merged", category: .repository,
+            keywords: ["git", "pull request", "integrate"]),
+        StatusLineIconOption(
+            symbol: "arrow.triangle.pull", displayName: "Pull Request", category: .repository,
+            keywords: ["git", "review", "github"]),
+        StatusLineIconOption(
+            symbol: "tag", displayName: "Tag", category: .repository,
+            keywords: ["release", "version", "label"]),
+
+        // Status
+        StatusLineIconOption(
+            symbol: "checkmark.circle", displayName: "Complete", category: .status,
+            keywords: ["success", "passed", "done"]),
+        StatusLineIconOption(
+            symbol: "checkmark.seal", displayName: "Verified", category: .status,
+            keywords: ["approved", "success", "passed"]),
+        StatusLineIconOption(
+            symbol: "xmark.circle", displayName: "Closed", category: .status,
+            keywords: ["failed", "cancelled", "error"]),
+        StatusLineIconOption(
+            symbol: "circle.dotted", displayName: "In Progress", category: .status,
+            keywords: ["working", "pending", "loading"]),
+        StatusLineIconOption(
+            symbol: "info.circle", displayName: "Information", category: .status,
+            keywords: ["details", "help", "about"]),
+        StatusLineIconOption(
+            symbol: "text.alignleft", displayName: "Response Style", category: .status,
+            keywords: ["style", "text", "response"]),
+
+        // Time
+        StatusLineIconOption(
+            symbol: "clock", displayName: "Clock", category: .time,
+            keywords: ["duration", "time", "elapsed"]),
+        StatusLineIconOption(
+            symbol: "clock.arrow.2.circlepath", displayName: "API Duration", category: .time,
+            keywords: ["request", "latency", "elapsed"]),
+        StatusLineIconOption(
+            symbol: "timer", displayName: "Timer", category: .time,
+            keywords: ["deadline", "duration", "countdown"]),
+        StatusLineIconOption(
+            symbol: "calendar.badge.clock", displayName: "Scheduled", category: .time,
+            keywords: ["date", "reset", "calendar"]),
+        StatusLineIconOption(
+            symbol: "arrow.clockwise.circle", displayName: "Refresh", category: .time,
+            keywords: ["retry", "reload", "reset"]),
+        StatusLineIconOption(
+            symbol: "stopwatch", displayName: "Stopwatch", category: .time,
+            keywords: ["duration", "performance", "elapsed"]),
+
+        // Cost
+        StatusLineIconOption(
+            symbol: "dollarsign.circle", displayName: "Cost", category: .cost,
+            keywords: ["price", "spend", "budget"]),
+        StatusLineIconOption(
+            symbol: "dollarsign.square", displayName: "Dollars", category: .cost,
+            keywords: ["price", "spend", "budget"]),
+        StatusLineIconOption(
+            symbol: "creditcard", displayName: "Billing", category: .cost,
+            keywords: ["payment", "cost", "spend"]),
+        StatusLineIconOption(
+            symbol: "chart.line.uptrend.xyaxis", displayName: "Spend Trend", category: .cost,
+            keywords: ["cost", "budget", "chart"]),
+
+        // Data
+        StatusLineIconOption(
+            symbol: "gauge.with.needle", displayName: "Usage", category: .data,
+            keywords: ["context", "rate", "capacity"]),
+        StatusLineIconOption(
+            symbol: "gauge.with.needle.fill", displayName: "Usage Filled", category: .data,
+            keywords: ["context", "rate", "capacity"]),
+        StatusLineIconOption(
+            symbol: "percent", displayName: "Percent", category: .data,
+            keywords: ["percentage", "rate", "usage"]),
+        StatusLineIconOption(
+            symbol: "number", displayName: "Number", category: .data,
+            keywords: ["count", "metric", "value"]),
+        StatusLineIconOption(
+            symbol: "plus.square", displayName: "Lines Added", category: .data,
+            keywords: ["diff", "git", "added"]),
+        StatusLineIconOption(
+            symbol: "minus.square", displayName: "Lines Removed", category: .data,
+            keywords: ["diff", "git", "deleted"]),
+        StatusLineIconOption(
+            symbol: "arrow.down.circle", displayName: "Input", category: .data,
+            keywords: ["tokens", "received", "download"]),
+        StatusLineIconOption(
+            symbol: "arrow.up.circle", displayName: "Output", category: .data,
+            keywords: ["tokens", "sent", "upload"]),
+        StatusLineIconOption(
+            symbol: "ruler", displayName: "Context Size", category: .data,
+            keywords: ["tokens", "window", "limit"]),
+
+        // Network
+        StatusLineIconOption(
+            symbol: "network", displayName: "Network", category: .network,
+            keywords: ["connection", "service", "api"]),
+        StatusLineIconOption(
+            symbol: "globe", displayName: "Globe", category: .network,
+            keywords: ["internet", "remote", "web"]),
+        StatusLineIconOption(
+            symbol: "antenna.radiowaves.left.and.right", displayName: "Signal", category: .network,
+            keywords: ["connection", "wireless", "availability"]),
+        StatusLineIconOption(
+            symbol: "cloud", displayName: "Cloud", category: .network,
+            keywords: ["remote", "service", "sync"]),
+        StatusLineIconOption(
+            symbol: "link", displayName: "Link", category: .network,
+            keywords: ["url", "connection", "reference"]),
+
+        // People
+        StatusLineIconOption(
+            symbol: "person", displayName: "Person", category: .people,
+            keywords: ["user", "owner", "author"]),
+        StatusLineIconOption(
+            symbol: "person.2", displayName: "People", category: .people,
+            keywords: ["team", "collaboration", "users"]),
+        StatusLineIconOption(
+            symbol: "person.crop.circle", displayName: "Agent", category: .people,
+            keywords: ["profile", "assistant", "user"]),
+        StatusLineIconOption(
+            symbol: "person.crop.rectangle", displayName: "Profile", category: .people,
+            keywords: ["account", "user", "identity"]),
+        StatusLineIconOption(
+            symbol: "figure.walk", displayName: "Walking", category: .people,
+            keywords: ["activity", "progress", "movement"]),
+
+        // Alert
+        StatusLineIconOption(
+            symbol: "bell", displayName: "Bell", category: .alert,
+            keywords: ["notification", "attention", "alert"]),
+        StatusLineIconOption(
+            symbol: "bell.badge", displayName: "Notification", category: .alert,
+            keywords: ["attention", "unread", "alert"]),
+        StatusLineIconOption(
+            symbol: "exclamationmark.triangle", displayName: "Warning", category: .alert,
+            keywords: ["error", "attention", "risk"]),
+        StatusLineIconOption(
+            symbol: "shield", displayName: "Security", category: .alert,
+            keywords: ["safe", "protection", "warning"]),
+        StatusLineIconOption(
+            symbol: "flag", displayName: "Flag", category: .alert,
+            keywords: ["attention", "marker", "priority"]),
+    ]
     static let appCapability = StatusFactCapability(
         owner: .app, supportedHarnesses: allHarnesses, missingBehavior: .pending)
     static let mergedCapability = StatusFactCapability(
@@ -244,6 +487,21 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
 
     static let itemAvailability: [String: StatusFactCapability] = itemCapabilities
 
+    static func isSFSymbolAvailable(_ symbol: String) -> Bool {
+        guard !symbol.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil
+    }
+
+    static func renderedCustomFieldSymbol(scriptOverride: String?, configuredSymbol: String) -> String {
+        if let scriptOverride, isSFSymbolAvailable(scriptOverride) {
+            return scriptOverride
+        }
+        if isSFSymbolAvailable(configuredSymbol) {
+            return configuredSymbol
+        }
+        return "terminal"
+    }
+
     static let itemOrder: [String] = [
         "model", "worktree", "cost", "context", "effort", "thinking", "vimMode",
         "agentName", "sessionName", "linesAdded",
@@ -272,6 +530,25 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         Self.allItems + customFields.map { StatusLineItem(id: $0.id, label: $0.label, sfSymbol: $0.sfSymbol) }
     }
 
+    func customField(withID id: String) -> CustomStatusLineField? {
+        customFields.first { $0.id == id }
+    }
+
+    func capability(for item: StatusLineItem) -> StatusFactCapability {
+        guard let field = customField(withID: item.id) else {
+            return item.capability
+        }
+        return StatusFactCapability(
+            owner: .app,
+            supportedHarnesses: field.supportedHarnesses,
+            missingBehavior: .unsupported
+        )
+    }
+
+    func supports(_ item: StatusLineItem, on harness: Harness) -> Bool {
+        capability(for: item).supports(harness)
+    }
+
     var usedItemIDs: Set<String> {
         Set(rows.flatMap { $0.items.map(\.id) })
     }
@@ -288,6 +565,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         rowAlignment = .spaceBetween
         showPercentagesAsText = false
         customFields = []
+        needsPersistenceMigration = false
     }
 
     static func wizardDefault() -> StatusLineConfig {
@@ -300,7 +578,10 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             try container.decodeIfPresent(FactLabelStyle.self, forKey: .factLabelStyle) ?? .symbolAndLabel
         rowAlignment = try container.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment) ?? .spaceBetween
         showPercentagesAsText = try container.decodeIfPresent(Bool.self, forKey: .showPercentagesAsText) ?? false
-        customFields = try container.decodeIfPresent([CustomStatusLineField].self, forKey: .customFields) ?? []
+        let decodedCustomFields =
+            try container.decodeIfPresent([CustomStatusLineField].self, forKey: .customFields) ?? []
+        customFields = decodedCustomFields
+        var migrationNeeded = decodedCustomFields.contains { $0.needsPersistenceMigration }
 
         if let savedRows = try container.decodeIfPresent([StatusLineRow].self, forKey: .rows) {
             rows = savedRows.enumerated().map { rowIndex, row in
@@ -308,12 +589,14 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                 let rowHasWorktree = row.items.contains { $0.id == "worktree" }
                 mutableRow.items = row.items.enumerated().compactMap { itemIndex, item in
                     if item.id == "gitWorktree" {
+                        migrationNeeded = true
                         TracingService.shared.record(
                             "statusline.migration.gitworktree_dropped",
                             attributes: ["row_index": "\(rowIndex)", "position": "\(itemIndex)"])
                         return nil
                     }
                     if item.id == "worktreeBranch" {
+                        migrationNeeded = true
                         let substituted = !rowHasWorktree
                         TracingService.shared.record(
                             "statusline.migration.worktreebranch_merged",
@@ -329,17 +612,47 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
                         return nil
                     }
                     if let meta = StatusLineConfig.itemMetadata[item.id] {
+                        if item.label != meta.label || item.sfSymbol != meta.symbol {
+                            migrationNeeded = true
+                        }
                         return StatusLineItem(id: item.id, label: meta.label, sfSymbol: meta.symbol)
+                    }
+                    if let field = decodedCustomFields.first(where: { $0.id == item.id }) {
+                        if item.label != field.label || item.sfSymbol != field.sfSymbol {
+                            migrationNeeded = true
+                        }
+                        return StatusLineItem(id: field.id, label: field.label, sfSymbol: field.sfSymbol)
                     }
                     return item
                 }
                 return mutableRow
             }
         } else if let legacyItems = try container.decodeIfPresent([LegacyStatusLineItem].self, forKey: .items) {
+            migrationNeeded = true
+            let visibleLegacyItems = legacyItems.enumerated().filter { $0.element.isVisible }
+            let hasWorktree = visibleLegacyItems.contains { $0.element.id == "worktree" }
             let visibleItems =
-                legacyItems
-                .filter(\.isVisible)
-                .compactMap { legacy -> StatusLineItem? in
+                visibleLegacyItems.compactMap { itemIndex, legacy -> StatusLineItem? in
+                    if legacy.id == "gitWorktree" {
+                        TracingService.shared.record(
+                            "statusline.migration.gitworktree_dropped",
+                            attributes: ["row_index": "0", "position": "\(itemIndex)"])
+                        return nil
+                    }
+                    if legacy.id == "worktreeBranch" {
+                        let substituted = !hasWorktree
+                        TracingService.shared.record(
+                            "statusline.migration.worktreebranch_merged",
+                            attributes: [
+                                "row_index": "0",
+                                "position": "\(itemIndex)",
+                                "substituted": substituted ? "true" : "false",
+                            ])
+                        guard substituted, let meta = StatusLineConfig.itemMetadata["worktree"] else {
+                            return nil
+                        }
+                        return StatusLineItem(id: "worktree", label: meta.label, sfSymbol: meta.symbol)
+                    }
                     guard let meta = StatusLineConfig.itemMetadata[legacy.id] else { return nil }
                     return StatusLineItem(
                         id: legacy.id,
@@ -352,6 +665,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             let defaults = StatusLineConfig()
             rows = defaults.rows
         }
+        needsPersistenceMigration = migrationNeeded
     }
 
     func encode(to encoder: Encoder) throws {
@@ -385,6 +699,14 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             else {
                 throw StatusLineConfigurationValidationError.emptyCustomField(field.id)
             }
+            guard !field.supportedHarnesses.isEmpty,
+                field.supportedHarnesses.isSubset(of: Self.allHarnesses)
+            else {
+                throw StatusLineConfigurationValidationError.invalidCustomFieldHarnesses(field.id)
+            }
+            guard Self.isSFSymbolAvailable(field.sfSymbol) else {
+                throw StatusLineConfigurationValidationError.unsupportedCustomFieldIcon(field.sfSymbol)
+            }
         }
 
         let knownIDs = Set(Self.itemMetadata.keys).union(customIDs)
@@ -400,12 +722,29 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             }
         }
     }
+
+    mutating func markPersistenceMigrationHandled() {
+        needsPersistenceMigration = false
+        for index in customFields.indices {
+            customFields[index].needsPersistenceMigration = false
+        }
+    }
+
+    static func == (lhs: StatusLineConfig, rhs: StatusLineConfig) -> Bool {
+        lhs.rows == rhs.rows
+            && lhs.factLabelStyle == rhs.factLabelStyle
+            && lhs.rowAlignment == rhs.rowAlignment
+            && lhs.showPercentagesAsText == rhs.showPercentagesAsText
+            && lhs.customFields == rhs.customFields
+    }
 }
 
 enum StatusLineConfigurationValidationError: Error, Equatable, LocalizedError {
     case duplicateCustomFieldID
     case invalidCustomFieldID(String)
     case emptyCustomField(String)
+    case invalidCustomFieldHarnesses(String)
+    case unsupportedCustomFieldIcon(String)
     case unknownItemID(String)
     case duplicateItemID(String)
 
@@ -417,6 +756,10 @@ enum StatusLineConfigurationValidationError: Error, Equatable, LocalizedError {
             return "Status-line custom field ID is invalid: \(id)"
         case .emptyCustomField(let id):
             return "Status-line custom field must have a label and command: \(id)"
+        case .invalidCustomFieldHarnesses(let id):
+            return "Status-line custom field must target one or more supported harnesses: \(id)"
+        case .unsupportedCustomFieldIcon(let symbol):
+            return "Status-line custom field icon is not supported: \(symbol)"
         case .unknownItemID(let id):
             return "Status-line item is not in the catalog: \(id)"
         case .duplicateItemID(let id):

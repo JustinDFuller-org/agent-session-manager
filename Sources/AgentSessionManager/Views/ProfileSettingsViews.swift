@@ -156,6 +156,7 @@ struct ProfilesContent: View {
 
 private struct ProfileEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     let profile: Profile?
     let appSettings: AppSettings
     let onSave: (Profile) -> Void
@@ -467,7 +468,21 @@ private struct ProfileEditorSheet: View {
                                     config: $statusLineConfig,
                                     filterCLI: harness,
                                     phases: .full,
-                                    onPersist: {})
+                                    onPersist: {},
+                                    onRunNow: profile.map { profile in
+                                        { fieldID in
+                                            appState.runSavedStatusLineFieldNow(
+                                                fieldID: fieldID,
+                                                profileID: profile.id,
+                                                appSettings: appSettings)
+                                        }
+                                    },
+                                    isRunNowAvailable: profile.map { profile in
+                                        { field in
+                                            profile.statusLineConfig?.customField(withID: field.id) == field
+                                        }
+                                    }
+                                )
                             }
                             .formStyle(.grouped)
                             .pinnedFormBackground()

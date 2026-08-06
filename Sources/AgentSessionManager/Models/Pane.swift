@@ -6,7 +6,7 @@ enum PaneSetupState {
     case failed(error: String)
 }
 
-enum Harness: String, Codable, CaseIterable {
+enum Harness: String, Codable, CaseIterable, Sendable {
     case claude
     case codex
     case cursor

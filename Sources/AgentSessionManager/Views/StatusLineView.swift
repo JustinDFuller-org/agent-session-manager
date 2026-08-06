@@ -10,7 +10,7 @@ struct StatusLineView: View {
 
     private var nonEmptyRows: [StatusLineRow] {
         config.rows.compactMap { row in
-            let supportedItems = row.items.filter { monitor.supportsFact($0) }
+            let supportedItems = row.items.filter { config.supports($0, on: monitor.harness) }
             guard !supportedItems.isEmpty else { return nil }
             var supportedRow = row
             supportedRow.items = supportedItems
@@ -98,9 +98,14 @@ struct StatusLineView: View {
                     .foregroundStyle(AnyShapeStyle(prCircleColor(pr: pr)))
             } else if item.id.hasPrefix("custom:") {
                 let custom = data?.customFields?[item.id]
-                Image(systemName: custom?.icon ?? item.sfSymbol)
-                    .font(.system(size: 10))
-                    .foregroundStyle(customFieldIconStyle(custom?.tint))
+                Image(
+                    systemName: StatusLineConfig.renderedCustomFieldSymbol(
+                        scriptOverride: custom?.icon,
+                        configuredSymbol: item.sfSymbol
+                    )
+                )
+                .font(.system(size: 10))
+                .foregroundStyle(customFieldIconStyle(custom?.tint))
             } else {
                 Image(systemName: item.sfSymbol)
                     .font(.system(size: 10))

@@ -107,6 +107,9 @@ struct ContentView: View {
                     into: CLIOptionConfig.opencodeAll)
                 if let config = SettingsPersistence.load(StatusLineConfig.self, from: "statusline-settings.json") {
                     appSettings.statusLineConfig = config
+                    if config.needsPersistenceMigration {
+                        _ = SettingsPersistence.saveStatusLine(appSettings: appSettings)
+                    }
                 }
                 if let tools = SettingsPersistence.load([String].self, from: "active-tools-settings.json") {
                     appSettings.activeTools = Set(tools).intersection(Harness.allCases.map(\.rawValue))
@@ -165,6 +168,11 @@ struct ContentView: View {
                     SettingsPersistence.ProfilesContainer.self, from: "profiles.json")
                 {
                     appSettings.profiles = config.profiles
+                    if config.profiles.contains(where: {
+                        $0.statusLineConfig?.needsPersistenceMigration == true
+                    }) {
+                        _ = SettingsPersistence.saveProfiles(appSettings: appSettings)
+                    }
                 }
                 if let value = SettingsPersistence.load(Bool.self, from: "session-name-settings.json") {
                     appSettings.autoSetSessionName = value
