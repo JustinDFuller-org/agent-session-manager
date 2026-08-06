@@ -476,12 +476,12 @@ private struct ProfileEditorSheet: View {
                                                 profileID: profile.id,
                                                 appSettings: appSettings)
                                         }
-                                    } ?? nil,
+                                    },
                                     isRunNowAvailable: profile.map { profile in
                                         { field in
                                             profile.statusLineConfig?.customField(withID: field.id) == field
                                         }
-                                    } ?? nil
+                                    }
                                 )
                             }
                             .formStyle(.grouped)

@@ -27,8 +27,8 @@ struct StatusLineConfigLayoutEditor: View {
     var filterCLI: Harness?
     let phases: StatusLineEditorPhases
     let onPersist: () -> Void
-    var onRunNow: ((String) -> String?)? = nil
-    var isRunNowAvailable: ((CustomStatusLineField) -> Bool)? = nil
+    var onRunNow: ((String) -> String?)?
+    var isRunNowAvailable: ((CustomStatusLineField) -> Bool)?
 
     @State private var customFieldSheetTarget: CustomFieldSheetTarget?
 
@@ -1012,7 +1012,6 @@ struct AddCustomStatusLineFieldSheet: View {
             supportedHarnesses: supportedHarnesses
         )
     }
-
 }
 
 private struct CustomStatusLineHarnessPickerPopover: View {
