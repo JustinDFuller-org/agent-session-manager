@@ -309,6 +309,63 @@ final class AgentControlMutationTests: XCTestCase {
             SettingsPersistence.load(StatusLineConfig.self, from: "statusline-settings.json"), configuration)
     }
 
+    func testGlobalStatusLineMutationAcceptsInstalledExactSymbolOutsideCuratedCatalog() async throws {
+        let fixture = makeFixture()
+        let exactSymbol = "heart.fill"
+        XCTAssertTrue(StatusLineConfig.isSFSymbolAvailable(exactSymbol))
+        XCTAssertFalse(StatusLineConfig.customFieldIconOptions.contains { $0.symbol == exactSymbol })
+
+        var configuration = StatusLineConfig()
+        configuration.customFields = [
+            CustomStatusLineField(
+                id: "custom:00000000-0000-0000-0000-000000000042",
+                label: "Health",
+                sfSymbol: exactSymbol,
+                command: "printf healthy"
+            )
+        ]
+
+        let response = try await fixture.router.callTool(
+            name: "status_lines_update_global",
+            arguments: ["configuration": try value(for: configuration)],
+            source: fixture.globalSource)
+        let result = try decodeMutationResult(response)
+
+        XCTAssertEqual(result.status, "succeeded")
+        XCTAssertEqual(result.statusLineConfiguration?.customFields.first?.sfSymbol, exactSymbol)
+        XCTAssertEqual(fixture.settings.statusLineConfig.customFields.first?.sfSymbol, exactSymbol)
+    }
+
+    func testGlobalStatusLineMutationRejectsUnavailableExactSymbol() async throws {
+        let fixture = makeFixture()
+        let unavailableSymbol = "not.a.real.sf.symbol"
+        let previousConfiguration = fixture.settings.statusLineConfig
+        XCTAssertFalse(StatusLineConfig.isSFSymbolAvailable(unavailableSymbol))
+
+        var configuration = StatusLineConfig()
+        configuration.customFields = [
+            CustomStatusLineField(
+                id: "custom:00000000-0000-0000-0000-000000000043",
+                label: "Invalid",
+                sfSymbol: unavailableSymbol,
+                command: "printf invalid"
+            )
+        ]
+
+        do {
+            _ = try await fixture.router.callTool(
+                name: "status_lines_update_global",
+                arguments: ["configuration": try value(for: configuration)],
+                source: fixture.globalSource)
+            XCTFail("An unavailable exact SF Symbol must be rejected")
+        } catch let error as MCPError {
+            XCTAssertTrue(String(describing: error).contains("not supported"))
+            XCTAssertTrue(String(describing: error).contains(unavailableSymbol))
+        }
+
+        XCTAssertEqual(fixture.settings.statusLineConfig, previousConfiguration)
+    }
+
     func testProfileStatusLineMutationUpdatesAndClearsOnlyTheOverride() async throws {
         let fixture = makeFixture()
         var profile = Profile(name: "Status Profile", harness: .claude)

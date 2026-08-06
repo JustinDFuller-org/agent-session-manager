@@ -265,6 +265,9 @@ struct SettingsPersistence {
         guard let data = try? JSONEncoder().encode(appSettings.statusLineConfig) else { return false }
         do {
             try data.write(to: statusLineSettingsURL, options: .atomic)
+            if appSettings.statusLineConfig.needsPersistenceMigration {
+                appSettings.statusLineConfig.markPersistenceMigrationHandled()
+            }
             return true
         } catch {
             return false
@@ -435,6 +438,9 @@ struct SettingsPersistence {
         }
         do {
             try data.write(to: profilesURL, options: .atomic)
+            for index in appSettings.profiles.indices {
+                appSettings.profiles[index].statusLineConfig?.markPersistenceMigrationHandled()
+            }
             telemetryAttributes["result"] = "success"
             TracingService.shared.record("profile.save", attributes: telemetryAttributes)
             return true

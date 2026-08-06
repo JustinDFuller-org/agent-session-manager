@@ -11,6 +11,7 @@ struct CustomFieldExecutionContext {
     var harness: Harness
     var workingDirectory: String?
     var profileName: String?
+    var extraEnvironment: [String: String] = [:]
 }
 
 enum CustomFieldExecutionFailure: String {
@@ -83,13 +84,12 @@ enum CustomFieldRunner {
     /// Curated flat `AGENT_SESSION_MANAGER_*` env vars for one-liners that don't want to shell out to `jq`.
     /// Not exhaustive — the stdin JSON is the "everything" channel.
     static func buildEnvironment(context: CustomFieldExecutionContext) -> [String: String] {
-        var env: [String: String] = [
-            "\(environmentPrefix)_PANE_ID": context.paneID.uuidString,
-            "\(environmentPrefix)_PANE_NAME": context.paneName,
-            "\(environmentPrefix)_TAB_ID": context.tabID.uuidString,
-            "\(environmentPrefix)_TAB_NAME": context.tabName,
-            "\(environmentPrefix)_HARNESS": context.harness.rawValue,
-        ]
+        var env = context.extraEnvironment
+        env["\(environmentPrefix)_PANE_ID"] = context.paneID.uuidString
+        env["\(environmentPrefix)_PANE_NAME"] = context.paneName
+        env["\(environmentPrefix)_TAB_ID"] = context.tabID.uuidString
+        env["\(environmentPrefix)_TAB_NAME"] = context.tabName
+        env["\(environmentPrefix)_HARNESS"] = context.harness.rawValue
         if let workingDirectory = context.workingDirectory {
             env["\(environmentPrefix)_WORKING_DIRECTORY"] = workingDirectory
         }
@@ -165,12 +165,22 @@ enum CustomFieldRunner {
             let outPipe = Pipe()
             let inPipe = Pipe()
             process.executableURL = URL(filePath: "/bin/zsh")
-            process.arguments = ["-lc", command]
+            process.arguments = ["-i", "-c", command]
             if let workingDirectory {
                 process.currentDirectoryURL = URL(filePath: workingDirectory)
             }
-            var mergedEnvironment = ProcessInfo.processInfo.environment
-            for (key, value) in environment { mergedEnvironment[key] = value }
+            let hostEnvironment = ProcessInfo.processInfo.environment.filter {
+                !$0.key.hasPrefix("__CF")
+            }
+            var environmentEntries = hostEnvironment.map { "\($0.key)=\($0.value)" }
+            environmentEntries.append(contentsOf: environment.map { "\($0.key)=\($0.value)" })
+            var mergedEnvironment: [String: String] = [:]
+            for entry in ProcessEnvironment.sanitize(environmentEntries) {
+                guard let separator = entry.firstIndex(of: "=") else { continue }
+                let key = String(entry[..<separator])
+                let value = String(entry[entry.index(after: separator)...])
+                mergedEnvironment[key] = value
+            }
             process.environment = mergedEnvironment
             process.standardOutput = outPipe
             process.standardInput = inPipe

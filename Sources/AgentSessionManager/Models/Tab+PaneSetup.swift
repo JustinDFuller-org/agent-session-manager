@@ -80,7 +80,8 @@ extension Tab {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
+                tabID: self.id, tabName: self.name,
+                customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         }
 
@@ -125,7 +126,8 @@ extension Tab {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort)
+                tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
+                customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         }
         controller.terminalView.telemetryTabName = self.name

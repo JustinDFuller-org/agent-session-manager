@@ -11,29 +11,34 @@ Facts show their SF Symbol and label by default. Explicit `labelOnly` and `symbo
 | ID | Label | Availability | Source |
 |----|-------|-------------|--------|
 | `agentName` | Agent | Claude only | Claude hook JSON `agent.name` |
-| `context` | Context % | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `last_token_usage.total_tokens / model_context_window` |
+| `context` | Context Used | Claude, Codex | Claude hook JSON; Codex rollout token usage |
 | `contextRemaining` | Context Remaining | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout context percentage remainder |
-| `cost` | Cost | Claude only | Claude hook JSON `cost.total_cost_usd` |
+| `cost` | Cost | Claude, OpenCode | Claude hook JSON; OpenCode provider |
 | `duration` | Duration | All | App-computed from process start time |
 | `effort` | Effort | Claude only | Claude hook JSON `effort.level` |
 | `exceeds200k` | Exceeds 200k | Claude only | Claude hook JSON `exceeds_200k_tokens` |
-| `inputTokens` | Input Tokens | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `total_token_usage.input_tokens` |
+| `inputTokens` | Input Tokens | Claude, Codex, OpenCode | Harness provider token usage |
 | `linesAdded` | Lines Added | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `linesRemoved` | Lines Removed | All | `git diff --shortstat HEAD` (polled every 15s) |
-| `model` | Model | All | Claude hook JSON; Cursor hook; Codex state DB/rollout metadata |
+| `model` | Model | All | Harness provider model data |
 | `outputStyle` | Output Style | Claude only | Claude hook JSON `output_style.name` |
-| `outputTokens` | Output Tokens | Claude, Codex | Claude hook JSON; Codex 0.136.x rollout `total_token_usage.output_tokens` |
+| `outputTokens` | Output Tokens | Claude, Codex, OpenCode | Harness provider token usage |
 | `pr` | PR | All | GitHub CLI (`gh pr view`) via PRTrackingCoordinator |
 | `profileName` | Profile | All | App state (selected profile) |
 | `rate5h` | 5h Rate | Claude, Codex | Claude hook JSON; Codex 300-minute primary rate window |
 | `rate5hReset` | 5h Resets At | Claude, Codex | Claude hook JSON; Codex 300-minute primary rate window |
 | `rate7d` | 7d Rate | Claude, Codex | Claude hook JSON; Codex 10,080-minute secondary rate window |
 | `rate7dReset` | 7d Resets At | Claude, Codex | Claude hook JSON; Codex 10,080-minute secondary rate window |
-| `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
+| `sessionName` | Session Name | Claude, OpenCode | Harness provider session metadata |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | Claude hook JSON / Cursor and Codex CLI `--version` |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
 | `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
+| `repo` | Repository | All | App-computed Git remote identity |
+| `contextSize` | Context Size | Claude only | Claude hook JSON context-window size |
+| `cacheRead` | Cache Read | Claude only | Claude hook JSON cache usage |
+| `cacheCreation` | Cache Write | Claude only | Claude hook JSON cache usage |
+| `apiDuration` | API Duration | Claude only | Claude hook JSON API duration |
 
 ## Providers
 
@@ -72,15 +77,18 @@ The `worktree` fact renders as `name • branch` when both values are available,
 ### I8. Custom field failures preserve the last good value
 
 Custom status line fields run shell commands on their configured cadence and receive the pane context
-as JSON on standard input. Each scheduled execution records a start followed by either
-`statusline.custom_field.exec_succeeded` or `statusline.custom_field.exec_failed`. Failures retain the
-last successful value instead of replacing it with `—`.
+as JSON on standard input. Each scheduled or **Run Now** execution records a start followed by either
+`statusline.custom_field.exec_succeeded`, `statusline.custom_field.exec_failed`, or
+`statusline.custom_field.exec_stale`. Runs of the same generation coalesce, and a result from a
+replaced or removed field is discarded. Failures retain the last successful value instead of replacing
+it with `—`.
 
 Child-process standard input is nonblocking and configured to return a bounded `stdin_write` failure
 when the command closes its input. If the command leaves input open without consuming it, the same
 absolute command deadline returns `timeout`. A custom command can therefore finish or fail without
 blocking past its timeout or sending `SIGPIPE` to Agent Session Manager. Failure telemetry includes the
-child exit status when available and the bounded input failure stage and error code for write failures.
+dynamic trigger, duration, child exit status when available, and bounded input-failure stage and error
+code for write failures.
 
 ## Onboarding
 
@@ -101,9 +109,32 @@ See [setup-wizard.md]({{ '/documentation/features/setup-wizard/' | relative_url 
 
 1. Open **Settings → Status Line**
 2. Use **+ Add Row** to add a new row
-3. Click **Add Item** inside any row to see available items (filtered by the harness of the current pane, alphabetically sorted)
+3. Click **Add Item** inside any row to see available items, alphabetically sorted. In a profile editor, the list is also filtered to that profile's harness.
 4. Click the minus icon to remove an item
 5. Use the up/down arrows to reorder rows
+
+## Custom Fields
+
+Custom fields run a shell command and add its plain-text or structured result to a status line.
+**SF Symbol** opens a searchable popover with curated, categorized suggestions. It searches labels,
+symbol names, and keywords, and accepts an exact SF Symbol name available on the current macOS
+version that is not in the curated suggestions. The configured name is preserved; an unavailable
+script override falls back to the configured icon, and an unavailable configured icon falls back to
+`terminal` while rendering.
+**Harnesses** opens a checklist popover that stays open while several harnesses are selected. It
+defaults to all user-facing harnesses, retains at least one selection, and dismisses with **Done**,
+or a click outside the popover. A field is filtered from both execution and rendering when its
+selected harnesses do not include the pane's harness.
+
+**Run Now** runs only the saved field from the configuration being edited. It targets matching panes
+that use that saved configuration and selected harness. New fields and unsaved edits must be saved
+before Run Now is available. A profile override can therefore intentionally display a different
+result from the global field with the same ID.
+
+Custom field commands run through the pane-equivalent interactive zsh shell in the pane's working
+directory. They inherit the sanitized pane environment and runtime environment values configured
+for the pane or profile, in addition to the curated `AGENT_SESSION_MANAGER_*` variables. Run Now
+starts the command immediately but does not bypass a cache or TTL implemented by that command.
 
 ## Invariant Violations
 
@@ -124,9 +155,11 @@ Migration-only events remain trace events:
 | `statusline.provider.stopped` | A provider stops for a pane |
 | `statusline.provider.update_applied` | A provider snapshot is applied to the pane monitor |
 | `statusline.provider.update_failed` | Reserved for provider snapshot failures |
-| `statusline.custom_field.exec_started` | A scheduled custom field execution starts; includes pane/tab identity and field id |
-| `statusline.custom_field.exec_succeeded` | A custom field updates its cached value; includes duration and output kind |
-| `statusline.custom_field.exec_failed` | A custom field fails while retaining its prior value; includes reason, duration, child exit status when available, and bounded input failure details |
+| `statusline.custom_field.exec_started` | A scheduled or Run Now custom field execution starts; includes pane/tab identity, field id, and trigger |
+| `statusline.custom_field.exec_succeeded` | A custom field updates its cached value; includes trigger, duration, and output kind |
+| `statusline.custom_field.exec_failed` | A custom field fails while retaining its prior value; includes trigger, duration, reason, child exit status when available, and bounded input failure details |
+| `statusline.custom_field.exec_stale` | A result for an outdated field generation was ignored; includes pane/tab identity, field id, and trigger |
+| `statusline.custom_field.run_now` | A saved field was dispatched to matching panes; includes scope, target, started/coalesced counts, result, and profile id for profile scope |
 | `statusline.watcher.lifecycle` | A Claude status payload, attention, or hook-log watcher starts, waits for its file, recovers, or stops |
 | `statusline.cursor.<role>_watcher.<state>` | A Cursor hook, lifecycle, or attention watcher starts, fails to attach, recovers, or stops |
 | `statusline.codex.hook_waiting` | Codex provider is still waiting for a hook record; includes retry attempt, late-binding state, and hook availability |

@@ -9,29 +9,34 @@ Facts show their SF Symbol and label by default. Explicit `labelOnly` and `symbo
 | ID | Label | Availability | Source |
 |----|-------|-------------|--------|
 | `agentName` | Agent | Claude only | Claude hook JSON `agent.name` |
-| `context` | Context % | Claude + Codex | Claude hook JSON `context_window.used_percentage` / Codex rollout token count |
+| `context` | Context Used | Claude + Codex | Claude hook JSON `context_window.used_percentage` / Codex rollout token count |
 | `contextRemaining` | Context Remaining | Claude + Codex | Claude hook JSON `context_window.remaining_percentage` / Codex rollout token count |
-| `cost` | Cost | Claude only | Claude hook JSON `cost.total_cost_usd` |
+| `cost` | Cost | Claude + OpenCode | Harness provider cost data |
 | `duration` | Duration | All | App-computed from process start time |
 | `effort` | Effort | Claude only | Claude hook JSON `effort.level` |
 | `exceeds200k` | Exceeds 200k | Claude only | Claude hook JSON `exceeds_200k_tokens` |
-| `inputTokens` | Input Tokens | Claude + Codex | Claude hook JSON / Codex rollout token count |
+| `inputTokens` | Input Tokens | Claude + Codex + OpenCode | Harness provider token usage |
 | `linesAdded` | Lines Added | All | `git diff --shortstat HEAD` (polled every 15s) |
 | `linesRemoved` | Lines Removed | All | `git diff --shortstat HEAD` (polled every 15s) |
-| `model` | Model | All | Claude hook JSON / Cursor hook |
+| `model` | Model | All | Harness provider model data |
 | `outputStyle` | Output Style | Claude only | Claude hook JSON `output_style.name` |
-| `outputTokens` | Output Tokens | Claude + Codex | Claude hook JSON / Codex rollout token count |
+| `outputTokens` | Output Tokens | Claude + Codex + OpenCode | Harness provider token usage |
 | `pr` | PR | All | GitHub CLI (`gh pr view`) via PRTrackingCoordinator |
 | `profileName` | Profile | All | App state (selected profile) |
 | `rate5h` | 5h Rate | Claude + Codex | Claude hook JSON `rate_limits.five_hour` / Codex rollout primary rate limit |
 | `rate5hReset` | 5h Resets At | Claude + Codex | Claude hook JSON `rate_limits.five_hour.resets_at` / Codex rollout primary rate limit |
 | `rate7d` | 7d Rate | Claude + Codex | Claude hook JSON `rate_limits.seven_day` / Codex rollout secondary rate limit |
 | `rate7dReset` | 7d Resets At | Claude + Codex | Claude hook JSON `rate_limits.seven_day.resets_at` / Codex rollout secondary rate limit |
-| `sessionName` | Session Name | Claude only | Claude hook JSON `session_name` |
+| `sessionName` | Session Name | Claude + OpenCode | Harness provider session metadata |
 | `thinking` | Thinking | Claude only | Claude hook JSON `thinking.enabled` |
 | `version` | Version | All | CLI `--version` flag |
 | `vimMode` | Vim Mode | Claude only | Claude hook JSON `vim.mode` |
 | `worktree` | Worktree | All | App-computed from pane working directory; renders as `name • branch` |
+| `repo` | Repository | All | App-computed Git remote identity |
+| `contextSize` | Context Size | Claude only | Claude hook JSON context-window size |
+| `cacheRead` | Cache Read | Claude only | Claude hook JSON cache usage |
+| `cacheCreation` | Cache Write | Claude only | Claude hook JSON cache usage |
+| `apiDuration` | API Duration | Claude only | Claude hook JSON API duration |
 
 ## Invariants
 
@@ -83,9 +88,10 @@ The `worktree` fact renders as `name • branch` when both values are available,
 ## Custom Fields
 
 Engineers can extend the status line with their own fields backed by a shell command, without the
-app needing to know what those commands do. A custom field's id is always `custom:<uuid>` and lives
-in `StatusLineConfig.customFields: [CustomStatusLineField]` — both the global config and any
-profile's `statusLineConfig` override can define their own set independently.
+app needing to know what those commands do. Fields created by Settings use `custom:<uuid>` IDs, and
+Agent Control updates enforce that format. They live in
+`StatusLineConfig.customFields: [CustomStatusLineField]` — both the global config and any profile's
+`statusLineConfig` override can define their own set independently.
 
 ### Config shape
 
@@ -97,17 +103,32 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
     var command: String
     var refreshIntervalSeconds: Int    // effectiveRefreshIntervalSeconds clamps to a 5s minimum
     var timeoutSeconds: Int            // default 10s — a cold-cache refresh needs headroom
+    var supportedHarnesses: Set<Harness> // defaults to all user-facing harnesses
 }
 ```
 
+### Icon and harness selection
+
+The settings sheet offers categorized icon suggestions that search labels, symbol names, and
+keywords. A valid exact SF Symbol name available on the current macOS version can be selected even
+when it is not in the curated list. `sfSymbol` remains the opaque persisted name; unavailable
+persisted names are not rewritten during decode. The selector validates names at entry time, while
+rendering falls back without changing configuration.
+
+**Harnesses** uses a checklist popover that remains open for consecutive selections, keeps at
+least one harness selected, and is dismissed with **Done** or a click outside.
+
 ### Execution model
 
-`StatusLineMonitor.setCustomFields(_:)` starts one repeating `Timer` per field (immediate first
-run + `effectiveRefreshIntervalSeconds` cadence), diffing against the previously-scheduled set so an
-unchanged field's timer isn't restarted. `CustomFieldRunner.run(field:context:)` runs the command via
-`/bin/zsh -lc` in the pane's working directory with a per-field timeout (`Process.terminate()` via a
-`DispatchWorkItem`, since `Process` has no built-in timeout), strips ANSI escape sequences from
-stdout, and parses the result.
+`StatusLineMonitor.setCustomFields(_:)` first filters fields by the pane's harness, then starts one
+repeating `Timer` per eligible field (immediate first run + `effectiveRefreshIntervalSeconds`
+cadence), diffing against the previously-scheduled set so an unchanged field's timer isn't restarted.
+`Run Now` uses the same monitor context and runner for a saved global or profile field and never
+executes an unsaved draft. `CustomFieldRunner.run(field:context:)` runs the command via
+`/bin/zsh -i -c` in the pane's working directory with the same sanitized baseline used by terminal
+panes and any runtime environment values configured for the pane or profile. It writes the JSON input
+through a bounded, SIGPIPE-safe pipe, applies one absolute per-field deadline, strips ANSI escape
+sequences from stdout, and parses the result.
 
 ### What the command receives
 
@@ -140,7 +161,8 @@ dependencies between custom fields.
 one-liners that don't want to shell out to `jq`, matching the prefix convention already used for
 Codex hook env vars: `_PANE_ID`, `_PANE_NAME`, `_TAB_ID`, `_TAB_NAME`, `_PROFILE_NAME`, `_HARNESS`,
 `_WORKING_DIRECTORY`, `_MODEL`, `_WORKTREE_NAME`, `_WORKTREE_BRANCH`, `_COST_USD`, `_LINES_ADDED`,
-`_LINES_REMOVED`, `_DURATION_MS`, `_REPO`. Built via `CustomFieldRunner.buildEnvironment(context:)`.
+`_LINES_REMOVED`, `_DURATION_MS`, `_REPO`. These are merged with the pane/profile runtime
+environment values before the command starts. Built via `CustomFieldRunner.buildEnvironment(context:)`.
 
 ### Render contract: plain text is the floor, structure is opt-in
 
@@ -156,7 +178,7 @@ struct CustomFieldRenderValue: Codable, Equatable {
                                 // existing progressTint() thresholds (<70 green, <90 orange, else red)
                                 // when percent is set but tint isn't
     var icon: String?          // per-invocation SF Symbol override; falls back to the field's
-                                // configured sfSymbol
+                                // configured sfSymbol, then terminal when unavailable
 }
 ```
 
@@ -286,5 +308,8 @@ Catch-all "lenient" decoders (decode whatever arrives without validation) are no
 | `statusline.codex.tailer_stopped` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `result` | Codex rollout watcher stops |
 | `statusline.codex.tailer_read` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `line_count`, `update_count`, `catch_up` | Codex rollout tailer reads a bounded batch |
 | `statusline.codex.parsed_update` | `pane.id`, `pane.name`, `tab.id`, `tab.name`, `has_model`, `has_tokens`, `has_context`, `has_rate_limits` | Codex rollout parsing produced a supported update |
-| `statusline.custom_field.exec_succeeded` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `duration_ms`, `output_kind` (`text`\|`structured`) | I8: a custom field's command completed and its cached value was updated |
-| `statusline.custom_field.exec_failed` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `reason` (`nonzero_exit`\|`timeout`\|`spawn_error`\|`empty_output`), `retained_prior_value` | I8: a custom field's command failed; the prior cached value is kept, never reverted to `—` |
+| `statusline.custom_field.exec_started` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`) | A scheduled or Run Now custom field execution started |
+| `statusline.custom_field.exec_succeeded` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`), `duration_ms`, `output_kind` (`text`\|`structured`) | I8: a custom field's command completed and its cached value was updated |
+| `statusline.custom_field.exec_failed` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`), `duration_ms`, `reason` (`nonzero_exit`\|`timeout`\|`spawn_error`\|`empty_output`\|`stdin_write`), `retained_prior_value`, `exit_code`†, `input_failure_stage`†, `input_error_code`† | I8: a custom field's command failed; the prior cached value is kept, never reverted to `—`. †Present when available. |
+| `statusline.custom_field.exec_stale` | `pane.name`, `pane.id`, `tab.id`, `tab.name`, `field_id`, `trigger` (`scheduled`\|`manual`) | A result for an obsolete command generation was ignored |
+| `statusline.custom_field.run_now` | `field_id`, `scope` (`global`\|`profile`), `target_count`, `started_count`, `coalesced_count`, `result`, `profile_id`† | A saved field was dispatched to matching panes. †Present for profile scope. |

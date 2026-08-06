@@ -636,6 +636,35 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(monitor.currentData?.customFields?["custom:xyz"]?.tint, .warning)
     }
 
+    func testCustomFieldSuccessInitializesCurrentDataWhenProviderHasNotPublished() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let field = CustomStatusLineField(id: "custom:first", label: "First", command: "echo first")
+
+        monitor.testApplyCustomFieldResult(
+            field: field,
+            result: .success(
+                CustomFieldRenderValue(text: "first", percent: nil, tint: nil, icon: nil),
+                outputKind: .text
+            )
+        )
+
+        XCTAssertEqual(monitor.currentData?.customFields?["custom:first"]?.text, "first")
+    }
+
+    func testUnsupportedHarnessDoesNotScheduleCustomField() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let field = CustomStatusLineField(
+            id: "custom:cursor-only",
+            label: "Cursor only",
+            command: "echo cursor",
+            supportedHarnesses: [.cursor]
+        )
+
+        monitor.setCustomFields([field])
+
+        XCTAssertNil(monitor.cachedCustomFieldValuesForTesting[field.id])
+    }
+
     func testCustomFieldFailureRetainsPriorValueAndRecordsExecFailed() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         let field = CustomStatusLineField(id: "custom:b", label: "B", command: "exit 1")
@@ -669,7 +698,15 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     }
 
     func testCustomFieldSuccessRecordsExecSucceeded() {
-        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let paneID = UUID()
+        let tabID = UUID()
+        let monitor = StatusLineMonitor(
+            paneID: paneID,
+            paneName: "test-pane",
+            harness: .claude,
+            tabID: tabID,
+            tabName: "test-tab"
+        )
         let field = CustomStatusLineField(id: "custom:c", label: "C", command: "echo hi")
 
         monitor.testApplyCustomFieldResult(
@@ -682,6 +719,185 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertNotNil(succeeded)
         XCTAssertEqual(succeeded?.attributes["output_kind"], "text")
         XCTAssertEqual(succeeded?.attributes["field_id"], "custom:c")
+        XCTAssertEqual(succeeded?.attributes["trigger"], "scheduled")
+        XCTAssertEqual(succeeded?.attributes["pane.id"], paneID.uuidString)
+        XCTAssertEqual(succeeded?.attributes["pane.name"], "test-pane")
+        XCTAssertEqual(succeeded?.attributes["tab.id"], tabID.uuidString)
+        XCTAssertEqual(succeeded?.attributes["tab.name"], "test-tab")
+    }
+
+    func testManualCustomFieldRunUpdatesCacheAndRecordsManualTrigger() async {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try? FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(), workingDirectory: workDir, harness: .claude)
+        let field = CustomStatusLineField(
+            id: "custom:manual", label: "Manual", command: "sleep 0.2; echo manual")
+
+        XCTAssertEqual(monitor.runCustomFieldNow(field), .started)
+        XCTAssertEqual(monitor.runCustomFieldNow(field), .coalesced)
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting[field.id]?.text == "manual"
+        }
+
+        XCTAssertTrue(resolved, "expected manual custom field run to resolve")
+        let event = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "statusline.custom_field.exec_succeeded"
+                && $0.attributes["field_id"] == field.id
+        }
+        XCTAssertEqual(event?.attributes["trigger"], "manual")
+        monitor.stop()
+    }
+
+    func testAppStateRunNowUsesSavedGlobalFieldAndRealPaneMonitor() async {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workDir) }
+
+        let settings = AppSettings()
+        let field = CustomStatusLineField(
+            id: "custom:global-run",
+            label: "Global",
+            command: "echo global",
+            supportedHarnesses: [.claude]
+        )
+        settings.statusLineConfig.customFields = [field]
+
+        let tab = Tab(name: "Run Now", directory: workDir)
+        let pane = Pane(
+            name: "global-pane",
+            tab: tab,
+            harness: .claude,
+            worktreeDirectory: workDir,
+            appSettings: settings
+        )
+        let monitor = StatusLineMonitor(
+            paneID: pane.id,
+            paneName: pane.name,
+            workingDirectory: workDir.path,
+            harness: .claude,
+            tabID: tab.id,
+            tabName: tab.name
+        )
+        pane.installStatusLineMonitor(monitor)
+        tab.panes = [pane]
+
+        let appState = AppState()
+        appState.tabs = [tab]
+        let summary = appState.runSavedStatusLineFieldNow(
+            fieldID: field.id, profileID: nil, appSettings: settings)
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting[field.id]?.text == "global"
+        }
+
+        XCTAssertEqual(summary, "Started in 1 pane.")
+        XCTAssertTrue(resolved, "expected the saved global field to run in the real pane monitor")
+        let runNow = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "statusline.custom_field.run_now"
+        }
+        XCTAssertEqual(runNow?.attributes["target_count"], "1")
+        XCTAssertEqual(runNow?.attributes["scope"], "global")
+        XCTAssertEqual(runNow?.attributes["started_count"], "1")
+        XCTAssertEqual(runNow?.attributes["coalesced_count"], "0")
+        XCTAssertEqual(runNow?.attributes["result"], "started")
+        monitor.stop()
+    }
+
+    func testStaleCustomFieldResultCannotOverwriteNewCommand() async {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try? FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(), workingDirectory: workDir, harness: .claude)
+        let oldField = CustomStatusLineField(
+            id: "custom:stale",
+            label: "Stale",
+            command: "sleep 0.2; printf old",
+            timeoutSeconds: 2
+        )
+        let newField = CustomStatusLineField(
+            id: oldField.id,
+            label: oldField.label,
+            command: "printf new",
+            timeoutSeconds: 2
+        )
+
+        monitor.setCustomFields([oldField])
+        monitor.setCustomFields([newField])
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting[newField.id]?.text == "new"
+        }
+        try? await Task.sleep(nanoseconds: 350_000_000)
+
+        XCTAssertTrue(resolved, "expected the replacement command to resolve")
+        XCTAssertEqual(monitor.cachedCustomFieldValuesForTesting[newField.id]?.text, "new")
+        let stale = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "statusline.custom_field.exec_stale"
+        }
+        XCTAssertNotNil(stale)
+        XCTAssertEqual(stale?.attributes["trigger"], "scheduled")
+        monitor.stop()
+    }
+
+    func testProfileRunNowThreadsResolvedProfileNameIntoCommandContext() async {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workDir) }
+
+        let settings = AppSettings()
+        let field = CustomStatusLineField(
+            id: "custom:profile-context",
+            label: "Profile",
+            command: "echo $AGENT_SESSION_MANAGER_PROFILE_NAME",
+            supportedHarnesses: [.claude]
+        )
+        var profileConfig = StatusLineConfig()
+        profileConfig.customFields = [field]
+        let profile = Profile(
+            name: "Profile Context",
+            harness: .claude,
+            statusLineConfig: profileConfig
+        )
+        settings.profiles = [profile]
+
+        let tab = Tab(name: "Profile Run Now", directory: workDir)
+        let pane = Pane(
+            name: "profile-pane",
+            tab: tab,
+            harness: .claude,
+            worktreeDirectory: workDir,
+            profileID: profile.id,
+            appSettings: settings
+        )
+        let monitor = StatusLineMonitor(
+            paneID: pane.id,
+            paneName: pane.name,
+            workingDirectory: workDir.path,
+            harness: .claude,
+            tabID: tab.id,
+            tabName: tab.name
+        )
+        pane.installStatusLineMonitor(monitor)
+        tab.panes = [pane]
+
+        let appState = AppState()
+        appState.tabs = [tab]
+        let summary = appState.runSavedStatusLineFieldNow(
+            fieldID: field.id, profileID: profile.id, appSettings: settings)
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting[field.id]?.text == "Profile Context"
+        }
+
+        XCTAssertEqual(summary, "Started in 1 pane.")
+        XCTAssertTrue(resolved, "expected the profile name to reach the saved command")
+        monitor.stop()
     }
 
     func testCustomFieldInputFailureRecordsBoundedPipeDetails() {
@@ -706,6 +922,29 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(failed?.attributes["input_error_code"], String(EPIPE))
     }
 
+    func testManualCustomFieldFailureRecordsManualTriggerAndBoundedPipeDetails() {
+        let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
+        let field = CustomStatusLineField(id: "custom:manual-pipe", label: "Manual pipe", command: "true")
+
+        monitor.testApplyCustomFieldResult(
+            field: field,
+            result: .failure(
+                CustomFieldExecutionError(
+                    reason: .stdinWrite,
+                    exitCode: nil,
+                    inputFailure: ChildProcessInputWriteFailure(
+                        stage: .write,
+                        errorCode: EPIPE))),
+            trigger: "manual")
+
+        let failed = TracingService.shared.recordedEventsForTesting.first {
+            $0.name == "statusline.custom_field.exec_failed"
+        }
+        XCTAssertEqual(failed?.attributes["trigger"], "manual")
+        XCTAssertEqual(failed?.attributes["input_failure_stage"], "write")
+        XCTAssertEqual(failed?.attributes["input_error_code"], String(EPIPE))
+    }
+
     func testSetCustomFieldsRemovesCachedValueWhenFieldRemoved() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
         let field = CustomStatusLineField(id: "custom:a", label: "A", command: "echo hi")
@@ -721,6 +960,7 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         XCTAssertNil(
             monitor.cachedCustomFieldValuesForTesting["custom:a"], "removing a field must drop its cached value")
+        XCTAssertNil(monitor.currentData?.customFields?["custom:a"])
     }
 
     func testProfileNameThreadedIntoCustomFieldEnvironment() async throws {
@@ -750,6 +990,35 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         }
         XCTAssertEqual(started?.attributes["field_id"], "custom:profile")
         XCTAssertEqual(started?.attributes["trigger"], "scheduled")
+    }
+
+    func testPaneEnvironmentThreadedIntoCustomFieldEnvironment() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            harness: .claude,
+            customFieldEnvironment: ["CUSTOM_FIELD_TEST_VALUE": "from-pane"]
+        )
+        let field = CustomStatusLineField(
+            id: "custom:pane-environment",
+            label: "Pane environment",
+            command: "printf '%s' \"$CUSTOM_FIELD_TEST_VALUE\"",
+            refreshIntervalSeconds: 5,
+            timeoutSeconds: 5
+        )
+        monitor.setCustomFields([field])
+
+        let resolved = await Self.pollUntilTrue {
+            monitor.cachedCustomFieldValuesForTesting[field.id]?.text == "from-pane"
+        }
+        monitor.stop()
+
+        XCTAssertTrue(resolved, "expected the pane environment to reach the custom field")
     }
 
     private static func pollUntilTrue(timeout: TimeInterval = 3, _ condition: () -> Bool) async -> Bool {

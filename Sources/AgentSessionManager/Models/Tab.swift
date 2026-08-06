@@ -546,7 +546,8 @@ final class Tab: Identifiable {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
+                tabID: self.id, tabName: self.name,
+                customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         }
 
@@ -630,7 +631,8 @@ final class Tab: Identifiable {
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
                 tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
                 opencodeSessionID: pane.opencodeSessionID,
-                opencodeEnvironment: pane.extraEnvVars)
+                opencodeEnvironment: pane.extraEnvVars,
+                customFieldEnvironment: pane.extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         } else {
             new.pendingCommandArgs = old.pendingCommandArgs.map {
@@ -679,7 +681,8 @@ final class Tab: Identifiable {
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name)
+                    tabID: self.id, tabName: self.name,
+                    customFieldEnvironment: extraEnvVars)
                 pane.installStatusLineMonitor(monitor)
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 controller.pendingCommandArgs = Tab.buildClaudeCommand(
@@ -688,7 +691,8 @@ final class Tab: Identifiable {
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name)
+                    tabID: self.id, tabName: self.name,
+                    customFieldEnvironment: extraEnvVars)
                 pane.installStatusLineMonitor(monitor)
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 monitor.writeCodexHookScript()
@@ -706,7 +710,8 @@ final class Tab: Identifiable {
                 let monitor = StatusLineMonitor(
                     paneID: pane.id, paneName: pane.name,
                     workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                    tabID: self.id, tabName: self.name)
+                    tabID: self.id, tabName: self.name,
+                    customFieldEnvironment: extraEnvVars)
                 pane.installStatusLineMonitor(monitor)
                 applyExtraEnvVars(extraEnvVars, to: controller)
                 applyCursorHookEnvironment(to: controller, pane: pane)
@@ -740,7 +745,8 @@ final class Tab: Identifiable {
             monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name)
+                tabID: self.id, tabName: self.name,
+                customFieldEnvironment: pane.extraEnvVars)
         }
         if let monitor {
             pane.installStatusLineMonitor(monitor)
@@ -894,7 +900,8 @@ extension Tab {
             workingDirectory: cwd, harness: harness, processStartTime: Date(),
             tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
             opencodeSessionID: pane.opencodeSessionID,
-            opencodeEnvironment: extraEnvVars)
+            opencodeEnvironment: extraEnvVars,
+            customFieldEnvironment: extraEnvVars)
         pane.installStatusLineMonitor(monitor)
     }
 

@@ -305,6 +305,82 @@ final class AppState {
         return notification
     }
 
+    @discardableResult
+    func runSavedStatusLineFieldNow(
+        fieldID: String, profileID: UUID?, appSettings: AppSettings
+    ) -> String {
+        var startedCount = 0
+        var coalescedCount = 0
+        for pane in tabs.flatMap(\.panes) {
+            guard let monitor = pane.statusLineMonitor else { continue }
+
+            let savedConfig: StatusLineConfig?
+            if let profileID {
+                guard pane.profileID == profileID,
+                    let profile = appSettings.profiles.first(where: { $0.id == profileID }),
+                    profile.statusLineConfig != nil
+                else {
+                    continue
+                }
+                savedConfig = profile.resolvedStatusLineConfig(inheriting: appSettings.statusLineConfig)
+            } else {
+                if let paneProfileID = pane.profileID,
+                    let profile = appSettings.profiles.first(where: { $0.id == paneProfileID }),
+                    profile.statusLineConfig != nil
+                {
+                    continue
+                }
+                savedConfig = appSettings.statusLineConfig
+            }
+
+            guard let field = savedConfig?.customField(withID: fieldID),
+                field.supports(monitor.harness)
+            else {
+                continue
+            }
+            monitor.profileName = pane.profileID.flatMap { profileID in
+                appSettings.profiles.first(where: { $0.id == profileID })?.name
+            }
+            switch monitor.runCustomFieldNow(field) {
+            case .started:
+                startedCount += 1
+            case .coalesced:
+                coalescedCount += 1
+            case .unsupported:
+                continue
+            }
+        }
+
+        let targetCount = startedCount + coalescedCount
+        var attributes = [
+            "field_id": fieldID,
+            "scope": profileID == nil ? "global" : "profile",
+            "target_count": "\(targetCount)",
+            "started_count": "\(startedCount)",
+            "coalesced_count": "\(coalescedCount)",
+            "result": targetCount == 0
+                ? "no_matching_panes"
+                : coalescedCount == targetCount ? "coalesced" : "started",
+        ]
+        if let profileID {
+            attributes["profile_id"] = profileID.uuidString
+        }
+        TracingService.shared.record("statusline.custom_field.run_now", attributes: attributes)
+
+        if targetCount == 0 {
+            return "No matching saved panes."
+        }
+        if startedCount == 0 {
+            return "Already running in \(coalescedCount) pane\(coalescedCount == 1 ? "" : "s")."
+        }
+        if coalescedCount == 0 {
+            return "Started in \(startedCount) pane\(startedCount == 1 ? "" : "s")."
+        }
+        return
+            "Started in \(startedCount) pane\(startedCount == 1 ? "" : "s"); "
+            + "already running in \(coalescedCount) pane\(coalescedCount == 1 ? "" : "s")."
+    }
+
     func focusPane(tabID: UUID, paneID: UUID) {
         activeTab?.setFocusedPane(id: nil, reason: "notification_navigation")
         guard let tab = tabs.first(where: { $0.id == tabID }),

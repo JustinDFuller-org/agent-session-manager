@@ -370,10 +370,9 @@ struct PaneView: View {
 
     private var resolvedStatusLineConfig: StatusLineConfig {
         if let profileID = pane.profileID,
-            let profile = appSettings.profiles.first(where: { $0.id == profileID }),
-            let override = profile.statusLineConfig
+            let profile = appSettings.profiles.first(where: { $0.id == profileID })
         {
-            return override
+            return profile.resolvedStatusLineConfig(inheriting: appSettings.statusLineConfig)
         }
         return appSettings.statusLineConfig
     }
