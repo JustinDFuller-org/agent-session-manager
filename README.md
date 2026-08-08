@@ -3,13 +3,13 @@
 <br />
 <br />
 
-Keeps Claude Code, Codex, Cursor, and OpenCode managed in a window optimized for multi-agent workflows.
+Keeps Claude Code, Codex, Cursor, OpenCode, and Oh My Pi managed in a window optimized for multi-agent workflows.
 
 ## Features
 
 **Tabs** represent a working directory. Each tab has a name and a root directory. Switch between them with ⌘1–⌘9.
 
-**Panes** are terminal sessions inside a tab. Creating an agent pane launches the selected tool (Claude Code, Codex, Cursor, or OpenCode) in an isolated git worktree. You can also open a plain shell in an existing pane. Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more.
+**Panes** are terminal sessions inside a tab. Creating an agent pane launches the selected tool (Claude Code, Codex, Cursor, OpenCode, or Oh My Pi) in an isolated git worktree. You can also open a plain shell in an existing pane. Panes auto-arrange in a grid (1×1 → 2×1 → 2×2 → 3×2 → 3×3) as you add more.
 
 **Status line** — each pane can show a live, configurable status bar at the bottom with app-owned and tool-specific information such as the model, worktree name, cost, context usage, and more. Available items vary by tool, and custom fields are supported in Settings → Status Line.
 

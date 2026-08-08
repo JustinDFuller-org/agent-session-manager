@@ -35,6 +35,7 @@ struct NewPaneSheet: View {
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
         case .opencode: return appSettings.opencodeCliOptions
+        case .omp: return appSettings.ompCliOptions
         case .shell: return []
         }
     }
@@ -102,6 +103,7 @@ struct NewPaneSheet: View {
         switch selectedHarness {
         case .claude: return appSettings.envVarOptions
         case .opencode: return appSettings.opencodeEnvVarOptions
+        case .omp: return appSettings.ompEnvVarOptions
         case .codex, .cursor, .shell: return []
         }
     }
@@ -208,9 +210,8 @@ struct NewPaneSheet: View {
                         catalog: activeOptions,
                         states: profileOptionStates
                     )
-
                     let envVars: [ProfileEnvVar]
-                    if selectedHarness == .claude || selectedHarness == .opencode {
+                    if selectedHarness == .claude || selectedHarness == .opencode || selectedHarness == .omp {
                         var profileEnvironmentStates: [String: ProfileOptionDraft] = [:]
                         for envVar in currentEnvVarOptions {
                             let state = envVarStates[envVar.id] ?? OptionState(enabled: false, value: "")
@@ -270,6 +271,11 @@ struct NewPaneSheet: View {
                             appSettings.opencodeCliOptions[index].isAvailable = true
                         }
                         SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+                    case .omp:
+                        if let index = appSettings.ompCliOptions.firstIndex(where: { $0.id == option.id }) {
+                            appSettings.ompCliOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.save(appSettings.ompCliOptions, to: "omp-settings.json")
                     case .shell:
                         break
                     }
@@ -286,6 +292,11 @@ struct NewPaneSheet: View {
                             appSettings.opencodeEnvVarOptions[index].isAvailable = true
                         }
                         SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
+                    case .omp:
+                        if let index = appSettings.ompEnvVarOptions.firstIndex(where: { $0.id == envVar.id }) {
+                            appSettings.ompEnvVarOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.save(appSettings.ompEnvVarOptions, to: "omp-env-var-settings.json")
                     case .codex, .cursor, .shell:
                         break
                     }
@@ -564,7 +575,7 @@ struct NewPaneSheet: View {
             optionStates[option.id] = OptionState(enabled: enabled, value: "")
         }
         envVarStates = [:]
-        if selectedHarness == .claude || selectedHarness == .opencode {
+        if selectedHarness == .claude || selectedHarness == .opencode || selectedHarness == .omp {
             for envVar in currentEnvVarOptions where envVar.isAvailable {
                 let value = envVar.isDefaultEnabled ? envVar.defaultValue : ""
                 envVarStates[envVar.id] = OptionState(enabled: envVar.isDefaultEnabled, value: value)
@@ -653,16 +664,15 @@ struct NewPaneSheet: View {
                     "base.branch.source": branchSource,
                 ]
             )
-            if harness == .opencode {
+            if harness == .opencode || harness == .omp {
                 let shell = ShellResolver.resolved(appSettings)
-                let installed = await HarnessDetector.isInstalled(harness: .opencode, shell: shell)
+                let installed = await HarnessDetector.isInstalled(harness: harness, shell: shell)
                 if !installed {
-                    await MainActor.run {
-                        pane.setupState = .failed(
-                            error:
-                                "OpenCode binary not found in PATH. Install OpenCode or check your shell configuration."
-                        )
-                    }
+                    pane.setupState = .failed(
+                        error: harness == .omp
+                            ? "Oh My Pi binary not found in PATH. Install Oh My Pi or check your shell configuration."
+                            : "OpenCode binary not found in PATH. Install OpenCode or check your shell configuration."
+                    )
                     return
                 }
             }
@@ -758,7 +768,7 @@ extension NewPaneSheet {
     }
 
     fileprivate func buildExtraEnvVars() -> [String: String] {
-        guard selectedHarness == .claude || selectedHarness == .opencode else { return [:] }
+        guard selectedHarness == .claude || selectedHarness == .opencode || selectedHarness == .omp else { return [:] }
         var envVars: [String: String] = [:]
         for envVar in currentEnvVarOptions {
             guard let state = envVarStates[envVar.id], state.enabled else { continue }

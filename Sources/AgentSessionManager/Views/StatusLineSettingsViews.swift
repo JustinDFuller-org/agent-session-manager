@@ -1265,6 +1265,23 @@ struct NotificationsContent: View {
                     }
                 }
             }
+            Section("Oh My Pi") {
+                SettingRow(
+                    title: "Notify when Oh My Pi stops",
+                    description: "Show a banner and sidebar row when Oh My Pi finishes a turn."
+                ) {
+                    Toggle(
+                        "Notify when Oh My Pi stops",
+                        isOn: $appSettings.isOhMyPiStopNotificationEnabled
+                    )
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings-omp-stop-notification-toggle")
+                    .onChange(of: appSettings.isOhMyPiStopNotificationEnabled) {
+                        SettingsPersistence.saveNotificationSettings(appSettings: appSettings)
+                    }
+                }
+            }
             Section("OpenCode") {
                 SettingRow(
                     title: "Notify when OpenCode stops",

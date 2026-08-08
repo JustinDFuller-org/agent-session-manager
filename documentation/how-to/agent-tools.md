@@ -8,7 +8,7 @@ permalink: /documentation/user-guide/agent-tools/
 
 ## What it is
 
-Agent tools are the command-line assistants that run inside agent panes. Agent Session Manager currently supports Claude Code, Cursor, Codex, and OpenCode.
+Agent tools are the command-line assistants that run inside agent panes. Agent Session Manager currently supports Claude Code, Cursor, Codex, OpenCode, and Oh My Pi.
 
 ## Why you might use it
 
@@ -36,6 +36,7 @@ Use the tool guides for setup details:
 - [Codex]({{ '/documentation/user-guide/codex/' | relative_url }})
 - [Cursor]({{ '/documentation/user-guide/cursor/' | relative_url }})
 - [OpenCode]({{ '/documentation/user-guide/opencode/' | relative_url }})
+- [Oh My Pi](https://omp.sh)
 
 ## What you should see
 

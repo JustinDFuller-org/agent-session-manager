@@ -15,7 +15,7 @@ struct CLIOptionValueField: View {
 
     var body: some View {
         Group {
-            if case .string(let placeholder) = option.optionType {
+            if let placeholder = option.optionType.placeholder {
                 if option.presetValues.isEmpty {
                     TextField(placeholder, text: $value)
                         .textFieldStyle(.roundedBorder)

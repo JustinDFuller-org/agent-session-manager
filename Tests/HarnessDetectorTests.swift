@@ -28,6 +28,15 @@ final class HarnessDetectorTests: XCTestCase {
         XCTAssertFalse(result.contains(.cursor))
     }
 
+    func testDetectsOhMyPiBinary() async {
+        let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, command in
+            command == "omp"
+        }
+        XCTAssertTrue(result.contains(.omp))
+        XCTAssertFalse(result.contains(.claude))
+        XCTAssertFalse(result.contains(.opencode))
+    }
+
     func testReturnsEmptySetWhenNothingInstalled() async {
         let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, _ in false }
         XCTAssertTrue(result.isEmpty)

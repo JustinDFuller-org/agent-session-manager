@@ -16,7 +16,7 @@ Configure common defaults once, keep the New Pane sheet focused on the choices y
 
 ## Before you start
 
-Open **Settings → Harnesses** and enable the tool you want to configure. Agent Session Manager currently supports Claude Code, Cursor, Codex, and OpenCode.
+Open **Settings → Harnesses** and enable the tool you want to configure. Agent Session Manager currently supports Claude Code, Cursor, Codex, OpenCode, and Oh My Pi.
 
 ## How to use it
 
@@ -29,7 +29,7 @@ Open **Settings → Harnesses** and enable the tool you want to configure. Agent
 7. To turn a text option into a menu, add one or more **Preset values** in its settings row.
 8. Enable **Allow multiple selections** when the option should accept more than one preset.
 9. Choose **Add Custom Flag** to add a boolean or text option that is not in the catalog.
-10. For Claude Code or OpenCode, configure supported entries under **Environment Variables** when needed.
+10. For Claude Code, OpenCode, or Oh My Pi, configure supported entries under **Environment Variables** when needed.
 
 The options available from **New Pane → CLI Options** change when you select a
 different **Harness**. You can also configure options while editing a profile.

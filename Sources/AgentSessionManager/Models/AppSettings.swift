@@ -112,8 +112,10 @@ final class AppSettings {
     var codexCliOptions: [CLIOptionConfig] = CLIOptionConfig.codexAll
     var cursorCliOptions: [CLIOptionConfig] = CLIOptionConfig.cursorAll
     var opencodeCliOptions: [CLIOptionConfig] = CLIOptionConfig.opencodeAll
+    var ompCliOptions: [CLIOptionConfig] = CLIOptionConfig.ompAll
     var envVarOptions: [EnvVarConfig] = EnvVarConfig.all
     var opencodeEnvVarOptions: [EnvVarConfig] = EnvVarConfig.opencodeAll
+    var ompEnvVarOptions: [EnvVarConfig] = EnvVarConfig.ompAll
     var statusLineConfig = StatusLineConfig()
     var activeTools: Set<String> = [Harness.claude.rawValue]
     var defaultBranch: String = "main"
@@ -126,6 +128,8 @@ final class AppSettings {
     var isCursorNotificationHookAttentionEnabled: Bool = true
     /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool = true
+    /// When true, fire a notification when Oh My Pi finishes a turn.
+    var isOhMyPiStopNotificationEnabled: Bool = true
     /// When true, fire a notification when OpenCode finishes a turn.
     var isOpencodeStopNotificationEnabled: Bool = true
     var continueOnRestart: Bool = true

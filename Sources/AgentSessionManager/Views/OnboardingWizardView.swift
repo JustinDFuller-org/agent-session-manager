@@ -382,7 +382,7 @@ struct OnboardingWizardView: View {
     }
 
     private var currentHarnessSupportsEnvVars: Bool {
-        cliFlagsTool == .claude || cliFlagsTool == .opencode
+        cliFlagsTool == .claude || cliFlagsTool == .opencode || cliFlagsTool == .omp
     }
 
     private var isCurrentDraftRecommended: Bool {
@@ -507,6 +507,9 @@ struct OnboardingWizardView: View {
                     case .opencode:
                         appSettings.opencodeCliOptions = draft
                         SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+                    case .omp:
+                        appSettings.ompCliOptions = draft
+                        SettingsPersistence.save(appSettings.ompCliOptions, to: "omp-settings.json")
                     case .shell:
                         break
                     }
@@ -518,6 +521,10 @@ struct OnboardingWizardView: View {
                 if toolsToSave.contains(.opencode), let draft = draftEnvVarOptions[.opencode] {
                     appSettings.opencodeEnvVarOptions = draft
                     SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
+                }
+                if toolsToSave.contains(.omp), let draft = draftEnvVarOptions[.omp] {
+                    appSettings.ompEnvVarOptions = draft
+                    SettingsPersistence.save(appSettings.ompEnvVarOptions, to: "omp-env-var-settings.json")
                 }
                 step = .profiles
             }

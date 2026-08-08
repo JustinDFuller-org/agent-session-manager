@@ -228,6 +228,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - codex-cli: `feature-codex-cli`
 - continue-on-restart: `feature-continue-on-restart`
 - opencode-cli: `feature-opencode-cli`
+- oh-my-pi-cli: `feature-oh-my-pi-cli`
 - tab-pane-reordering: `feature-tab-pane-reordering`
 - pr-tracking: `feature-pr-tracking`
 - sticky-notifications: `feature-sticky-notifications`

@@ -16,6 +16,8 @@ struct StatusProviderContext {
     let opencodePort: Int?
     let opencodeSessionID: String?
     let opencodeEnvironment: [String: String]
+    let ohMyPiStatusFilePath: String?
+    let expectedOhMyPiSessionID: String?
 
     init(
         paneID: UUID,
@@ -31,7 +33,9 @@ struct StatusProviderContext {
         codexHookRecordPath: String?,
         opencodePort: Int?,
         opencodeSessionID: String?,
-        opencodeEnvironment: [String: String] = [:]
+        opencodeEnvironment: [String: String] = [:],
+        ohMyPiStatusFilePath: String? = nil,
+        expectedOhMyPiSessionID: String? = nil
     ) {
         self.paneID = paneID
         self.paneName = paneName
@@ -47,6 +51,8 @@ struct StatusProviderContext {
         self.opencodePort = opencodePort
         self.opencodeSessionID = opencodeSessionID
         self.opencodeEnvironment = opencodeEnvironment
+        self.ohMyPiStatusFilePath = ohMyPiStatusFilePath
+        self.expectedOhMyPiSessionID = expectedOhMyPiSessionID
     }
 }
 

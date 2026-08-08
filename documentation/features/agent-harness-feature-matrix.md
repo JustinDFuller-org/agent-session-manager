@@ -1,6 +1,6 @@
 # Agent Harness Feature Matrix
 
-This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, Codex, and OpenCode as of **July 27, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
+This is the canonical, code-observed audit of Agent Session Manager integration points for Claude Code, Cursor, Codex, OpenCode, and Oh My Pi as of **August 7, 2026**. It describes the app implementation, not upstream CLI feasibility. The internal `.shell` pane type is excluded.
 
 ## Legend
 
@@ -98,6 +98,17 @@ The catalog controls whether a chip can be selected for a harness. A selectable 
 | Pending-notification persistence | Implemented | Implemented | Implemented | Implemented | In-app entries survive restart through `sessions.json`; banners are not replayed. |
 | PR merged notifications | Partial | Partial | Partial | Partial | Status monitors subscribe to shared PR tracking; callback rewiring gaps also apply here. |
 
+## Oh My Pi
+
+| Surface | Status | Notes |
+|---|---|---|
+| Detection, activation, worktrees, profiles, and restart | Implemented | `omp --version` is probed in the interactive shell; Oh My Pi follows the shared pane lifecycle. |
+| CLI options and environment variables | Implemented | Oh My Pi has separate catalogs. Runtime status and automatic session-name variables remain app-controlled. |
+| Runtime extension and status | Implemented | A private explicit extension writes bounded atomic snapshots for model, usage, context, thinking, session name, working state, and attention. |
+| Continue and session binding | Implemented | Persistent IDs are restored with `--resume`; `--continue` is the no-ID fallback. Explicit session flags win. |
+| Agent Control | Implemented | A private sibling `mcp.json` is written only after credential setup succeeds. |
+| Native attention | Implemented | Completion, tool approval, and input-request events feed pane waiting/notification behavior. |
+
 ## Known Gaps
 
 - Codex rollout parsing is currently supported only for Codex `0.136.x`; unknown versions degrade to baseline/state DB facts.
@@ -110,3 +121,4 @@ Individual CLI flag catalogs remain in the harness-specific guides:
 - [Cursor CLI support]({{ '/documentation/features/cursor-cli/' | relative_url }})
 - [Codex CLI support]({{ '/documentation/features/codex-cli/' | relative_url }})
 - [OpenCode CLI support]({{ '/documentation/features/opencode-cli/' | relative_url }})
+- [Oh My Pi CLI support](oh-my-pi-cli.md)

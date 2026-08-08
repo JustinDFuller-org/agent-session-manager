@@ -14,6 +14,7 @@ private func restoreNotificationSettings(into settings: AppSettings) {
     settings.isPRMergedNotificationsEnabled = config.isPRMergedNotificationsEnabled
     settings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
     settings.isClaudeStopNotificationEnabled = config.isClaudeStopNotificationEnabled
+    settings.isOhMyPiStopNotificationEnabled = config.isOhMyPiStopNotificationEnabled
     settings.isOpencodeStopNotificationEnabled = config.isOpencodeStopNotificationEnabled
 }
 
@@ -166,6 +167,36 @@ final class NotificationTests: XCTestCase {
         let restored = AppSettings()
         restoreNotificationSettings(into: restored)
         XCTAssertFalse(restored.isClaudeStopNotificationEnabled)
+    }
+
+    func testOhMyPiStopNotificationEnabledRoundTrip() {
+        let notificationURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager/notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: notificationURL) }
+
+        let settings = AppSettings()
+        settings.isOhMyPiStopNotificationEnabled = false
+        SettingsPersistence.saveNotificationSettings(appSettings: settings)
+
+        let restored = AppSettings()
+        restoreNotificationSettings(into: restored)
+        XCTAssertFalse(restored.isOhMyPiStopNotificationEnabled)
+    }
+
+    func testOhMyPiStopNotificationEnabledLegacyDefaultsTrue() throws {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "agent-session-manager")
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appending(path: "notification-settings.json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try Data(#"{"sidebarSide":"right","isPriorityEnabled":true}"#.utf8).write(to: url)
+        let restored = AppSettings()
+        restored.isOhMyPiStopNotificationEnabled = false
+        restoreNotificationSettings(into: restored)
+        XCTAssertTrue(restored.isOhMyPiStopNotificationEnabled)
     }
 
     func testOpencodeStopNotificationEnabledRoundTrip() {

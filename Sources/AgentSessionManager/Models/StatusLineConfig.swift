@@ -262,7 +262,7 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         "apiDuration": ("API Duration", "clock.arrow.2.circlepath"),
     ]
 
-    static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor, .opencode]
+    static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor, .opencode, .omp]
     static let customFieldIconOptions: [StatusLineIconOption] = [
         // Development
         StatusLineIconOption(
@@ -446,12 +446,14 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         owner: .harness, supportedHarnesses: [.claude], missingBehavior: .unsupported)
     static let claudeCodexCapability = StatusFactCapability(
         owner: .harness, supportedHarnesses: [.claude, .codex], missingBehavior: .pending)
+    static let claudeCodexOhMyPiCapability = StatusFactCapability(
+        owner: .harness, supportedHarnesses: [.claude, .codex, .omp], missingBehavior: .pending)
     static let modelCapability = StatusFactCapability(
         owner: .merged, supportedHarnesses: allHarnesses, missingBehavior: .pending)
-    static let claudeOpencodeCapability = StatusFactCapability(
-        owner: .harness, supportedHarnesses: [.claude, .opencode], missingBehavior: .pending)
+    static let claudeOpencodeOhMyPiCapability = StatusFactCapability(
+        owner: .harness, supportedHarnesses: [.claude, .opencode, .omp], missingBehavior: .pending)
     static let inputOutputTokenCapability = StatusFactCapability(
-        owner: .harness, supportedHarnesses: [.claude, .codex, .opencode], missingBehavior: .pending)
+        owner: .harness, supportedHarnesses: [.claude, .codex, .opencode, .omp], missingBehavior: .pending)
 
     static let itemCapabilities: [String: StatusFactCapability] = [
         "worktree": appCapability,
@@ -462,26 +464,31 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         "linesRemoved": appCapability,
         "profileName": appCapability,
         "model": modelCapability,
-        "cost": claudeOpencodeCapability,
+        "cost": claudeOpencodeOhMyPiCapability,
         "inputTokens": inputOutputTokenCapability,
         "outputTokens": inputOutputTokenCapability,
-        "context": claudeCodexCapability,
-        "contextRemaining": claudeCodexCapability,
+        "context": claudeCodexOhMyPiCapability,
+        "contextRemaining": claudeCodexOhMyPiCapability,
         "rate5h": claudeCodexCapability,
         "rate7d": claudeCodexCapability,
         "rate5hReset": claudeCodexCapability,
         "rate7dReset": claudeCodexCapability,
-        "effort": claudeCapability,
-        "thinking": claudeCapability,
+        "effort": StatusFactCapability(
+            owner: .harness, supportedHarnesses: [.claude, .omp], missingBehavior: .pending),
+        "thinking": StatusFactCapability(
+            owner: .harness, supportedHarnesses: [.claude, .omp], missingBehavior: .pending),
         "vimMode": claudeCapability,
         "agentName": claudeCapability,
-        "sessionName": claudeOpencodeCapability,
+        "sessionName": claudeOpencodeOhMyPiCapability,
         "outputStyle": claudeCapability,
         "exceeds200k": claudeCapability,
         "repo": appCapability,
-        "contextSize": claudeCapability,
-        "cacheRead": claudeCapability,
-        "cacheCreation": claudeCapability,
+        "contextSize": StatusFactCapability(
+            owner: .harness, supportedHarnesses: [.claude, .omp], missingBehavior: .pending),
+        "cacheRead": StatusFactCapability(
+            owner: .harness, supportedHarnesses: [.claude, .omp], missingBehavior: .pending),
+        "cacheCreation": StatusFactCapability(
+            owner: .harness, supportedHarnesses: [.claude, .omp], missingBehavior: .pending),
         "apiDuration": claudeCapability,
     ]
 

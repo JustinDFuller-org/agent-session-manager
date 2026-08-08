@@ -80,7 +80,7 @@ extension Tab {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name,
+                tabID: self.id, tabName: self.name, ohMyPiSessionID: pane.ohMyPiSessionID,
                 customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         }
@@ -129,6 +129,14 @@ extension Tab {
                 tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
                 customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
+        case .omp:
+            do {
+                try configureOhMyPiController(
+                    controller, pane: pane, extraArgs: effectiveExtraArgs, extraEnvVars: extraEnvVars)
+            } catch {
+                pane.setupState = .failed(error: "Could not prepare the Oh My Pi runtime extension.")
+                return
+            }
         }
         controller.terminalView.telemetryTabName = self.name
         controller.terminalView.telemetryTabUUID = self.id

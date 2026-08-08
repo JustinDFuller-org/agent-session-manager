@@ -191,6 +191,7 @@ private struct ProfileEditorSheet: View {
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
         case .opencode: return appSettings.opencodeCliOptions
+        case .omp: return appSettings.ompCliOptions
         case .shell: return []
         }
     }
@@ -207,6 +208,7 @@ private struct ProfileEditorSheet: View {
         switch harness {
         case .claude: return appSettings.envVarOptions
         case .opencode: return appSettings.opencodeEnvVarOptions
+        case .omp: return appSettings.ompEnvVarOptions
         case .codex, .cursor, .shell: return []
         }
     }
@@ -335,6 +337,14 @@ private struct ProfileEditorSheet: View {
                                                             }
                                                             SettingsPersistence.saveOpenCodeOptions(
                                                                 appSettings: appSettings)
+                                                        case .omp:
+                                                            if let i = appSettings.ompCliOptions.firstIndex(where: {
+                                                                $0.id == option.id
+                                                            }) {
+                                                                appSettings.ompCliOptions[i].isAvailable = true
+                                                            }
+                                                            SettingsPersistence.save(
+                                                                appSettings.ompCliOptions, to: "omp-settings.json")
                                                         case .shell:
                                                             break
                                                         }
@@ -349,7 +359,7 @@ private struct ProfileEditorSheet: View {
                         }
                     }
 
-                    if harness == .claude || harness == .opencode {
+                    if harness == .claude || harness == .opencode || harness == .omp {
                         let availableEnvVars = currentEnvVarOptions.filter(\.isAvailable)
                         if !availableEnvVars.isEmpty || !hiddenEnvVars.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
@@ -423,6 +433,15 @@ private struct ProfileEditorSheet: View {
                                                                 }
                                                                 SettingsPersistence.saveOpenCodeEnvVars(
                                                                     appSettings: appSettings)
+                                                            case .omp:
+                                                                if let i = appSettings.ompEnvVarOptions.firstIndex(
+                                                                    where: { $0.id == envVar.id })
+                                                                {
+                                                                    appSettings.ompEnvVarOptions[i].isAvailable = true
+                                                                }
+                                                                SettingsPersistence.save(
+                                                                    appSettings.ompEnvVarOptions,
+                                                                    to: "omp-env-var-settings.json")
                                                             case .codex, .cursor, .shell:
                                                                 break
                                                             }
@@ -548,7 +567,7 @@ private struct ProfileEditorSheet: View {
                 enabled: option.isDefaultEnabled, value: "")
         }
         envVarStates = [:]
-        if harness == .claude || harness == .opencode {
+        if harness == .claude || harness == .opencode || harness == .omp {
             for envVar in currentEnvVarOptions where envVar.isAvailable {
                 envVarStates[envVar.id] = ProfileOptionDraft(
                     enabled: envVar.isDefaultEnabled, value: envVar.defaultValue)
@@ -574,7 +593,7 @@ private struct ProfileEditorSheet: View {
         guard isValid else { return }
         let cliOptions = ProfileSnapshotBuilder.cliOptions(catalog: activeOptions, states: optionStates)
         let envVars =
-            harness == .claude || harness == .opencode
+            harness == .claude || harness == .opencode || harness == .omp
             ? ProfileSnapshotBuilder.environmentVariables(
                 catalog: currentEnvVarOptions,
                 states: envVarStates

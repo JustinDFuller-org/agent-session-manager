@@ -45,7 +45,7 @@ struct EnvVarConfig: Identifiable, Codable {
             self.isAppControlled = false
         } else {
             let id = try container.decode(String.self, forKey: .id)
-            let allTemplates = EnvVarConfig.all + EnvVarConfig.opencodeAll
+            let allTemplates = EnvVarConfig.all + EnvVarConfig.opencodeAll + EnvVarConfig.ompAll
             guard let template = allTemplates.first(where: { $0.id == id }) else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .id, in: container, debugDescription: "Unknown env var: \(id)")
@@ -96,6 +96,12 @@ struct EnvVarConfig: Identifiable, Codable {
             ids.insert("OPENCODE_DISABLE_DEFAULT_PLUGINS")
             #endif
             recommendedIDs = ids
+        case .omp:
+            catalog = ompAll
+            recommendedIDs = [
+                "OMP_PROFILE", "PI_SMOL_MODEL", "PI_SLOW_MODEL", "PI_PLAN_MODEL",
+                "AGENT_SESSION_MANAGER_OMP_STATUS_FILE", "AGENT_SESSION_MANAGER_OMP_SESSION_NAME",
+            ]
         case .codex, .cursor, .shell:
             return []
         }
@@ -686,4 +692,24 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to true to surface experimental model options"
         ),
     ]
+
+    static let ompAll: [EnvVarConfig] = {
+        let userVariables = [
+            "OMP_PROFILE", "PI_CONFIG_FILES", "PI_CONFIG_DIR", "PI_CODING_AGENT_DIR", "PI_SMOL_MODEL",
+            "PI_SLOW_MODEL", "PI_PLAN_MODEL", "PI_NO_PTY", "PI_NO_TITLE", "PI_NOTIFICATIONS", "OMP_MCP_TIMEOUT_MS",
+        ]
+        let controlledVariables = [
+            "AGENT_SESSION_MANAGER_OMP_STATUS_FILE", "AGENT_SESSION_MANAGER_OMP_SESSION_NAME",
+        ]
+        let make: (String, Bool) -> EnvVarConfig = { id, isAppControlled in
+            EnvVarConfig(
+                id: id,
+                label: String(id.replacingOccurrences(of: "_", with: " ")).capitalized,
+                description: isAppControlled
+                    ? "Managed by Agent Session Manager for Oh My Pi integration"
+                    : "\(id) for Oh My Pi",
+                isAppControlled: isAppControlled)
+        }
+        return userVariables.map { make($0, false) } + controlledVariables.map { make($0, true) }
+    }()
 }

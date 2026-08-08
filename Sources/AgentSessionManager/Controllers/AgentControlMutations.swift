@@ -930,6 +930,10 @@ final class AgentControlMutationRouter {
         case .opencode:
             appSettings.opencodeCliOptions = updated
             persisted = SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+        case .omp:
+            appSettings.ompCliOptions = updated
+            SettingsPersistence.save(appSettings.ompCliOptions, to: "omp-settings.json")
+            persisted = true
         case .shell:
             persisted = false
         }
@@ -979,7 +983,7 @@ final class AgentControlMutationRouter {
                 guard value == nil || value?.isEmpty == true, values?.isEmpty != false else {
                     throw MCPError.invalidParams("Boolean CLI option cannot have a value: \(patch.id)")
                 }
-            case .string:
+            case .string, .optionalString:
                 guard config.allowsMultipleValues || values?.count ?? 0 <= 1 else {
                     throw MCPError.invalidParams("CLI option does not accept multiple values: \(patch.id)")
                 }
@@ -1038,6 +1042,7 @@ final class AgentControlMutationRouter {
         case .codex: appSettings.codexCliOptions = options
         case .cursor: appSettings.cursorCliOptions = options
         case .opencode: appSettings.opencodeCliOptions = options
+        case .omp: appSettings.ompCliOptions = options
         case .shell: break
         }
     }
@@ -1114,6 +1119,7 @@ final class AgentControlMutationRouter {
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
         case .opencode: return appSettings.opencodeCliOptions
+        case .omp: return appSettings.ompCliOptions
         case .shell: return []
         }
     }
@@ -1122,6 +1128,7 @@ final class AgentControlMutationRouter {
         switch harness {
         case .claude: return appSettings.envVarOptions
         case .opencode: return appSettings.opencodeEnvVarOptions
+        case .omp: return appSettings.ompEnvVarOptions
         case .codex, .cursor, .shell: return []
         }
     }

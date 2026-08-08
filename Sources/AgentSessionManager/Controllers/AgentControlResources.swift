@@ -187,6 +187,7 @@ struct AgentControlPaneStatusSnapshot: Codable {
     let data: StatusLineData?
     let claudeLifecycle: String
     let isOpenCodeWorking: Bool
+    let isOhMyPiWorking: Bool
 }
 
 struct AgentControlStatusLineSnapshot: Codable {
@@ -476,6 +477,9 @@ final class AgentControlResourceRouter {
             case .opencode:
                 options = appSettings.opencodeCliOptions
                 environment = appSettings.opencodeEnvVarOptions
+            case .omp:
+                options = appSettings.ompCliOptions
+                environment = appSettings.ompEnvVarOptions
             case .shell:
                 options = []
                 environment = []
@@ -538,7 +542,8 @@ final class AgentControlResourceRouter {
                 default: return "unknown"
                 }
             }(),
-            isOpenCodeWorking: pane.statusLineMonitor?.isOpenCodeWorking ?? false)
+            isOpenCodeWorking: pane.statusLineMonitor?.isOpenCodeWorking ?? false,
+            isOhMyPiWorking: pane.statusLineMonitor?.isOhMyPiWorking ?? false)
     }
 
     func notificationSnapshots(source: AgentControlSource) -> [AgentControlNotificationSnapshot] {
@@ -568,7 +573,8 @@ final class AgentControlResourceRouter {
         let state = paneActivityState(
             processState: pane.terminalController?.processState,
             isWorking: pane.statusLineMonitor?.isClaudeWorking == true
-                || pane.statusLineMonitor?.isOpenCodeWorking == true,
+                || pane.statusLineMonitor?.isOpenCodeWorking == true
+                || pane.statusLineMonitor?.isOhMyPiWorking == true,
             isStopped: pane.statusLineMonitor?.isClaudeStopped == true,
             sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,
             hasNotification: appState.notifications.contains { $0.paneID == pane.id })

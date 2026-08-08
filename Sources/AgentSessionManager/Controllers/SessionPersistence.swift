@@ -129,6 +129,7 @@ struct PersistedPane: Codable {
     var scrollbackOverride: ScrollbackLimit?
     var extraArgs: [String]
     var opencodeSessionID: String?
+    var ohMyPiSessionID: String?
     var agentControlInjectionEnabled: Bool?
 
     enum CodingKeys: String, CodingKey {
@@ -138,6 +139,7 @@ struct PersistedPane: Codable {
         case scrollbackOverride
         case extraArgs
         case opencodeSessionID
+        case ohMyPiSessionID
         case agentControlInjectionEnabled
     }
 
@@ -146,7 +148,7 @@ struct PersistedPane: Codable {
         isClosed: Bool = false,
         worktreeDirectory: String? = nil, worktreeIsManaged: Bool = false, profileID: UUID? = nil,
         scrollbackOverride: ScrollbackLimit? = nil, extraArgs: [String] = [], opencodeSessionID: String? = nil,
-        agentControlInjectionEnabled: Bool? = nil
+        ohMyPiSessionID: String? = nil, agentControlInjectionEnabled: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -160,9 +162,9 @@ struct PersistedPane: Codable {
         self.scrollbackOverride = scrollbackOverride
         self.extraArgs = extraArgs
         self.opencodeSessionID = opencodeSessionID
+        self.ohMyPiSessionID = ohMyPiSessionID
         self.agentControlInjectionEnabled = agentControlInjectionEnabled
     }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -180,6 +182,7 @@ struct PersistedPane: Codable {
             try? container.decodeIfPresent(ScrollbackLimit.self, forKey: .scrollbackOverride)
         extraArgs = (try? container.decodeIfPresent([String].self, forKey: .extraArgs)) ?? []
         opencodeSessionID = try container.decodeIfPresent(String.self, forKey: .opencodeSessionID)
+        ohMyPiSessionID = try container.decodeIfPresent(String.self, forKey: .ohMyPiSessionID)
         agentControlInjectionEnabled = try container.decodeIfPresent(Bool.self, forKey: .agentControlInjectionEnabled)
     }
 
@@ -197,6 +200,7 @@ struct PersistedPane: Codable {
         try container.encodeIfPresent(scrollbackOverride, forKey: .scrollbackOverride)
         try container.encode(extraArgs, forKey: .extraArgs)
         try container.encodeIfPresent(opencodeSessionID, forKey: .opencodeSessionID)
+        try container.encodeIfPresent(ohMyPiSessionID, forKey: .ohMyPiSessionID)
         try container.encodeIfPresent(agentControlInjectionEnabled, forKey: .agentControlInjectionEnabled)
     }
 }
@@ -232,6 +236,7 @@ struct SessionPersistence {
                         scrollbackOverride: pane.scrollbackOverride,
                         extraArgs: pane.extraArgs,
                         opencodeSessionID: pane.opencodeSessionID,
+                        ohMyPiSessionID: pane.ohMyPiSessionID,
                         agentControlInjectionEnabled: pane.agentControlInjectionEnabled
                     )
                 }
@@ -337,6 +342,14 @@ struct SessionPersistence {
                         extraArgs.append("--continue")
                     }
                 }
+                if persistedPane.harness == .omp {
+                    extraArgs =
+                        OhMyPiLaunchPolicy.resolve(
+                            userArguments: extraArgs,
+                            sessionID: appSettings.continueOnRestart ? persistedPane.ohMyPiSessionID : nil,
+                            continueWhenMissing: appSettings.continueOnRestart
+                        ).arguments
+                }
                 let agentControlInjectionEnabled = appSettings.resolvedAgentControlInjectionDecision(
                     persistedDecision: persistedPane.agentControlInjectionEnabled)
                 didMigrateAgentControlDecisions =
@@ -364,6 +377,7 @@ struct SessionPersistence {
                     resumeOpencodeSessionID: resumeOpencodeSessionID,
                     appSettings: appSettings
                 )
+                pane.ohMyPiSessionID = persistedPane.ohMyPiSessionID
                 pane.isMerged = persistedPane.isMerged
                 pane.isClosed = persistedPane.isClosed
                 pane.bindNotifications(

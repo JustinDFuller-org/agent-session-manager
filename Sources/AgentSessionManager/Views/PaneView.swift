@@ -294,7 +294,8 @@ struct PaneView: View {
                     processState: pane.terminalController?.processState,
                     isWorking: (pane.statusLineMonitor?.isClaudeWorking ?? false)
                         || (pane.statusLineMonitor?.isCursorWorking ?? false)
-                        || (pane.statusLineMonitor?.isOpenCodeWorking ?? false),
+                        || (pane.statusLineMonitor?.isOpenCodeWorking ?? false)
+                        || (pane.statusLineMonitor?.isOhMyPiWorking ?? false),
                     isStopped: (pane.statusLineMonitor?.isClaudeStopped ?? false)
                         || (pane.statusLineMonitor?.isCursorStopped ?? false),
                     sessionState: pane.statusLineMonitor?.currentData?.sessionStatus?.state,

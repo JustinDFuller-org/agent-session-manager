@@ -18,7 +18,7 @@ A pane is one terminal session inside a tab. It runs an agent tool or, when open
 
 ### Agent tool
 
-An agent tool is the command-line program that works inside a pane. Agent Session Manager currently supports Claude Code, Cursor, Codex, and OpenCode. Only tools enabled in **Settings → Harnesses** appear when you create a pane.
+An agent tool is the command-line program that works inside a pane. Agent Session Manager currently supports Claude Code, Cursor, Codex, OpenCode, and Oh My Pi. Only tools enabled in **Settings → Harnesses** appear when you create a pane.
 
 ### Repository
 

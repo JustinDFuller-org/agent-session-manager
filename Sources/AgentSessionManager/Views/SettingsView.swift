@@ -620,6 +620,23 @@ private struct ToolsContent: View {
                             onEnvVarSave: { SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings) },
                             envVarHarnessDisplayName: "OpenCode"
                         )
+                    case .omp:
+                        CLIOptionsContent(
+                            options: Binding(
+                                get: { appSettings.ompCliOptions },
+                                set: { appSettings.ompCliOptions = $0 }
+                            ),
+                            onSave: { SettingsPersistence.save(appSettings.ompCliOptions, to: "omp-settings.json") },
+                            customFlagFooter: "Custom flags may not be recognized by all Oh My Pi CLI versions.",
+                            envVarOptions: Binding(
+                                get: { appSettings.ompEnvVarOptions },
+                                set: { appSettings.ompEnvVarOptions = $0 }
+                            ),
+                            onEnvVarSave: {
+                                SettingsPersistence.save(appSettings.ompEnvVarOptions, to: "omp-env-var-settings.json")
+                            },
+                            envVarHarnessDisplayName: "Oh My Pi"
+                        )
                     case .shell:
                         EmptyView()
                     }
@@ -965,7 +982,7 @@ private struct CLIOptionRow: View {
                     }
                 }
             }
-            if case .string = option.optionType {
+            if option.optionType.placeholder != nil {
                 CLIOptionPresetEditor(
                     optionID: option.id,
                     presetValues: $option.presetValues,
