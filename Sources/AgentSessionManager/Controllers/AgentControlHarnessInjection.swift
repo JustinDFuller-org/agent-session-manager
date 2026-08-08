@@ -163,7 +163,7 @@ struct OhMyPiAgentControlAdapter: AgentControlHarnessAdapter {
         ]
         do {
             let data = try JSONSerialization.data(withJSONObject: mcp, options: [.sortedKeys])
-            let mcpURL = directory.appending(path: "mcp.json")
+            let mcpURL = directory.appending(path: ".mcp.json")
             try data.write(to: mcpURL, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: mcpURL.path)
             guard OhMyPiRuntimePlugin.isPrivateRuntimeDirectory(directory, requiresMCP: true) else {
@@ -173,10 +173,21 @@ struct OhMyPiAgentControlAdapter: AgentControlHarnessAdapter {
                 .ohMyPiRuntimePluginPrivate,
                 true,
                 context: ["result": "agent_control_prepared"])
+            var arguments = context.commandArguments
+            arguments.append(contentsOf: ["--plugin-dir", directory.path])
+            return AgentControlHarnessLaunchContext(
+                endpoint: context.endpoint,
+                tokenEnvironmentKey: context.tokenEnvironmentKey,
+                commandArguments: arguments,
+                environment: context.environment,
+                paneID: context.paneID,
+                cursorPluginDirectory: context.cursorPluginDirectory,
+                ohMyPiRuntimePluginDirectory: directory,
+                cursorBridgeExecutable: context.cursorBridgeExecutable)
         } catch {
+            try? FileManager.default.removeItem(at: directory.appending(path: ".mcp.json"))
             throw AgentControlHarnessInjectionError.invalidConfiguration(.omp)
         }
-        return context
     }
 }
 enum CursorAgentControlPlugin {
@@ -302,7 +313,7 @@ enum AgentControlHarnessInjection {
             if pane.harness == .omp, let directory = pane.ohMyPiRuntimePluginDirectory,
                 OhMyPiRuntimePlugin.isAppOwned(directory)
             {
-                try? FileManager.default.removeItem(at: directory.appending(path: "mcp.json"))
+                try? FileManager.default.removeItem(at: directory.appending(path: ".mcp.json"))
             }
             AgentControlService.shared.revoke(paneID: pane.id)
             recordPreparation(pane: pane, tab: tab, result: "disabled", approveMCPsEnabled: approveMCPsEnabled)
@@ -419,6 +430,20 @@ enum AgentControlHarnessInjection {
             }
             if harness == .cursor, argument.hasPrefix("--plugin-dir="),
                 CursorAgentControlPlugin.isAppOwned(
+                    URL(filePath: String(argument.dropFirst("--plugin-dir=".count))))
+            {
+                index += 1
+                continue
+            }
+            if harness == .omp, argument == "--plugin-dir",
+                index + 1 < arguments.count,
+                OhMyPiRuntimePlugin.isAppOwned(URL(filePath: arguments[index + 1]))
+            {
+                index += 2
+                continue
+            }
+            if harness == .omp, argument.hasPrefix("--plugin-dir="),
+                OhMyPiRuntimePlugin.isAppOwned(
                     URL(filePath: String(argument.dropFirst("--plugin-dir=".count))))
             {
                 index += 1

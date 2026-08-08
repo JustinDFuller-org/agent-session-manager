@@ -433,29 +433,50 @@ final class OMPCLIOptionConfigTests: XCTestCase {
         CLIOptionConfig.ompAll
     }
 
-    func testDescriptionsAreSpecificAndSingleLine() {
-        XCTAssertEqual(ompOptions.count, 45)
+    func testCuratedCatalogMatchesSupportedInteractiveFlags() {
+        let expectedIDs: Set<String> = [
+            "--advisor", "--allow-home", "--auto-approve", "--continue", "--from-claude", "--from-codex",
+            "--hide-thinking", "--no-extensions", "--no-lsp", "--no-prewalk", "--no-pty", "--no-rules",
+            "--no-session", "--no-skills", "--no-title", "--no-tools", "--plan-yolo", "--prewalk",
+            "--add-dir", "--append-system-prompt", "--approval-mode", "--config", "--extension", "--hook",
+            "--max-time", "--model", "--models", "--plan", "--plan-yolo-into", "--plugin-dir", "--prewalk-into",
+            "--profile", "--provider", "--service-tier", "--session-dir", "--skills", "--slow", "--smol",
+            "--system-prompt", "--thinking", "--tools", "--resume",
+        ]
 
-        for option in ompOptions {
-            XCTAssertFalse(option.description.isEmpty, "\(option.id) has an empty description")
-            XCTAssertFalse(
-                option.description.contains("option for interactive Oh My Pi sessions"),
-                "\(option.id) has the generic description")
-            XCTAssertFalse(option.description.contains("\n"), "\(option.id) description spans multiple lines")
-        }
+        XCTAssertEqual(Set(ompOptions.map(\.id)), expectedIDs)
+        XCTAssertEqual(ompOptions.count, 42)
+        XCTAssertEqual(Set(ompOptions.map(\.id)).count, ompOptions.count)
+        XCTAssertTrue(ompOptions.allSatisfy { !$0.description.isEmpty && !$0.description.contains("\n") })
     }
 
-    func testRepresentativeDescriptionsExplainFlagEffects() {
-        let descriptions = Dictionary(uniqueKeysWithValues: ompOptions.map { ($0.id, $0.description) })
+    func testValueTypesAndPresetsMatchOhMyPiContract() {
+        let requiredValueIDs: Set<String> = [
+            "--add-dir", "--append-system-prompt", "--approval-mode", "--config", "--extension", "--hook",
+            "--max-time", "--model", "--models", "--plan", "--plan-yolo-into", "--plugin-dir", "--prewalk-into",
+            "--profile", "--provider", "--service-tier", "--session-dir", "--skills", "--slow", "--smol",
+            "--system-prompt", "--thinking", "--tools",
+        ]
+        for option in ompOptions {
+            switch option.optionType {
+            case .string:
+                XCTAssertTrue(requiredValueIDs.contains(option.id), "\(option.id) unexpectedly takes a value")
+            case .optionalString:
+                XCTAssertEqual(option.id, "--resume")
+            case .boolean:
+                XCTAssertFalse(requiredValueIDs.contains(option.id), "\(option.id) must take a value")
+            }
+        }
+        let presets = Dictionary(uniqueKeysWithValues: ompOptions.map { ($0.id, $0.presetValues) })
+        XCTAssertEqual(presets["--approval-mode"], ["always-ask", "write", "yolo"])
+        XCTAssertEqual(presets["--thinking"], ["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"])
+        XCTAssertEqual(presets["--service-tier"], ["none", "auto", "default", "flex", "scale", "priority"])
+    }
 
-        XCTAssertEqual(descriptions["--auto-approve"], "Approve all tool calls without prompting.")
-        XCTAssertEqual(
-            descriptions["--prewalk"],
-            "Switch to a fast model on the first edit after the plan todo list exists.")
-        XCTAssertEqual(descriptions["--fork"], "Create a new session fork from the selected session.")
-        XCTAssertEqual(
-            descriptions["--prompt-cache-key"],
-            "Set the provider prompt-cache identity for supported requests.")
+    func testImportFlagsExplainSessionImportBehavior() {
+        let descriptions = Dictionary(uniqueKeysWithValues: ompOptions.map { ($0.id, $0.description) })
+        XCTAssertEqual(descriptions["--from-claude"], "Import a Claude Code session into Oh My Pi.")
+        XCTAssertEqual(descriptions["--from-codex"], "Import a Codex session into Oh My Pi.")
     }
 }
 

@@ -4,14 +4,14 @@ Agent Session Manager supports [Oh My Pi](https://omp.sh) as a fifth agent harne
 
 ## Launch and configuration
 
-Select **Oh My Pi** in the New Pane sheet. The normal worktree flow resolves the checkout, then the app launches the terminal-pure final command `omp … --extension <private-package>`. The private extension package is created in the system temporary directory, never in the checkout.
+Agent Session Manager supports Oh My Pi versions `>= 17.2.11` and `< 18.0.0`. The selected interactive shell must report a compatible version before a pane is created. Select **Oh My Pi** in the New Pane sheet; incompatible, missing, or unrecognised installations remain in the sheet with an actionable error.
 
-Oh My Pi is available when `omp --version` succeeds in the selected interactive shell. CLI flags and environment variables are configurable in Settings and can be stored in profiles. App-controlled variables cannot be overridden:
+The final terminal command is terminal-pure: `omp … --extension <private-runtime>/main.mjs`. Each launch receives a new app-owned private runtime directory under the system temporary directory. The directory is mode `0700`; `main.mjs`, status snapshots, and optional `.mcp.json` are mode `0600`. Runtime directories are removed when their launch is replaced, converted to a shell, or closed.
+
+CLI flags and environment variables are configurable in Settings and can be stored in profiles. The curated interactive surface excludes secrets and one-shot/noninteractive flags. Provider credentials remain environment-only. App-controlled variables cannot be overridden:
 
 - `AGENT_SESSION_MANAGER_OMP_STATUS_FILE`
 - `AGENT_SESSION_MANAGER_OMP_SESSION_NAME`
-
-The extension package is app-owned, mode `0700`; its package, source, status snapshot, and optional MCP configuration are mode `0600`. It is removed when the pane becomes a shell, changes harness, or closes.
 
 ## Status and attention
 
@@ -21,11 +21,11 @@ The extension writes a bounded JSON snapshot through atomic replacement. `OhMyPi
 
 ## Sessions and restart
 
-When the extension reports a persistent session ID, the app saves it with the pane. With **Continue on app restart** enabled, a restored pane uses `--resume <saved-id>`; without a saved ID it uses `--continue`. An explicit `--resume`, `-r`, `--continue`, `-c`, or `--no-session` option always wins. Automatic session naming sets the session to `<tab>/<pane>` after first input when enabled.
+When the extension reports a persistent session ID, the app saves it with the pane. With **Continue on app restart** enabled, a restored or quick-refreshed pane uses `--resume <saved-id>`; without a saved ID it uses `--continue`. Explicit `--resume`, `-r`, `--continue`, `-c`, `--from-claude`, `--from-codex`, or `--no-session` options always win. A reported session ID that differs from the expected resumed session fails closed: the pane stops, removes its runtime, and presents a retryable error.
 
 ## Agent Control
 
-With Agent Control enabled, the app writes a private sibling `mcp.json` inside the runtime package. It contains only the loopback server URL and a literal environment-variable bearer-token placeholder; tokens and checkout configuration are never written there. Setup failure is fail-closed for Oh My Pi panes. `--no-extensions` suppresses ambient extensions but does not remove this explicit private extension.
+With Agent Control enabled, the app writes a private root `.mcp.json` using OMP's `mcpServers` schema and adds `--plugin-dir <private-runtime>`. The status extension remains independently explicit as `--extension <private-runtime>/main.mjs`; it loads exactly once. The configuration contains only the loopback server URL and an environment-variable bearer-token placeholder. Setup failure is fail-closed for Oh My Pi panes. `--no-extensions` suppresses ambient discovery but does not remove this explicit private extension.
 
 ## Diagnostics
 

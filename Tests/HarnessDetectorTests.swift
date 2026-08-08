@@ -83,4 +83,60 @@ final class HarnessDetectorTests: XCTestCase {
         }
         XCTAssertEqual(checkedCommand.value, "agent")
     }
+
+    func testOhMyPiCompatibilityAcceptsPinnedVersion() async {
+        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: "/bin/zsh") { _, _ in
+            .init(status: 0, stdout: "omp v17.2.11\n", stderr: "")
+        }
+
+        XCTAssertEqual(result, .supported(.init(major: 17, minor: 2, patch: 11)))
+    }
+
+    func testOhMyPiCompatibilityAcceptsLaterSeventeenVersion() async {
+        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: "/bin/zsh") { _, _ in
+            .init(status: 0, stdout: "omp v17.9.0\n", stderr: "")
+        }
+
+        XCTAssertEqual(result, .supported(.init(major: 17, minor: 9, patch: 0)))
+    }
+
+    func testOhMyPiCompatibilityRejectsEarlierVersion() async {
+        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: "/bin/zsh") { _, _ in
+            .init(status: 0, stdout: "omp v17.2.10\n", stderr: "")
+        }
+
+        XCTAssertEqual(result, .unsupported(.init(major: 17, minor: 2, patch: 10)))
+    }
+
+    func testOhMyPiCompatibilityRejectsNextMajorVersion() async {
+        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: "/bin/zsh") { _, _ in
+            .init(status: 0, stdout: "omp v18.0.0\n", stderr: "")
+        }
+
+        XCTAssertEqual(result, .unsupported(.init(major: 18, minor: 0, patch: 0)))
+    }
+
+    func testOhMyPiCompatibilityRejectsUnparseableOutput() async {
+        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: "/bin/zsh") { _, _ in
+            .init(status: 0, stdout: "Oh My Pi v17.2.11\n", stderr: "")
+        }
+
+        XCTAssertEqual(result, .unparseable)
+    }
+
+    func testOhMyPiCompatibilityRecognizesMissingCommand() async {
+        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: "/bin/zsh") { _, _ in
+            .init(status: 127, stdout: "", stderr: "omp: command not found")
+        }
+
+        XCTAssertEqual(result, .missing)
+    }
+
+    func testOhMyPiCompatibilityRecognizesLaunchFailure() async {
+        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: "/bin/zsh") { _, _ in
+            .init(status: 1, stdout: "", stderr: "failed")
+        }
+
+        XCTAssertEqual(result, .launchFailed)
+    }
 }

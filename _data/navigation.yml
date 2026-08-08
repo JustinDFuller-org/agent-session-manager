@@ -28,6 +28,9 @@
     - title: OpenCode
       url: /documentation/user-guide/opencode/
       type: how-to
+    - title: Oh My Pi
+      url: /documentation/user-guide/oh-my-pi/
+      type: how-to
     - title: Agent Control
       url: /documentation/user-guide/agent-control/
       type: how-to

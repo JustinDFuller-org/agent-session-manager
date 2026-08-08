@@ -101,6 +101,19 @@ extension Pane {
                 if let appState { SessionPersistence.save(appState: appState) }
             }
         }
+        statusLineMonitor?.onOhMyPiSessionMismatch = { [weak appState, weak self] in
+            Task { @MainActor in
+                guard let pane = self else { return }
+                pane.removeStatusLineMonitor()
+                pane.terminalController?.terminate()
+                let runtime = pane.ohMyPiRuntimePluginDirectory
+                pane.ohMyPiRuntimePluginDirectory = nil
+                OhMyPiRuntimePlugin.remove(directory: runtime)
+                pane.setupState = .failed(
+                    error: "Oh My Pi resumed a different session. Retry to resume the stored session.")
+                if let appState { SessionPersistence.save(appState: appState) }
+            }
+        }
         statusLineMonitor?.onOhMyPiAttentionResolved = { [weak appState, weak self] source in
             Task { @MainActor in
                 guard let appState, let pane = self else { return }

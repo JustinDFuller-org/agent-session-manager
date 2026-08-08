@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        OhMyPiRuntimePlugin.cleanupStaleRuntimes()
         let launchLifecycleResult = ApplicationLifecycleMarker.record(
             .running,
             launchID: lifecycleLaunchID)

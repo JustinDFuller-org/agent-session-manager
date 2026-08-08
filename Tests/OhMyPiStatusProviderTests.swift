@@ -80,17 +80,18 @@ final class OhMyPiStatusProviderTests: XCTestCase {
         event: String = "agent_start"
     ) {
         var snapshot: [String: Any] = [
-            "schema_version": 1,
+            "schema_version": 2,
             "event_sequence": sequence,
             "event": event,
+            "timestamp": "2026-08-08T12:00:00Z",
             "session_id": sessionID ?? NSNull(),
             "session_persistent": sessionID != nil,
             "session_name": "tab/pane",
             "model_id": "model",
-            "model_display_name": "Model",
+            "model_name": "Model",
+            "model_provider": "provider",
             "thinking_level": "medium",
-            "usage": ["input": 100, "output": 25, "cost": 0.5],
-            "latest_request_usage": ["input": 10, "output": 5, "cache_read": 2, "cache_write": 1],
+            "usage": ["input": 100, "output": 25, "cache_read": 2, "cache_write": 1, "cost": 0.5],
             "context": ["tokens": 125, "context_window": 1_000, "percent": 12.5],
             "is_working": working,
             "attention": NSNull(),
@@ -104,5 +105,6 @@ final class OhMyPiStatusProviderTests: XCTestCase {
         }
         let data = try! JSONSerialization.data(withJSONObject: snapshot)
         try! data.write(to: url, options: .atomic)
+        try! FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 }

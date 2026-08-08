@@ -27,12 +27,15 @@ final class OhMyPiLaunchPolicyTests: XCTestCase {
         XCTAssertNil(policy.expectedSessionID)
     }
 
-    func testRuntimeExtensionCommandIsAppendedAfterUserArguments() {
-        let directory = URL(filePath: "/private/tmp/agent-session-manager-omp-11111111-1111-1111-1111-111111111111")
+    func testRuntimeExtensionCommandUsesOneMainModule() {
+        let directory = URL(
+            filePath:
+                "/private/tmp/agent-session-manager-omp-11111111-1111-1111-1111-111111111111-22222222-2222-2222-2222-222222222222"
+        )
 
         XCTAssertEqual(
             Tab.buildOhMyPiCommand(extensionDirectory: directory, extraArgs: ["--model", "fast"]),
-            ["omp", "--model", "fast", "--extension", directory.path])
+            ["omp", "--model", "fast", "--extension", directory.appending(path: "main.mjs").path])
     }
 
     func testOhMyPiStatusFactsAreAvailableOnlyWhereSupported() {
@@ -40,5 +43,26 @@ final class OhMyPiLaunchPolicyTests: XCTestCase {
         XCTAssertTrue(StatusLineConfig.itemCapabilities["cost"]!.supportedHarnesses.contains(.omp))
         XCTAssertTrue(StatusLineConfig.itemCapabilities["cacheRead"]!.supportedHarnesses.contains(.omp))
         XCTAssertFalse(StatusLineConfig.itemCapabilities["rate5h"]!.supportedHarnesses.contains(.omp))
+    }
+
+    func testValidationRejectsConflictingSessionSelectors() {
+        XCTAssertEqual(
+            OhMyPiLaunchPolicy.validationError(arguments: ["--continue", "--from-codex"]),
+            "--continue cannot be combined with --from-codex."
+        )
+    }
+
+    func testValidationRejectsPrewalkConflict() {
+        XCTAssertEqual(
+            OhMyPiLaunchPolicy.validationError(arguments: ["--prewalk", "--no-prewalk"]),
+            "--prewalk cannot be combined with --no-prewalk."
+        )
+    }
+
+    func testValidationRejectsToolsConflict() {
+        XCTAssertEqual(
+            OhMyPiLaunchPolicy.validationError(arguments: ["--tools", "read", "--no-tools"]),
+            "--tools cannot be combined with --no-tools."
+        )
     }
 }

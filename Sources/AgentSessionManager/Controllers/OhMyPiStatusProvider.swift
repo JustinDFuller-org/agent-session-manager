@@ -4,17 +4,12 @@ private struct OhMyPiStatusSnapshot: Decodable {
     struct Usage: Decodable {
         let input: Int
         let output: Int
-        let cost: Double
-    }
-
-    struct RequestUsage: Decodable {
-        let input: Int
-        let output: Int
         let cacheRead: Int
         let cacheWrite: Int
+        let cost: Double
 
         enum CodingKeys: String, CodingKey {
-            case input, output
+            case input, output, cost
             case cacheRead = "cache_read"
             case cacheWrite = "cache_write"
         }
@@ -41,14 +36,15 @@ private struct OhMyPiStatusSnapshot: Decodable {
     let schemaVersion: Int
     let eventSequence: Int
     let event: String
+    let timestamp: String
     let sessionID: String?
     let sessionPersistent: Bool
     let sessionName: String?
     let modelID: String?
-    let modelDisplayName: String?
+    let modelName: String?
+    let modelProvider: String?
     let thinkingLevel: String?
     let usage: Usage
-    let latestRequestUsage: RequestUsage
     let context: Context
     let isWorking: Bool
     let attention: Attention?
@@ -56,15 +52,15 @@ private struct OhMyPiStatusSnapshot: Decodable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
         case eventSequence = "event_sequence"
-        case event
+        case event, timestamp
         case sessionID = "session_id"
         case sessionPersistent = "session_persistent"
         case sessionName = "session_name"
         case modelID = "model_id"
-        case modelDisplayName = "model_display_name"
+        case modelName = "model_name"
+        case modelProvider = "model_provider"
         case thinkingLevel = "thinking_level"
         case usage, context, attention
-        case latestRequestUsage = "latest_request_usage"
         case isWorking = "is_working"
     }
 }
@@ -76,6 +72,7 @@ final class OhMyPiStatusProvider: StatusLineDataProvider {
     var onAttentionResolved: ((PaneAttentionEvent.Source) -> Void)?
     var onWorkingChanged: ((Bool) -> Void)?
     var onSessionBound: ((String) -> Void)?
+    var onSessionMismatch: (() -> Void)?
 
     private let context: StatusProviderContext
     private let agnostic: ToolAgnosticDataProvider
@@ -117,32 +114,59 @@ final class OhMyPiStatusProvider: StatusLineDataProvider {
     }
 
     private func applyStatusFile() {
-        guard let data = try? Data(contentsOf: statusURL), data.count <= 64 * 1024,
+        guard let data = try? Data(contentsOf: statusURL) else { return }
+        guard data.count <= 64 * 1024,
+            let permissions = try? FileManager.default.attributesOfItem(atPath: statusURL.path)[.posixPermissions]
+                as? NSNumber,
+            permissions.intValue & 0o777 == 0o600,
             let decoded = try? JSONDecoder().decode(OhMyPiStatusSnapshot.self, from: data),
-            decoded.schemaVersion == 1, decoded.eventSequence > lastSequence
+            decoded.schemaVersion == 2,
+            decoded.eventSequence > lastSequence,
+            decoded.eventSequence >= 0,
+            decoded.event.count <= 64,
+            decoded.timestamp.count <= 64,
+            [
+                decoded.sessionID, decoded.sessionName, decoded.modelID, decoded.modelName, decoded.modelProvider,
+                decoded.thinkingLevel,
+            ].allSatisfy({ $0?.count ?? 0 <= 256 }),
+            decoded.usage.input >= 0,
+            decoded.usage.output >= 0,
+            decoded.usage.cacheRead >= 0,
+            decoded.usage.cacheWrite >= 0,
+            decoded.usage.cost.isFinite,
+            decoded.usage.cost >= 0,
+            decoded.context.tokens >= 0,
+            decoded.context.contextWindow >= 0,
+            decoded.context.percent.isFinite,
+            decoded.context.percent >= 0,
+            decoded.context.percent <= 100,
+            decoded.attention.map({ $0.sequence >= 0 && $0.kind.count <= 32 && $0.reason.count <= 200 }) ?? true
         else {
+            return
+        }
+
+        if let sessionID = decoded.sessionID, decoded.sessionPersistent, !sessionID.isEmpty,
+            let expected = context.expectedOhMyPiSessionID, expected != sessionID
+        {
+            InvariantReporter.shared.violated(
+                .ohMyPiSessionRebindable,
+                context: [
+                    "pane.id": context.paneID.uuidString,
+                    "pane.name": context.paneName,
+                    "tab.id": context.tabID.uuidString,
+                    "tab.name": context.tabName,
+                    "expected_id_prefix": String(expected.prefix(12)),
+                    "observed_id_prefix": String(sessionID.prefix(12)),
+                ])
+            onSessionMismatch?()
             return
         }
 
         lastSequence = decoded.eventSequence
         let wasWorking = snapshot?.isWorking
         snapshot = decoded
-
         if let sessionID = decoded.sessionID, decoded.sessionPersistent, !sessionID.isEmpty {
-            if let expected = context.expectedOhMyPiSessionID, expected != sessionID {
-                InvariantReporter.shared.violated(
-                    .ohMyPiSessionRebindable,
-                    context: [
-                        "pane.id": context.paneID.uuidString,
-                        "pane.name": context.paneName,
-                        "tab.id": context.tabID.uuidString,
-                        "tab.name": context.tabName,
-                        "expected_id_prefix": String(expected.prefix(12)),
-                        "observed_id_prefix": String(sessionID.prefix(12)),
-                    ])
-            } else {
-                onSessionBound?(sessionID)
-            }
+            onSessionBound?(sessionID)
         }
 
         if decoded.event == "tool_approval_resolved", pendingAttention == .ohMyPiPermissionRequest {
@@ -156,7 +180,6 @@ final class OhMyPiStatusProvider: StatusLineDataProvider {
         if wasWorking != decoded.isWorking {
             onWorkingChanged?(decoded.isWorking)
         }
-
         if let attention = decoded.attention, attention.sequence > lastAttentionSequence {
             lastAttentionSequence = attention.sequence
             switch attention.kind {
@@ -172,7 +195,6 @@ final class OhMyPiStatusProvider: StatusLineDataProvider {
                 break
             }
         }
-
         TracingService.shared.record(
             "statusline.omp.payload.applied",
             attributes: [
@@ -187,7 +209,7 @@ final class OhMyPiStatusProvider: StatusLineDataProvider {
 
     private func publish() {
         guard var data = baseline, let snapshot else { return }
-        data.model = .init(id: snapshot.modelID, displayName: snapshot.modelDisplayName)
+        data.model = .init(id: snapshot.modelID, displayName: snapshot.modelName)
         data.cost = .init(
             totalCostUsd: snapshot.usage.cost,
             totalDurationMs: data.cost?.totalDurationMs,
@@ -200,10 +222,10 @@ final class OhMyPiStatusProvider: StatusLineDataProvider {
             totalOutputTokens: snapshot.usage.output,
             contextWindowSize: snapshot.context.contextWindow,
             currentUsage: .init(
-                inputTokens: snapshot.latestRequestUsage.input,
-                outputTokens: snapshot.latestRequestUsage.output,
-                cacheCreationInputTokens: snapshot.latestRequestUsage.cacheWrite,
-                cacheReadInputTokens: snapshot.latestRequestUsage.cacheRead))
+                inputTokens: 0,
+                outputTokens: 0,
+                cacheCreationInputTokens: snapshot.usage.cacheWrite,
+                cacheReadInputTokens: snapshot.usage.cacheRead))
         data.effort = .init(level: snapshot.thinkingLevel)
         data.thinking = .init(enabled: snapshot.thinkingLevel != nil)
         data.sessionName = snapshot.sessionName

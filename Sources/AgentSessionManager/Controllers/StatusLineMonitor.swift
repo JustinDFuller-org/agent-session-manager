@@ -97,6 +97,7 @@ final class StatusLineMonitor {
     var onOpencodePortRaceLost: (() -> Void)?
     var onOhMyPiSessionBound: ((String) -> Void)?
     var onOhMyPiAttentionResolved: ((PaneAttentionEvent.Source) -> Void)?
+    var onOhMyPiSessionMismatch: (() -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
     /// Fires on the main actor when a PR transitions from a non-resolved state to "closed" (without merging).
@@ -117,6 +118,7 @@ final class StatusLineMonitor {
         tabName: String = "",
         opencodePort: Int? = nil,
         opencodeSessionID: String? = nil,
+        ohMyPiRuntimeDirectory: URL? = nil,
         ohMyPiSessionID: String? = nil,
         opencodeEnvironment: [String: String] = [:],
         customFieldEnvironment: [String: String] = [:]
@@ -160,8 +162,7 @@ final class StatusLineMonitor {
                 opencodeSessionID: opencodeSessionID,
                 opencodeEnvironment: opencodeEnvironment,
                 ohMyPiStatusFilePath: harness == .omp
-                    ? OhMyPiRuntimePlugin.directory(for: paneID).appending(path: OhMyPiRuntimePlugin.statusFilename)
-                        .path
+                    ? ohMyPiRuntimeDirectory?.appending(path: OhMyPiRuntimePlugin.statusFilename).path
                     : nil,
                 expectedOhMyPiSessionID: harness == .omp ? ohMyPiSessionID : nil
             )
@@ -232,6 +233,9 @@ final class StatusLineMonitor {
                 }
                 ompProvider.onSessionBound = { [weak self] id in
                     self?.onOhMyPiSessionBound?(id)
+                }
+                ompProvider.onSessionMismatch = { [weak self] in
+                    self?.onOhMyPiSessionMismatch?()
                 }
                 provider = ompProvider
             } else {

@@ -47,9 +47,10 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
             paneID: paneID,
             ohMyPiRuntimePluginDirectory: directory)
 
-        _ = try OhMyPiAgentControlAdapter().prepare(context)
+        let prepared = try OhMyPiAgentControlAdapter().prepare(context)
 
-        let data = try Data(contentsOf: directory.appending(path: "mcp.json"))
+        XCTAssertEqual(prepared.commandArguments.suffix(2), ["--plugin-dir", directory.path])
+        let data = try Data(contentsOf: directory.appending(path: ".mcp.json"))
         let text = String(decoding: data, as: UTF8.self)
         let config = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let server = try XCTUnwrap(

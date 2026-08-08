@@ -96,4 +96,23 @@ struct CLIOptionConfigCommandLineArgumentsTests {
         let result = arbitraryFlag.commandLineArguments(value: nil, values: ["Read", "Bash(git log *)"])
         #expect(result == ["--allowedTools", "Read", "Bash(git log *)"])
     }
+
+    @Test("Oh My Pi required-value flag preserves the following option")
+    func ohMyPiRequiredValueDoesNotConsumeFollowingFlag() {
+        let thinking = CLIOptionConfig.ompAll.first { $0.id == "--thinking" }!
+        let autoApprove = CLIOptionConfig.ompAll.first { $0.id == "--auto-approve" }!
+
+        #expect(
+            thinking.commandLineArguments(value: "off") + autoApprove.commandLineArguments(value: nil)
+                == ["--thinking", "off", "--auto-approve"]
+        )
+    }
+
+    @Test("Oh My Pi empty resume opens the picker")
+    func ohMyPiEmptyResumeEmitsOnlyFlag() {
+        let resume = CLIOptionConfig.ompAll.first { $0.id == "--resume" }!
+
+        #expect(resume.commandLineArguments(value: "") == ["--resume"])
+        #expect(resume.commandLineArguments(value: "session-id") == ["--resume", "session-id"])
+    }
 }

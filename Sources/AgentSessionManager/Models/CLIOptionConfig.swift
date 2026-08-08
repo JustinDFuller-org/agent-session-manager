@@ -22,6 +22,7 @@ struct CLIOptionConfig: Identifiable, Codable {
     var isUserAdded: Bool
     var customIsStringType: Bool
     var isOptionalStringType: Bool
+    var isStringType: Bool
     /// Candidate values offered when selecting this flag, defined at harness scope in Settings → Tools.
     var presetValues: [String]
     /// Whether this flag's CLI syntax accepts multiple space-separated values behind one flag
@@ -31,8 +32,8 @@ struct CLIOptionConfig: Identifiable, Codable {
     var allowsMultipleValues: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType, isOptionalStringType, presetValues,
-            allowsMultipleValues
+        case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType, isOptionalStringType, isStringType,
+            presetValues, allowsMultipleValues
     }
 
     /// When set on a `JSONDecoder`'s `userInfo`, harness-aware decode resolves colliding
@@ -57,7 +58,7 @@ struct CLIOptionConfig: Identifiable, Codable {
     init(
         id: String, label: String, description: String, isAvailable: Bool, isDefaultEnabled: Bool,
         isUserAdded: Bool = false, customIsStringType: Bool = false, isOptionalStringType: Bool = false,
-        presetValues: [String] = [], allowsMultipleValues: Bool = false
+        isStringType: Bool = false, presetValues: [String] = [], allowsMultipleValues: Bool = false
     ) {
         self.id = id
         self.label = label
@@ -67,6 +68,7 @@ struct CLIOptionConfig: Identifiable, Codable {
         self.isUserAdded = isUserAdded
         self.customIsStringType = customIsStringType
         self.isOptionalStringType = isOptionalStringType
+        self.isStringType = isStringType
         self.presetValues = presetValues
         self.allowsMultipleValues = allowsMultipleValues
     }
@@ -85,6 +87,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.isUserAdded = true
             self.customIsStringType = (try? container.decodeIfPresent(Bool.self, forKey: .customIsStringType)) ?? false
             self.isOptionalStringType = false
+            self.isStringType = false
             self.presetValues = (try? container.decodeIfPresent([String].self, forKey: .presetValues)) ?? []
             self.allowsMultipleValues = false
         } else {
@@ -111,6 +114,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             self.isUserAdded = false
             self.customIsStringType = false
             self.isOptionalStringType = template.isOptionalStringType
+            self.isStringType = template.isStringType
             self.presetValues = (try? container.decodeIfPresent([String].self, forKey: .presetValues)) ?? []
             self.allowsMultipleValues =
                 (try? container.decodeIfPresent(Bool.self, forKey: .allowsMultipleValues))
@@ -128,6 +132,9 @@ struct CLIOptionConfig: Identifiable, Codable {
             try container.encode(customIsStringType, forKey: .customIsStringType)
         } else {
             try container.encode(isOptionalStringType, forKey: .isOptionalStringType)
+            if isStringType {
+                try container.encode(true, forKey: .isStringType)
+            }
             try container.encode(allowsMultipleValues, forKey: .allowsMultipleValues)
         }
         if !presetValues.isEmpty {
@@ -141,6 +148,9 @@ struct CLIOptionConfig: Identifiable, Codable {
         }
         if isOptionalStringType {
             return .optionalString(placeholder: "Session ID or prefix (empty opens picker)")
+        }
+        if isStringType {
+            return .string(placeholder: "Value")
         }
         switch id {
         // Boolean flags
@@ -565,26 +575,24 @@ struct CLIOptionConfig: Identifiable, Codable {
 
     static let ompAll: [CLIOptionConfig] = {
         let booleanFlags = [
-            "--advisor", "--allow-home", "--auto-approve", "--continue", "--hide-thinking", "--no-extensions",
-            "--no-lsp", "--no-prewalk", "--no-pty", "--no-rules", "--no-session", "--no-skills", "--no-title",
-            "--no-tools", "--plan-yolo", "--prewalk",
+            "--advisor", "--allow-home", "--auto-approve", "--continue", "--from-claude", "--from-codex",
+            "--hide-thinking", "--no-extensions", "--no-lsp", "--no-prewalk", "--no-pty", "--no-rules",
+            "--no-session", "--no-skills", "--no-title", "--no-tools", "--plan-yolo", "--prewalk",
         ]
         let stringFlags = [
-            "--add-dir", "--alias", "--append-system-prompt", "--approval-mode", "--config", "--extension", "--fork",
-            "--hook", "--max-time", "--model", "--models", "--plan", "--plan-yolo-into", "--plugin-dir",
-            "--prewalk-into", "--profile", "--prompt-cache-key", "--provider", "--provider-session-id",
-            "--service-tier", "--session-dir", "--skills", "--slow", "--smol", "--system-prompt", "--thinking",
-            "--tools", "--trusted-extension",
+            "--add-dir", "--append-system-prompt", "--approval-mode", "--config", "--extension", "--hook",
+            "--max-time", "--model", "--models", "--plan", "--plan-yolo-into", "--plugin-dir", "--prewalk-into",
+            "--profile", "--provider", "--service-tier", "--session-dir", "--skills", "--slow", "--smol",
+            "--system-prompt", "--thinking", "--tools",
         ]
         let presets: [String: [String]] = [
             "--approval-mode": ["always-ask", "write", "yolo"],
-            "--thinking": ["minimal", "low", "medium", "high", "xhigh"],
+            "--thinking": ["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"],
             "--service-tier": ["none", "auto", "default", "flex", "scale", "priority"],
         ]
         let descriptions = [
             "--add-dir": "Add an additional workspace directory.",
             "--advisor": "Passively review each turn and inject advisor notes.",
-            "--alias": "Create a shell shortcut for the selected profile and exit.",
             "--allow-home": "Allow starting in the home directory instead of a temporary directory.",
             "--append-system-prompt": "Append text or file contents to the system prompt.",
             "--approval-mode": "Override tool approval behavior for this session.",
@@ -592,7 +600,8 @@ struct CLIOptionConfig: Identifiable, Codable {
             "--config": "Load an additional config.yml-style overlay for this run.",
             "--continue": "Continue the previous session.",
             "--extension": "Load an extension file.",
-            "--fork": "Create a new session fork from the selected session.",
+            "--from-claude": "Import a Claude Code session into Oh My Pi.",
+            "--from-codex": "Import a Codex session into Oh My Pi.",
             "--hide-thinking": "Hide thinking blocks in the TUI without disabling model thinking.",
             "--hook": "Load a hook or extension file.",
             "--max-time": "Stop the session after the specified duration.",
@@ -614,9 +623,7 @@ struct CLIOptionConfig: Identifiable, Codable {
             "--prewalk": "Switch to a fast model on the first edit after the plan todo list exists.",
             "--prewalk-into": "Select the target model used for prewalk.",
             "--profile": "Use an isolated profile for authentication, sessions, settings, and caches.",
-            "--prompt-cache-key": "Set the provider prompt-cache identity for supported requests.",
             "--provider": "Select a provider for this session; prefer --model.",
-            "--provider-session-id": "Set the provider session and routing identity.",
             "--resume": "Resume a session by ID prefix or path, or open the session picker.",
             "--service-tier": "Set the OpenAI service tier for this session.",
             "--session-dir": "Set the directory used to store and find sessions.",
@@ -626,14 +633,13 @@ struct CLIOptionConfig: Identifiable, Codable {
             "--system-prompt": "Replace the default coding-assistant system prompt.",
             "--thinking": "Set the model thinking level.",
             "--tools": "Enable only the specified comma-separated tools.",
-            "--trusted-extension": "Trust the specified extension for this session.",
         ]
         let optionIDs = booleanFlags + stringFlags + ["--resume"]
         precondition(
             Set(descriptions.keys) == Set(optionIDs),
             "Every Oh My Pi option must have exactly one description")
 
-        let make: (String, Bool) -> CLIOptionConfig = { id, optionalString in
+        let make: (String, Bool, Bool) -> CLIOptionConfig = { id, optionalString, stringType in
             CLIOptionConfig(
                 id: id,
                 label: String(id.dropFirst(2)).replacingOccurrences(of: "-", with: " ").capitalized,
@@ -641,9 +647,12 @@ struct CLIOptionConfig: Identifiable, Codable {
                 isAvailable: false,
                 isDefaultEnabled: false,
                 isOptionalStringType: optionalString,
+                isStringType: stringType,
                 presetValues: presets[id] ?? [])
         }
-        return booleanFlags.map { make($0, false) } + stringFlags.map { make($0, false) } + [make("--resume", true)]
+        return booleanFlags.map { make($0, false, false) }
+            + stringFlags.map { make($0, false, true) }
+            + [make("--resume", true, false)]
     }()
 
     static func recommendedDefaults(for cli: Harness) -> [CLIOptionConfig] {
