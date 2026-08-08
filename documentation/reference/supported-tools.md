@@ -14,6 +14,7 @@ Agent Session Manager supports these agent tools in panes:
 | Codex | **Settings → Harnesses → Codex** | [Codex]({{ '/documentation/user-guide/codex/' | relative_url }}) |
 | Cursor | **Settings → Harnesses → Cursor** | [Cursor]({{ '/documentation/user-guide/cursor/' | relative_url }}) |
 | OpenCode | **Settings → Harnesses → OpenCode** | [OpenCode]({{ '/documentation/user-guide/opencode/' | relative_url }}) |
+| Oh My Pi | **Settings → Harnesses → Oh My Pi** | [Oh My Pi]({{ '/documentation/user-guide/oh-my-pi/' | relative_url }}) |
 
 ## Common support
 

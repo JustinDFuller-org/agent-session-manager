@@ -71,6 +71,22 @@ struct Invariant: Identifiable, Hashable, Sendable {
         traceEventName: "opencode.session.rebindable_violated"
     )
 
+    static let ohMyPiRuntimePluginPrivate = Invariant(
+        id: "omp.runtime_plugin.private",
+        integration: "Oh My Pi",
+        severity: .error,
+        description: "An Oh My Pi runtime extension must remain app-owned and private.",
+        traceEventName: "omp.runtime_plugin.private_violated"
+    )
+
+    static let ohMyPiSessionRebindable = Invariant(
+        id: "omp.session.rebindable",
+        integration: "Oh My Pi",
+        severity: .warning,
+        description: "An Oh My Pi pane must bind to its expected persisted session ID.",
+        traceEventName: "omp.session.rebindable_violated"
+    )
+
     static let opencodeTUIEndpointsUnused = Invariant(
         id: "opencode.tui.endpoints_unused",
         integration: "OpenCode",

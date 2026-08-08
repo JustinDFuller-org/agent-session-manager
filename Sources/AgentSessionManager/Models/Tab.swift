@@ -542,11 +542,11 @@ final class Tab: Identifiable {
             ])
         let cwd = worktreeDirectory?.path ?? directory.path
 
-        if harness != .shell && harness != .opencode {
+        if harness != .shell && harness != .opencode && harness != .omp {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name,
+                tabID: self.id, tabName: self.name, ohMyPiSessionID: pane.ohMyPiSessionID,
                 customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         }
@@ -587,6 +587,25 @@ final class Tab: Identifiable {
                 installOpenCodeController(
                     controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars,
                     resumeSessionID: pane.opencodeSessionID, harness: harness)
+            case .omp:
+                do {
+                    try configureOhMyPiController(
+                        controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars)
+                    let monitor = StatusLineMonitor(
+                        paneID: pane.id, paneName: pane.name,
+                        workingDirectory: cwd, harness: harness, processStartTime: Date(),
+                        tabID: self.id, tabName: self.name,
+                        ohMyPiRuntimeDirectory: pane.ohMyPiRuntimePluginDirectory,
+                        ohMyPiSessionID: pane.ohMyPiSessionID,
+                        customFieldEnvironment: extraEnvVars)
+                    pane.installStatusLineMonitor(monitor)
+                } catch {
+                    OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+                    pane.ohMyPiRuntimePluginDirectory = nil
+                    pane.setupState = .failed(error: "Could not prepare the Oh My Pi runtime extension.")
+                    panes.append(pane)
+                    return pane
+                }
             }
             guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
                 panes.append(pane)
@@ -607,6 +626,7 @@ final class Tab: Identifiable {
         guard !pane.isRestarting, let old = pane.terminalController else { return }
         pane.isRestarting = true
         defer { pane.isRestarting = false }
+
         let launchSettings = appSettings ?? pane.appSettings
         if let launchSettings {
             pane.agentControlInjectionEnabled = launchSettings.resolvedAgentControlInjectionDecision(
@@ -619,9 +639,15 @@ final class Tab: Identifiable {
         }
         new.pendingShell = old.pendingShell
 
+        if pane.harness == .omp {
+            pane.removeStatusLineMonitor()
+            old.terminate()
+            let oldRuntime = pane.ohMyPiRuntimePluginDirectory
+            pane.ohMyPiRuntimePluginDirectory = nil
+            OhMyPiRuntimePlugin.remove(directory: oldRuntime)
+        }
+
         if pane.harness == .opencode {
-            // OpenCode binds an ephemeral port per process; a restart must re-allocate
-            // a fresh port and rebuild the command/env so the new server is reachable.
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             configureOpenCodeController(
                 new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: pane.extraEnvVars,
@@ -634,6 +660,26 @@ final class Tab: Identifiable {
                 opencodeEnvironment: pane.extraEnvVars,
                 customFieldEnvironment: pane.extraEnvVars)
             pane.installStatusLineMonitor(monitor)
+        } else if pane.harness == .omp {
+            new.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
+            let cwd = pane.worktreeDirectory?.path ?? directory.path
+            do {
+                try configureOhMyPiController(
+                    new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: pane.extraEnvVars)
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name,
+                    ohMyPiRuntimeDirectory: pane.ohMyPiRuntimePluginDirectory,
+                    ohMyPiSessionID: pane.ohMyPiSessionID,
+                    customFieldEnvironment: pane.extraEnvVars)
+                pane.installStatusLineMonitor(monitor)
+            } catch {
+                OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+                pane.ohMyPiRuntimePluginDirectory = nil
+                pane.setupState = .failed(error: "Could not prepare the Oh My Pi runtime extension.")
+                return
+            }
         } else {
             new.pendingCommandArgs = old.pendingCommandArgs.map {
                 AgentControlHarnessInjection.removingControlArguments(from: $0, harness: pane.harness)
@@ -641,8 +687,9 @@ final class Tab: Identifiable {
         }
 
         guard prepareAgentControl(for: pane, controller: new, appSettings: launchSettings) else { return }
-
-        old.terminate()
+        if pane.harness != .omp {
+            old.terminate()
+        }
         pane.installTerminalController(new)
         pane.restartToken = UUID()
     }
@@ -664,6 +711,10 @@ final class Tab: Identifiable {
             if pane.harness == .cursor, harness != .cursor {
                 CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
                 pane.cursorAgentControlPluginDirectory = nil
+            }
+            if pane.harness == .omp, harness != .omp {
+                OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+                pane.ohMyPiRuntimePluginDirectory = nil
             }
             pane.harness = harness
             old.terminate()
@@ -720,6 +771,20 @@ final class Tab: Identifiable {
                 installOpenCodeController(
                     controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars,
                     resumeSessionID: pane.opencodeSessionID, harness: harness)
+            case .omp:
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name, ohMyPiSessionID: pane.ohMyPiSessionID,
+                    customFieldEnvironment: extraEnvVars)
+                pane.installStatusLineMonitor(monitor)
+                do {
+                    try configureOhMyPiController(
+                        controller, pane: pane, extraArgs: extraArgs, extraEnvVars: extraEnvVars)
+                } catch {
+                    pane.setupState = .failed(error: "Could not prepare the Oh My Pi runtime extension.")
+                    return
+                }
             }
 
             guard prepareAgentControl(for: pane, controller: controller, appSettings: appSettings) else {
@@ -734,18 +799,27 @@ final class Tab: Identifiable {
         }
 
         guard let old = pane.terminalController else { return }
+        if pane.harness == .omp {
+            pane.removeStatusLineMonitor()
+            old.terminate()
+            let oldRuntime = pane.ohMyPiRuntimePluginDirectory
+            pane.ohMyPiRuntimePluginDirectory = nil
+            OhMyPiRuntimePlugin.remove(directory: oldRuntime)
+        }
         let new = TerminalController()
         new.pendingDirectory = old.pendingDirectory
         new.pendingEnvironment = Tab.hostEnvironmentForChildProcess()
         new.pendingShell = old.pendingShell
-        old.terminate()
+        if pane.harness != .omp {
+            old.terminate()
+        }
         let cwd = new.pendingDirectory ?? directory.path
         var monitor: StatusLineMonitor?
-        if pane.harness != .opencode {
+        if pane.harness != .opencode && pane.harness != .omp {
             monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name,
+                tabID: self.id, tabName: self.name, ohMyPiSessionID: pane.ohMyPiSessionID,
                 customFieldEnvironment: pane.extraEnvVars)
         }
         if let monitor {
@@ -764,6 +838,29 @@ final class Tab: Identifiable {
             installOpenCodeController(
                 new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: pane.extraEnvVars,
                 resumeSessionID: pane.opencodeSessionID, harness: pane.harness)
+        }
+        if pane.harness == .omp {
+            let policy = OhMyPiLaunchPolicy.resolve(
+                userArguments: pane.extraArgs,
+                sessionID: pane.ohMyPiSessionID,
+                continueWhenMissing: pane.appSettings?.continueOnRestart ?? true)
+            do {
+                try configureOhMyPiController(
+                    new, pane: pane, extraArgs: policy.arguments, extraEnvVars: pane.extraEnvVars)
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name,
+                    ohMyPiRuntimeDirectory: pane.ohMyPiRuntimePluginDirectory,
+                    ohMyPiSessionID: policy.expectedSessionID,
+                    customFieldEnvironment: pane.extraEnvVars)
+                pane.installStatusLineMonitor(monitor)
+            } catch {
+                OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+                pane.ohMyPiRuntimePluginDirectory = nil
+                pane.setupState = .failed(error: "Could not prepare the Oh My Pi runtime extension.")
+                return
+            }
         }
         if pane.harness == .codex, let monitor {
             monitor.writeCodexHookScript()
@@ -796,6 +893,8 @@ final class Tab: Identifiable {
         old.terminate()
         CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
         pane.cursorAgentControlPluginDirectory = nil
+        OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+        pane.ohMyPiRuntimePluginDirectory = nil
         pane.removeStatusLineMonitor()
         pane.harness = .shell
         pane.installTerminalController(new)
@@ -815,6 +914,8 @@ final class Tab: Identifiable {
         pane.terminalController?.terminate()
         CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
         pane.cursorAgentControlPluginDirectory = nil
+        OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+        pane.ohMyPiRuntimePluginDirectory = nil
         pane.installTerminalController(nil)
         pane.removeStatusLineMonitor()
         pane.notificationAppState?.clearNotification(paneID: pane.id)
@@ -903,6 +1004,51 @@ extension Tab {
             opencodeEnvironment: extraEnvVars,
             customFieldEnvironment: extraEnvVars)
         pane.installStatusLineMonitor(monitor)
+    }
+    func configureOhMyPiController(
+        _ controller: TerminalController,
+        pane: Pane,
+        extraArgs: [String],
+        extraEnvVars: [String: String]
+    ) throws {
+        guard OhMyPiLaunchPolicy.validationError(arguments: extraArgs) == nil else {
+            throw NSError(
+                domain: "AgentSessionManager.OhMyPi",
+                code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Oh My Pi options contain a conflicting session or tool selector."
+                ]
+            )
+        }
+        let directory = try OhMyPiRuntimePlugin.prepare(paneID: pane.id)
+        pane.ohMyPiRuntimePluginDirectory = directory
+
+        let controlledKeys: Set<String> = [
+            "AGENT_SESSION_MANAGER_OMP_STATUS_FILE",
+            "AGENT_SESSION_MANAGER_OMP_SESSION_NAME",
+        ]
+        let overriddenKeys = extraEnvVars.keys.filter { controlledKeys.contains($0) }
+        if !overriddenKeys.isEmpty {
+            TracingService.shared.record(
+                "omp.runtime_environment.user_override_silenced",
+                attributes: [
+                    "pane.id": pane.id.uuidString,
+                    "pane.name": pane.name,
+                    "tab.id": id.uuidString,
+                    "tab.name": name,
+                    "result": "overridden",
+                    "keys": overriddenKeys.sorted().joined(separator: ","),
+                ])
+        }
+        applyExtraEnvVars(extraEnvVars.filter { !controlledKeys.contains($0.key) }, to: controller)
+        var runtimeEnvironment = [
+            "AGENT_SESSION_MANAGER_OMP_STATUS_FILE=\(directory.appending(path: OhMyPiRuntimePlugin.statusFilename).path)"
+        ]
+        if pane.appSettings?.autoSetSessionName == true {
+            runtimeEnvironment.append("AGENT_SESSION_MANAGER_OMP_SESSION_NAME=\(name)/\(pane.name)")
+        }
+        controller.pendingEnvironment = (controller.pendingEnvironment ?? []) + runtimeEnvironment
+        controller.pendingCommandArgs = Tab.buildOhMyPiCommand(extensionDirectory: directory, extraArgs: extraArgs)
     }
 
     func configureOpenCodeController(
@@ -1043,6 +1189,16 @@ extension Tab {
 
     nonisolated static func buildClaudeCommand(settingsPath: String, extraArgs: [String]) -> [String] {
         ["claude", "--settings", settingsPath] + extraArgs
+    }
+
+    nonisolated static func buildOhMyPiCommand(extensionDirectory: URL?, extraArgs: [String]) -> [String] {
+        var command = ["omp"] + extraArgs
+        if let extensionDirectory {
+            command.append(contentsOf: [
+                "--extension", extensionDirectory.appending(path: OhMyPiRuntimePlugin.extensionFilename).path,
+            ])
+        }
+        return command
     }
 
     nonisolated static func buildCodexCommand(hookScriptPath: String, extraArgs: [String]) -> [String] {

@@ -8,6 +8,9 @@ enum NotificationKind: String, Codable {
     case cursorStop
     case opencodeStop
     case opencodePermissionRequest
+    case ohMyPiStop
+    case ohMyPiPermissionRequest
+    case ohMyPiInputRequest
 }
 
 struct PaneAttentionEvent: Equatable {
@@ -20,6 +23,9 @@ struct PaneAttentionEvent: Equatable {
         case cursorStop = "cursor_stop"
         case opencodeStop = "opencode_stop"
         case opencodePermissionRequest = "opencode_permission_request"
+        case ohMyPiStop = "omp_stop"
+        case ohMyPiPermissionRequest = "omp_permission_request"
+        case ohMyPiInputRequest = "omp_input_request"
     }
 
     static let fallbackReason = "Attention needed"
@@ -46,6 +52,10 @@ struct PaneAttentionEvent: Equatable {
 
     static var opencodeStop: PaneAttentionEvent {
         PaneAttentionEvent(source: .opencodeStop, reason: "OpenCode finished responding")
+    }
+
+    static var ohMyPiStop: PaneAttentionEvent {
+        PaneAttentionEvent(source: .ohMyPiStop, reason: "Oh My Pi finished responding")
     }
 
     static func osc777(_ text: String) -> PaneAttentionEvent? {

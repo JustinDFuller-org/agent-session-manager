@@ -22,6 +22,8 @@ struct NewPaneSheet: View {
     @State private var saveProfileName = ""
     @State private var showCLIOptionsSheet = false
     @State private var showAdvancedSettingsSheet = false
+    @State private var isCheckingOhMyPiCompatibility = false
+    @State private var ohMyPiPreflightError: String?
 
     @FocusState private var isSessionInputFocused: Bool
 
@@ -35,6 +37,7 @@ struct NewPaneSheet: View {
         case .codex: return appSettings.codexCliOptions
         case .cursor: return appSettings.cursorCliOptions
         case .opencode: return appSettings.opencodeCliOptions
+        case .omp: return appSettings.ompCliOptions
         case .shell: return []
         }
     }
@@ -102,6 +105,7 @@ struct NewPaneSheet: View {
         switch selectedHarness {
         case .claude: return appSettings.envVarOptions
         case .opencode: return appSettings.opencodeEnvVarOptions
+        case .omp: return appSettings.ompEnvVarOptions
         case .codex, .cursor, .shell: return []
         }
     }
@@ -208,9 +212,8 @@ struct NewPaneSheet: View {
                         catalog: activeOptions,
                         states: profileOptionStates
                     )
-
                     let envVars: [ProfileEnvVar]
-                    if selectedHarness == .claude || selectedHarness == .opencode {
+                    if selectedHarness == .claude || selectedHarness == .opencode || selectedHarness == .omp {
                         var profileEnvironmentStates: [String: ProfileOptionDraft] = [:]
                         for envVar in currentEnvVarOptions {
                             let state = envVarStates[envVar.id] ?? OptionState(enabled: false, value: "")
@@ -235,7 +238,7 @@ struct NewPaneSheet: View {
                     appSettings.profiles.append(profile)
                     selectedProfileID = profile.id
                     SettingsPersistence.saveProfiles(appSettings: appSettings)
-                    create()
+                    Task { await create() }
                 }
             )
         }
@@ -270,6 +273,11 @@ struct NewPaneSheet: View {
                             appSettings.opencodeCliOptions[index].isAvailable = true
                         }
                         SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+                    case .omp:
+                        if let index = appSettings.ompCliOptions.firstIndex(where: { $0.id == option.id }) {
+                            appSettings.ompCliOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.save(appSettings.ompCliOptions, to: "omp-settings.json")
                     case .shell:
                         break
                     }
@@ -286,6 +294,11 @@ struct NewPaneSheet: View {
                             appSettings.opencodeEnvVarOptions[index].isAvailable = true
                         }
                         SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
+                    case .omp:
+                        if let index = appSettings.ompEnvVarOptions.firstIndex(where: { $0.id == envVar.id }) {
+                            appSettings.ompEnvVarOptions[index].isAvailable = true
+                        }
+                        SettingsPersistence.save(appSettings.ompEnvVarOptions, to: "omp-env-var-settings.json")
                     case .codex, .cursor, .shell:
                         break
                     }
@@ -402,7 +415,7 @@ struct NewPaneSheet: View {
             TextField("auth-refactor, origin/feature, my-worktree, …", text: $sessionInput)
                 .textFieldStyle(.roundedBorder)
                 .focused($isSessionInputFocused)
-                .onSubmit { create() }
+                .onSubmit { Task { await create() } }
                 .accessibilityIdentifier("new-pane-name-field")
                 .disabled(isRefreshing)
             VStack(alignment: .leading, spacing: 4) {
@@ -417,6 +430,12 @@ struct NewPaneSheet: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                         .accessibilityIdentifier("new-pane-name-error")
+                }
+                if let ohMyPiPreflightError {
+                    Text(ohMyPiPreflightError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("new-pane-omp-preflight-error")
                 }
             }
         }
@@ -525,9 +544,9 @@ struct NewPaneSheet: View {
                 .disabled(!canSubmit || (selectedProfile != nil && !isFormModifiedFromProfile))
                 .accessibilityIdentifier("new-pane-save-profile-button")
             }
-            Button(isRefreshing ? "Refresh" : "Create Pane") { create() }
+            Button(isRefreshing ? "Refresh" : "Create Pane") { Task { await create() } }
                 .keyboardShortcut(.defaultAction)
-                .disabled(!canSubmit)
+                .disabled(!canSubmit || isCheckingOhMyPiCompatibility)
                 .accessibilityIdentifier("new-pane-open-button")
         }
     }
@@ -564,7 +583,7 @@ struct NewPaneSheet: View {
             optionStates[option.id] = OptionState(enabled: enabled, value: "")
         }
         envVarStates = [:]
-        if selectedHarness == .claude || selectedHarness == .opencode {
+        if selectedHarness == .claude || selectedHarness == .opencode || selectedHarness == .omp {
             for envVar in currentEnvVarOptions where envVar.isAvailable {
                 let value = envVar.isDefaultEnabled ? envVar.defaultValue : ""
                 envVarStates[envVar.id] = OptionState(enabled: envVar.isDefaultEnabled, value: value)
@@ -574,11 +593,35 @@ struct NewPaneSheet: View {
 
     // MARK: - Create flow
 
-    private func create() {
+    private func create() async {
         guard canSubmit else { return }
         let trimmed = trimmedInput
         guard !trimmed.isEmpty, validationError == nil else { return }
         let extraArgs = buildExtraArgs()
+        if selectedHarness == .omp, let validation = OhMyPiLaunchPolicy.validationError(arguments: extraArgs) {
+            ohMyPiPreflightError = validation
+            return
+        }
+        ohMyPiPreflightError = nil
+        if selectedHarness == .omp {
+            isCheckingOhMyPiCompatibility = true
+            let shell = ShellResolver.resolved(appSettings)
+            let result = await HarnessDetector.checkOhMyPiCompatibility(shell: shell)
+            isCheckingOhMyPiCompatibility = false
+            TracingService.shared.record(
+                "omp.preflight.completed",
+                attributes: [
+                    "pane.id": refreshingPane?.id.uuidString ?? "",
+                    "pane.name": trimmed,
+                    "tab.id": tab.id.uuidString,
+                    "tab.name": tab.name,
+                    "result": result.telemetryResult,
+                ])
+            guard case .supported = result else {
+                ohMyPiPreflightError = result.errorDescription
+                return
+            }
+        }
         let extraEnvVars = buildExtraEnvVars()
         let committedScrollbackOverride: ScrollbackLimit?
         if case .finite? = scrollbackOverride, let lines = Int(scrollbackLinesText) {
@@ -655,14 +698,11 @@ struct NewPaneSheet: View {
             )
             if harness == .opencode {
                 let shell = ShellResolver.resolved(appSettings)
-                let installed = await HarnessDetector.isInstalled(harness: .opencode, shell: shell)
+                let installed = await HarnessDetector.isInstalled(harness: harness, shell: shell)
                 if !installed {
-                    await MainActor.run {
-                        pane.setupState = .failed(
-                            error:
-                                "OpenCode binary not found in PATH. Install OpenCode or check your shell configuration."
-                        )
-                    }
+                    pane.setupState = .failed(
+                        error: "OpenCode binary not found in PATH. Install OpenCode or check your shell configuration."
+                    )
                     return
                 }
             }
@@ -758,7 +798,7 @@ extension NewPaneSheet {
     }
 
     fileprivate func buildExtraEnvVars() -> [String: String] {
-        guard selectedHarness == .claude || selectedHarness == .opencode else { return [:] }
+        guard selectedHarness == .claude || selectedHarness == .opencode || selectedHarness == .omp else { return [:] }
         var envVars: [String: String] = [:]
         for envVar in currentEnvVarOptions {
             guard let state = envVarStates[envVar.id], state.enabled else { continue }

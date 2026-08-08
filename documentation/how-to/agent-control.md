@@ -16,7 +16,7 @@ Agent Session Manager starts an app-owned local Model Context Protocol (MCP) ser
 
 Use Agent Control when you want an agent to coordinate its session with the rest of the workspace. For example, an agent can work with other panes in its tab, update shared configuration, or help investigate a problem without requiring you to perform every workspace action manually.
 
-Agent Control is available for panes using Claude Code, Cursor, Codex, or OpenCode.
+Agent Control is available for panes using Claude Code, Cursor, Codex, OpenCode, or Oh My Pi.
 
 ## How it connects to your agent tool
 
@@ -26,6 +26,7 @@ Agent Session Manager prepares the MCP connection before it starts the final har
 - **Cursor** receives a private plugin directory through `--plugin-dir`. The plugin starts Agent Session Manager's bundled stdio bridge, which securely forwards to the app-owned local server using runtime-only connection details. It does not modify project or user Cursor files. If the bridge or control service is temporarily unavailable, the pane opens normally without Agent Control instead of showing a setup error.
 - **Codex** receives the MCP server URL and runtime credential through supported `-c` settings.
 - **OpenCode** receives the connection through its inline configuration. Existing OpenCode MCP entries and unrelated settings are preserved.
+- **Oh My Pi** receives the connection from a private runtime extension package; no project MCP configuration is changed.
 
 Each injected pane receives a runtime-only credential for its connection. The credential is not persisted, logged, or printed in the terminal, and it is revoked when the pane or tab is torn down.
 
@@ -44,7 +45,7 @@ Enable a supported tool in [Agent Tools]({{ '/documentation/user-guide/agent-too
    - **Pane** lets the agent access only its own pane.
    - **Tab** lets the agent access every pane in its tab.
    - **Global** lets the agent access the entire app.
-4. Open **New Pane** and select Claude Code, Cursor, Codex, or OpenCode in **Harness**.
+4. Open **New Pane** and select Claude Code, Cursor, Codex, OpenCode, or Oh My Pi in **Harness**.
 5. Open **New Pane → More Settings**. If you chose an ask policy, enable or
    disable **Agent Session Manager control** in the **Agent Control** section.
 6. Choose **Create Pane**.

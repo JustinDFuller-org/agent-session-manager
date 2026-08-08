@@ -68,6 +68,7 @@ struct OnboardingWizardView: View {
     @State private var isDetecting: Bool = false
     @State private var checkedTools: Set<Harness> = []
     @State private var detectionRan: Bool = false
+    @State private var ohMyPiCompatibilityError: String?
     @State private var draftConfig: StatusLineConfig = .wizardDefault()
     @State private var draftCliOptions: [Harness: [CLIOptionConfig]] = [:]
     @State private var draftEnvVarOptions: [Harness: [EnvVarConfig]] = [:]
@@ -115,6 +116,24 @@ struct OnboardingWizardView: View {
                         shell = shellPickerSelection.isEmpty ? ShellResolver.detectedLoginShell() : shellPickerSelection
                     }
                     checkedTools = await HarnessDetector.detectInstalled(shell: shell)
+                    if checkedTools.contains(.omp) {
+                        let result = await HarnessDetector.checkOhMyPiCompatibility(shell: shell)
+                        TracingService.shared.record(
+                            "omp.preflight.completed",
+                            attributes: [
+                                "pane.id": "",
+                                "pane.name": "",
+                                "tab.id": "",
+                                "tab.name": "",
+                                "result": result.telemetryResult,
+                            ])
+                        guard case .supported = result else {
+                            checkedTools.remove(.omp)
+                            ohMyPiCompatibilityError = result.errorDescription
+                            isDetecting = false
+                            return
+                        }
+                    }
                     isDetecting = false
                 }
             }
@@ -255,11 +274,17 @@ struct OnboardingWizardView: View {
                                     }
                                 )
                             )
-                            .toggleStyle(.checkbox)
+                            .disabled(tool == .omp && ohMyPiCompatibilityError != nil)
                             .accessibilityIdentifier("onboarding-tool-toggle-\(tool.rawValue)")
                             Text(tool.commandDescription)
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundStyle(.secondary)
+                        }
+                        if tool == .omp, let ohMyPiCompatibilityError {
+                            Text(ohMyPiCompatibilityError)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .accessibilityIdentifier("onboarding-omp-version-error")
                         }
                     }
                 }
@@ -382,7 +407,7 @@ struct OnboardingWizardView: View {
     }
 
     private var currentHarnessSupportsEnvVars: Bool {
-        cliFlagsTool == .claude || cliFlagsTool == .opencode
+        cliFlagsTool == .claude || cliFlagsTool == .opencode || cliFlagsTool == .omp
     }
 
     private var isCurrentDraftRecommended: Bool {
@@ -507,6 +532,9 @@ struct OnboardingWizardView: View {
                     case .opencode:
                         appSettings.opencodeCliOptions = draft
                         SettingsPersistence.saveOpenCodeOptions(appSettings: appSettings)
+                    case .omp:
+                        appSettings.ompCliOptions = draft
+                        SettingsPersistence.save(appSettings.ompCliOptions, to: "omp-settings.json")
                     case .shell:
                         break
                     }
@@ -518,6 +546,10 @@ struct OnboardingWizardView: View {
                 if toolsToSave.contains(.opencode), let draft = draftEnvVarOptions[.opencode] {
                     appSettings.opencodeEnvVarOptions = draft
                     SettingsPersistence.saveOpenCodeEnvVars(appSettings: appSettings)
+                }
+                if toolsToSave.contains(.omp), let draft = draftEnvVarOptions[.omp] {
+                    appSettings.ompEnvVarOptions = draft
+                    SettingsPersistence.save(appSettings.ompEnvVarOptions, to: "omp-env-var-settings.json")
                 }
                 step = .profiles
             }

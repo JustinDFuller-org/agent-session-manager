@@ -106,6 +106,9 @@ struct ContentView: View {
                 appSettings.opencodeCliOptions = SettingsPersistence.mergeCLIOptions(
                     SettingsPersistence.loadCLIOptions(from: "opencode-settings.json", harness: .opencode),
                     into: CLIOptionConfig.opencodeAll)
+                appSettings.ompCliOptions = SettingsPersistence.mergeCLIOptions(
+                    SettingsPersistence.loadCLIOptions(from: "omp-settings.json", harness: .omp),
+                    into: CLIOptionConfig.ompAll)
                 if let config = SettingsPersistence.load(StatusLineConfig.self, from: "statusline-settings.json") {
                     appSettings.statusLineConfig = config
                     if config.needsPersistenceMigration {
@@ -124,6 +127,7 @@ struct ContentView: View {
                     appSettings.isPRClosedNotificationsEnabled = config.isPRClosedNotificationsEnabled
                     appSettings.alwaysShowNotificationsSidebar = config.alwaysShowNotificationsSidebar
                     appSettings.isClaudeStopNotificationEnabled = config.isClaudeStopNotificationEnabled
+                    appSettings.isOhMyPiStopNotificationEnabled = config.isOhMyPiStopNotificationEnabled
                     appSettings.isOpencodeStopNotificationEnabled = config.isOpencodeStopNotificationEnabled
                 }
                 if let config = SettingsPersistence.load(RestartConfig.self, from: "restart-settings.json") {
@@ -165,6 +169,9 @@ struct ContentView: View {
                 appSettings.opencodeEnvVarOptions = SettingsPersistence.mergeEnvVarOptions(
                     SettingsPersistence.loadFailableArray(EnvVarConfig.self, from: "opencode-env-var-settings.json"),
                     into: EnvVarConfig.opencodeAll)
+                appSettings.ompEnvVarOptions = SettingsPersistence.mergeEnvVarOptions(
+                    SettingsPersistence.loadFailableArray(EnvVarConfig.self, from: "omp-env-var-settings.json"),
+                    into: EnvVarConfig.ompAll)
                 if let config = SettingsPersistence.load(
                     SettingsPersistence.ProfilesContainer.self, from: "profiles.json")
                 {

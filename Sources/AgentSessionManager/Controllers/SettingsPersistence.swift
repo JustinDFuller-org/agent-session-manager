@@ -23,6 +23,8 @@ struct NotificationConfig: Codable {
     var alwaysShowNotificationsSidebar: Bool
     /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool
+    /// When true, fire a notification when Oh My Pi finishes a turn.
+    var isOhMyPiStopNotificationEnabled: Bool
     /// When true, fire a notification when OpenCode finishes a turn.
     var isOpencodeStopNotificationEnabled: Bool
 
@@ -35,6 +37,7 @@ struct NotificationConfig: Codable {
         case isPRClosedNotificationsEnabled
         case alwaysShowNotificationsSidebar
         case isClaudeStopNotificationEnabled
+        case isOhMyPiStopNotificationEnabled
         case isOpencodeStopNotificationEnabled
     }
 
@@ -47,6 +50,7 @@ struct NotificationConfig: Codable {
         isPRClosedNotificationsEnabled: Bool,
         alwaysShowNotificationsSidebar: Bool,
         isClaudeStopNotificationEnabled: Bool,
+        isOhMyPiStopNotificationEnabled: Bool,
         isOpencodeStopNotificationEnabled: Bool
     ) {
         self.sidebarSide = sidebarSide
@@ -57,6 +61,7 @@ struct NotificationConfig: Codable {
         self.isPRClosedNotificationsEnabled = isPRClosedNotificationsEnabled
         self.alwaysShowNotificationsSidebar = alwaysShowNotificationsSidebar
         self.isClaudeStopNotificationEnabled = isClaudeStopNotificationEnabled
+        self.isOhMyPiStopNotificationEnabled = isOhMyPiStopNotificationEnabled
         self.isOpencodeStopNotificationEnabled = isOpencodeStopNotificationEnabled
     }
 
@@ -75,6 +80,8 @@ struct NotificationConfig: Codable {
             try container.decodeIfPresent(Bool.self, forKey: .alwaysShowNotificationsSidebar) ?? true
         isClaudeStopNotificationEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isClaudeStopNotificationEnabled) ?? true
+        isOhMyPiStopNotificationEnabled =
+            try container.decodeIfPresent(Bool.self, forKey: .isOhMyPiStopNotificationEnabled) ?? true
         isOpencodeStopNotificationEnabled =
             try container.decodeIfPresent(Bool.self, forKey: .isOpencodeStopNotificationEnabled) ?? true
     }
@@ -89,6 +96,7 @@ struct NotificationConfig: Codable {
         try container.encode(isPRClosedNotificationsEnabled, forKey: .isPRClosedNotificationsEnabled)
         try container.encode(alwaysShowNotificationsSidebar, forKey: .alwaysShowNotificationsSidebar)
         try container.encode(isClaudeStopNotificationEnabled, forKey: .isClaudeStopNotificationEnabled)
+        try container.encode(isOhMyPiStopNotificationEnabled, forKey: .isOhMyPiStopNotificationEnabled)
         try container.encode(isOpencodeStopNotificationEnabled, forKey: .isOpencodeStopNotificationEnabled)
     }
 }
@@ -291,6 +299,7 @@ struct SettingsPersistence {
             isPRClosedNotificationsEnabled: appSettings.isPRClosedNotificationsEnabled,
             alwaysShowNotificationsSidebar: appSettings.alwaysShowNotificationsSidebar,
             isClaudeStopNotificationEnabled: appSettings.isClaudeStopNotificationEnabled,
+            isOhMyPiStopNotificationEnabled: appSettings.isOhMyPiStopNotificationEnabled,
             isOpencodeStopNotificationEnabled: appSettings.isOpencodeStopNotificationEnabled
         )
         guard let data = try? JSONEncoder().encode(config) else { return }
@@ -303,6 +312,14 @@ struct SettingsPersistence {
             let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
         else { return true }
         return config.isClaudeStopNotificationEnabled
+    }
+
+    static func isOhMyPiStopNotificationEnabled() -> Bool {
+        guard
+            let data = try? Data(contentsOf: notificationSettingsURL),
+            let config = try? JSONDecoder().decode(NotificationConfig.self, from: data)
+        else { return true }
+        return config.isOhMyPiStopNotificationEnabled
     }
 
     static func isOpencodeStopNotificationEnabled() -> Bool {

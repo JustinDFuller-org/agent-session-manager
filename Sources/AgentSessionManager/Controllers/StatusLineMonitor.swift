@@ -33,6 +33,7 @@ final class StatusLineMonitor {
     var isCursorWorking: Bool { cursorLifecycle == .working }
     var isCursorStopped: Bool { cursorLifecycle == .stopped }
     private(set) var isOpenCodeWorking = false
+    private(set) var isOhMyPiWorking = false
 
     private let paneID: UUID
     private let paneName: String
@@ -94,6 +95,9 @@ final class StatusLineMonitor {
     var onOpencodePermissionReplied: (() -> Void)?
     /// Fires on the main actor when OpenCode likely lost the allocated port to another process.
     var onOpencodePortRaceLost: (() -> Void)?
+    var onOhMyPiSessionBound: ((String) -> Void)?
+    var onOhMyPiAttentionResolved: ((PaneAttentionEvent.Source) -> Void)?
+    var onOhMyPiSessionMismatch: (() -> Void)?
     /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
     /// Fires on the main actor when a PR transitions from a non-resolved state to "closed" (without merging).
@@ -114,6 +118,8 @@ final class StatusLineMonitor {
         tabName: String = "",
         opencodePort: Int? = nil,
         opencodeSessionID: String? = nil,
+        ohMyPiRuntimeDirectory: URL? = nil,
+        ohMyPiSessionID: String? = nil,
         opencodeEnvironment: [String: String] = [:],
         customFieldEnvironment: [String: String] = [:]
     ) {
@@ -154,7 +160,11 @@ final class StatusLineMonitor {
                 codexHookRecordPath: harness == .codex ? resolvedCodexHookRecordPath : nil,
                 opencodePort: opencodePort,
                 opencodeSessionID: opencodeSessionID,
-                opencodeEnvironment: opencodeEnvironment
+                opencodeEnvironment: opencodeEnvironment,
+                ohMyPiStatusFilePath: harness == .omp
+                    ? ohMyPiRuntimeDirectory?.appending(path: OhMyPiRuntimePlugin.statusFilename).path
+                    : nil,
+                expectedOhMyPiSessionID: harness == .omp ? ohMyPiSessionID : nil
             )
         }
 
@@ -213,6 +223,21 @@ final class StatusLineMonitor {
                     }
                 }
                 provider = opencodeProvider
+            } else if harness == .omp, let providerContext {
+                let ompProvider = OhMyPiStatusProvider(context: providerContext)
+                ompProvider.onWorkingChanged = { [weak self] isWorking in
+                    self?.isOhMyPiWorking = isWorking
+                }
+                ompProvider.onAttentionResolved = { [weak self] source in
+                    self?.onOhMyPiAttentionResolved?(source)
+                }
+                ompProvider.onSessionBound = { [weak self] id in
+                    self?.onOhMyPiSessionBound?(id)
+                }
+                ompProvider.onSessionMismatch = { [weak self] in
+                    self?.onOhMyPiSessionMismatch?()
+                }
+                provider = ompProvider
             } else {
                 let toolCmd = harness.commandDescription
                 provider = ToolAgnosticDataProvider(

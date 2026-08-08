@@ -26,6 +26,7 @@ struct AgentControlHarnessLaunchContext {
     let environment: [String]
     let paneID: UUID
     let cursorPluginDirectory: URL?
+    let ohMyPiRuntimePluginDirectory: URL?
     let cursorBridgeExecutable: URL?
 
     init(
@@ -35,6 +36,7 @@ struct AgentControlHarnessLaunchContext {
         environment: [String],
         paneID: UUID = UUID(),
         cursorPluginDirectory: URL? = nil,
+        ohMyPiRuntimePluginDirectory: URL? = nil,
         cursorBridgeExecutable: URL? = nil
     ) {
         self.endpoint = endpoint
@@ -43,6 +45,7 @@ struct AgentControlHarnessLaunchContext {
         self.environment = environment
         self.paneID = paneID
         self.cursorPluginDirectory = cursorPluginDirectory
+        self.ohMyPiRuntimePluginDirectory = ohMyPiRuntimePluginDirectory
         self.cursorBridgeExecutable = cursorBridgeExecutable
     }
 }
@@ -144,6 +147,49 @@ struct OpenCodeAgentControlAdapter: AgentControlHarnessAdapter {
     }
 }
 
+struct OhMyPiAgentControlAdapter: AgentControlHarnessAdapter {
+    func prepare(_ context: AgentControlHarnessLaunchContext) throws -> AgentControlHarnessLaunchContext {
+        guard let directory = context.ohMyPiRuntimePluginDirectory, OhMyPiRuntimePlugin.isAppOwned(directory) else {
+            throw AgentControlHarnessInjectionError.invalidConfiguration(.omp)
+        }
+        let mcp: [String: Any] = [
+            "mcpServers": [
+                "agent-session-manager": [
+                    "type": "http",
+                    "url": context.endpoint.absoluteString,
+                    "headers": ["Authorization": "Bearer ${\(context.tokenEnvironmentKey)}"],
+                ]
+            ]
+        ]
+        do {
+            let data = try JSONSerialization.data(withJSONObject: mcp, options: [.sortedKeys])
+            let mcpURL = directory.appending(path: ".mcp.json")
+            try data.write(to: mcpURL, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: mcpURL.path)
+            guard OhMyPiRuntimePlugin.isPrivateRuntimeDirectory(directory, requiresMCP: true) else {
+                throw AgentControlHarnessInjectionError.invalidConfiguration(.omp)
+            }
+            InvariantReporter.shared.check(
+                .ohMyPiRuntimePluginPrivate,
+                true,
+                context: ["result": "agent_control_prepared"])
+            var arguments = context.commandArguments
+            arguments.append(contentsOf: ["--plugin-dir", directory.path])
+            return AgentControlHarnessLaunchContext(
+                endpoint: context.endpoint,
+                tokenEnvironmentKey: context.tokenEnvironmentKey,
+                commandArguments: arguments,
+                environment: context.environment,
+                paneID: context.paneID,
+                cursorPluginDirectory: context.cursorPluginDirectory,
+                ohMyPiRuntimePluginDirectory: directory,
+                cursorBridgeExecutable: context.cursorBridgeExecutable)
+        } catch {
+            try? FileManager.default.removeItem(at: directory.appending(path: ".mcp.json"))
+            throw AgentControlHarnessInjectionError.invalidConfiguration(.omp)
+        }
+    }
+}
 enum CursorAgentControlPlugin {
     static let directoryPrefix = "agent-session-manager-cursor-mcp-"
 
@@ -264,6 +310,11 @@ enum AgentControlHarnessInjection {
         guard pane.harness != .shell, pane.agentControlInjectionEnabled, appSettings != nil else {
             CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
             pane.cursorAgentControlPluginDirectory = nil
+            if pane.harness == .omp, let directory = pane.ohMyPiRuntimePluginDirectory,
+                OhMyPiRuntimePlugin.isAppOwned(directory)
+            {
+                try? FileManager.default.removeItem(at: directory.appending(path: ".mcp.json"))
+            }
             AgentControlService.shared.revoke(paneID: pane.id)
             recordPreparation(pane: pane, tab: tab, result: "disabled", approveMCPsEnabled: approveMCPsEnabled)
             return (sanitizedCommandArguments, sanitizedEnvironment)
@@ -305,6 +356,7 @@ enum AgentControlHarnessInjection {
                 commandArguments: sanitizedCommandArguments ?? [],
                 environment: preparedEnvironment,
                 paneID: pane.id,
+                ohMyPiRuntimePluginDirectory: pane.ohMyPiRuntimePluginDirectory,
                 cursorBridgeExecutable: cursorBridgeExecutable
             )
             let adapter: any AgentControlHarnessAdapter
@@ -313,6 +365,7 @@ enum AgentControlHarnessInjection {
             case .codex: adapter = CodexAgentControlAdapter()
             case .cursor: adapter = CursorAgentControlAdapter()
             case .opencode: adapter = OpenCodeAgentControlAdapter()
+            case .omp: adapter = OhMyPiAgentControlAdapter()
             case .shell: throw AgentControlHarnessInjectionError.unsupported(.shell)
             }
             let prepared = try adapter.prepare(context)
@@ -377,6 +430,20 @@ enum AgentControlHarnessInjection {
             }
             if harness == .cursor, argument.hasPrefix("--plugin-dir="),
                 CursorAgentControlPlugin.isAppOwned(
+                    URL(filePath: String(argument.dropFirst("--plugin-dir=".count))))
+            {
+                index += 1
+                continue
+            }
+            if harness == .omp, argument == "--plugin-dir",
+                index + 1 < arguments.count,
+                OhMyPiRuntimePlugin.isAppOwned(URL(filePath: arguments[index + 1]))
+            {
+                index += 2
+                continue
+            }
+            if harness == .omp, argument.hasPrefix("--plugin-dir="),
+                OhMyPiRuntimePlugin.isAppOwned(
                     URL(filePath: String(argument.dropFirst("--plugin-dir=".count))))
             {
                 index += 1

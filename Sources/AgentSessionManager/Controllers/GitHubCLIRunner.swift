@@ -85,7 +85,7 @@ final class GitHubCLIRunner: GitHubCLIRunning, @unchecked Sendable {
                 stdout: Data(), stderrPrefix: "", exitCode: nil, failure: .launch,
                 inputFailure: nil)
         }
-        let inputWriteTask = stdin.flatMap { stdin in
+        let inputWriteTask: Task<ChildProcessInputWriteFailure?, Never>? = stdin.flatMap { stdin in
             input.map { input in
                 Task.detached(priority: .userInitiated) {
                     ChildProcessInputWriter.write(

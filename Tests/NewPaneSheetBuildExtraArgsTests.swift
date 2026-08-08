@@ -52,4 +52,22 @@ struct NewPaneSheetBuildExtraArgsTests {
         let args = NewPaneSheet.buildExtraArgs(options: options, states: states)
         #expect(args == ["--model", "claude-sonnet-5[1m]", "--mcp-config", "a.json"])
     }
+
+    @Test("An empty enabled Oh My Pi resume flag emits without a value")
+    func optionalStringEmitsBareFlagWhenEmpty() {
+        let option = CLIOptionConfig.ompAll.first { $0.id == "--resume" }!
+        let args = NewPaneSheet.buildExtraArgs(
+            options: [option],
+            states: ["--resume": OptionState(enabled: true, value: "")])
+        #expect(args == ["--resume"])
+    }
+
+    @Test("A valued Oh My Pi resume flag emits its session identifier")
+    func optionalStringEmitsValueWhenProvided() {
+        let option = CLIOptionConfig.ompAll.first { $0.id == "--resume" }!
+        let args = NewPaneSheet.buildExtraArgs(
+            options: [option],
+            states: ["--resume": OptionState(enabled: true, value: "session-123")])
+        #expect(args == ["--resume", "session-123"])
+    }
 }

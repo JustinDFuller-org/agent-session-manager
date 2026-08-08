@@ -64,6 +64,8 @@ final class AppState {
             pane.terminalController?.terminate()
             CursorAgentControlPlugin.remove(directory: pane.cursorAgentControlPluginDirectory)
             pane.cursorAgentControlPluginDirectory = nil
+            OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+            pane.ohMyPiRuntimePluginDirectory = nil
             pane.installTerminalController(nil)
             pane.removeStatusLineMonitor()
             MacNotificationCoordinator.shared.forgetPane(paneID: pane.id)
@@ -109,6 +111,9 @@ final class AppState {
             case .cursorStop: return .cursorStop
             case .opencodeStop: return .opencodeStop
             case .opencodePermissionRequest: return .opencodePermissionRequest
+            case .ohMyPiStop: return .ohMyPiStop
+            case .ohMyPiPermissionRequest: return .ohMyPiPermissionRequest
+            case .ohMyPiInputRequest: return .ohMyPiInputRequest
             default: return .terminalBell
             }
         }()

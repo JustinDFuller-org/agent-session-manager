@@ -76,11 +76,11 @@ extension Tab {
 
         let cwd = resolved.processDirectory.path
 
-        if pane.harness != .shell && pane.harness != .opencode {
+        if pane.harness != .shell && pane.harness != .opencode && pane.harness != .omp {
             let monitor = StatusLineMonitor(
                 paneID: pane.id, paneName: pane.name,
                 workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
-                tabID: self.id, tabName: self.name,
+                tabID: self.id, tabName: self.name, ohMyPiSessionID: pane.ohMyPiSessionID,
                 customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
         }
@@ -129,6 +129,24 @@ extension Tab {
                 tabID: self.id, tabName: self.name, opencodePort: pane.opencodePort,
                 customFieldEnvironment: extraEnvVars)
             pane.installStatusLineMonitor(monitor)
+        case .omp:
+            do {
+                try configureOhMyPiController(
+                    controller, pane: pane, extraArgs: effectiveExtraArgs, extraEnvVars: extraEnvVars)
+                let monitor = StatusLineMonitor(
+                    paneID: pane.id, paneName: pane.name,
+                    workingDirectory: cwd, harness: pane.harness, processStartTime: Date(),
+                    tabID: self.id, tabName: self.name,
+                    ohMyPiRuntimeDirectory: pane.ohMyPiRuntimePluginDirectory,
+                    ohMyPiSessionID: pane.ohMyPiSessionID,
+                    customFieldEnvironment: extraEnvVars)
+                pane.installStatusLineMonitor(monitor)
+            } catch {
+                OhMyPiRuntimePlugin.remove(directory: pane.ohMyPiRuntimePluginDirectory)
+                pane.ohMyPiRuntimePluginDirectory = nil
+                pane.setupState = .failed(error: "Could not prepare the Oh My Pi runtime extension.")
+                return
+            }
         }
         controller.terminalView.telemetryTabName = self.name
         controller.terminalView.telemetryTabUUID = self.id

@@ -11,10 +11,11 @@ enum Harness: String, Codable, CaseIterable, Sendable {
     case codex
     case cursor
     case opencode
+    case omp
     case shell
 
     /// User-facing harness types — excludes `.shell` which is an internal session type.
-    static var allCases: [Harness] { [.claude, .codex, .cursor, .opencode] }
+    static var allCases: [Harness] { [.claude, .codex, .cursor, .opencode, .omp] }
 
     var displayName: String {
         switch self {
@@ -22,6 +23,7 @@ enum Harness: String, Codable, CaseIterable, Sendable {
         case .codex: return "Codex"
         case .cursor: return "Cursor"
         case .opencode: return "OpenCode"
+        case .omp: return "Oh My Pi"
         case .shell: return "Shell"
         }
     }
@@ -32,6 +34,7 @@ enum Harness: String, Codable, CaseIterable, Sendable {
         case .codex: return "codex"
         case .cursor: return "agent"
         case .opencode: return "opencode"
+        case .omp: return "omp"
         case .shell: return "$SHELL"
         }
     }
@@ -70,6 +73,10 @@ final class Pane: Identifiable {
     var opencodePort: Int?
     /// Runtime-only private Cursor plugin directory used for Agent Control MCP injection.
     var cursorAgentControlPluginDirectory: URL?
+    /// Runtime-only private Oh My Pi extension directory.
+    var ohMyPiRuntimePluginDirectory: URL?
+    /// Oh My Pi session ID to resume on relaunch. Persisted across app launches.
+    var ohMyPiSessionID: String?
     /// OpenCode session ID to resume on relaunch. Persisted across app launches.
     var opencodeSessionID: String?
 

@@ -35,6 +35,35 @@ final class AgentControlHarnessInjectionTests: XCTestCase {
         XCTAssertEqual(prepared.environment, context.environment)
     }
 
+    func testOhMyPiWritesPrivateMCPConfigurationWithoutTokenBytes() throws {
+        let paneID = UUID()
+        let directory = try OhMyPiRuntimePlugin.prepare(paneID: paneID)
+        defer { OhMyPiRuntimePlugin.remove(directory: directory) }
+        let context = AgentControlHarnessLaunchContext(
+            endpoint: endpoint,
+            tokenEnvironmentKey: tokenKey,
+            commandArguments: ["omp", "--extension", directory.path],
+            environment: ["\(tokenKey)=runtime-secret"],
+            paneID: paneID,
+            ohMyPiRuntimePluginDirectory: directory)
+
+        let prepared = try OhMyPiAgentControlAdapter().prepare(context)
+
+        XCTAssertEqual(prepared.commandArguments.suffix(2), ["--plugin-dir", directory.path])
+        let data = try Data(contentsOf: directory.appending(path: ".mcp.json"))
+        let text = String(decoding: data, as: UTF8.self)
+        let config = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let server = try XCTUnwrap(
+            (config["mcpServers"] as? [String: Any])?["agent-session-manager"] as? [String: Any])
+        XCTAssertEqual(server["type"] as? String, "http")
+        XCTAssertEqual(server["url"] as? String, endpoint.absoluteString)
+        XCTAssertEqual(
+            (server["headers"] as? [String: String])?["Authorization"],
+            "Bearer ${\(tokenKey)}")
+        XCTAssertFalse(text.contains("runtime-secret"))
+        XCTAssertTrue(OhMyPiRuntimePlugin.isPrivateRuntimeDirectory(directory, requiresMCP: true))
+    }
+
     func testCodexUsesCLIOverridesAndTokenEnvironmentName() throws {
         let context = AgentControlHarnessLaunchContext(
             endpoint: endpoint,

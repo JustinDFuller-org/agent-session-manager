@@ -224,20 +224,27 @@ final class StatusLineConfigTests: XCTestCase {
             "rate5h", "rate7d", "rate5hReset", "rate7dReset",
         ]
         let claudeOnlyIds: Set<String> = [
-            "effort", "thinking", "vimMode", "agentName", "outputStyle",
-            "exceeds200k", "contextSize", "cacheRead", "cacheCreation", "apiDuration",
+            "vimMode", "agentName", "outputStyle", "exceeds200k", "apiDuration",
         ]
-        let claudeOpencodeIds: Set<String> = ["cost", "sessionName"]
+        let claudeOhMyPiIds: Set<String> = [
+            "effort", "thinking", "contextSize", "cacheRead", "cacheCreation",
+        ]
+        let claudeOpencodeOhMyPiIds: Set<String> = ["cost", "sessionName"]
         let opencodeTokenIds: Set<String> = ["inputTokens", "outputTokens"]
 
         for id in claudeOnlyIds {
             XCTAssertEqual(
                 StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude], "\(id) should be Claude-only")
         }
-        for id in claudeOpencodeIds {
+        for id in claudeOhMyPiIds {
             XCTAssertEqual(
-                StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude, .opencode],
-                "\(id) should be supported by Claude and OpenCode")
+                StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude, .omp],
+                "\(id) should be supported by Claude Code and Oh My Pi")
+        }
+        for id in claudeOpencodeOhMyPiIds {
+            XCTAssertEqual(
+                StatusLineConfig.itemAvailability[id]?.supportedHarnesses, [.claude, .opencode, .omp],
+                "\(id) should be supported by Claude Code, OpenCode, and Oh My Pi")
         }
         for id in opencodeTokenIds {
             XCTAssertTrue(
@@ -358,7 +365,7 @@ final class CLIOptionConfigTests: XCTestCase {
             switch option.optionType {
             case .boolean:
                 break
-            case .string(let placeholder):
+            case .string(let placeholder), .optionalString(let placeholder):
                 XCTAssertFalse(placeholder.isEmpty, "\(option.id) string type has empty placeholder")
             }
         }
@@ -421,6 +428,58 @@ final class CLIOptionConfigTests: XCTestCase {
     }
 }
 
+final class OMPCLIOptionConfigTests: XCTestCase {
+    private var ompOptions: [CLIOptionConfig] {
+        CLIOptionConfig.ompAll
+    }
+
+    func testCuratedCatalogMatchesSupportedInteractiveFlags() {
+        let expectedIDs: Set<String> = [
+            "--advisor", "--allow-home", "--auto-approve", "--continue", "--from-claude", "--from-codex",
+            "--hide-thinking", "--no-extensions", "--no-lsp", "--no-prewalk", "--no-pty", "--no-rules",
+            "--no-session", "--no-skills", "--no-title", "--no-tools", "--plan-yolo", "--prewalk",
+            "--add-dir", "--append-system-prompt", "--approval-mode", "--config", "--extension", "--hook",
+            "--max-time", "--model", "--models", "--plan", "--plan-yolo-into", "--plugin-dir", "--prewalk-into",
+            "--profile", "--provider", "--service-tier", "--session-dir", "--skills", "--slow", "--smol",
+            "--system-prompt", "--thinking", "--tools", "--resume",
+        ]
+
+        XCTAssertEqual(Set(ompOptions.map(\.id)), expectedIDs)
+        XCTAssertEqual(ompOptions.count, 42)
+        XCTAssertEqual(Set(ompOptions.map(\.id)).count, ompOptions.count)
+        XCTAssertTrue(ompOptions.allSatisfy { !$0.description.isEmpty && !$0.description.contains("\n") })
+    }
+
+    func testValueTypesAndPresetsMatchOhMyPiContract() {
+        let requiredValueIDs: Set<String> = [
+            "--add-dir", "--append-system-prompt", "--approval-mode", "--config", "--extension", "--hook",
+            "--max-time", "--model", "--models", "--plan", "--plan-yolo-into", "--plugin-dir", "--prewalk-into",
+            "--profile", "--provider", "--service-tier", "--session-dir", "--skills", "--slow", "--smol",
+            "--system-prompt", "--thinking", "--tools",
+        ]
+        for option in ompOptions {
+            switch option.optionType {
+            case .string:
+                XCTAssertTrue(requiredValueIDs.contains(option.id), "\(option.id) unexpectedly takes a value")
+            case .optionalString:
+                XCTAssertEqual(option.id, "--resume")
+            case .boolean:
+                XCTAssertFalse(requiredValueIDs.contains(option.id), "\(option.id) must take a value")
+            }
+        }
+        let presets = Dictionary(uniqueKeysWithValues: ompOptions.map { ($0.id, $0.presetValues) })
+        XCTAssertEqual(presets["--approval-mode"], ["always-ask", "write", "yolo"])
+        XCTAssertEqual(presets["--thinking"], ["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"])
+        XCTAssertEqual(presets["--service-tier"], ["none", "auto", "default", "flex", "scale", "priority"])
+    }
+
+    func testImportFlagsExplainSessionImportBehavior() {
+        let descriptions = Dictionary(uniqueKeysWithValues: ompOptions.map { ($0.id, $0.description) })
+        XCTAssertEqual(descriptions["--from-claude"], "Import a Claude Code session into Oh My Pi.")
+        XCTAssertEqual(descriptions["--from-codex"], "Import a Codex session into Oh My Pi.")
+    }
+}
+
 final class CodexCLIOptionConfigTests: XCTestCase {
     private var codexOptions: [CLIOptionConfig] {
         CLIOptionConfig.codexAll.filter { !$0.isUserAdded }
@@ -448,7 +507,7 @@ final class CodexCLIOptionConfigTests: XCTestCase {
             switch option.optionType {
             case .boolean:
                 break
-            case .string(let placeholder):
+            case .string(let placeholder), .optionalString(let placeholder):
                 XCTAssertFalse(placeholder.isEmpty, "\(option.id) string type has empty placeholder")
             }
         }
@@ -497,7 +556,7 @@ final class CursorCLIOptionConfigTests: XCTestCase {
             switch option.optionType {
             case .boolean:
                 break
-            case .string(let placeholder):
+            case .string(let placeholder), .optionalString(let placeholder):
                 XCTAssertFalse(placeholder.isEmpty, "\(option.id) string type has empty placeholder")
             }
         }
@@ -531,6 +590,7 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(Harness.codex.rawValue, "codex")
         XCTAssertEqual(Harness.cursor.rawValue, "cursor")
         XCTAssertEqual(Harness.opencode.rawValue, "opencode")
+        XCTAssertEqual(Harness.omp.rawValue, "omp")
     }
 
     func testHarnessDisplayNames() {
@@ -538,6 +598,7 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(Harness.codex.displayName, "Codex")
         XCTAssertEqual(Harness.cursor.displayName, "Cursor")
         XCTAssertEqual(Harness.opencode.displayName, "OpenCode")
+        XCTAssertEqual(Harness.omp.displayName, "Oh My Pi")
     }
 
     func testHarnessCommandDescriptions() {
@@ -545,15 +606,17 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(Harness.codex.commandDescription, "codex")
         XCTAssertEqual(Harness.cursor.commandDescription, "agent")
         XCTAssertEqual(Harness.opencode.commandDescription, "opencode")
+        XCTAssertEqual(Harness.omp.commandDescription, "omp")
     }
 
     func testAllHarnessCases() {
-        XCTAssertEqual(Harness.allCases.count, 4)
+        XCTAssertEqual(Harness.allCases.count, 5)
         XCTAssertTrue(Harness.allCases.contains(.claude))
         XCTAssertTrue(Harness.allCases.contains(.codex))
         XCTAssertTrue(Harness.allCases.contains(.cursor))
         XCTAssertTrue(Harness.allCases.contains(.opencode))
-        XCTAssertEqual(Harness.allCases, [.claude, .codex, .cursor, .opencode])
+        XCTAssertTrue(Harness.allCases.contains(.omp))
+        XCTAssertEqual(Harness.allCases, [.claude, .codex, .cursor, .opencode, .omp])
     }
 
     func testOpenCodeRecommendedDefaultsArePopulated() {

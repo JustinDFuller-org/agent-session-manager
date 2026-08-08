@@ -39,7 +39,11 @@ extension Pane {
         guard let appState = notificationAppState, let tab else { return }
         statusLineMonitor?.onClaudeHookAttention = { [weak self] event in
             Task { @MainActor in
-                self?.terminalController?.onAttention?(event)
+                guard let pane = self else { return }
+                guard event.source != .ohMyPiStop || SettingsPersistence.isOhMyPiStopNotificationEnabled() else {
+                    return
+                }
+                pane.terminalController?.onAttention?(event)
             }
         }
         statusLineMonitor?.onClaudeStopped = { [weak appState, weak tab, weak self] in
@@ -88,6 +92,39 @@ extension Pane {
                 guard let pane = self, let tab = pane.tab, !pane.opencodeRaceLossRestarted else { return }
                 pane.opencodeRaceLossRestarted = true
                 tab.restartPane(pane, appSettings: pane.appSettings)
+            }
+        }
+        statusLineMonitor?.onOhMyPiSessionBound = { [weak appState, weak self] id in
+            Task { @MainActor in
+                guard let pane = self, pane.ohMyPiSessionID != id else { return }
+                pane.ohMyPiSessionID = id
+                if let appState { SessionPersistence.save(appState: appState) }
+            }
+        }
+        statusLineMonitor?.onOhMyPiSessionMismatch = { [weak appState, weak self] in
+            Task { @MainActor in
+                guard let pane = self else { return }
+                pane.removeStatusLineMonitor()
+                pane.terminalController?.terminate()
+                let runtime = pane.ohMyPiRuntimePluginDirectory
+                pane.ohMyPiRuntimePluginDirectory = nil
+                OhMyPiRuntimePlugin.remove(directory: runtime)
+                pane.setupState = .failed(
+                    error: "Oh My Pi resumed a different session. Retry to resume the stored session.")
+                if let appState { SessionPersistence.save(appState: appState) }
+            }
+        }
+        statusLineMonitor?.onOhMyPiAttentionResolved = { [weak appState, weak self] source in
+            Task { @MainActor in
+                guard let appState, let pane = self else { return }
+                switch source {
+                case .ohMyPiPermissionRequest:
+                    appState.clearNotification(paneID: pane.id, kind: .ohMyPiPermissionRequest)
+                case .ohMyPiInputRequest:
+                    appState.clearNotification(paneID: pane.id, kind: .ohMyPiInputRequest)
+                default:
+                    break
+                }
             }
         }
         statusLineMonitor?.onPRMerged = { [weak appState, weak tab, weak self] prNumber, prTitle in
