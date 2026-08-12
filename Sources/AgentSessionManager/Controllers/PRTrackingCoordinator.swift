@@ -124,7 +124,8 @@ final class PRTrackingCoordinator {
         task.standardOutput = outPipe
         task.standardError = FileHandle.nullDevice
         task.terminationHandler = { [weak self] _ in
-            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+            let outData = ChildProcessOutputReader.readToEndOfFile(
+                outPipe.fileHandleForReading, site: "PRTrackingCoordinator.subscribe")
             guard
                 let raw = String(data: outData, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty,
@@ -548,7 +549,8 @@ final class PRTrackingCoordinator {
             task.standardOutput = outPipe
             task.standardError = FileHandle.nullDevice
             task.terminationHandler = { _ in
-                let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let outData = ChildProcessOutputReader.readToEndOfFile(
+                    outPipe.fileHandleForReading, site: "PRTrackingCoordinator.fetchBranch")
                 let branch = String(data: outData, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 continuation.resume(returning: (branch?.isEmpty == false && branch != "HEAD") ? branch : nil)

@@ -105,7 +105,8 @@ final class ToolAgnosticDataProvider: StatusLineDataProvider {
             task.standardOutput = outPipe
             task.standardError = FileHandle.nullDevice
             task.terminationHandler = { process in
-                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let data = ChildProcessOutputReader.readToEndOfFile(
+                    outPipe.fileHandleForReading, site: "ToolAgnosticDataProvider.runShell")
                 if process.terminationStatus == 0, !data.isEmpty {
                     let output = String(data: data, encoding: .utf8)
                     continuation.resume(returning: output)

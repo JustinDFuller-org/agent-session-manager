@@ -13,7 +13,8 @@ enum GitDiffStats {
             task.standardOutput = outPipe
             task.standardError = FileHandle.nullDevice
             task.terminationHandler = { process in
-                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let data = ChildProcessOutputReader.readToEndOfFile(
+                    outPipe.fileHandleForReading, site: "GitDiffStats.compute")
                 guard process.terminationStatus == 0 else {
                     continuation.resume(returning: nil)
                     return

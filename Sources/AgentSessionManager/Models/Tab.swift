@@ -408,8 +408,10 @@ final class Tab: Identifiable {
                         process.standardOutput = outPipe
                         process.standardError = errPipe
                         process.terminationHandler = { proc in
-                            let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-                            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                            let outData = ChildProcessOutputReader.readToEndOfFile(
+                                outPipe.fileHandleForReading, site: "Tab.runGitOutput.stdout")
+                            let errData = ChildProcessOutputReader.readToEndOfFile(
+                                errPipe.fileHandleForReading, site: "Tab.runGitOutput.stderr")
                             if proc.terminationStatus == 0 {
                                 continuation.resume(returning: String(data: outData, encoding: .utf8) ?? "")
                             } else {
@@ -451,7 +453,8 @@ final class Tab: Identifiable {
                         process.standardOutput = FileHandle.nullDevice
                         process.standardError = errPipe
                         process.terminationHandler = { proc in
-                            let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+                            let errData = ChildProcessOutputReader.readToEndOfFile(
+                                errPipe.fileHandleForReading, site: "Tab.runGit.stderr")
                             let stderr = String(data: errData, encoding: .utf8) ?? ""
                             if proc.terminationStatus == 0 {
                                 continuation.resume()

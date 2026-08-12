@@ -112,6 +112,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
         traceEventName: "app.lifecycle.previous_exit_unclean"
     )
 
+    static let childProcessOutputReadBounded = Invariant(
+        id: "process.output_read.bounded",
+        integration: "Process Management",
+        severity: .warning,
+        description: "A subprocess output read must complete within its bounded deadline.",
+        traceEventName: "process.output_read.timed_out"
+    )
+
     static let githubCLIAvailable = Invariant(
         id: "github.cli.available",
         integration: "GitHub CLI",

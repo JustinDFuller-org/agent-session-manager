@@ -340,7 +340,8 @@ final class CursorDataProvider: StatusLineDataProvider {
             task.standardOutput = outPipe
             task.standardError = FileHandle.nullDevice
             task.terminationHandler = { process in
-                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let data = ChildProcessOutputReader.readToEndOfFile(
+                    outPipe.fileHandleForReading, site: "CursorDataProvider.runShell")
                 if process.terminationStatus == 0, !data.isEmpty {
                     continuation.resume(returning: String(data: data, encoding: .utf8))
                 } else {

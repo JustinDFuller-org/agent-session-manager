@@ -16,7 +16,8 @@ enum HarnessDetector {
             process.standardOutput = outPipe
             process.standardError = FileHandle.nullDevice
             process.terminationHandler = { proc in
-                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let data = ChildProcessOutputReader.readToEndOfFile(
+                    outPipe.fileHandleForReading, site: "HarnessDetector.isInstalled")
                 let output = (String(data: data, encoding: .utf8) ?? "")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 continuation.resume(returning: proc.terminationStatus == 0 && !output.isEmpty)
@@ -48,7 +49,8 @@ enum HarnessDetector {
                         process.standardOutput = outPipe
                         process.standardError = FileHandle.nullDevice
                         process.terminationHandler = { proc in
-                            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                            let data = ChildProcessOutputReader.readToEndOfFile(
+                                outPipe.fileHandleForReading, site: "HarnessDetector.detectInstalled")
                             let output = (String(data: data, encoding: .utf8) ?? "")
                                 .trimmingCharacters(in: .whitespacesAndNewlines)
                             continuation.resume(returning: proc.terminationStatus == 0 && !output.isEmpty ? tool : nil)

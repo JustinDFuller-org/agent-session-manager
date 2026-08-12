@@ -25,6 +25,7 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 | `app.launch.auxiliary_windows_closed` | App Launch | error | `app.launch.auxiliary_window_opened` |
 | `terminal.clipboard.copy_requires_selection` | Terminal | warning | `terminal.clipboard.copy_without_selection` |
 | `app.lifecycle.previous_exit_clean` | App Lifecycle | error | `app.lifecycle.previous_exit_unclean` |
+| `process.output_read.bounded` | Process Management | warning | `process.output_read.timed_out` |
 
 Each occurrence has its own UUID. Repeated violations of the same invariant remain separate dashboard rows.
 

@@ -1037,7 +1037,8 @@ extension StatusLineMonitor {
             task.standardOutput = outPipe
             task.standardError = FileHandle.nullDevice
             task.terminationHandler = { _ in
-                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                let data = ChildProcessOutputReader.readToEndOfFile(
+                    outPipe.fileHandleForReading, site: "StatusLineMonitor.fetchRepoIdentity")
                 guard
                     let remote = String(data: data, encoding: .utf8)?
                         .trimmingCharacters(in: .whitespacesAndNewlines),
