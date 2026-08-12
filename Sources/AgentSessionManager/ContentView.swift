@@ -1,10 +1,20 @@
 import AppKit
+import Darwin
 import SwiftUI
 
 @main
 struct AgentSessionManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var cleanupService: TraceCleanupService?
+
+    init() {
+        // Every subprocess pipe (git diff, gh api, custom status-line commands, the PTY
+        // master fd) can outlive its reader. Without this, a write to any of them after the
+        // other end closes delivers SIGPIPE with no handler installed, which terminates the
+        // whole process instantly and leaves no crash report, no termination span, and no
+        // marker update — see the 2026-08-12 13:56:04 unattended exit this call prevents.
+        signal(SIGPIPE, SIG_IGN)
+    }
 
     var body: some Scene {
         // SwiftUI opens the first scene in this body automatically at launch, regardless of
