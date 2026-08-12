@@ -229,6 +229,83 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(mismatch?.attributes["reported_removed"], "0")
     }
 
+    func testI3RepeatedIdenticalMismatchLogsOnce() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            harness: .claude
+        )
+        // A harness's cumulative session counter (999) permanently disagreeing with the live git
+        // diff (5) after a mid-session commit — the exact shape that produced 20,447 identical
+        // records for one pane.
+        monitor.testSetCachedGitStats((added: 5, removed: 0))
+        let json = Data(
+            """
+            {"cost": {"total_cost_usd": 0.01, "total_duration_ms": 1000, "total_lines_added": 999, "total_lines_removed": 0}}
+            """.utf8)
+        let parsed = try JSONDecoder().decode(StatusLineData.self, from: json)
+
+        for _ in 0..<20 {
+            var enforced = parsed
+            monitor.testApplyI3Enforcement(to: &enforced)
+        }
+
+        let mismatches = TracingService.shared.recordedEventsForTesting
+            .filter { $0.name == "statusline.lines.source_mismatch" }
+        XCTAssertEqual(mismatches.count, 1, "An unchanged mismatch must be logged once, not on every payload")
+    }
+
+    func testI3NewMismatchAfterAgreementLogsAgain() async throws {
+        let workDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .path
+        try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: workDir) }
+
+        let monitor = StatusLineMonitor(
+            paneID: UUID(),
+            workingDirectory: workDir,
+            harness: .claude
+        )
+
+        monitor.testSetCachedGitStats((added: 5, removed: 0))
+        var mismatched = try JSONDecoder().decode(
+            StatusLineData.self,
+            from: Data(
+                """
+                {"cost": {"total_cost_usd": 0.01, "total_duration_ms": 1000, "total_lines_added": 999, "total_lines_removed": 0}}
+                """.utf8))
+        monitor.testApplyI3Enforcement(to: &mismatched)
+
+        monitor.testSetCachedGitStats((added: 5, removed: 0))
+        var agreed = try JSONDecoder().decode(
+            StatusLineData.self,
+            from: Data(
+                """
+                {"cost": {"total_cost_usd": 0.01, "total_duration_ms": 1000, "total_lines_added": 5, "total_lines_removed": 0}}
+                """.utf8))
+        monitor.testApplyI3Enforcement(to: &agreed)
+
+        monitor.testSetCachedGitStats((added: 12, removed: 3))
+        var mismatchedAgain = try JSONDecoder().decode(
+            StatusLineData.self,
+            from: Data(
+                """
+                {"cost": {"total_cost_usd": 0.01, "total_duration_ms": 1000, "total_lines_added": 5, "total_lines_removed": 0}}
+                """.utf8))
+        monitor.testApplyI3Enforcement(to: &mismatchedAgain)
+
+        let mismatches = TracingService.shared.recordedEventsForTesting
+            .filter { $0.name == "statusline.lines.source_mismatch" }
+        XCTAssertEqual(mismatches.count, 2, "A new mismatch following agreement must be logged again")
+    }
+
     // MARK: - I6: Liveness
 
     func testI6StatusWatcherAppliesWritesAndAtomicReplacements() async throws {

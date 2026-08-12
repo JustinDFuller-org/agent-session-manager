@@ -66,6 +66,12 @@ The old `gitWorktree` item duplicated what `worktree` already shows. It has been
 
 `linesAdded` and `linesRemoved` always reflect `git diff --shortstat HEAD`, polled every 15 seconds in the pane's working directory. This is consistent for all CLIs. For Claude panes, if the Claude hook JSON disagrees, the app logs a mismatch and uses the git-computed value.
 
+A harness's own `total_lines_added`/`total_lines_removed` is a cumulative session counter, not a
+live diff — once anything commits during the session, it permanently disagrees with the current
+`git diff --shortstat HEAD` for the rest of that session. That disagreement is expected, not a
+bug, so `StatusLineMonitor` logs a given `(reported, computed)` pair once and stays quiet while it
+persists unchanged, rather than re-logging it on every ~15s payload.
+
 ### I4. Add Item picker is alphabetical
 
 Items in the Add Item dropdown are sorted by label using `localizedStandardCompare`. The internal `itemOrder` array (which governs default row construction) is unchanged.

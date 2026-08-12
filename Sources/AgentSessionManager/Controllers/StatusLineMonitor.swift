@@ -70,6 +70,13 @@ final class StatusLineMonitor {
     private var agnosticProvider: (any StatusLineDataProvider)?
     private var gitDiffTimer: Timer?
     private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
+    /// The last I3 mismatch already reported for this pane, so a disagreement that persists
+    /// unchanged across repeated payloads is logged once rather than on every application. A
+    /// harness's own `totalLinesAdded/Removed` is a cumulative session counter; once anything
+    /// commits, it permanently disagrees with `git diff --shortstat HEAD` for the rest of the
+    /// session — expected, not a bug, and not something worth a fresh record every ~15s.
+    private var lastReportedLinesMismatch:
+        (reportedAdded: Int, reportedRemoved: Int, computedAdded: Int, computedRemoved: Int)?
     private var cachedRepoIdentity: StatusLineData.Repo?
     private var lastAppliedModificationDate: Date?
     /// Set by the view alongside `setCustomFields`; resolved from `pane.profileID` against `appSettings.profiles`.
@@ -624,16 +631,22 @@ final class StatusLineMonitor {
             let reportedRemoved = data.cost?.totalLinesRemoved,
             reportedAdded != computedAdded || reportedRemoved != computedRemoved
         {
-            InvariantReporter.shared.violated(
-                .statusLineLinesSource,
-                context: [
-                    "pane.name": paneName, "pane.id": paneID.uuidString,
-                    "tab.id": tabID.uuidString, "tab.name": tabName,
-                    "computed_added": "\(computedAdded)",
-                    "reported_added": "\(reportedAdded)",
-                    "computed_removed": "\(computedRemoved)",
-                    "reported_removed": "\(reportedRemoved)",
-                ])
+            let mismatch = (reportedAdded, reportedRemoved, computedAdded, computedRemoved)
+            if lastReportedLinesMismatch.map({ $0 != mismatch }) ?? true {
+                lastReportedLinesMismatch = mismatch
+                InvariantReporter.shared.violated(
+                    .statusLineLinesSource,
+                    context: [
+                        "pane.name": paneName, "pane.id": paneID.uuidString,
+                        "tab.id": tabID.uuidString, "tab.name": tabName,
+                        "computed_added": "\(computedAdded)",
+                        "reported_added": "\(reportedAdded)",
+                        "computed_removed": "\(computedRemoved)",
+                        "reported_removed": "\(reportedRemoved)",
+                    ])
+            }
+        } else {
+            lastReportedLinesMismatch = nil
         }
         data.cost = StatusLineData.Cost(
             totalCostUsd: data.cost?.totalCostUsd,
