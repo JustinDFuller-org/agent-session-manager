@@ -32,13 +32,16 @@ Each occurrence has its own UUID. Repeated violations of the same invariant rema
 
 ## File
 
-Violations are appended synchronously to:
+Violations are appended, without blocking the caller, to:
 
 ```text
 ~/Library/Application Support/agent-session-manager/invariants/invariants.jsonl
 ```
 
-The file starts with versioned metadata and is trimmed to 10 MB with an invariant-specific marker. It is size-bounded only; the trace retention cleanup does not delete it.
+The file starts with versioned metadata and rotates at the 10 MB cap: `JSONLTrimmer` renames it to
+`invariants.1.jsonl` and starts a fresh file carrying a copy of the metadata header. At most one
+rotated generation exists at a time. `TraceCleanupService` deletes both the active and rotated
+files once they are older than the trace retention window.
 
 ## Dashboard
 

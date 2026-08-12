@@ -73,6 +73,8 @@ cooperative cancellation. When Debug Mode is disabled, existing durable trace
 and invariant files remain readable while new durable capture is disabled;
 unified logs remain available because they are always on.
 
-Top-level `debug-trace.log` and `traces.jsonl` files are stale legacy formats when present. Report them separately from current per-pane traces.
+Top-level `debug-trace.log` and `traces.jsonl` files are stale legacy formats nothing writes
+anymore; `TraceCleanupService` deletes them on its next pass if found. Report them separately from
+current per-pane traces when diagnosing an older data directory.
 
 Use **Open Trace Dashboard** or **Open Invariant Dashboard** from the Debug settings page. The same windows are available from the Window menu with `⌘⇧D` and `⌘⇧I`.

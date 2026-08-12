@@ -542,6 +542,9 @@ final class AgentControlDiagnosticsRouter {
                     try Task.checkCancellation()
                     await Task.yield()
                 }
+                // Legacy marker from files trimmed in place before rotation replaced that scheme.
+                // A rotated `<name>.1.jsonl` has its own metadata line and is a separate entry the
+                // enumerator above already visits, so no marker is written into it or the active file.
                 if line == "--- [truncated older trace entries] ---" {
                     result.sourceTruncated = true
                     continue
@@ -587,8 +590,13 @@ final class AgentControlDiagnosticsRouter {
         severities: Set<String>
     ) async throws -> DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord> {
         var result = DiagnosticFileReadResult<AgentControlInvariantDiagnosticRecord>()
-        let url = appSettings.resolvedInvariantDirectoryURL.appending(path: "invariants.jsonl")
-        guard let content = try? boundedUTF8Contents(at: url) else { return result }
+        let activeURL = appSettings.resolvedInvariantDirectoryURL.appending(path: "invariants.jsonl")
+        // Read the rotated-out generation too — rotation replaced trim-in-place, so the previous
+        // 10 MB of history now lives in a sibling file instead of behind a truncation marker.
+        let rotatedContent = try? boundedUTF8Contents(at: JSONLTrimmer.rotatedURL(for: activeURL))
+        let activeContent = try? boundedUTF8Contents(at: activeURL)
+        guard rotatedContent != nil || activeContent != nil else { return result }
+        let content = [rotatedContent, activeContent].compactMap { $0 }.joined(separator: "\n")
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         for (index, line) in content.split(whereSeparator: \.isNewline).map(String.init).enumerated() {
@@ -596,7 +604,8 @@ final class AgentControlDiagnosticsRouter {
                 try Task.checkCancellation()
                 await Task.yield()
             }
-            if line == InvariantLogWriter.truncationMarker {
+            // Legacy marker from files trimmed in place before rotation replaced that scheme.
+            if line.hasPrefix("--- [truncated older invariant entries] ---") {
                 result.sourceTruncated = true
                 continue
             }

@@ -208,7 +208,7 @@ final class PerPaneSpanExporter: SpanExporter {
                 try? JSONLTrimmer.trimIfNeeded(
                     at: fileURL,
                     maxBytes: maxBytes,
-                    marker: "--- [truncated older trace entries] ---"
+                    preserveMetadata: true
                 )
             }
         }
@@ -231,7 +231,7 @@ final class PerPaneSpanExporter: SpanExporter {
         try? JSONLTrimmer.trimIfNeeded(
             at: url,
             maxBytes: maxBytes,
-            marker: "--- [truncated older trace entries] ---"
+            preserveMetadata: true
         )
     }
 }

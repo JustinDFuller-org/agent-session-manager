@@ -77,7 +77,10 @@ final class TracingService: @unchecked Sendable {
 
         // SimpleSpanProcessor (not BatchSpanProcessor) is intentional: the trace dashboard
         // live-tails JSONL via DispatchSource and record(...) models instant events, so spans
-        // must land on disk immediately rather than sit in a batch buffer.
+        // must land on disk immediately rather than sit in a batch buffer. The per-write cost
+        // this once traded off against — JSONLTrimmer reading and rewriting the whole file at
+        // the 10 MB cap — is gone now that JSONLTrimmer rotates instead, so there is no longer a
+        // reason to accept a 5s (BatchSpanProcessor's default) dashboard-latency regression here.
         var builder = TracerProviderBuilder()
             .with(resource: resource)
             .add(spanProcessor: SimpleSpanProcessor(spanExporter: exporter))

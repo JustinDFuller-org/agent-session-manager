@@ -106,7 +106,7 @@ final class PerPaneSpanExporterTests: XCTestCase {
 
     // MARK: Trimming
 
-    func testTrimIfNeededInvokedWhenFileExceedsLimit() throws {
+    func testTrimIfNeededRotatesOversizedFileWithoutMetadata() throws {
         let smallMax = 300
         let file = testDir.appendingPathComponent("trim-test.jsonl")
         let longLine = String(repeating: "x", count: 80)
@@ -121,8 +121,27 @@ final class PerPaneSpanExporterTests: XCTestCase {
 
         PerPaneSpanExporter.trimIfNeeded(at: file, maxBytes: smallMax)
 
-        let content = try String(contentsOf: file, encoding: .utf8)
-        XCTAssertLessThanOrEqual(content.utf8.count, smallMax + 60)
+        // No metadata line in the fabricated content above, so nothing is left to preserve —
+        // the whole oversized file moves to the rotated generation and no fresh file is created.
+        let rotatedFile = JSONLTrimmer.rotatedURL(for: file)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: rotatedFile.path))
+    }
+
+    func testTrimIfNeededRotatesAndPreservesMetadataInFreshFile() throws {
+        let smallMax = 300
+        let file = testDir.appendingPathComponent("trim-metadata-test.jsonl")
+        let metadataLine = "{\"_type\":\"metadata\",\"paneId\":\"p\"}"
+        let longLine = String(repeating: "x", count: 80)
+        let initial = Data(([metadataLine] + Array(repeating: longLine, count: 4)).joined(separator: "\n").utf8)
+        FileManager.default.createFile(atPath: file.path, contents: initial)
+
+        PerPaneSpanExporter.trimIfNeeded(at: file, maxBytes: smallMax)
+
+        let rotatedFile = JSONLTrimmer.rotatedURL(for: file)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: rotatedFile.path))
+        let freshContent = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertEqual(freshContent, metadataLine + "\n")
     }
 
     func testGlobalMetadataLine() throws {

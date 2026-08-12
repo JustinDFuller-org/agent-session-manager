@@ -90,7 +90,13 @@ Every `TracingService.startSpan`/`record`/`withSpan` call also, unconditionally:
 Instrumenting a code path is a single `TracingService` call, not three. Do not add separate
 `print`/`NSLog`/log calls alongside a span for the same event.
 
-Each file is trimmed at the fixed 10 MB cap. `TraceCleanupService` removes files older than one day on app launch and emits `trace.cleanup.ran`.
+Each file rotates at the fixed 10 MB cap: `JSONLTrimmer` renames it to `<name>.1.jsonl` and starts a
+fresh file carrying a copy of the metadata header, rather than reading and rewriting the whole
+file in place. At most one rotated generation exists per file; a second rotation replaces it.
+`TraceCleanupService` removes both active and rotated `.jsonl` files older than one day (and,
+after 300 seconds, any orphaned `*.sb-*` atomic-write temporary) on app launch and every 6 hours,
+and emits `trace.cleanup.ran`. It also reclaims the legacy root-level `debug-trace.log` and
+`traces.jsonl` files and applies the same rotation-aware cleanup to `invariants/`.
 
 ## Current Span Catalog
 
@@ -122,4 +128,6 @@ Use the metadata-aware read-only collector:
   --pane "telemetry-skill"
 ```
 
-The top-level historical `debug-trace.log` and `traces.jsonl` files are legacy formats. Inventory them separately; do not merge them with current per-pane JSONL output.
+The top-level historical `debug-trace.log` and `traces.jsonl` files are legacy formats nothing
+writes anymore; `TraceCleanupService` deletes them on the next cleanup pass if found. Inventory
+them separately from current per-pane JSONL output when diagnosing an older data directory.

@@ -68,17 +68,20 @@ final class InvariantReporter: @unchecked Sendable {
             notifyChange()
             return
         }
-        do {
-            try writer.append(violation)
-            lock.withLock { _latestWriterError = nil }
-        } catch {
-            lock.withLock { _latestWriterError = error.localizedDescription }
-            TracingService.shared.record(
-                "invariant.log.write_failed",
-                attributes: ["error": error.localizedDescription]
-            )
+        writer.append(violation) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                self.lock.withLock { self._latestWriterError = nil }
+            case .failure(let error):
+                self.lock.withLock { self._latestWriterError = error.localizedDescription }
+                TracingService.shared.record(
+                    "invariant.log.write_failed",
+                    attributes: ["error": error.localizedDescription]
+                )
+            }
+            self.notifyChange()
         }
-        notifyChange()
     }
 
     func enableTestCapture() {

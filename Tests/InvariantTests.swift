@@ -133,27 +133,46 @@ final class InvariantTests: XCTestCase {
         XCTAssertEqual(violation?.context["preferred.url"], "/tmp/stale/AgentSessionManager.app")
     }
 
-    func testWriterSynchronouslyAppendsMetadataAndViolation() throws {
-        let writer = InvariantLogWriter(directory: directory, maxBytes: 10_000)
-        try writer.append(InvariantViolation(invariant: .statusLineLinesSource, context: ["key": "value"]))
+    /// `append` dispatches to its own queue and never blocks the caller; tests wait on the
+    /// completion callback instead of the old synchronous throw.
+    @discardableResult
+    private func appendAndWait(_ writer: InvariantLogWriter, _ violation: InvariantViolation) -> Result<Void, Error> {
+        let expectation = expectation(description: "append completed")
+        var outcome: Result<Void, Error> = .success(())
+        writer.append(violation) { result in
+            outcome = result
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2)
+        return outcome
+    }
 
+    func testWriterAppendsMetadataAndViolation() throws {
+        let writer = InvariantLogWriter(directory: directory, maxBytes: 10_000)
+        let outcome = appendAndWait(
+            writer, InvariantViolation(invariant: .statusLineLinesSource, context: ["key": "value"]))
+
+        if case .failure(let error) = outcome { XCTFail("append failed: \(error)") }
         let content = try String(contentsOf: writer.fileURL, encoding: .utf8)
         XCTAssertTrue(content.contains("\"_type\":\"metadata\""))
         XCTAssertTrue(content.contains("\"invariantID\":\"statusline.lines.source\""))
     }
 
-    func testWriterTrimsWithInvariantMarker() throws {
+    func testWriterRotatesInsteadOfTrimmingInPlace() throws {
         let writer = InvariantLogWriter(directory: directory, maxBytes: 500)
         for index in 0..<20 {
-            try writer.append(
+            appendAndWait(
+                writer,
                 InvariantViolation(
                     invariant: .statusLineLinesSource,
                     context: ["payload": String(repeating: "\(index)", count: 80)]
                 )
             )
         }
-        let content = try String(contentsOf: writer.fileURL, encoding: .utf8)
-        XCTAssertTrue(content.hasPrefix(InvariantLogWriter.truncationMarker))
+        let rotatedURL = JSONLTrimmer.rotatedURL(for: writer.fileURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: rotatedURL.path))
+        let activeContent = try String(contentsOf: writer.fileURL, encoding: .utf8)
+        XCTAssertTrue(activeContent.hasPrefix("{\"_type\":\"metadata\""))
     }
 
     func testReporterStoresWriteError() throws {
@@ -162,7 +181,9 @@ final class InvariantTests: XCTestCase {
         try Data("file".utf8).write(to: blocked)
         InvariantReporter.shared.writer = InvariantLogWriter(directory: blocked, maxBytes: 10_000)
 
+        let expectation = expectation(forNotification: .invariantReporterDidChange, object: nil)
         InvariantReporter.shared.violated(.statusLineWorktreeName)
+        wait(for: [expectation], timeout: 2)
 
         XCTAssertNotNil(InvariantReporter.shared.latestWriterError)
     }
@@ -176,7 +197,7 @@ final class InvariantTests: XCTestCase {
             invariant: .statusLineWorktreeName, context: [:], timestamp: Date(timeIntervalSince1970: 2))
         let content = [
             "{\"_type\":\"metadata\",\"schemaVersion\":1}",
-            InvariantLogWriter.truncationMarker,
+            "--- [truncated older invariant entries] ---",
             "bad-json",
             String(decoding: try encoder.encode(older), as: UTF8.self),
             String(decoding: try encoder.encode(newer), as: UTF8.self),
