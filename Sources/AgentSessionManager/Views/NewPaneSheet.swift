@@ -712,7 +712,10 @@ struct NewPaneSheet: View {
 // MARK: - Create helpers
 
 extension NewPaneSheet {
-    static func defaultVisibleCLIOptions(
+    // Pure catalog/state filtering with no view or actor state to protect — `nonisolated` so
+    // callers off the main actor (including tests, and swift-testing's non-main-actor default
+    // executor) don't trip a runtime isolation check for isolation this code never needed.
+    nonisolated static func defaultVisibleCLIOptions(
         catalog: [CLIOptionConfig],
         profile: Profile?
     ) -> [CLIOptionConfig] {
@@ -725,7 +728,7 @@ extension NewPaneSheet {
         return catalog.filter { visibleIDs.contains($0.id) }
     }
 
-    static func defaultVisibleEnvVars(
+    nonisolated static func defaultVisibleEnvVars(
         catalog: [EnvVarConfig],
         profile: Profile?
     ) -> [EnvVarConfig] {
@@ -738,7 +741,7 @@ extension NewPaneSheet {
         return catalog.filter { visibleIDs.contains($0.id) }
     }
 
-    static func buildExtraArgs(options: [CLIOptionConfig], states: [String: OptionState]) -> [String] {
+    nonisolated static func buildExtraArgs(options: [CLIOptionConfig], states: [String: OptionState]) -> [String] {
         var args: [String] = []
         for option in options {
             guard let state = states[option.id], state.enabled else { continue }

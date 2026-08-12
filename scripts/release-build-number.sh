@@ -35,7 +35,7 @@ fi
 
 highest_published_build=$(ruby -rrexml/document -e '
   document = REXML::Document.new(File.binread(ARGV.fetch(0)))
-  versions = document.elements.to_a("rss/channel/item/sparkle:version").filter_map(&:text)
+  versions = document.elements.to_a("rss/channel/item/sparkle:version").map(&:text).compact
   abort "appcast contains a non-numeric sparkle:version" unless versions.all? { |version| /\A\d+\z/.match?(version) }
   puts(versions.map(&:to_i).max || 0)
 ' "$appcast_path")

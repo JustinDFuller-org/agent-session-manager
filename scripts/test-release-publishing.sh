@@ -43,7 +43,7 @@ if APPCAST_BASE="$test_root/input/published-appcast.xml" \
     exit 1
 fi
 
-if rg -n 'github\.com/JustinDFuller/agent-session-manager/releases|justinfuller\.github\.io' \
+if grep -rEn 'github\.com/JustinDFuller/agent-session-manager/releases|justinfuller\.github\.io' \
     "$repo_root/index.md" \
     "$repo_root/documentation/tutorials" \
     "$repo_root/documentation/how-to" \
