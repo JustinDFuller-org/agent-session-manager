@@ -44,6 +44,14 @@ override; `device.id` may also appear.
 
 The exporter routes every span with `pane.id` to a pane file. Spans without `pane.id` route to `_global/global.jsonl`. Tab and pane names are sanitized only for paths; diagnosis should read metadata rather than derive filenames.
 
+`PerPaneSpanExporter` confines its pane-id-to-file cache to its own serial queue, so it cannot race
+even if it is ever attached to a processor with different internal threading than
+`SimpleSpanProcessor`'s. Before creating a file for a pane id it hasn't seen yet, it also checks
+whether a file already exists on disk under that id's 8-character suffix, regardless of name —
+`TracingService.configure` builds a brand-new exporter (with an empty in-memory cache) on every
+Debug Mode toggle, and without this check a pane whose name attributes differ across that boundary
+(including a transient "unknown" before names resolve) would fork its trace into two files.
+
 ## App Lifecycle Correlation
 
 The app writes `app-lifecycle.json` in its application-support directory through

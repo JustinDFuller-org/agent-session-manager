@@ -62,6 +62,84 @@ final class PerPaneSpanExporterTests: XCTestCase {
         XCTAssertTrue(content.contains("global.event"))
     }
 
+    // MARK: Rename / fresh-instance stability
+
+    func testFreshExporterInstanceReusesExistingFileForSamePaneID() throws {
+        let paneId = "pane-stable-id"
+        let firstExporter = PerPaneSpanExporter(tracesDirectory: testDir, maxBytesPerFile: 1_048_576)
+        firstExporter.export(
+            spans: [
+                makeSpan(
+                    name: "first.event",
+                    attrs: [
+                        "pane.id": paneId, "pane.name": "fix-provision-runtime-errors",
+                        "tab.id": "tab-1", "tab.name": "Developer_AI",
+                    ])
+            ], explicitTimeout: nil)
+        waitForWrite()
+
+        // A fresh exporter instance — as TracingService.configure(from:) creates on every Debug
+        // Mode toggle — has an empty `writers` cache and sees a placeholder name for the same
+        // pane id, the exact shape of the incident that left two files for one pane.
+        let secondExporter = PerPaneSpanExporter(tracesDirectory: testDir, maxBytesPerFile: 1_048_576)
+        secondExporter.export(
+            spans: [
+                makeSpan(
+                    name: "second.event",
+                    attrs: [
+                        "pane.id": paneId, "pane.name": "unknown",
+                        "tab.id": "tab-1", "tab.name": "unknown",
+                    ])
+            ], explicitTimeout: nil)
+        waitForWrite()
+
+        let jsonlFiles = try FileManager.default.contentsOfDirectory(
+            at: testDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ).flatMap { tabDir in
+            (try? FileManager.default.contentsOfDirectory(atPath: tabDir.path)) ?? []
+        }
+        XCTAssertEqual(jsonlFiles.count, 1, "Both writes must land in the same file: \(jsonlFiles)")
+
+        let file = findFirstJsonl(in: testDir)!
+        let content = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(content.contains("first.event"))
+        XCTAssertTrue(content.contains("second.event"))
+    }
+
+    // MARK: Concurrency
+
+    func testConcurrentExportCallsDoNotRaceOnWriterCache() throws {
+        let exporter = PerPaneSpanExporter(tracesDirectory: testDir, maxBytesPerFile: 1_048_576)
+        let paneId = "pane-concurrent"
+        let group = DispatchGroup()
+        for index in 0..<50 {
+            group.enter()
+            DispatchQueue.global().async {
+                exporter.export(
+                    spans: [
+                        self.makeSpan(
+                            name: "event-\(index)",
+                            attrs: [
+                                "pane.id": paneId, "pane.name": "p", "tab.id": "t", "tab.name": "t",
+                            ])
+                    ], explicitTimeout: nil)
+                group.leave()
+            }
+        }
+        XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
+        waitForWrite()
+
+        let file = findFirstJsonl(in: testDir)!
+        let content = try String(contentsOf: file, encoding: .utf8)
+        let metadataCount = content.components(separatedBy: "\n")
+            .filter { $0.contains("\"_type\":\"metadata\"") }
+            .count
+        XCTAssertEqual(metadataCount, 1, "Metadata should be written exactly once even under concurrent export()")
+        for index in 0..<50 {
+            XCTAssertTrue(content.contains("event-\(index)"), "missing event-\(index)")
+        }
+    }
+
     // MARK: Metadata line
 
     func testMetadataLineWrittenOnFirstWrite() throws {

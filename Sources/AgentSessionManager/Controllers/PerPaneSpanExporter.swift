@@ -102,30 +102,21 @@ final class PerPaneSpanExporter: SpanExporter {
 
         for (key, groupSpans) in groups {
             let representative = groupSpans[0]
-            let fileURL: URL
-            if let existing = writers[key] {
-                fileURL = existing.fileURL
-            } else if key == "_global" {
-                fileURL =
-                    tracesDirectory
-                    .appendingPathComponent("_global", isDirectory: true)
-                    .appendingPathComponent("global.jsonl")
-            } else {
-                let tabId = attributeString(representative, "tab.id") ?? "unknown"
-                let tabName = attributeString(representative, "tab.name") ?? "unknown"
-                let paneName = attributeString(representative, "pane.name") ?? "unknown"
-                let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
-                let tabDirName = "\(tabName)-\(String(tabId.prefix(8)))"
-                    .components(separatedBy: allowed.inverted).joined(separator: "_")
-                let fileName = "\(paneName)-\(String(key.prefix(8))).jsonl"
-                    .components(separatedBy: allowed.inverted).joined(separator: "_")
-                fileURL =
-                    tracesDirectory
-                    .appendingPathComponent(tabDirName, isDirectory: true)
-                    .appendingPathComponent(fileName)
+            // Confined to `queue` so concurrent export() calls (SimpleSpanProcessor's internal
+            // threading is not a contract this type should depend on) never race on `writers`.
+            let (fileURL, needsMetadata) = queue.sync { () -> (URL, Bool) in
+                let fileURL =
+                    self.writers[key]?.fileURL
+                    ?? self.existingFileURL(forKey: key)
+                    ?? self.freshFileURL(forKey: key, representative: representative)
+                let needsMetadata = self.writers[key] == nil || !self.writers[key]!.metadataWritten
+                if self.writers[key] == nil {
+                    self.writers[key] = (fileURL: fileURL, metadataWritten: false)
+                }
+                self.writers[key]!.metadataWritten = true
+                return (fileURL, needsMetadata)
             }
 
-            let needsMetadata = writers[key] == nil || !writers[key]!.metadataWritten
             var lines: [Data] = []
             if needsMetadata {
                 let now = ISO8601DateFormatter().string(from: Date())
@@ -147,11 +138,6 @@ final class PerPaneSpanExporter: SpanExporter {
                     lines.append(data)
                 }
             }
-
-            if writers[key] == nil {
-                writers[key] = (fileURL: fileURL, metadataWritten: false)
-            }
-            writers[key]!.metadataWritten = true
 
             for span in groupSpans {
                 let startMs = span.startTime.timeIntervalSince1970 * 1000
@@ -225,6 +211,50 @@ final class PerPaneSpanExporter: SpanExporter {
     private func attributeString(_ span: SpanData, _ key: String) -> String? {
         guard case .string(let str) = span.attributes[key] else { return nil }
         return str
+    }
+
+    /// Finds a file already on disk for this pane id under whatever name it was created with, so
+    /// a pane/tab rename — or a fresh exporter instance losing its in-memory `writers` cache, as
+    /// happens on every Debug Mode toggle (`TracingService.configure` rebuilds the whole pipeline)
+    /// — cannot fork one pane's trace into two files. Only called for a `key` not already in
+    /// `writers`, so this scan runs once per pane id per exporter lifetime, not per span.
+    private func existingFileURL(forKey key: String) -> URL? {
+        guard key != "_global" else { return nil }
+        let suffix = "-\(String(key.prefix(8))).jsonl"
+        let fm = FileManager.default
+        guard
+            let tabDirs = try? fm.contentsOfDirectory(at: tracesDirectory, includingPropertiesForKeys: nil)
+        else { return nil }
+        for tabDir in tabDirs {
+            guard
+                let files = try? fm.contentsOfDirectory(at: tabDir, includingPropertiesForKeys: nil)
+            else { continue }
+            if let match = files.first(where: { $0.lastPathComponent.hasSuffix(suffix) }) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    private func freshFileURL(forKey key: String, representative: SpanData) -> URL {
+        guard key != "_global" else {
+            return
+                tracesDirectory
+                .appendingPathComponent("_global", isDirectory: true)
+                .appendingPathComponent("global.jsonl")
+        }
+        let tabId = attributeString(representative, "tab.id") ?? "unknown"
+        let tabName = attributeString(representative, "tab.name") ?? "unknown"
+        let paneName = attributeString(representative, "pane.name") ?? "unknown"
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        let tabDirName = "\(tabName)-\(String(tabId.prefix(8)))"
+            .components(separatedBy: allowed.inverted).joined(separator: "_")
+        let fileName = "\(paneName)-\(String(key.prefix(8))).jsonl"
+            .components(separatedBy: allowed.inverted).joined(separator: "_")
+        return
+            tracesDirectory
+            .appendingPathComponent(tabDirName, isDirectory: true)
+            .appendingPathComponent(fileName)
     }
 
     static func trimIfNeeded(at url: URL, maxBytes: Int) {
