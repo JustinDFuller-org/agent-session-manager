@@ -37,6 +37,10 @@ final class DMGReleaseDetector: NSObject, UpdateDetector {
         )
         self.updater = updater
         updater.automaticallyChecksForUpdates = false
+        // Pinned explicitly rather than left to inherit the SUAutomaticallyUpdate default (absent
+        // from Info.plist today, which happens to also resolve to false) — an update landing that
+        // key later must not silently change this app's behavior.
+        updater.automaticallyDownloadsUpdates = false
 
         do {
             try updater.start()
@@ -117,5 +121,33 @@ extension DMGReleaseDetector: SPUUpdaterDelegate {
                 "result": "error",
                 "error": String(describing: error),
             ])
+    }
+
+    // A Sparkle-driven quit or relaunch is otherwise indistinguishable from an unexplained
+    // disappearance in the trace history — these three callbacks make it attributable.
+
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+        TracingService.shared.record(
+            "update.dmg.will_install",
+            attributes: ["latest_version": item.displayVersionString])
+    }
+
+    func updaterShouldRelaunchApplication(_ updater: SPUUpdater) -> Bool {
+        TracingService.shared.record("update.dmg.should_relaunch")
+        return true
+    }
+
+    func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+        TracingService.shared.record("update.dmg.will_relaunch")
+    }
+
+    func updater(
+        _ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
+        immediateInstallationBlock immediateInstallHandler: @escaping () -> Void
+    ) -> Bool {
+        TracingService.shared.record(
+            "update.dmg.will_install_on_quit",
+            attributes: ["latest_version": item.displayVersionString])
+        return false
     }
 }

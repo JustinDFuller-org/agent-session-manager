@@ -94,9 +94,16 @@ watch-prd:
 		if find Sources/ Tests/ -name '*.swift' -newer /tmp/agent-session-manager-watch-prd-sentinel | grep -q .; then \
 			echo "Changes detected, rebuilding (prod)..."; \
 			touch /tmp/agent-session-manager-watch-prd-sentinel; \
-			pkill -x $(APP_NAME) 2>/dev/null || true; \
-			sleep 0.5; \
-			$(MAKE) run-prd || true; \
+			if $(MAKE) app-prd; then \
+				pkill -x $(APP_NAME) 2>/dev/null || true; \
+				sleep 0.5; \
+				open $(APP_BUNDLE); \
+			else \
+				echo ""; \
+				echo "!!! BUILD FAILED - leaving the currently running $(APP_NAME) open !!!"; \
+				echo ""; \
+				pgrep -x $(APP_NAME) >/dev/null || open $(APP_BUNDLE); \
+			fi; \
 		fi; \
 		sleep 1; \
 	done
@@ -167,9 +174,16 @@ watch-dev:
 		if find Sources/ Tests/ -name '*.swift' -newer /tmp/agent-session-manager-watch-dev-sentinel | grep -q .; then \
 			echo "Changes detected, rebuilding (dev)..."; \
 			touch /tmp/agent-session-manager-watch-dev-sentinel; \
-			pkill -x $(APP_NAME_DEV) 2>/dev/null || true; \
-			sleep 0.5; \
-			$(MAKE) run-dev || true; \
+			if $(MAKE) app-dev; then \
+				pkill -x $(APP_NAME_DEV) 2>/dev/null || true; \
+				sleep 0.5; \
+				open $(APP_BUNDLE_DEV); \
+			else \
+				echo ""; \
+				echo "!!! BUILD FAILED - leaving the currently running $(APP_NAME_DEV) open !!!"; \
+				echo ""; \
+				pgrep -x $(APP_NAME_DEV) >/dev/null || open $(APP_BUNDLE_DEV); \
+			fi; \
 		fi; \
 		sleep 1; \
 	done

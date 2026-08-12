@@ -320,6 +320,16 @@ Source / development builds never set `ASMDistributionChannel`, so `UpdateCheckC
 
 For full details on the detector routing and the update UI, see [update-reminder.md]({{ '/documentation/features/update-reminder/' | relative_url }}).
 
+`DMGReleaseDetector` pins `automaticallyChecksForUpdates` and `automaticallyDownloadsUpdates` to
+`false` explicitly, rather than leaving the latter to inherit Sparkle's `SUAutomaticallyUpdate`
+default. It also implements `updater(_:willInstallUpdate:)`, `updaterShouldRelaunchApplication`,
+`updaterWillRelaunchApplication`, and `updater(_:willInstallUpdateOnQuit:immediateInstallationBlock:)`
+purely for tracing (see `documentation/features/tracing.md`) — without these, a Sparkle-driven quit
+and relaunch to install an update is indistinguishable from an unexplained disappearance in the
+trace history. None of the four change Sparkle's behavior: `willInstallUpdateOnQuit` still returns
+`false` so Sparkle's own scheduler handles the install, and `updaterShouldRelaunchApplication`
+still returns `true`.
+
 ### Environment differences between `make run` and a Finder/DMG launch
 
 `make run` launches the app from your shell, so the app inherits a full environment: the parent shell's `PATH` (including Homebrew, `go`, nvm, etc.) and a `TERM` value set by the terminal emulator.
