@@ -72,4 +72,51 @@ final class ApplicationLifecycleMarkerTests: XCTestCase {
         XCTAssertEqual(launch.previousExit, .unknown)
         XCTAssertEqual(launch.writeResult, .written)
     }
+
+    func testDeathDuringTeardownIsDistinguishedFromDeathWhileRunning() {
+        let launchID = UUID()
+        _ = ApplicationLifecycleMarker.record(.running, launchID: launchID)
+        _ = ApplicationLifecycleMarker.record(.terminating, launchID: launchID)
+        let nextLaunch = ApplicationLifecycleMarker.record(.running, launchID: UUID())
+
+        XCTAssertEqual(nextLaunch.previousExit, .uncleanDuringTeardown)
+    }
+
+    func testOlderInstanceCannotMarkNewerInstanceTerminating() {
+        let olderLaunchID = UUID()
+        let newerLaunchID = UUID()
+        _ = ApplicationLifecycleMarker.record(.running, launchID: olderLaunchID)
+        _ = ApplicationLifecycleMarker.record(.running, launchID: newerLaunchID)
+
+        let olderTerminating = ApplicationLifecycleMarker.record(.terminating, launchID: olderLaunchID)
+
+        XCTAssertEqual(olderTerminating.writeResult, .ownershipMismatch)
+    }
+
+    func testHeartbeatTracksPeakFootprintAcrossCalls() {
+        let launchID = UUID()
+        _ = ApplicationLifecycleMarker.record(.running, launchID: launchID, footprintBytes: 100)
+        _ = ApplicationLifecycleMarker.record(.running, launchID: launchID, footprintBytes: 50)
+        let thirdHeartbeat = ApplicationLifecycleMarker.record(.running, launchID: launchID, footprintBytes: 75)
+
+        XCTAssertEqual(thirdHeartbeat.previousPeakFootprintBytes, 100)
+
+        let nextLaunch = ApplicationLifecycleMarker.record(.running, launchID: UUID())
+        XCTAssertEqual(nextLaunch.previousPeakFootprintBytes, 100)
+    }
+
+    func testHeartbeatTimestampSurfacesAtNextLaunch() throws {
+        let launchID = UUID()
+        _ = ApplicationLifecycleMarker.record(.running, launchID: launchID)
+        _ = ApplicationLifecycleMarker.record(.running, launchID: launchID)
+
+        let nextLaunch = ApplicationLifecycleMarker.record(.running, launchID: UUID())
+
+        let heartbeatAt = try XCTUnwrap(nextLaunch.previousHeartbeatAt)
+        XCTAssertEqual(heartbeatAt.timeIntervalSinceNow, 0, accuracy: 5)
+    }
+
+    func testCurrentFootprintBytesReadsRunningProcess() {
+        XCTAssertNotNil(ApplicationLifecycleMarker.currentFootprintBytes())
+    }
 }

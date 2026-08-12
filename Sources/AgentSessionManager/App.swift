@@ -224,6 +224,18 @@ struct ContentView: View {
                         "marker_result": launchLifecycleResult.writeResult.rawValue,
                     ])
                 InvariantReporter.shared.configure(from: appSettings)
+                if launchLifecycleResult.previousExit == .unclean
+                    || launchLifecycleResult.previousExit == .uncleanDuringTeardown
+                {
+                    var context = ["previous_exit": launchLifecycleResult.previousExit.rawValue]
+                    if let previousHeartbeatAt = launchLifecycleResult.previousHeartbeatAt {
+                        context["last_heartbeat_at"] = ISO8601DateFormatter().string(from: previousHeartbeatAt)
+                    }
+                    if let previousPeakFootprintBytes = launchLifecycleResult.previousPeakFootprintBytes {
+                        context["peak_footprint_bytes"] = String(previousPeakFootprintBytes)
+                    }
+                    InvariantReporter.shared.violated(.appLifecyclePreviousExitClean, context: context)
+                }
                 await AgentControlService.shared.configure(appState: appState, appSettings: appSettings)
                 await AgentControlService.shared.start()
                 UpdateCheckCoordinator.shared.start()

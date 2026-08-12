@@ -24,6 +24,7 @@ Open **Settings → Debug** and enable **Enable Debug Mode**. Violations are alw
 | `cursor.agent_control.bridge_available` | Cursor | error | `cursor.agent_control.bridge_missing` |
 | `app.launch.auxiliary_windows_closed` | App Launch | error | `app.launch.auxiliary_window_opened` |
 | `terminal.clipboard.copy_requires_selection` | Terminal | warning | `terminal.clipboard.copy_without_selection` |
+| `app.lifecycle.previous_exit_clean` | App Lifecycle | error | `app.lifecycle.previous_exit_unclean` |
 
 Each occurrence has its own UUID. Repeated violations of the same invariant remain separate dashboard rows.
 

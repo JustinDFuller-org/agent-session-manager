@@ -8,6 +8,25 @@ private final class SettingsWindow: NSWindow {
     }
 }
 
+/// Replies to `applicationShouldTerminate` exactly once, whichever finishes first: Agent Control
+/// shutting down or the bounded deadline. Both callers are `Task { @MainActor in }` literals, so
+/// this never needs a lock — MainActor already serializes them.
+@MainActor
+private final class TerminationReplyCoordinator {
+    private let sender: NSApplication
+    private var hasReplied = false
+
+    init(sender: NSApplication) {
+        self.sender = sender
+    }
+
+    func reply() {
+        guard !hasReplied else { return }
+        hasReplied = true
+        sender.reply(toApplicationShouldTerminate: true)
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
@@ -19,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hasCheckedAuxiliaryWindowsAtLaunch = false
     private var auxiliaryWindowVisibilityObserver: NSObjectProtocol?
     private let lifecycleLaunchID = UUID()
+    private var lifecycleHeartbeatTimer: Timer?
+
+    private static let lifecycleHeartbeatIntervalSeconds: TimeInterval = 60
+    private static let terminationReplyDeadlineSeconds: TimeInterval = 3
 
     #if DEV_BUILD
     private var windowLifecycleObservers: [NSObjectProtocol] = []
@@ -27,7 +50,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let launchLifecycleResult = ApplicationLifecycleMarker.record(
             .running,
-            launchID: lifecycleLaunchID)
+            launchID: lifecycleLaunchID,
+            footprintBytes: ApplicationLifecycleMarker.currentFootprintBytes())
+        lifecycleHeartbeatTimer = Timer.scheduledTimer(
+            withTimeInterval: Self.lifecycleHeartbeatIntervalSeconds, repeats: true
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.recordLifecycleHeartbeat()
+            }
+        }
         NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.setActivationPolicy(.regular)
         if let icon = MacNotificationCoordinator.bundleAppIcon() {
@@ -97,20 +128,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
     }
 
+    private func recordLifecycleHeartbeat() {
+        ApplicationLifecycleMarker.record(
+            .running,
+            launchID: lifecycleLaunchID,
+            footprintBytes: ApplicationLifecycleMarker.currentFootprintBytes())
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // `terminating` (distinct from `clean`) means a death from here on is a teardown death,
+        // not a death while idle. The 2026-08-12 incident stamped `clean` here and then kept
+        // running for another 4h45m — an unbounded await crossing a suspension point can leave
+        // `sender.reply` unreachable for an arbitrary time. The deadline task below guarantees a
+        // reply either way, and `clean` now only gets written once termination is confirmed.
+        ApplicationLifecycleMarker.record(.terminating, launchID: lifecycleLaunchID)
+        let coordinator = TerminationReplyCoordinator(sender: sender)
         Task { @MainActor in
             await AgentControlService.shared.stop()
-            let lifecycleResult = ApplicationLifecycleMarker.record(
-                .clean,
-                launchID: lifecycleLaunchID)
-            TracingService.shared.record(
-                "app.termination.requested",
-                attributes: [
-                    "result": lifecycleResult.writeResult.rawValue
-                ])
-            sender.reply(toApplicationShouldTerminate: true)
+            coordinator.reply()
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(Self.terminationReplyDeadlineSeconds))
+            coordinator.reply()
         }
         return .terminateLater
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        lifecycleHeartbeatTimer?.invalidate()
+        lifecycleHeartbeatTimer = nil
+        let lifecycleResult = ApplicationLifecycleMarker.record(
+            .clean,
+            launchID: lifecycleLaunchID)
+        TracingService.shared.record(
+            "app.termination.requested",
+            attributes: [
+                "result": lifecycleResult.writeResult.rawValue
+            ])
     }
 
     func focusMainWindow() {

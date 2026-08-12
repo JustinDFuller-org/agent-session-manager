@@ -104,6 +104,14 @@ struct Invariant: Identifiable, Hashable, Sendable {
         traceEventName: "app.launch.auxiliary_window_opened"
     )
 
+    static let appLifecyclePreviousExitClean = Invariant(
+        id: "app.lifecycle.previous_exit_clean",
+        integration: "App Lifecycle",
+        severity: .error,
+        description: "The previous launch must record a clean shutdown before this process starts.",
+        traceEventName: "app.lifecycle.previous_exit_unclean"
+    )
+
     static let githubCLIAvailable = Invariant(
         id: "github.cli.available",
         integration: "GitHub CLI",
