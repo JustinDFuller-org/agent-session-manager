@@ -303,5 +303,23 @@ restart-dev:
 repair-launch-services:
 	@bash scripts/repair-launch-services.sh "$(APP_BUNDLE)" "$(APP_BUNDLE_DEV)"
 
+WATCHDOG_PLIST_NAME = com.justinfuller.agent-session-manager.watchdog.plist
+WATCHDOG_PLIST = $(HOME)/Library/LaunchAgents/$(WATCHDOG_PLIST_NAME)
+WATCHDOG_LOG_DIR = $(HOME)/Library/Logs/AgentSessionManagerWatchdog
+
+install-watchdog:
+	@mkdir -p "$(HOME)/Library/LaunchAgents" "$(WATCHDOG_LOG_DIR)"
+	@sed -e "s|__SCRIPT_PATH__|$(CURDIR)/scripts/watchdog-sample.sh|" \
+	     -e "s|__LOG_DIR__|$(WATCHDOG_LOG_DIR)|" \
+	     scripts/$(WATCHDOG_PLIST_NAME).template > "$(WATCHDOG_PLIST)"
+	@launchctl unload "$(WATCHDOG_PLIST)" 2>/dev/null || true
+	@launchctl load -w "$(WATCHDOG_PLIST)"
+	@echo "Watchdog installed. Samples every 60s to $(WATCHDOG_LOG_DIR)/watchdog.jsonl"
+
+uninstall-watchdog:
+	@launchctl unload "$(WATCHDOG_PLIST)" 2>/dev/null || true
+	@rm -f "$(WATCHDOG_PLIST)"
+	@echo "Watchdog uninstalled."
+
 clean:
 	rm -rf $(APP_BUNDLE) $(APP_BUNDLE_DEV) .build $(APP_NAME).xcodeproj $(APP_NAME)-*.dmg
