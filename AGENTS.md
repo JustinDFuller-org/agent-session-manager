@@ -242,6 +242,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 - agentic-control: `feature-agentic-control`
 - distribution: `feature-distribution`
 - update-reminder: `feature-update-reminder`
+- recursive-development: `feature-recursive-development`
 
 **Workflow reminders:**
 1. **When working on a feature** — load the corresponding skill (e.g. `feature-panes`) before starting.
