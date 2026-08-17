@@ -5,7 +5,7 @@ description: "Run safe, isolated Dev validation for agent-driven recursive devel
 
 # Recursive development validation
 
-Read `documentation/features/recursive-development.md` before using this workflow.
+!cat documentation/features/recursive-development.md
 
 After focused tests/builds for a user-visible runtime change, start a fresh owned run with `scripts/recursive-development.sh start`. Verify branch, commit, and exact title before operating the UI. Use Computer Use only after its plugin, Screen Recording, Accessibility, and calibration prerequisites are satisfied; inspect fresh state before every action and prefer accessibility elements. Exercise real controls, save only safe screenshots, enable Debug Mode through Settings when traces are required, run focused Dev XCTest, and use `profile` only for startup/rendering/concurrency/terminal concerns. Collect evidence, stop the verified owned PID, and report visual, functional, telemetry, invariants, automated tests, performance, and cleanup independently. Missing visual permission or evidence is unverified, never passed.
 

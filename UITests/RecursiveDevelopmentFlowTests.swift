@@ -34,6 +34,17 @@ final class RecursiveDevelopmentFlowTests: BaseTestCase {
         XCTAssertEqual(manifest?["runID"] as? String, runID)
         XCTAssertEqual(manifest?["state"] as? String, "ready")
         XCTAssertEqual(manifest?["windowTitle"] as? String, title)
-        XCTAssertFalse(UITestAppSupport.directory.appending(path: "sessions.json").path.contains(runID))
+        let runSupport =
+            base
+            .appending(path: "agent-session-manager-recursive-runs")
+            .appending(path: runID)
+            .appending(path: "agent-session-manager.dev")
+        let sessionData = try Data(contentsOf: runSupport.appending(path: "sessions.json"))
+        let session = try XCTUnwrap(JSONSerialization.jsonObject(with: sessionData) as? [String: Any])
+        let tabs = try XCTUnwrap(session["tabs"] as? [[String: Any]])
+        XCTAssertTrue(tabs.contains { $0["name"] as? String == "recursive-validation" })
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: UITestAppSupport.directory.appending(path: "sessions.json").path))
     }
 }

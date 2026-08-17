@@ -15,9 +15,6 @@ enum RecursiveDevelopmentRunContext {
             "\(supportParentName)/\(idString)/agent-session-manager.dev"
         }
 
-        func supportDirectory(applicationSupport: URL) -> URL {
-            applicationSupport.appending(path: persistenceSubdirectory).standardizedFileURL
-        }
     }
 
     enum LaunchError: Error, Equatable {

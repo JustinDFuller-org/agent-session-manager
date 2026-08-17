@@ -6,7 +6,7 @@ Internal reference for the Dev-only workflow that gives an agent evidence from a
 
 The only launch interface is `--recursive-development-run-id <UUID>`. The app validates a canonical UUID and derives its support directory beneath `~/Library/Application Support/agent-session-manager-recursive-runs/`; it never accepts a caller-supplied persistence path. A production binary receiving the flag terminates before its application state is initialized. Normal Dev launches retain `agent-session-manager.dev` unchanged.
 
-One coordinator holds a lock in the Git common directory while it builds the shared `AgentSessionManagerDev.app`. It refuses to start when any ordinary Dev process is running. It launches the exact bundle directly, verifies the run manifest's source commit, bundle URL, PID, and title, and sends `SIGTERM` only to that verified PID. It never uses `pkill`, restart targets, or resets ordinary Dev/production state. A failed run stays available for diagnosis.
+One coordinator holds a lock in the Git common directory while it builds the shared `AgentSessionManagerDev.app`. It refuses to start when any ordinary Dev process is running. It launches the exact bundle directly, verifies the run manifest's source commit, bundle URL, PID, and title, and records the live process start time and executable path in `run.json`. Later status, profile, and stop commands require that identity to still match before acting on the PID. It never uses `pkill`, restart targets, or resets ordinary Dev/production state. A failed run stays available for diagnosis.
 
 ## Commands and artifacts
 

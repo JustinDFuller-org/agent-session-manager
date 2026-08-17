@@ -23,8 +23,9 @@ enum RecursiveRunManifestWriter {
         run: RecursiveDevelopmentRunContext.Run,
         title: String
     ) {
-        let support = run.supportDirectory(
-            applicationSupport: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: run.persistenceSubdirectory)
+            .standardizedFileURL
         let manifest = RecursiveDevelopmentRuntimeManifest(
             schemaVersion: 1,
             runID: run.idString,

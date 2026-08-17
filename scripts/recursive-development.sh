@@ -20,7 +20,7 @@ common=$(git rev-parse --path-format=absolute --git-common-dir)
 common_root=$(dirname "$common")
 cd "$root"
 command=${1:-}; [[ -n $command ]] || usage; shift || true
-run_id= tab= pane= seconds=15
+run_id='' tab='' pane='' seconds=15
 while (($#)); do
   case "$1" in
     --run-id) (($# >= 2)) || usage; run_id=$2; shift 2 ;;
@@ -45,21 +45,52 @@ require_run() { [[ -n $run_id ]] || die '--run-id is required'; }
 require_jq() { command -v jq >/dev/null || die 'jq is required for recursive-development artifacts'; }
 pid_is_live() { [[ $1 =~ ^[0-9]+$ ]] && kill -0 "$1" 2>/dev/null; }
 read_pid() { jq -r '.pid // empty' "$(manifest)" 2>/dev/null; }
+trim_process_value() { sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+live_process_start_time() { LC_ALL=C /bin/ps -ww -o lstart= -p "$1" 2>/dev/null | trim_process_value; }
+live_process_executable() { LC_ALL=C /bin/ps -ww -o comm= -p "$1" 2>/dev/null | trim_process_value; }
+record_process_identity() {
+  local pid=$1 start_time executable
+  start_time=$(live_process_start_time "$pid")
+  executable=$(live_process_executable "$pid")
+  [[ -n $start_time && -n $executable ]] || die 'could not capture owned process identity'
+  jq --arg startTime "$start_time" --arg executable "$executable" \
+    '. + {processStartTime:$startTime, executablePath:$executable}' "$(artifacts)/run.json" \
+    > "$(artifacts)/run.json.tmp"
+  mv "$(artifacts)/run.json.tmp" "$(artifacts)/run.json"
+}
 verify_owned_manifest() {
-  local file pid expected_title commit bundle_path
+  local file pid expected_title commit bundle_path expected_executable recorded_pid recorded_start_time recorded_executable live_start_time live_executable
   file=$(manifest); [[ -f $file ]] || die 'owned runtime manifest is missing'
   pid=$(read_pid); expected_title="Agent Session Manager (Dev · ${run_id:0:8})"
-  commit=$(git rev-parse HEAD); bundle_path=$(cd "$bundle" && pwd)
+  commit=$(git rev-parse HEAD); bundle_path=$(cd "$bundle" && pwd); expected_executable="$bundle_path/Contents/MacOS/AgentSessionManagerDev"
   [[ $(jq -r '.runID' "$file") == "$run_id" ]] || die 'manifest run ID mismatch'
   [[ $(jq -r '.bundleURL' "$file") == "$bundle_path" ]] || die 'manifest bundle mismatch'
   [[ $(jq -r '.commit' "$file") == "$commit" ]] || die 'manifest commit mismatch'
   [[ $(jq -r '.windowTitle' "$file") == "$expected_title" ]] || die 'manifest title mismatch'
+  [[ -f "$(artifacts)/run.json" ]] || die 'owned run record is missing'
+  recorded_pid=$(jq -r '.pid // empty' "$(artifacts)/run.json")
+  recorded_start_time=$(jq -r '.processStartTime // empty' "$(artifacts)/run.json")
+  recorded_executable=$(jq -r '.executablePath // empty' "$(artifacts)/run.json")
+  [[ $recorded_pid == "$pid" && -n $recorded_start_time && -n $recorded_executable ]] || die 'owned process identity is missing or mismatched'
+  live_start_time=$(live_process_start_time "$pid")
+  live_executable=$(live_process_executable "$pid")
+  [[ $live_start_time == "$recorded_start_time" ]] || die 'owned process start time mismatch'
+  [[ $recorded_executable == "$expected_executable" && $live_executable == "$expected_executable" ]] || die 'owned process executable mismatch'
   printf '%s\n' "$pid"
 }
 acquire_lock() {
   if mkdir "$lock" 2>/dev/null; then printf '%s\n' "$$" > "$lock/pid"; return; fi
-  local holder; holder=$(cat "$lock/pid" 2>/dev/null || true)
-  if ! pid_is_live "$holder"; then rmdir "$lock" 2>/dev/null || die 'stale recursive lock needs diagnosis'; mkdir "$lock" || die 'could not acquire recursive lock'; printf '%s\n' "$$" > "$lock/pid"; return; fi
+  local holder stale_lock
+  holder=$(cat "$lock/pid" 2>/dev/null || true)
+  [[ -n $holder ]] || die 'recursive lock is incomplete; preserving it for diagnosis'
+  if ! pid_is_live "$holder"; then
+    stale_lock="${lock}.stale.$$"
+    mv "$lock" "$stale_lock" 2>/dev/null || die 'could not take over stale recursive lock'
+    mkdir "$lock" || die 'could not acquire recursive lock after stale takeover'
+    printf '%s\n' "$$" > "$lock/pid"
+    rm -rf "${stale_lock:?}"
+    return
+  fi
   die "another recursive validation coordinator is active (pid $holder)"
 }
 release_lock() { rm -f "$lock/pid"; rmdir "$lock" 2>/dev/null || true; }
@@ -78,13 +109,15 @@ write_run_json() {
     > "$(artifacts)/run.json"
 }
 
+acquire_lock
+trap release_lock EXIT
+
 case "$command" in
   start)
     require_jq
     if [[ -z $run_id ]]; then run_id=$(uuidgen | tr '[:upper:]' '[:lower:]'); fi
     [[ ! -e "$support_base/$run_id" ]] || die 'run support directory already exists'
     [[ ! -e "$(artifacts)" ]] || die 'run artifact directory already exists'
-    acquire_lock; trap release_lock EXIT
     if pgrep -x AgentSessionManagerDev >/dev/null; then die 'an ordinary Dev instance is active; refusing to share its bundle'; fi
     write_run_json starting null
     if ! make app-dev; then
@@ -99,9 +132,11 @@ case "$command" in
       (( SECONDS < deadline )) || { write_run_json failed "$launched_pid"; die 'Dev launch did not become ready'; }
       sleep 1
     done
-    verified_pid=$(verify_owned_manifest)
+    verified_pid=$(read_pid)
     pid_is_live "$verified_pid" || { write_run_json failed "$verified_pid"; die 'manifest process exited before verification'; }
     write_run_json ready "$verified_pid"
+    record_process_identity "$verified_pid"
+    verify_owned_manifest >/dev/null
     (
       while pid_is_live "$verified_pid"; do
         ps -o %cpu= -o rss= -p "$verified_pid" | awk -v ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)" 'NF { printf "{\"timestamp\":\"%s\",\"cpuPercent\":%s,\"rssKB\":%s}\n", ts, $1, $2 }' >> "$(artifacts)/performance/samples.jsonl"
@@ -165,7 +200,8 @@ EOF
     write_run_json stopped "$pid"
     # Evidence remains; only successful run persistence is removed after collection.
     [[ -f "$(artifacts)/validation-report.md" ]] || die 'collect evidence before deleting isolated persistence'
-    rm -rf "$support_base/$run_id"
+    rm -rf "${support_base:?}/${run_id:?}"
+    # shellcheck disable=SC2016 # The Markdown examples are intentionally literal.
     sed -i '' 's#| Cleanup | unverified | Run `stop` only after collecting evidence\. |#| Cleanup | passed | Verified owned PID exited and isolated support was removed. |#' "$(artifacts)/validation-report.md"
     ;;
   *) usage ;;
