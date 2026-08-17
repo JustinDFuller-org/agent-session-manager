@@ -10,8 +10,9 @@ private final class SettingsWindow: NSWindow {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let appState = AppState()
-    let appSettings = AppSettings()
+    let appState: AppState
+    let appSettings: AppSettings
+    private let recursiveDevelopmentRun: RecursiveDevelopmentRunContext.Run?
     private var mainWindow: NSWindow?
     private var mainWindowController: NSWindowController?
     private var settingsWindow: NSWindow?
@@ -24,7 +25,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowLifecycleObservers: [NSObjectProtocol] = []
     #endif
 
+    override init() {
+        // This must happen before AppState and AppSettings can initialize persistence-backed services.
+        recursiveDevelopmentRun = RecursiveDevelopmentRunContext.validateProcessLaunch()
+        appState = AppState()
+        appSettings = AppSettings()
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let recursiveDevelopmentRun {
+            RecursiveRunManifestWriter.write(
+                state: .starting, run: recursiveDevelopmentRun, title: Self.windowTitle)
+            TracingService.shared.record(
+                "recursive_development.run.started",
+                attributes: [
+                    "run.id_prefix": recursiveDevelopmentRun.titleSuffix,
+                    "result": "starting",
+                ])
+        }
         let launchLifecycleResult = ApplicationLifecycleMarker.record(
             .running,
             launchID: lifecycleLaunchID)
@@ -52,6 +71,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.showWindow(nil)
         mainWindow = window
         mainWindowController = controller
+        if let recursiveDevelopmentRun, window.isVisible {
+            RecursiveRunManifestWriter.write(
+                state: .ready, run: recursiveDevelopmentRun, title: Self.windowTitle)
+            TracingService.shared.record(
+                "recursive_development.run.ready",
+                attributes: [
+                    "run.id_prefix": recursiveDevelopmentRun.titleSuffix,
+                    "result": "visible",
+                ])
+        }
         NotificationCenter.default.addObserver(
             forName: .toggleSettings, object: nil, queue: .main
         ) { [weak self] _ in
@@ -108,6 +137,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 attributes: [
                     "result": lifecycleResult.writeResult.rawValue
                 ])
+            if let recursiveDevelopmentRun {
+                RecursiveRunManifestWriter.write(
+                    state: .stopped, run: recursiveDevelopmentRun, title: Self.windowTitle)
+                TracingService.shared.record(
+                    "recursive_development.run.stopped",
+                    attributes: [
+                        "run.id_prefix": recursiveDevelopmentRun.titleSuffix,
+                        "result": "clean",
+                    ])
+            }
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
@@ -194,7 +233,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     static var windowTitle: String {
         #if DEV_BUILD
-        "Agent Session Manager (Dev)"
+        if let run = RecursiveDevelopmentRunContext.validateProcessLaunch() {
+            return "Agent Session Manager (Dev · \(run.titleSuffix))"
+        }
+        return "Agent Session Manager (Dev)"
         #else
         "Agent Session Manager"
         #endif

@@ -7,6 +7,9 @@ enum PersistenceHelpers {
         if let override = overrideAppSupportSubdirectory {
             return override
         }
+        if let run = RecursiveDevelopmentRunContext.validateProcessLaunch() {
+            return run.persistenceSubdirectory
+        }
         #if DEV_BUILD
         return "agent-session-manager.dev"
         #else
