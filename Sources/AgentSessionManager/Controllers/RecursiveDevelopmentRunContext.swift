@@ -14,7 +14,6 @@ enum RecursiveDevelopmentRunContext {
         var persistenceSubdirectory: String {
             "\(supportParentName)/\(idString)/agent-session-manager.dev"
         }
-
     }
 
     enum LaunchError: Error, Equatable {
