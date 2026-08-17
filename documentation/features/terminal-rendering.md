@@ -2,17 +2,17 @@
 
 ## What
 
-Agent Session Manager uses SwiftTerm for terminal emulation. A fork of SwiftTerm is used with a fix that ensures blank/empty cells in the terminal buffer contain space characters (U+0020) instead of null characters (U+0000).
+Agent Session Manager uses the upstream SwiftTerm package for terminal emulation. The minimum supported SwiftTerm version includes a resize fix that processes populated buffer lines instead of materializing every line allowed by the scrollback capacity.
 
 ## Why
 
-SwiftTerm's default buffer initialization creates blank lines with cells containing the null character (code 0). When scrolling through terminal history, these null characters appear as `^@` (caret notation for NUL) in debug log output.
+Older SwiftTerm releases resized every possible scrollback line, including empty capacity. Large scrollback settings could therefore make routine pane layout changes allocate many terminal lines and block input. SwiftTerm may also represent blank cells with the null character (code 0), which would appear as `^@` in captured debug output without normalization.
 
 ## Fix
 
-### SwiftTerm fork
+### Upstream resize behavior
 
-The fork of SwiftTerm (at `https://github.com/JustinDFuller/SwiftTerm`, branch `fix/blank-line-null-cells`) changes `Buffer.getBlankLine()` to use `getNullCell(attribute:)` instead of `CharData(attribute:)`. The `getNullCell` method creates cells with space characters (code 32), matching the expected behavior for blank terminal cells.
+SwiftTerm 1.18.0 or newer limits resize work to populated lines in the terminal buffer. Agent Session Manager depends on that upstream behavior so a pane with the 50,000-line capped mode remains responsive while panes are added, removed, or rearranged.
 
 ### `renderedScreenText` null → space replacement
 
@@ -31,13 +31,4 @@ Trailing spaces are trimmed per line, and fully-blank lines are removed from the
 
 ## Updating SwiftTerm
 
-When updating to a newer version of SwiftTerm, the fix must be re-applied or upstreamed:
-
-Edit `Buffer.getBlankLine()`:
-
-```swift
-// Before:
-let cd = CharData(attribute: attribute)
-// After:
-let cd = getNullCell(attribute: attribute)
-```
+Keep `Package.swift` and `project.yml` on the same minimum version. Run `TerminalScrollbackTests.testHighCapacityTerminalResizeRemainsResponsive` after dependency updates to confirm resize work does not regress to scaling with scrollback capacity.

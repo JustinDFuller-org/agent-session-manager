@@ -5,7 +5,7 @@ let package = Package(
     name: "AgentSessionManager",
     platforms: [.macOS(.v14)],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.13.0"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.18.0"),
         .package(url: "https://github.com/open-telemetry/opentelemetry-swift", from: "1.9.0"),
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.4"),
         .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", exact: "0.12.1"),
@@ -56,6 +56,7 @@ let package = Package(
             dependencies: [
                 "AgentSessionManager",
                 "AgentSessionManagerMCPBridgeCore",
+                .product(name: "SwiftTerm", package: "SwiftTerm"),
             ],
             path: "Tests",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../.."])]
