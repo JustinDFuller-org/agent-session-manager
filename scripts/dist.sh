@@ -89,6 +89,7 @@ main() {
 
   local sparkle_public_key_file="$repo_root/.sparkle/sparkle-public.pem"
   if [ -f "$sparkle_public_key_file" ]; then
+    "$repo_root/scripts/validate-sparkle-key.sh"
     info "Injecting Sparkle feed URL and public key"
     local public_key
     public_key=$(cat "$sparkle_public_key_file")

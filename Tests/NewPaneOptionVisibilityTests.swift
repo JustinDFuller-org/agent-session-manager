@@ -2,6 +2,7 @@ import Testing
 
 @testable import AgentSessionManager
 
+@MainActor
 @Suite("NewPaneOptionVisibility")
 struct NewPaneOptionVisibilityTests {
     @Test("CLI visibility includes enabled and show-on-pane-create profile options")
