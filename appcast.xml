@@ -33,5 +33,13 @@
       <sparkle:shortVersionString>0.0.4</sparkle:shortVersionString>
       <enclosure url="https://agent-session-manager.justindfuller.com/downloads/AgentSessionManager-0.0.4-251.dmg" length="12976980" type="application/octet-stream" sparkle:edSignature="dNU7Llchb9lzRaklQY7v05XUox8u/22pC5s9Ly182yzlTBVtq4RdplLl+4oUvAOtOVGTpdqkC1yKN5mUdjKCDA==" />
     </item>
+    <item>
+      <title>Agent Session Manager 0.0.5</title>
+      <pubDate>Tue, 18 Aug 2026 01:49:43 +0000</pubDate>
+      <sparkle:version>252</sparkle:version>
+      <sparkle:shortVersionString>0.0.5</sparkle:shortVersionString>
+      <enclosure url="https://agent-session-manager.justindfuller.com/downloads/AgentSessionManager-0.0.5-252.dmg" length="13287175" type="application/octet-stream" sparkle:edSignature="Sparkle key validation passed.
+nYi3RF0c11+UsTvhXH40SQZ0kCN4JKaRljgtbh4MfYfjF4+tghq4EiHVyAmhssMkLG7Z9iRDwpRTHtg4mREYCw==" />
+    </item>
 </channel>
 </rss>
