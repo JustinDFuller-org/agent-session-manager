@@ -15,6 +15,7 @@ if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
     exit 1
 fi
 
+"$repo_root/scripts/validate-sparkle-key.sh"
 "$repo_root/scripts/sparkle-tools.sh"
 printf '%s' "$SPARKLE_PRIVATE_KEY" | \
     "$repo_root/.sparkle-tools/bin/sign_update" --ed-key-file - -p "$1"

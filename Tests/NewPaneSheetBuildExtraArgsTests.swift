@@ -3,6 +3,7 @@ import Testing
 
 @testable import AgentSessionManager
 
+@MainActor
 @Suite("NewPaneSheetBuildExtraArgs")
 struct NewPaneSheetBuildExtraArgsTests {
     private func option(_ id: String) -> CLIOptionConfig {

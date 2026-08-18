@@ -12,6 +12,42 @@ mkdir -p "$test_root/site" "$test_root/input"
 printf 'fixture-dmg' > "$test_root/input/AgentSessionManager-0.0.1-1.dmg"
 cp "$repo_root/appcast.xml" "$test_root/input/appcast.xml"
 
+"$repo_root/scripts/validate-sparkle-key.sh" >/dev/null
+
+fixture_private_key=$(ruby -rbase64 -e 'puts Base64.strict_encode64("\0" * 32)')
+fixture_public_key=$(SPARKLE_PRIVATE_KEY="$fixture_private_key" ruby -rbase64 -ropenssl -e '
+  seed = Base64.strict_decode64(ENV.fetch("SPARKLE_PRIVATE_KEY"))
+  der = ["302e020100300506032b657004220420"].pack("H*") + seed
+  puts Base64.strict_encode64(OpenSSL::PKey.read(der).public_to_der.byteslice(-32, 32))
+')
+printf '%s\n' "$fixture_public_key" > "$test_root/input/sparkle-public.pem"
+SPARKLE_PUBLIC_KEY_FILE="$test_root/input/sparkle-public.pem" \
+    SPARKLE_PRIVATE_KEY="$fixture_private_key" \
+    "$repo_root/scripts/validate-sparkle-key.sh" >/dev/null
+
+printf '%s\n' "${fixture_public_key%?}" > "$test_root/input/sparkle-public.pem"
+if SPARKLE_PUBLIC_KEY_FILE="$test_root/input/sparkle-public.pem" \
+    "$repo_root/scripts/validate-sparkle-key.sh" >/dev/null 2>&1; then
+    echo "Sparkle key validation accepted malformed public material" >&2
+    exit 1
+fi
+
+printf '%s\n' 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' \
+    > "$test_root/input/sparkle-public.pem"
+if SPARKLE_PUBLIC_KEY_FILE="$test_root/input/sparkle-public.pem" \
+    SPARKLE_PRIVATE_KEY="$fixture_private_key" \
+    "$repo_root/scripts/validate-sparkle-key.sh" >/dev/null 2>&1; then
+    echo "Sparkle key validation accepted mismatched signing material" >&2
+    exit 1
+fi
+
+legacy_private_key=$(ruby -rbase64 -e 'puts Base64.strict_encode64("\0" * 96)')
+if SPARKLE_PRIVATE_KEY="$legacy_private_key" \
+    "$repo_root/scripts/validate-sparkle-key.sh" >/dev/null 2>&1; then
+    echo "Sparkle key validation accepted unsupported legacy key material" >&2
+    exit 1
+fi
+
 "$repo_root/scripts/stage-pages-assets.sh" \
     "$test_root/site" release \
     "$test_root/input/AgentSessionManager-0.0.1-1.dmg" \

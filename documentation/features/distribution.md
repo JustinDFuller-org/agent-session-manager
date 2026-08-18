@@ -210,8 +210,14 @@ Before the first local publication:
 The Sparkle private key is required to sign the appcast. It must never be committed:
 
 ```bash
-export SPARKLE_PRIVATE_KEY="$(cat .sparkle/sparkle-private.pem)"
+export SPARKLE_PRIVATE_KEY="$(security find-generic-password \
+    -s 'https://sparkle-project.org' -a ed25519 -w)"
+scripts/validate-sparkle-key.sh
 ```
+
+The validation command strictly checks the committed public key and confirms
+that it matches the private signing key without printing either value. Release
+packaging also rejects malformed public-key material before embedding it.
 
 For each local publication, build and notarize the DMG first:
 
