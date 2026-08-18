@@ -1,3 +1,4 @@
+import SwiftTerm
 import XCTest
 
 @testable import AgentSessionManager
@@ -24,6 +25,25 @@ final class TerminalScrollbackTests: XCTestCase {
     func testUnlimitedUsesMemoryCap() {
         XCTAssertEqual(ScrollbackLimit.unlimited.resolvedLines, 50_000)
         XCTAssertEqual(ScrollbackLimit.unlimited.modeName, "unlimited")
+    }
+
+    func testHighCapacityTerminalResizeRemainsResponsive() {
+        let controller = TerminalController()
+        let terminal = controller.terminalView.getTerminal()
+        controller.terminalView.changeScrollback(ScrollbackLimit.maximumFiniteLines)
+        terminal.feed(text: "ready\n")
+
+        let elapsed = ContinuousClock().measure {
+            for iteration in 0..<50 {
+                terminal.resize(cols: iteration.isMultiple(of: 2) ? 160 : 80, rows: 25)
+            }
+        }
+
+        XCTAssertLessThan(
+            elapsed,
+            .seconds(1),
+            "Resizing must scale with populated terminal lines, not scrollback capacity"
+        )
     }
 
     func testScrollbackLimitRoundTrips() throws {

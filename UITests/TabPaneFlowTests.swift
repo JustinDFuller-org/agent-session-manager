@@ -43,6 +43,22 @@ final class TabPaneFlowTests: BaseTestCase {
         let header = app.descendants(matching: .any)
             .matching(identifier: "pane-header-history-pane").firstMatch
         waitFor(header, timeout: 15)
+
+        for _ in 0..<3 {
+            let shellName = openShellHere(from: "history-pane")
+            let shellHeader = app.descendants(matching: .any)
+                .matching(identifier: "pane-header-\(shellName)").firstMatch
+            waitFor(shellHeader)
+            app.buttons.matching(identifier: "pane-close-\(shellName)").firstMatch.click()
+            waitForDisappear(shellHeader)
+        }
+
+        let terminal = app.descendants(matching: .any)
+            .matching(identifier: "pane-terminal-history-pane").firstMatch
+        waitFor(terminal)
+        terminal.click()
+        app.typeText(" ")
+
         header.rightClick()
         let historyMenu = app.windows.firstMatch.menuItems["Scrollback History"]
         waitFor(historyMenu)
