@@ -1,0 +1,189 @@
+name: OpenSpec Guide
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+concurrency:
+  group: openspec-guide-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  openspec-guide:
+    name: openspec-guide
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Determine OpenSpec scope
+        id: openspec-scope
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            const pull_number = context.payload.pull_request.number
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+            })
+
+            const fs = require('fs')
+            const names = new Set()
+            for (const f of files) {
+              const m = f.filename.match(/^openspec\/changes\/(?:archive\/)?([^/]+)\//)
+              if (m && m[1] !== 'archive') names.add(m[1])
+            }
+
+            const scope = []
+            for (const name of names) {
+              if (fs.existsSync(`openspec/changes/${name}`)) {
+                scope.push({ name, state: 'active' })
+              } else if (fs.existsSync(`openspec/changes/archive/${name}`)) {
+                scope.push({ name, state: 'archived' })
+              }
+            }
+
+            core.setOutput('scope', JSON.stringify(scope))
+            core.setOutput('hasScope', String(scope.length > 0))
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: fromJSON(steps.openspec-scope.outputs.hasScope)
+        with:
+          node-version: "22"
+
+      - name: Render and post OpenSpec guide comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          OPENSPEC_SCOPE: ${{ steps.openspec-scope.outputs.scope }}
+        with:
+          retries: 3
+          script: |
+            const marker = '<!-- openspec-guide -->'
+            const { owner, repo } = context.repo
+            const pull_number = context.payload.pull_request.number
+            const scope = JSON.parse(process.env.OPENSPEC_SCOPE || '[]')
+
+            async function findExistingComment() {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: pull_number,
+              })
+              return comments.find(c => c.body && c.body.startsWith(marker))
+            }
+
+            if (scope.length === 0) {
+              const existing = await findExistingComment()
+              if (existing) {
+                await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id })
+              }
+              return
+            }
+
+            const { execSync } = require('child_process')
+            const OPENSPEC_CMD = 'npx -y @fission-ai/openspec@1.10.0'
+            function runOpenspec(args) {
+              let stdout
+              try {
+                stdout = execSync(`${OPENSPEC_CMD} ${args}`, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
+              } catch (error) {
+                stdout = error.stdout
+              }
+              const trimmed = typeof stdout === 'string' ? stdout.trim() : ''
+              if (!trimmed.startsWith('{')) {
+                core.setFailed(`OpenSpec guide: 'openspec ${args}' produced no parseable JSON report.`)
+                throw new Error(`openspec ${args} produced no report`)
+              }
+              return JSON.parse(trimmed)
+            }
+
+            const activeNames = scope.filter(c => c.state === 'active').map(c => c.name)
+            const archivedNames = scope.filter(c => c.state === 'archived').map(c => c.name)
+
+            const listByName = activeNames.length > 0
+              ? new Map(runOpenspec('list --json').changes.map(c => [c.name, c]))
+              : new Map()
+            const validByName = activeNames.length > 0
+              ? new Map(
+                  runOpenspec('validate --all --strict --json')
+                    .items.filter(i => i.type === 'change')
+                    .map(i => [i.id, i.valid])
+                )
+              : new Map()
+            const archivedValidByName = archivedNames.length > 0
+              ? new Map(runOpenspec('validate --archived --json').items.map(i => [i.id, i.valid]))
+              : new Map()
+
+            function statusRow(label, symbol, summary) {
+              return `- ${symbol} **${label}** — ${summary}`
+            }
+
+            function renderActive(name, valid, completed, total) {
+              const tasksDone = completed === total
+              const lines = [
+                `### \`${name}\``,
+                statusRow('Artifacts', valid ? '✅' : '❌', valid ? 'valid' : 'invalid'),
+                statusRow('Tasks', tasksDone ? '✅' : '⚠️', `${completed} of ${total} complete`),
+                statusRow('Archive', '⚠️', 'not archived'),
+                '',
+              ]
+              if (!valid) {
+                lines.push('Next step: run `openspec validate --all --strict` locally to see why the artifacts are invalid.')
+              } else if (!tasksDone) {
+                lines.push('Next step: finish the remaining tasks.')
+              } else {
+                lines.push('Next step: archive with `/opsx:archive` — once every AI and human review comment on this pull request is resolved, as the last step before merge.')
+              }
+              return lines.join('\n')
+            }
+
+            function renderArchived(name, valid) {
+              if (valid) {
+                return [
+                  `### \`${name}\``,
+                  statusRow('Archived', '✅', 'all tasks complete, spec synced to `openspec/specs/`'),
+                ].join('\n')
+              }
+              return [
+                `### \`${name}\``,
+                statusRow('Archived', '❌', 'archived, but fails `openspec validate --archived`'),
+                '',
+                'Next step: run `openspec validate --archived` locally to see why — most often a task was left unchecked before archiving.',
+              ].join('\n')
+            }
+
+            const sections = []
+            for (const candidate of scope) {
+              const { name, state } = candidate
+              if (state === 'active') {
+                const listed = listByName.get(name)
+                const valid = validByName.get(name)
+                if (!listed || valid === undefined) {
+                  core.setFailed(`OpenSpec guide: active change '${name}' is touched by this pull request's cumulative diff but is missing from the CLI's own listing — classification disagrees with 'openspec list --json' / 'openspec validate --all --strict --json'.`)
+                  return
+                }
+                sections.push(renderActive(name, valid, listed.completedTasks, listed.totalTasks))
+              } else {
+                const valid = archivedValidByName.get(name)
+                if (valid === undefined) {
+                  core.setFailed(`OpenSpec guide: archived change '${name}' is touched by this pull request's cumulative diff but is missing from 'openspec validate --archived --json'.`)
+                  return
+                }
+                sections.push(renderArchived(name, valid))
+              }
+            }
+
+            const body = `${marker}\n## OpenSpec status\n\n${sections.join('\n\n')}\n`
+
+            const existing = await findExistingComment()
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pull_number, body })
+            }
