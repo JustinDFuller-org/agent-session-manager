@@ -1,0 +1,4 @@
+openspec/changes/**/proposal.md     linguist-generated=true
+openspec/changes/**/design.md       linguist-generated=true
+openspec/changes/**/tasks.md        linguist-generated=true
+openspec/changes/**/.openspec.yaml  linguist-generated=true
