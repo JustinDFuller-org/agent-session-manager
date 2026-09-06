@@ -65,11 +65,15 @@ the contributor to complete and archive the change in that base PR.
 
 When the remaining tasks are QA or validation rather than implementation, the
 last stacked PR may be a validation-only layer. That PR should check off the
-validation tasks only after running them and its description must record:
+validation tasks only after running them and its description must record the
+validation that was performed. The exact checks will vary by change and may
+include commands, workflows, tests, manual checks, or other relevant evidence;
+GitHub API or ruleset checks are only required when they are part of that
+change's validation:
 
-- the exact commands, workflows, and GitHub API checks that were run;
+- the exact validation steps that were run;
 - the expected and observed result for each check;
-- links to useful CI runs, ruleset evidence, or other durable evidence; and
+- links to useful CI runs or other durable evidence, when available; and
 - any disposable diagnostic workflow or fixture used, including confirmation
   that it was removed afterward.
 
