@@ -15,9 +15,9 @@
 
 ## 3. Documentation and repository policy
 
-- [ ] 3.1 Update `openspec/README.md` so every pull request and every stack layer requires a complete archived OpenSpec change, draft failures remain blocking, and the required artifact and validation expectations are explicit; document that only the base PR completes tasks and archives, higher PRs must not archive, and the stack must be cascade-rebased afterward; verify the documented command sequence matches the workflow.
-- [ ] 3.2 Document the external `main` ruleset prerequisites and the preserved `CODEOWNERS` boundary, verifying that the OpenSpec enforcement surface remains covered by `JustinDFuller` without changing intentional agent-editable paths.
-- [ ] 3.3 Keep the CI failure text and `openspec/README.md` workflow instructions synchronized, verifying that a higher-layer failure cannot tell an agent to archive the change in that higher PR.
+- [x] 3.1 Update `openspec/README.md` so every pull request and every stack layer requires a complete archived OpenSpec change, draft failures remain blocking, and the required artifact and validation expectations are explicit; document that only the base PR completes tasks and archives, higher PRs must not archive, and the stack must be cascade-rebased afterward; verify the documented command sequence matches the workflow.
+- [x] 3.2 Document the external `main` ruleset prerequisites and the preserved `CODEOWNERS` boundary, verifying that the OpenSpec enforcement surface remains covered by `JustinDFuller` without changing intentional agent-editable paths.
+- [x] 3.3 Keep the CI failure text and `openspec/README.md` workflow instructions synchronized, verifying that a higher-layer failure cannot tell an agent to archive the change in that higher PR.
 
 ## 4. GitHub merge controls
 
