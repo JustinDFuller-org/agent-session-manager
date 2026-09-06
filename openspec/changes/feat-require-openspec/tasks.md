@@ -23,8 +23,6 @@
 
 - [x] 4.1 Configure the `main` ruleset to require the observed `openspec-check` status and preserve the existing review, code-owner, last-push, and thread-resolution requirements; verify the ruleset JSON reports the required check.
 - [x] 4.2 Replace the repository-role bypass on the `main` ruleset with a direct `JustinDFuller` user bypass and verify `JustinDFuller-Agents` has no admin, maintain, or ruleset-bypass permission.
-- [ ] 4.3 Exercise representative failing and passing pull requests with the configured ruleset, verifying that the agent cannot merge without the OpenSpec check and that only the human account can perform the configured bypass.
-
 ## 5. Focused verification
 
 - [x] 5.1 Run the OpenSpec validator regression suite, `openspec validate --all --strict`, the repository workflow/lint checks, and the GitHub ruleset API verification; check this task off in the final validation-only stacked PR and record the commands, results, and durable evidence links in that PR's description before the change is archived.

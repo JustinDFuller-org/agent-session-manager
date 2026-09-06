@@ -82,6 +82,6 @@ Do not replace the current broad-default-plus-agent-exceptions policy. The OpenS
 3. Open the base pull request with the OpenSpec change, then stack implementation pull requests above it if desired. Keep the change active while implementation proceeds; after review feedback and implementation are complete, finish tasks and archive only in the base pull request, then cascade-rebase the stack.
 4. Confirm the `openspec-check` status context on the pull request.
 5. Have `JustinDFuller` update the `main` ruleset to require that context and replace the role-level bypass with the direct human-user bypass.
-6. Verify the ruleset, collaborator permissions, and representative passing/failing pull requests before considering the gate active.
+6. Verify the ruleset, collaborator permissions, and representative pre-archive validator results before marking the base pull request ready. The final merge activates the protected default-branch workflow; no post-merge validation task is required.
 
 Rollback consists of reverting the workflow/documentation implementation and having `JustinDFuller` remove the required status context from the `main` ruleset. The agent account cannot perform that rollback because it has no ruleset bypass or administrative permission.
