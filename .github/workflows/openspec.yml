@@ -1,10 +1,12 @@
 name: OpenSpec
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   push:
     branches: [main]
+
+permissions: {}
 
 jobs:
   openspec-check:
@@ -15,86 +17,42 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Determine OpenSpec scope
-        id: openspec-scope
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      - name: Checkout base-branch enforcement source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          script: |
-            if (context.eventName === 'pull_request') {
-              const { owner, repo } = context.repo
-              const pull_number = context.payload.pull_request.number
-              const files = await github.paginate(github.rest.pulls.listFiles, {
-                owner,
-                repo,
-                pull_number,
-              })
-              return files.some(f => f.filename.startsWith('openspec/'))
-            }
-            const fs = require('fs')
-            return fs.existsSync('openspec')
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.repository.default_branch }}
+          path: enforcement-source
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: fromJSON(steps.openspec-scope.outputs.result)
         with:
           node-version: "22"
 
+      - name: Test base-owned validator
+        run: node --test enforcement-source/.github/scripts/openspec-merge-gate.test.mjs
+
+      - name: Checkout immutable pull request candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+          persist-credentials: false
+
       - name: Validate OpenSpec state
-        if: fromJSON(steps.openspec-scope.outputs.result)
         env:
-          IS_DRAFT: ${{ github.event.pull_request.draft || 'false' }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+          STACK_BASE_REF: ${{ github.event.pull_request.stack.base.ref || '' }}
+          STACK_POSITION: ${{ github.event.pull_request.stack.position || '' }}
         run: |
           set -euo pipefail
-
-          OPENSPEC="npx -y @fission-ai/openspec@1.10.0"
-          FAILED=0
-          SEVERITY=error
-          if [ "$IS_DRAFT" = "true" ]; then SEVERITY=notice; fi
-
-          LIST_JSON=$($OPENSPEC list --json)
-
-          UNARCHIVED=$(node -e '
-            const { changes } = JSON.parse(process.argv[1]);
-            console.log(changes.map(c => c.name).join("\n"));
-          ' "$LIST_JSON")
-
-          if [ -n "$UNARCHIVED" ]; then
-            while IFS= read -r name; do
-              echo "::${SEVERITY}::OpenSpec change '$name' is not archived. Run /opsx:archive as the final step, after review feedback is resolved and before merge."
-            done <<< "$UNARCHIVED"
-            if [ "$SEVERITY" = error ]; then FAILED=1; fi
-          fi
-
-          INCOMPLETE=$(node -e '
-            const { changes } = JSON.parse(process.argv[1]);
-            console.log(changes.filter(c => c.completedTasks < c.totalTasks)
-              .map(c => c.name + " (" + c.completedTasks + "/" + c.totalTasks + " tasks)").join("\n"));
-          ' "$LIST_JSON")
-
-          if [ -n "$INCOMPLETE" ]; then
-            while IFS= read -r line; do
-              echo "::${SEVERITY}::OpenSpec checklist incomplete: $line. Finish the remaining tasks before marking this pull request ready for review."
-            done <<< "$INCOMPLETE"
-            if [ "$SEVERITY" = error ]; then FAILED=1; fi
-          fi
-
-          if ! ARCHIVED_OUT=$($OPENSPEC validate --archived --no-interactive 2>&1); then
-            while IFS= read -r line; do echo "::${SEVERITY}::$line"; done <<< "$ARCHIVED_OUT"
-            if [ "$SEVERITY" = error ]; then FAILED=1; fi
-          fi
-
-          if ! VALIDATE_OUT=$($OPENSPEC validate --all --strict --no-interactive 2>&1); then
-            echo "::error::OpenSpec artifacts failed strict validation (enforced regardless of draft status):"
-            while IFS= read -r line; do echo "::error::$line"; done <<< "$VALIDATE_OUT"
-            FAILED=1
-          fi
-
-          exit $FAILED
+          cp enforcement-source/.github/scripts/openspec-merge-gate.mjs "$RUNNER_TEMP/openspec-merge-gate.mjs"
+          node "$RUNNER_TEMP/openspec-merge-gate.mjs" --candidate "$GITHUB_WORKSPACE/candidate"
 
   openspec-label:
     name: openspec-label
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
