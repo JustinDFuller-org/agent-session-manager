@@ -1,7 +1,7 @@
-name: OpenSpec
+name: OpenSpec pull_request diagnostic
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   push:
     branches: [main]
@@ -9,19 +9,19 @@ on:
 permissions: {}
 
 jobs:
-  openspec-check:
-    name: openspec-check
+  openspec-check-pr-test:
+    name: openspec-check-pr-test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
     steps:
-      - name: Checkout base-branch enforcement source
+      - name: Checkout temporary pull-request enforcement source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           path: enforcement-source
           persist-credentials: false
 
@@ -35,8 +35,8 @@ jobs:
       - name: Checkout immutable pull request candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
           path: candidate
           persist-credentials: false
 
@@ -52,7 +52,7 @@ jobs:
 
   openspec-label:
     name: openspec-label
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
