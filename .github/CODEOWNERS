@@ -1,0 +1,18 @@
+# Require human approval by default
+*         @JustinDFuller
+
+# Allow agents to modify some files by removing codeowner
+/AppIcons
+/Sources
+/Tests
+/UITests
+/_data
+/_layouts
+/assets
+/scripts
+/*.md
+/*.yml
+
+## Re-Apply human codeowner to some specific files
+AGENTS.md @JustinDFuller
+CLAUDE.md @JustinDFuller
