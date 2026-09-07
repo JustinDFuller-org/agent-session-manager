@@ -6,9 +6,9 @@
 
 ## 2. Base-owned CI enforcement
 
-- [ ] 2.1 Add the stable `no-fixed-width-prose` pull-request check for opened, edited, synchronized, reopened, and draft-state transitions, and verify draft and stacked pull requests remain fail-closed.
-- [ ] 2.2 Make CI load enforcement logic from the protected default branch, inspect the immutable candidate revision, and consume the trusted pull-request description without executing candidate enforcement code; verify candidate workflow or validator edits cannot weaken the check.
-- [ ] 2.3 Add full-tree Markdown scanning and pull-request description scanning with bounded actionable diagnostics, and verify a deliberate violation fails while clean communication passes.
+- [x] 2.1 Add the stable `no-fixed-width-prose` pull-request check for opened, edited, synchronized, reopened, and draft-state transitions, and verify draft and stacked pull requests remain fail-closed.
+- [x] 2.2 Make CI load enforcement logic from the protected default branch, inspect the immutable candidate revision, and consume the trusted pull-request description without executing candidate enforcement code; verify candidate workflow or validator edits cannot weaken the check.
+- [x] 2.3 Add full-tree Markdown scanning and pull-request description scanning with bounded actionable diagnostics, and verify a deliberate violation fails while clean communication passes.
 
 ## 3. Repository and agent guidance
 

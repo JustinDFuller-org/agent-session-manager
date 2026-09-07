@@ -178,6 +178,18 @@ test("CLI reports pull-request description source findings", () => {
   assert.match(result.stderr, /pull-request-description:pull-request-description:2:1: non-empty continuation line/);
 });
 
+test("CLI bounds diagnostic output while reporting the total", () => {
+  const root = fixture();
+  const paragraphs = Array.from({ length: 101 }, (_, index) => `Paragraph ${index}.\nContinuation ${index}.`);
+  write(root, "README.md", `${paragraphs.join("\n\n")}\n`);
+  track(root);
+
+  const result = spawnSync(process.execPath, [validatorPath, "--root", root], { encoding: "utf8" });
+  assert.equal(result.status, 1);
+  assert.equal((result.stderr.match(/non-empty continuation line/g) ?? []).length, 100);
+  assert.match(result.stderr, /showing first 100 of 101 findings/);
+});
+
 test("the Makefile exposes the repository-local validator command", () => {
   const makefile = fs.readFileSync(path.join(repositoryRoot, "Makefile"), "utf8");
   assert.match(makefile, /no-fixed-width-prose:\n\tnode \.github\/scripts\/fixed-width-prose\.mjs --root "\$\(CURDIR\)"/u);

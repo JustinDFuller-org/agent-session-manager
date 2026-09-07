@@ -5,6 +5,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const markdownExtensions = new Set([".md", ".markdown", ".mdx"]);
+const maximumPrintedFindings = 100;
 const blockHtmlTags = new Set([
   "address",
   "article",
@@ -328,7 +329,10 @@ function main() {
     return;
   }
 
-  for (const violation of findings) console.error(formatFinding(violation));
+  for (const violation of findings.slice(0, maximumPrintedFindings)) console.error(formatFinding(violation));
+  if (findings.length > maximumPrintedFindings) {
+    console.error(`fixed-width-prose: showing first ${maximumPrintedFindings} of ${findings.length} findings`);
+  }
 
   if (findings.length > 0) {
     console.error(`fixed-width-prose: ${findings.length} violation(s) found`);

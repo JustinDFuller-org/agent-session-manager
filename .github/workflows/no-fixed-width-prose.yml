@@ -1,0 +1,54 @@
+name: Fixed-width Prose
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+
+permissions: {}
+
+jobs:
+  no-fixed-width-prose:
+    name: no-fixed-width-prose
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout base-branch enforcement source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: enforcement-source
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe502b1
+        with:
+          node-version: "22"
+
+      - name: Test base-owned validator
+        run: node --test enforcement-source/.github/scripts/fixed-width-prose.test.mjs
+
+      - name: Checkout immutable pull request candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          persist-credentials: false
+
+      - name: Write trusted pull-request description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pull-request-description.md"
+
+      - name: Validate immutable candidate
+        run: |
+          set -euo pipefail
+          cp enforcement-source/.github/scripts/fixed-width-prose.mjs "$RUNNER_TEMP/fixed-width-prose.mjs"
+          node "$RUNNER_TEMP/fixed-width-prose.mjs" \
+            --root "$GITHUB_WORKSPACE/candidate" \
+            --pull-request-description-file "$RUNNER_TEMP/pull-request-description.md"
