@@ -97,7 +97,7 @@ test("requires the current top to archive and complete the shared change", () =>
   const immediateBase = fixture();
   const incompleteCandidate = fixture();
   const completeCandidate = fixture();
-  activeChange(immediateBase, undefined, false);
+  activeChange(immediateBase, undefined, true);
   activeChange(incompleteCandidate, undefined, false);
   activeChange(completeCandidate, undefined, true);
   const incomplete = validate(incompleteCandidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "4", STACK_SIZE: "4", PR_BASE_REF: "layer-3" }));

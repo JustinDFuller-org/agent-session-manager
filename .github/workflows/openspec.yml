@@ -32,77 +32,6 @@ jobs:
       - name: Test base-owned validator
         run: node --test enforcement-source/.github/scripts/openspec-merge-gate.test.mjs
 
-      - name: Collect trusted effective pull request changes
-        if: github.event_name == 'pull_request_target'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
-        env:
-          MANIFEST_PATH: ${{ runner.temp }}/openspec-changed-files.json
-        with:
-          script: |
-            const fs = require('fs')
-            const { owner, repo } = context.repo
-            const pullRequest = context.payload.pull_request
-            const stack = pullRequest.stack || null
-            const headRepository = pullRequest.head?.repo?.full_name
-            const repository = context.payload.repository.full_name
-            const headSha = pullRequest.head?.sha
-
-            if (!headSha || !headRepository) {
-              core.setFailed('OpenSpec: pull request head repository and immutable SHA are required.')
-              return
-            }
-
-            let files
-            let source
-            if (headRepository !== repository) {
-              if (stack) {
-                core.setFailed('OpenSpec: formal stacked pull requests must use the base repository head.')
-                return
-              }
-              files = await github.paginate(github.rest.pulls.listFiles, {
-                owner,
-                repo,
-                pull_number: pullRequest.number,
-                per_page: 100,
-              })
-              source = 'pull-request-files'
-            } else {
-              const baseSha = stack?.base?.sha || pullRequest.base?.sha
-              if (!baseSha) {
-                core.setFailed('OpenSpec: effective pull request base SHA is required.')
-                return
-              }
-
-              const compareFiles = []
-              for (let page = 1; page <= 3; page += 1) {
-                const response = await github.rest.repos.compareCommitsWithBasehead({
-                  owner,
-                  repo,
-                  basehead: `${baseSha}...${headSha}`,
-                  page,
-                  per_page: 100,
-                })
-                const pageFiles = response.data.files || []
-                compareFiles.push(...pageFiles)
-                if (pageFiles.length < 100) break
-                if (page === 3) {
-                  core.setFailed('OpenSpec: effective pull request diff exceeds the supported file manifest size.')
-                  return
-                }
-              }
-              files = compareFiles
-              source = stack ? 'stack-trunk-compare' : 'base-head-compare'
-            }
-
-            fs.writeFileSync(process.env.MANIFEST_PATH, JSON.stringify({
-              source,
-              files: files.map(file => ({
-                filename: file.filename,
-                status: file.status,
-                previous_filename: file.previous_filename || null,
-              })),
-            }))
-
       - name: Checkout immutable pull request candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -111,25 +40,50 @@ jobs:
           path: candidate
           persist-credentials: false
 
-      - name: Copy base-owned validator
-        run: cp enforcement-source/.github/scripts/openspec-merge-gate.mjs "$RUNNER_TEMP/openspec-merge-gate.mjs"
+      - name: Checkout immutable stack trunk snapshot
+        if: github.event_name == 'pull_request_target'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.stack.base.sha || github.event.pull_request.base.sha }}
+          path: stack-trunk
+          persist-credentials: false
 
-      - name: Validate OpenSpec state for pull request
+      - name: Checkout immutable immediate-base snapshot
+        if: github.event_name == 'pull_request_target'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: immediate-base
+          persist-credentials: false
+
+      - name: Validate pull request OpenSpec state
         if: github.event_name == 'pull_request_target'
         env:
+          EVENT_NAME: pull_request_target
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+          STACK_PRESENT: ${{ github.event.pull_request.stack != null && 'true' || 'false' }}
           STACK_BASE_REF: ${{ github.event.pull_request.stack.base.ref || '' }}
+          STACK_BASE_SHA: ${{ github.event.pull_request.stack.base.sha || '' }}
           STACK_POSITION: ${{ github.event.pull_request.stack.position || '' }}
+          STACK_SIZE: ${{ github.event.pull_request.stack.size || '' }}
+          TRUNK_DIRECTORY: ${{ github.workspace }}/stack-trunk
+          IMMEDIATE_BASE_DIRECTORY: ${{ github.workspace }}/immediate-base
         run: |
           set -euo pipefail
-          node "$RUNNER_TEMP/openspec-merge-gate.mjs" \
-            --candidate "$GITHUB_WORKSPACE/candidate" \
-            --require-new-change \
-            --changed-files "$RUNNER_TEMP/openspec-changed-files.json"
+          cp enforcement-source/.github/scripts/openspec-merge-gate.mjs "$RUNNER_TEMP/openspec-merge-gate.mjs"
+          node "$RUNNER_TEMP/openspec-merge-gate.mjs" --candidate "$GITHUB_WORKSPACE/candidate"
 
       - name: Validate OpenSpec state on main
         if: github.event_name == 'push'
-        run: node "$RUNNER_TEMP/openspec-merge-gate.mjs" --candidate "$GITHUB_WORKSPACE/candidate"
+        env:
+          EVENT_NAME: push
+        run: |
+          set -euo pipefail
+          cp enforcement-source/.github/scripts/openspec-merge-gate.mjs "$RUNNER_TEMP/openspec-merge-gate.mjs"
+          node "$RUNNER_TEMP/openspec-merge-gate.mjs" --candidate "$GITHUB_WORKSPACE/candidate"
 
   openspec-label:
     name: openspec-label
