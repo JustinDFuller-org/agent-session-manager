@@ -1,87 +1,58 @@
 ## Purpose
 
-This capability gives coding agents a reliable, repository-specific procedure for carrying one OpenSpec change through a formally linked GitHub stacked pull request sequence.
+This capability gives coding agents a precise procedure for using GitHub's formal stacked pull request metadata through the `gh stack` CLI.
 
 ## ADDED Requirements
 
-### Requirement: The stacked OpenSpec lifecycle is explicit
+### Requirement: Agents create formal stacks in bottom-to-top order
 
-The repository guidance SHALL define a fixed bottom-to-top lifecycle consisting of an OpenSpec PR, one implementation PR per top-level OpenSpec task group containing all of that task's subtasks, a validation-only QA PR, and a top-layer archive PR.
+The repository guidance SHALL distinguish creating a new stack from linking pull requests that already exist, and SHALL provide the corresponding `gh stack` commands in bottom-to-top order.
 
-#### Scenario: An agent plans a multi-PR OpenSpec change
+#### Scenario: An agent creates a new stack
 
-- **WHEN** the change requires dependent pull requests
-- **THEN** the agent SHALL assign each top-level OpenSpec task group to one implementation layer, keep every subtask in that group in the same layer, reserve a validation-only QA layer, and reserve the top layer for archive work
-- **AND** higher layers SHALL carry the same change rather than creating competing OpenSpec changes
+- **WHEN** dependent branches do not yet have pull requests
+- **THEN** the agent SHALL use the documented `gh stack init`/`gh stack add`/`gh stack submit` flow or an equivalent documented `gh stack` flow
+- **AND** the resulting pull requests SHALL target the branch immediately below them
+
+#### Scenario: An agent has already-created pull requests
+
+- **WHEN** pull requests exist with the correct branch bases
+- **THEN** the agent SHALL still run `gh stack link` with the pull requests or branches listed from bottom to top
+- **AND** the agent SHALL NOT treat `gh pr create --base` or matching branch names as proof of formal stack membership
+
+### Requirement: Agents verify formal stack metadata and branch bases
+
+The repository guidance SHALL require both formal stack inspection and per-pull-request base verification after stack creation, linking, or remote import.
+
+#### Scenario: An agent verifies a linked stack
+
+- **WHEN** `gh stack link` or `gh stack submit` completes
+- **THEN** the agent SHALL run `gh stack checkout` using the top pull request or another unambiguous stack identifier
+- **AND** the agent SHALL run `gh stack view --json` and confirm the expected ordered pull requests are present
+- **AND** the agent SHALL run `gh pr view` for each pull request and confirm its base is the immediately preceding layer
+
+#### Scenario: Branch bases are correct but formal metadata is absent
+
+- **WHEN** every pull request targets the expected lower branch but `gh stack view --json` does not show the formal stack
+- **THEN** the agent SHALL report the stack as unverified
+- **AND** the agent SHALL link or repair the formal stack before continuing
+
+### Requirement: One implementation PR contains one complete top-level task group
+
+The repository guidance SHALL state that a stack layer maps to one top-level OpenSpec task group and includes every subtask in that group.
 
 #### Scenario: A task group has multiple subtasks
 
 - **WHEN** task group `2` contains subtasks `2.1` through `2.5`
-- **THEN** the implementation PR for task group `2` SHALL contain all subtasks `2.1` through `2.5`
-- **AND** the agent SHALL NOT create separate stack PRs for individual subtasks
+- **THEN** one implementation PR SHALL contain all of task group `2`
+- **AND** the agent SHALL NOT create one stack PR per subtask
 
-#### Scenario: A QA layer is added
+### Requirement: Command side effects are explicit
 
-- **WHEN** implementation tasks are complete and validation remains
-- **THEN** the QA PR SHALL contain validation work and durable evidence
-- **AND** it SHALL NOT archive the OpenSpec change
+The repository guidance SHALL identify which `gh stack` commands inspect state, change local checkout or history, update remote branches or pull requests, and merge pull requests.
 
-#### Scenario: The archive layer is finalized
+#### Scenario: An agent considers a remote-changing command
 
-- **WHEN** the archive PR is the current top layer and review feedback is resolved
-- **THEN** the archive PR SHALL complete the remaining OpenSpec checklist and archive the shared change
-- **AND** its diff SHALL contain only archive/finalization work allowed by the phase-aware OpenSpec gate
-
-### Requirement: Formal GitHub stack metadata is created and verified
-
-The repository guidance SHALL require agents to create or update GitHub's formal stack metadata in addition to creating the correct branch dependency chain.
-
-#### Scenario: Existing pull requests already have the correct bases
-
-- **WHEN** an agent has created dependent pull requests with `gh pr create --base`
-- **THEN** the agent SHALL still run `gh stack link` with the pull requests or branches in bottom-to-top order
-- **AND** the agent SHALL NOT consider the stack formal based only on matching base branches
-
-#### Scenario: A remote stack is imported locally
-
-- **WHEN** the stack exists on GitHub but is not tracked in the current worktree
-- **THEN** the agent SHALL run `gh stack checkout` using the top pull request, stack number, URL, or unambiguous branch
-- **AND** the local stack state SHALL be inspected before implementation or rebasing continues
-
-#### Scenario: Stack creation is verified
-
-- **WHEN** stack creation, linking, or submission completes
-- **THEN** the agent SHALL run `gh stack view --json` and confirm the formal stack contains the expected ordered pull requests
-- **AND** the agent SHALL run `gh pr view` for every layer and confirm each base branch targets the layer immediately below it
-- **AND** the stack SHALL remain not ready if either formal metadata or branch-chain verification is missing
-
-### Requirement: Stack commands have explicit side-effect boundaries
-
-The repository guidance SHALL distinguish read-only inspection, local checkout/rebase operations, remote branch updates, pull request creation/linking, and stack merging, and SHALL require explicit approval for remote history rewriting or merge operations.
-
-#### Scenario: An agent inspects stack state
-
-- **WHEN** an agent needs to verify stack membership or ordering
-- **THEN** it SHALL prefer `gh stack view --json` and `gh pr view` without changing remote state
-
-#### Scenario: An agent updates a stack remotely
-
-- **WHEN** an agent considers `gh stack link`, `gh stack submit`, `gh stack push`, `gh stack sync`, or a push after `gh stack rebase`
-- **THEN** the guidance SHALL identify the command's branch, pull request, or history-rewriting effects
-- **AND** the agent SHALL obtain explicit approval before a command can rewrite remote history
-
-#### Scenario: An agent merges a stack
-
-- **WHEN** all required review, OpenSpec, and validation conditions are satisfied
-- **THEN** `gh stack merge` SHALL remain an explicitly approved operation
-- **AND** the agent SHALL NOT use an unconditional non-interactive merge as part of ordinary implementation or QA
-
-### Requirement: GitHub App authentication remains the repository command path
-
-The stacked workflow SHALL direct agents to use the repository's configured GitHub App-backed `gh` wrapper and SHALL NOT instruct them to replace it with personal authentication.
-
-#### Scenario: An agent checks GitHub CLI readiness
-
-- **WHEN** stack commands require GitHub access
-- **THEN** the agent SHALL verify the configured `gh` command and authentication health without printing credentials
-- **AND** it SHALL stop and report the authentication problem rather than running `gh auth login` or substituting a personal token
+- **WHEN** an agent considers `gh stack link`, `submit`, `push`, `sync`, `rebase`, or `merge`
+- **THEN** the guidance SHALL describe the command's side effects and any approval required before execution
+- **AND** the guidance SHALL include conflict recovery where the command supports continuation or abort
