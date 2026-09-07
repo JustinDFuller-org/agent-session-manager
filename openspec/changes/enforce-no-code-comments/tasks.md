@@ -12,8 +12,8 @@
 
 ## 3. Agent guidance
 
-- [ ] 3.1 Add the concise no-code-comments rule and approved explanation channels to `AGENTS.md`; verify the rule names PR descriptions, commit messages, Markdown documentation or skills, and code simplification as the alternatives.
-- [ ] 3.2 Add `.agents/skills/no-code-comments/SKILL.md` with valid frontmatter, complete policy scope, allowed machine directives, scanner command, migration guidance, and stacked-PR responsibilities; verify the skill directory and referenced content validate successfully.
+- [x] 3.1 Add the concise no-code-comments rule and approved explanation channels to `AGENTS.md`; verify the rule names PR descriptions, commit messages, Markdown documentation or skills, and code simplification as the alternatives.
+- [x] 3.2 Add `.agents/skills/no-code-comments/SKILL.md` with valid frontmatter, complete policy scope, allowed machine directives, scanner command, and migration guidance; verify the skill directory and referenced content validate successfully.
 
 ## 4. Existing-comment migration
 

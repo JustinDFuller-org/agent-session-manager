@@ -28,3 +28,7 @@ make no-code-comments
 ```
 
 The checker scans all tracked files in the candidate tree and reports each violation as `path:line:column`. It is intentionally separate from Swift format and SwiftLint.
+
+## Migration guidance
+
+When removing existing comments, preserve behavior and leave comment-like text inside strings, URLs, raw or multiline strings, embedded scripts, heredocs, generated values, and CSS colors unchanged. Keep executable shebangs and the first-line SwiftPM tools-version directive. Run the focused tests, then `make no-code-comments`, before review.
