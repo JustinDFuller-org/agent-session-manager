@@ -1,8 +1,8 @@
 ## 1. Validator implementation
 
-- [ ] 1.1 Add the dependency-free tracked-tree validator and command-line entry point, then verify it reports repository-relative file, line, and column for every detected violation.
-- [ ] 1.2 Add regression coverage for supported comment syntaxes, inline and block forms, unterminated comments, strings and URLs, raw and multiline strings, embedded scripts, CSS colors, heredocs or multiline content, shebangs, and the SwiftPM tools-version directive; verify `node --test .github/scripts/no-code-comments.test.mjs` passes.
-- [ ] 1.3 Add the local Make target and document the exact invocation in the agent skill; verify the command reaches the same validator used by the tests.
+- [x] 1.1 Add the dependency-free tracked-tree validator and command-line entry point, then verify it reports repository-relative file, line, and column for every detected violation.
+- [x] 1.2 Add regression coverage for supported comment syntaxes, inline and block forms, unterminated comments, strings and URLs, raw and multiline strings, embedded scripts, CSS colors, heredocs or multiline content, shebangs, and the SwiftPM tools-version directive; verify `node --test .github/scripts/no-code-comments.test.mjs` passes.
+- [x] 1.3 Add the local Make target and document the exact invocation in the agent skill; verify the command reaches the same validator used by the tests.
 
 ## 2. Protected CI enforcement
 
