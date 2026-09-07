@@ -19,8 +19,6 @@ final class PerPaneSpanExporterTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: Routing
-
     func testSpanWithPaneIdRoutesToPerPaneFile() throws {
         let exporter = PerPaneSpanExporter(tracesDirectory: testDir, maxBytesPerFile: 1_048_576)
         let span = makeSpan(
@@ -35,7 +33,6 @@ final class PerPaneSpanExporterTests: XCTestCase {
 
         waitForWrite()
 
-        // Expect: testDir/mytab-1111-2222/<pane-file>.jsonl
         let tabDirs = try FileManager.default.contentsOfDirectory(atPath: testDir.path)
         XCTAssertEqual(tabDirs.count, 1, "Expected exactly one tab directory")
         let tabDir = testDir.appendingPathComponent(tabDirs[0])
@@ -61,8 +58,6 @@ final class PerPaneSpanExporterTests: XCTestCase {
         let content = try String(contentsOf: globalFile, encoding: .utf8)
         XCTAssertTrue(content.contains("global.event"))
     }
-
-    // MARK: Metadata line
 
     func testMetadataLineWrittenOnFirstWrite() throws {
         let exporter = PerPaneSpanExporter(tracesDirectory: testDir, maxBytesPerFile: 1_048_576)
@@ -104,8 +99,6 @@ final class PerPaneSpanExporterTests: XCTestCase {
         XCTAssertEqual(metadataCount, 1, "Metadata should be written exactly once")
     }
 
-    // MARK: Trimming
-
     func testTrimIfNeededInvokedWhenFileExceedsLimit() throws {
         let smallMax = 300
         let file = testDir.appendingPathComponent("trim-test.jsonl")
@@ -136,8 +129,6 @@ final class PerPaneSpanExporterTests: XCTestCase {
         XCTAssertTrue(firstLine.contains("\"_type\":\"metadata\""))
         XCTAssertTrue(firstLine.contains("\"_global\""))
     }
-
-    // MARK: - Helpers
 
     private func makeSpan(name: String, attrs: [String: String]) -> SpanData {
         let provider = TracerProviderBuilder().build()

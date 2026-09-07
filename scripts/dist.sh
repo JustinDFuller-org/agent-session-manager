@@ -1,19 +1,4 @@
 #!/usr/bin/env bash
-# Build a notarized, Developer ID-signed DMG of Agent Session Manager for
-# distribution outside the Mac App Store.
-#
-# Usage: scripts/dist.sh <path-to-AgentSessionManager.app>
-#
-# The script copies the input .app into a temporary staging area, stamps a
-# unique version into its Info.plist, re-signs it with the Developer ID
-# Application certificate, builds a DMG, submits the DMG to Apple for
-# notarization, staples the resulting ticket, and validates the result.
-#
-# Prerequisites (one-time):
-#   - Developer ID Application certificate installed in Keychain.
-#   - App-specific password created at appleid.apple.com.
-#   - Either a local "AC_NOTARY" keychain profile, or AC_NOTARY_APPLE_ID and
-#     AC_NOTARY_PASSWORD environment variables for CI.
 set -euo pipefail
 
 readonly DEV_IDENTITY="Developer ID Application: Justin Fuller (CX2KMQZQ7X)"
@@ -23,7 +8,6 @@ readonly ENTITLEMENTS_FILENAME="AgentSessionManager.entitlements"
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_root=$(cd "$script_dir/.." && pwd)
-# shellcheck source=scripts/release-config.sh
 source "$repo_root/scripts/release-config.sh"
 
 info() { echo "==> $*"; }

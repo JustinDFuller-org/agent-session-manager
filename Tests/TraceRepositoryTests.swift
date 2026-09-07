@@ -18,8 +18,6 @@ final class TraceRepositoryTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: Directory scan
-
     func testRefreshBuildsTabPaneTree() throws {
         try createPane(
             tabDir: "mytab-abcd1234", fileName: "mypane-efgh5678.jsonl",
@@ -77,8 +75,6 @@ final class TraceRepositoryTests: XCTestCase {
         let tab1 = nonGlobal.first { $0.name == "tab1" }
         XCTAssertEqual(tab1?.panes.count, 2)
     }
-
-    // MARK: JSONL parsing
 
     func testParseSpansSkipsMetadataLine() {
         let content = """
@@ -198,8 +194,6 @@ final class TraceRepositoryTests: XCTestCase {
         }
         XCTAssertTrue(repo.selectedPaneSpans.isEmpty)
     }
-
-    // MARK: - Helpers
 
     private func createPane(
         tabDir: String, fileName: String,

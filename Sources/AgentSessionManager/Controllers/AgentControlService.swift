@@ -112,7 +112,6 @@ private struct AgentControlTokenRegistration: Sendable {
     var sessionIDs: Set<String> = []
 }
 
-/// Thread-safe runtime-only credential and MCP-session authorization store.
 final class AgentControlTokenStore: @unchecked Sendable {
     private let lock = NSLock()
     private var registrations: [UUID: AgentControlTokenRegistration] = [:]

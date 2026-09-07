@@ -1,13 +1,6 @@
 import Darwin
 import Foundation
 
-/// Provides status line data for Cursor CLI panes by combining two data sources:
-///   1. A Cursor hooks file (`afterAgentResponse`) that pipes model info to a per-pane temp file
-///   2. Periodic git/duration/version polling (same as `ToolAgnosticDataProvider`)
-///
-/// The hooks-based model detection requires a user-level `~/.cursor/hooks.json` with an
-/// `afterAgentResponse` hook that writes stdin to a file keyed by the `AGENT_SESSION_MANAGER_PANE_ID`
-/// environment variable. `CursorHookSetup` handles creating/updating this file.
 @MainActor
 final class CursorDataProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
@@ -283,8 +276,6 @@ final class CursorDataProvider: StatusLineDataProvider {
         ].merging(additional) { _, new in new }
     }
 
-    // MARK: - Periodic Refresh
-
     private func refreshNow() {
         Task { [weak self] in
             guard let self else { return }
@@ -328,8 +319,6 @@ final class CursorDataProvider: StatusLineDataProvider {
         }
     }
 
-    // MARK: - Shell Helper
-
     private func runShell(_ command: String) async -> String? {
         await withCheckedContinuation { continuation in
             let task = Process()
@@ -356,10 +345,6 @@ final class CursorDataProvider: StatusLineDataProvider {
     }
 }
 
-// MARK: - Hook Payload
-
-/// Minimal representation of the JSON that Cursor pipes to hook scripts via stdin.
-/// We only need the `model` field; the rest is ignored via `AdditionalKeysDecodable` pattern.
 struct CursorHookPayload {
     let model: String
 
@@ -390,11 +375,6 @@ struct CursorLifecyclePayload {
     }
 }
 
-// MARK: - Hook Setup
-
-/// Manages the user-level `~/.cursor/hooks.json` to include an `afterAgentResponse` hook
-/// (for model detection) and a `stop` hook (for notifications) that write their payloads
-/// to per-pane temp files identified by the `AGENT_SESSION_MANAGER_PANE_ID` environment variable.
 enum CursorHookSetup {
     struct HookEntry: Sendable, Equatable {
         let command: String
@@ -435,8 +415,6 @@ enum CursorHookSetup {
             .appending(path: ".cursor/agent-session-manager-hooks.lock")
     }
 
-    /// The hook script reads stdin (the JSON payload from Cursor) and writes it to a
-    /// private per-pane directory passed through the environment.
     static let hookScriptContent = """
         #!/bin/bash
         umask 077
@@ -454,7 +432,6 @@ enum CursorHookSetup {
 
         """
 
-    /// The stop hook writes its payload to the per-pane attention file, triggering a notification.
     static let stopHookScriptContent = """
         #!/bin/bash
         umask 077
@@ -654,7 +631,6 @@ enum CursorHookSetup {
             [.posixPermissions: 0o755], ofItemAtPath: path.path)
     }
 
-    /// Returns `true` if the entry was added (config needs writing).
     @discardableResult
     fileprivate static func installHookEntry(
         into hooks: inout [String: Any],

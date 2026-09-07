@@ -1,0 +1,47 @@
+name: No Code Comments
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  no-code-comments:
+    name: no-code-comments
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout base-branch enforcement source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
+          path: enforcement-source
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+
+      - name: Test base-owned validator
+        run: node --test enforcement-source/.github/scripts/no-code-comments.test.mjs
+
+      - name: Checkout immutable pull request candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+          persist-credentials: false
+
+      - name: Validate immutable candidate
+        run: |
+          set -euo pipefail
+          cp enforcement-source/.github/scripts/no-code-comments.mjs "$RUNNER_TEMP/no-code-comments.mjs"
+          node "$RUNNER_TEMP/no-code-comments.mjs" --root "$GITHUB_WORKSPACE/candidate"

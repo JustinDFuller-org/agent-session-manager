@@ -4,8 +4,6 @@ import XCTest
 
 @MainActor
 final class PRTrackingCoordinatorTests: XCTestCase {
-    // MARK: - parseOwnerRepo
-
     func testParseOwnerRepoHTTPS() {
         let result = PRTrackingCoordinator.parseOwnerRepo(
             from: "https://github.com/JustinDFuller/agent-session-manager.git")
@@ -34,8 +32,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
     func testParseOwnerRepoUnrecognizedFormat() {
         XCTAssertNil(PRTrackingCoordinator.parseOwnerRepo(from: "not-a-url"))
     }
-
-    // MARK: - parsePRFromGraphQLNode
 
     func testParsePRBasicFields() {
         let node: [String: Any] = [
@@ -109,8 +105,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertTrue(pr?.hasMergeConflicts ?? false)
     }
 
-    // MARK: - buildBatchQuery
-
     func testBatchQueryBuildingSingleSubscriber() {
         let coordinator = PRTrackingCoordinator()
         let paneID = UUID()
@@ -172,8 +166,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertTrue(query.isEmpty)
     }
 
-    // MARK: - adjustInterval
-
     func testAdjustIntervalBackoffOnLowRemaining() {
         let coordinator = PRTrackingCoordinator()
         coordinator.effectiveInterval = 30
@@ -201,8 +193,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         coordinator.adjustInterval(remainingPoints: 3000)
         XCTAssertEqual(coordinator.effectiveInterval, 30, accuracy: 1)
     }
-
-    // MARK: - subscribe / unsubscribe
 
     func testSubscribeDeliversCachedDataImmediately() {
         let coordinator = PRTrackingCoordinator()
@@ -241,8 +231,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         coordinator.setActive(paneID: paneID, isActive: false)
         XCTAssertEqual(coordinator.subscribers[paneID]?.isActive, false)
     }
-
-    // MARK: - pause / resume
 
     func testPausePreservesSubscribers() {
         let coordinator = PRTrackingCoordinator()
@@ -321,8 +309,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.isBackgrounded)
     }
 
-    // MARK: - parseRepoIdentity
-
     func testParseRepoIdentityHTTPS() {
         let result = PRTrackingCoordinator.parseRepoIdentity(from: "https://github.com/owner/repo.git")
         XCTAssertEqual(result?.host, "github.com")
@@ -369,8 +355,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertEqual(result?.repo, "repo")
     }
 
-    // MARK: - reviewDecision parsing
-
     func testParsePRReviewDecisionApproved() {
         let node: [String: Any] = [
             "number": 1, "title": "T", "state": "OPEN", "url": "u",
@@ -415,8 +399,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         XCTAssertEqual(pr.reviewStateLabel, "draft")
     }
 
-    // MARK: - buildBatchQuery includes reviewDecision
-
     func testBatchQueryIncludesReviewDecision() {
         let coordinator = PRTrackingCoordinator()
         let paneID = UUID()
@@ -424,8 +406,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         let query = coordinator.buildBatchQuery()
         XCTAssertTrue(query.contains("reviewDecision"), "Batch query must include reviewDecision field")
     }
-
-    // MARK: - Helpers
 
     private func makeRecord(owner: String?, repo: String?, branch: String?) -> PRTrackingCoordinator.SubscriberRecord {
         PRTrackingCoordinator.SubscriberRecord(
@@ -439,9 +419,6 @@ final class PRTrackingCoordinatorTests: XCTestCase {
         )
     }
 
-    /// Writes a temp pr-polling-settings.json inside ~/Library/Application Support/<subdirName>
-    /// and redirects SettingsPersistence to read from that subdirectory.
-    /// Returns the subdirectory name to pass to cleanupTempSettingsDir.
     @discardableResult
     private func makeTempSettingsDir(
         backgroundRefreshEnabled: Bool,

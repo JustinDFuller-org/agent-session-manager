@@ -1,6 +1,5 @@
 import XCTest
 
-/// UI tests for the pane loading and error overlays using injected session state.
 final class PaneLoadingTests: XCTestCase {
     var app: XCUIApplication!
 

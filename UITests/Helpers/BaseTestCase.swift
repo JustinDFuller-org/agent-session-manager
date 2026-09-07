@@ -6,7 +6,6 @@ class BaseTestCase: XCTestCase {
     var additionalLaunchArguments: [String] { [] }
     var additionalLaunchEnvironment: [String: String] { [:] }
 
-    /// Hook for suites that need to prepare real workspace state before the app launches.
     func prepareTestWorkspace() {}
 
     override func setUp() {
@@ -55,8 +54,6 @@ class BaseTestCase: XCTestCase {
             app.terminate()
             _ = app.wait(for: .notRunning, timeout: 10)
         }
-        // Clear state after termination so the next test always starts clean,
-        // even if the app saved state during the test.
         clearPersistedState()
         super.tearDown()
     }

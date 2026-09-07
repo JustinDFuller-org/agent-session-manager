@@ -40,15 +40,10 @@ final class StatusLineMonitor {
     private let tabName: String
     let filePath: String
     let settingsFilePath: String
-    /// Written by Claude Code attention hooks so user-blocking interactions use the notification path.
     let attentionSignalFilePath: String
-    /// Append-only log of Claude lifecycle/agent hook events, tailed for observability spans and background-agent counting.
     let hookLogFilePath: String
-    /// App-owned Claude hook-log script invoked by lifecycle/agent hooks for this pane.
     let hookLogScriptFilePath: String
-    /// Written by Codex lifecycle hooks to bind this pane to the exact Codex session.
     let codexHookRecordFilePath: String
-    /// App-owned Codex hook script invoked by lifecycle hooks for this pane.
     let codexHookScriptFilePath: String
     private let workingDirectory: String?
     let harness: Harness
@@ -63,16 +58,12 @@ final class StatusLineMonitor {
     private var attentionDebounceWork: DispatchWorkItem?
     private var lastAttentionPayloadFingerprint: Int?
     private var pendingStopWork: DispatchWorkItem?
-    /// A forced-continue flow re-enters `.working` via `UserPromptSubmit` shortly after a `Stop` —
-    /// deferring the callback lets that resume cancel the spurious first chime. Tunable if real-world
-    /// continuation timing needs adjustment.
     var stopNotificationGracePeriod: TimeInterval = 1.8
     private var agnosticProvider: (any StatusLineDataProvider)?
     private var gitDiffTimer: Timer?
     private var cachedGitStats: (added: Int, removed: Int) = (0, 0)
     private var cachedRepoIdentity: StatusLineData.Repo?
     private var lastAppliedModificationDate: Date?
-    /// Set by the view alongside `setCustomFields`; resolved from `pane.profileID` against `appSettings.profiles`.
     var profileName: String?
     private let customFieldEnvironment: [String: String]
     private var cachedCustomFieldValues: [String: CustomFieldRenderValue] = [:]
@@ -81,24 +72,15 @@ final class StatusLineMonitor {
     private var customFieldGenerations: [String: Int] = [:]
     private var customFieldInFlight: [String: Int] = [:]
 
-    /// Fires on the main actor when the Claude `Notification` hook rewrites ``attentionSignalFilePath`` (debounced).
     var onClaudeHookAttention: ((PaneAttentionEvent) -> Void)?
-    /// Fires on the main actor when Claude transitions from working to stopped (one fire per working→stopped edge).
     var onClaudeStopped: (() -> Void)?
-    /// Fires on the main actor when OpenCode transitions from working to stopped (one fire per working→stopped edge).
     var onOpencodeStopped: (() -> Void)?
     var onOpencodeActivityChanged: ((Bool) -> Void)?
-    /// Fires on the main actor when the OpenCode status provider discovers the bound session id.
     var onOpencodeSessionBound: ((String) -> Void)?
-    /// Fires on the main actor when OpenCode reports a permission was replied to, so the UI can clear the attention entry.
     var onOpencodePermissionReplied: (() -> Void)?
-    /// Fires on the main actor when OpenCode likely lost the allocated port to another process.
     var onOpencodePortRaceLost: (() -> Void)?
-    /// Fires on the main actor when a PR transitions from a non-merged state to "merged".
     var onPRMerged: ((_ prNumber: Int, _ prTitle: String) -> Void)?
-    /// Fires on the main actor when a PR transitions from a non-resolved state to "closed" (without merging).
     var onPRClosed: ((_ prNumber: Int, _ prTitle: String) -> Void)?
-    /// Fires on the main actor when a live poll reports a non-resolved state after a resolved (merged or closed) state was observed.
     var onPRReopened: (() -> Void)?
 
     private var lastKnownPRState: String?
@@ -507,7 +489,6 @@ final class StatusLineMonitor {
             var missingKey = ""
             if let de = error as? DecodingError {
                 switch de {
-                // swiftlint:disable:next pattern_matching_keywords
                 case .keyNotFound(let key, let ctx):
                     kind = "key_not_found"
                     missingKey = key.stringValue
@@ -778,14 +759,11 @@ final class StatusLineMonitor {
             onPRReopened?()
         }
         if lastKnownPRState != newState {
-            // A transition between two different resolved states (e.g. merged -> closed) is a
-            // live resolution event in its own right and must be allowed to fire again.
             hasFiredResolutionNotification = false
         }
         defer { lastKnownPRState = newState }
         guard !hasFiredResolutionNotification else { return }
         guard isResolved else { return }
-        // Suppress on first observation (app launch/restart) — only fire on a live transition.
         guard lastKnownPRState != nil else { return }
         guard lastKnownPRState != newState else { return }
         hasFiredResolutionNotification = true
@@ -798,8 +776,6 @@ final class StatusLineMonitor {
 }
 
 extension StatusLineMonitor {
-    /// Starts/stops per-field timers to match `fields`, diffing by id+command+refreshIntervalSeconds+timeoutSeconds
-    /// so an unchanged field's timer (and its in-flight cadence) is left alone.
     func setCustomFields(_ fields: [CustomStatusLineField]) {
         let eligibleFields = fields.filter { $0.supports(harness) }
         let nextByID = Dictionary(uniqueKeysWithValues: eligibleFields.map { ($0.id, $0) })
@@ -819,7 +795,6 @@ extension StatusLineMonitor {
                 existing.effectiveRefreshIntervalSeconds == field.effectiveRefreshIntervalSeconds,
                 existing.timeoutSeconds == field.timeoutSeconds
             {
-                // Label/icon-only edits update in place without restarting the timer/cadence.
                 scheduledCustomFields[id] = field
                 continue
             }
@@ -899,8 +874,6 @@ extension StatusLineMonitor {
         return .started
     }
 
-    /// I8: every execution attempt either updates the cached value or records `exec_failed` — a
-    /// failure never silently reverts a previously-good value to "—".
     private func applyCustomFieldResult(
         field: CustomStatusLineField,
         result: CustomFieldExecutionResult,
@@ -938,7 +911,6 @@ extension StatusLineMonitor {
             "duration_ms": String(format: "%.1f", durationMs),
         ]
         switch result {
-        // swiftlint:disable:next pattern_matching_keywords
         case .success(let value, let outputKind):
             cachedCustomFieldValues[field.id] = value
             if currentData == nil {
@@ -961,16 +933,13 @@ extension StatusLineMonitor {
         }
     }
 
-    /// For testing only: injects cached custom field values directly.
     @MainActor
     func testSetCachedCustomFieldValues(_ values: [String: CustomFieldRenderValue]) {
         cachedCustomFieldValues = values
     }
 
-    /// For testing only: reads back the cached custom field values.
     var cachedCustomFieldValuesForTesting: [String: CustomFieldRenderValue] { cachedCustomFieldValues }
 
-    /// For testing only: directly invokes the success/failure handling logic without spawning a process.
     @MainActor
     func testApplyCustomFieldResult(
         field: CustomStatusLineField,
@@ -980,7 +949,6 @@ extension StatusLineMonitor {
         applyCustomFieldResult(field: field, result: result, startedAt: Date(), trigger: trigger)
     }
 
-    /// For testing only: invokes `applyProviderSnapshot` directly (the non-Claude payload merge point).
     @MainActor
     func testApplyProviderSnapshot(_ data: StatusLineData, providerName: String = "test") {
         applyProviderSnapshot(data, providerName: providerName)
@@ -988,7 +956,6 @@ extension StatusLineMonitor {
 }
 
 extension StatusLineMonitor {
-    /// For testing only: simulates a PR data update as if received from `gh pr view`.
     @MainActor
     func simulatePRUpdateForTesting(_ data: Data) {
         guard !data.isEmpty else { return }
@@ -1001,19 +968,16 @@ extension StatusLineMonitor {
         checkForPRResolutionTransition(pr)
     }
 
-    /// For testing only: directly invokes I1 enforcement on a mutable StatusLineData.
     @MainActor
     func testApplyI1Enforcement(to data: inout StatusLineData) {
         applyI1Enforcement(to: &data)
     }
 
-    /// For testing only: directly invokes I3 enforcement on a mutable StatusLineData.
     @MainActor
     func testApplyI3Enforcement(to data: inout StatusLineData) {
         applyI3Enforcement(to: &data)
     }
 
-    /// For testing only: injects cached git stats.
     @MainActor
     func testSetCachedGitStats(_ stats: (added: Int, removed: Int)) {
         cachedGitStats = stats
@@ -1057,25 +1021,21 @@ extension StatusLineMonitor {
         }
     }
 
-    /// For testing only: invokes `applyLatestPayload` directly (reads from `filePath`).
     @MainActor
     func testApplyLatestPayload(reason: String) {
         applyLatestPayload(reason: reason)
     }
 
-    /// For testing only: invokes `checkPayloadFreshness` directly.
     @MainActor
     func testCheckPayloadFreshness() {
         checkPayloadFreshness()
     }
 
-    /// For testing only: injects a cached repo identity directly.
     @MainActor
     func testSetCachedRepoIdentity(_ identity: StatusLineData.Repo?) {
         cachedRepoIdentity = identity
     }
 
-    /// For testing only: applies Claude lifecycle hook stdin.
     @MainActor
     func testApplyClaudeActivityPayload(_ data: Data) {
         applyClaudeActivityPayload(data)
@@ -1086,7 +1046,6 @@ extension StatusLineMonitor {
         applyCursorActivity(isWorking: isWorking)
     }
 
-    /// Builds the per-pane Claude `settings` dictionary (`statusLine` plus lifecycle and attention hooks) for tests and tooling.
     nonisolated static func makeClaudeSettingsDictionaryForTesting(
         statusOutputPath: String,
         attentionOutputPath: String,
@@ -1161,9 +1120,6 @@ extension StatusLineMonitor {
         FileManager.default.createFile(atPath: codexHookRecordFilePath, contents: nil)
     }
 
-    /// Writes the per-pane script that appends one compact JSON line per Claude lifecycle/agent hook
-    /// invocation to ``hookLogFilePath``. A single `O_APPEND` write keeps concurrent hook invocations
-    /// (e.g. overlapping background-agent completions) from interleaving or clobbering each other.
     func writeHookLogScript() {
         let script = """
             #!/usr/bin/env python3
@@ -1204,8 +1160,6 @@ extension StatusLineMonitor {
 }
 
 extension StatusLineMonitor {
-    // MARK: - Claude hook-event log
-
     private func recordHookEventSpan(_ payload: ClaudeActivityPayload, decision: String?) {
         TracingService.shared.record(
             "statusline.hook.event",

@@ -1,18 +1,10 @@
 import AppKit
 import Foundation
 
-/// Diagnostic-only helper. Emits a TracingService span recording the current state of every
-/// `NSWindow` in `NSApp.windows` so we can reconstruct the AppKit window-list timeline
-/// during a notification click and identify when/where a duplicate main window is born.
-///
-/// All output is gated on `#if DEV_BUILD` so production builds emit nothing.
 @MainActor
 enum WindowSnapshot {
     static let category = "duplicate_window_diagnosis"
 
-    /// Records an instant span tagged for the duplicate-window investigation.
-    /// `event` is the timeline label (e.g. `"notification.click.handler_entered"`).
-    /// `extra` is merged into the span attributes after the standard fields.
     static func record(event: String, extra: [String: String] = [:]) {
         #if DEV_BUILD
         let windowItems: [[String: Any]] = NSApp.windows.map { window in

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - Data helpers
-
 struct SpanRow {
     let span: StoredSpan
     let depth: Int
@@ -44,7 +42,6 @@ func buildWaterfallRows(from spans: [StoredSpan]) -> [SpanRow] {
     return result
 }
 
-/// Summary of a single trace, derived from its spans.
 struct TraceSummary: Identifiable {
     let traceId: String
     let rootName: String
@@ -80,8 +77,6 @@ func buildTraceSummaries(from spans: [StoredSpan]) -> [TraceSummary] {
     }
     .sorted { $0.startEpochMs > $1.startEpochMs }
 }
-
-// MARK: - Root dashboard view
 
 struct TraceDashboardView: View {
     @State private var repository: TraceRepository
@@ -148,8 +143,6 @@ struct TraceDashboardView: View {
         .accessibilityIdentifier("trace-dashboard-empty-detail")
     }
 }
-
-// MARK: - Sidebar: tab → pane tree
 
 struct TracePaneSidebarView: View {
     let repository: TraceRepository
@@ -257,8 +250,6 @@ struct TracePaneSidebarView: View {
     }
 }
 
-// MARK: - Detail: spans for a selected pane
-
 struct TracePaneDetailView: View {
     let spans: [StoredSpan]
     @State private var selectedTraceId: String?
@@ -292,8 +283,6 @@ struct TracePaneDetailView: View {
         }
     }
 }
-
-// MARK: - Trace list
 
 struct TraceListView: View {
     let summaries: [TraceSummary]
@@ -426,8 +415,6 @@ struct TraceListRow: View {
     }
 }
 
-// MARK: - Trace detail (single-trace waterfall)
-
 struct TraceDetailView: View {
     let summary: TraceSummary
     let spans: [StoredSpan]
@@ -491,8 +478,6 @@ struct TraceDetailView: View {
         ms < 1000 ? "\(ms)ms" : String(format: "%.2fs", Double(ms) / 1000)
     }
 }
-
-// MARK: - Single-trace waterfall
 
 struct TraceWaterfallView: View {
     let spans: [StoredSpan]
@@ -613,8 +598,6 @@ struct TraceWaterfallView: View {
         }
     }
 }
-
-// MARK: - Span detail panel
 
 struct SpanDetailView: View {
     let span: StoredSpan

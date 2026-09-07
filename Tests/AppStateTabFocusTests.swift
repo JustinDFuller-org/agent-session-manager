@@ -26,7 +26,6 @@ final class AppStateTabFocusTests: XCTestCase {
         state.activeTabID = state.tabs[0].id
         state.activePaneID = panes[0][1].id
 
-        // Tab2 has never been visited — should land on its first pane
         state.switchToTab(id: state.tabs[1].id)
 
         XCTAssertEqual(state.activePaneID, panes[1][0].id)
@@ -40,15 +39,12 @@ final class AppStateTabFocusTests: XCTestCase {
         state.activeTabID = state.tabs[0].id
         state.activePaneID = panes[0][1].id
 
-        // Switch to tab2, focus its second pane
         state.switchToTab(id: state.tabs[1].id)
         state.setActivePane(id: panes[1][1].id)
 
-        // Switch back to tab1 — second pane should be restored
         state.switchToTab(id: state.tabs[0].id)
         XCTAssertEqual(state.activePaneID, panes[0][1].id)
 
-        // Switch back to tab2 — second pane should be restored
         state.switchToTab(id: state.tabs[1].id)
         XCTAssertEqual(state.activePaneID, panes[1][1].id)
     }
@@ -99,14 +95,11 @@ final class AppStateTabFocusTests: XCTestCase {
             (name: "tab1", paneNames: ["a", "b"]),
             (name: "tab2", paneNames: ["c"]),
         ])
-        // Start on tab2 so tab1's lastActivePaneID is not overwritten on departure
         state.activeTabID = state.tabs[1].id
         state.activePaneID = panes[1][0].id
 
-        // Simulate tab1 having a stale last pane ID (e.g. that pane was closed)
         state.tabs[0].lastActivePaneID = UUID()
 
-        // Switch to tab1 — stale ID is not in its panes list, should fall back to first pane
         state.switchToTab(id: state.tabs[0].id)
 
         XCTAssertEqual(state.activePaneID, panes[0][0].id)

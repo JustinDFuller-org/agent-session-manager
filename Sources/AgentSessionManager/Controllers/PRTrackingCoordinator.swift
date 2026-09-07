@@ -2,8 +2,6 @@ import AppKit
 import Foundation
 import Observation
 
-/// Batches all active pane PR lookups into a single GraphQL query per polling cycle,
-/// replacing the N-calls-per-cycle REST approach with 1-call-per-cycle GraphQL.
 @Observable
 @MainActor
 final class PRTrackingCoordinator {
@@ -61,9 +59,7 @@ final class PRTrackingCoordinator {
     private(set) var cycleTimer: Timer?
     var effectiveInterval: TimeInterval = 30
     private var activeBatchTask: Task<Void, Never>?
-    /// Incremented each time a new cycle starts; guards against stale async Tasks delivering results.
     private var cycleToken: UInt64 = 0
-    /// Live span for the current poll cycle; ended when the cycle completes, errors, or is superseded.
     private var currentCycleHandle: SpanHandle?
     private(set) var isPaused = false
     private(set) var isBackgrounded = false
@@ -202,7 +198,6 @@ final class PRTrackingCoordinator {
     private func runCycle() {
         guard SettingsPersistence.isPRTrackingEnabled() else { return }
 
-        // End any previous cycle that was superseded before it could finish.
         TracingService.shared.end(handle: currentCycleHandle, attributes: ["result": "superseded"])
         currentCycleHandle = nil
 
@@ -439,8 +434,6 @@ final class PRTrackingCoordinator {
         }
     }
 
-    // MARK: - One-shot merged-PR check (used at startup)
-
     struct BranchInfo {
         var paneID: UUID
         var owner: String
@@ -451,8 +444,6 @@ final class PRTrackingCoordinator {
         var tabName: String = ""
     }
 
-    /// Runs a single batched GraphQL query for the given branches and returns resolved PR info.
-    /// Does not require a running coordinator or active subscriptions.
     static func checkBranchesForResolvedPRs(
         branches: [BranchInfo],
         parent: SpanHandle? = nil
@@ -537,8 +528,6 @@ final class PRTrackingCoordinator {
         return results
     }
 
-    // MARK: - Git helpers
-
     static func fetchBranch(workingDirectory: String) async -> String? {
         await withCheckedContinuation { continuation in
             let task = Process()
@@ -560,8 +549,6 @@ final class PRTrackingCoordinator {
             }
         }
     }
-
-    // MARK: - Parsing helpers (internal for testing)
 
     nonisolated static func parseRepoIdentity(from remoteURL: String) -> StatusLineData.Repo? {
         var cleaned = remoteURL

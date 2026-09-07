@@ -100,8 +100,6 @@ final class NotificationCoordinatorNavigationTests: XCTestCase {
         XCTAssertEqual(receivedKind, NotificationKind.prClosed.rawValue)
     }
 
-    // handleNotificationResponse delegates to handleNotificationNavigation; verify navigation
-    // still works after the window-ordering resequencing in handleNotificationResponse.
     func testHandleNotificationResponseNavigationPathStillWorks() {
         let (state, panes) = makeState(tabs: [
             (name: "tab1", paneNames: ["a"]),
@@ -174,7 +172,6 @@ final class MacNotificationCoordinatorTests: XCTestCase {
     }
 
     func testBundleAppIconMainBundleFallbackDoesNotCrash() {
-        // swift test may run without NSApp; bundleAppIcon must not trap on NSApp access.
         _ = MacNotificationCoordinator.bundleAppIcon()
         if NSApp != nil {
             XCTAssertNotNil(MacNotificationCoordinator.bundleAppIcon())
@@ -250,8 +247,6 @@ final class MacNotificationCoordinatorTests: XCTestCase {
         XCTAssertEqual(attributes["error.code"], "104")
         XCTAssertEqual(attributes["result"], "schedule_error")
     }
-
-    // MARK: - decideCoalesce
 
     func testFreshPaneWithNoStateChimes() {
         let decision = MacNotificationCoordinator.decideCoalesce(

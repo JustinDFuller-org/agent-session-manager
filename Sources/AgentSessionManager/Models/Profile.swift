@@ -4,7 +4,6 @@ struct ProfileCLIOption: Codable, Equatable {
     var id: String
     var isEnabled: Bool
     var value: String?
-    /// Selected values for a multi-value flag (e.g. `--mcp-config`). Single-select flags use `value` instead.
     var values: [String]?
     var showOnPaneCreate: Bool
 
@@ -27,9 +26,6 @@ struct ProfileCLIOption: Codable, Equatable {
         showOnPaneCreate = try container.decodeIfPresent(Bool.self, forKey: .showOnPaneCreate) ?? false
     }
 
-    /// Resolves the values to seed an editable multi-select field with: `values` verbatim when
-    /// present, otherwise a pre-existing single `value` promoted to `[value]` for multi-value
-    /// flags, so a profile saved before presets existed keeps showing its selection.
     func seededValues(allowsMultipleValues: Bool) -> [String] {
         if let values, !values.isEmpty { return values }
         guard allowsMultipleValues, let value else { return [] }

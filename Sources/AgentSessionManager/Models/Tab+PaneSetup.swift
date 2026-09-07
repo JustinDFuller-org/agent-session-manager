@@ -1,7 +1,6 @@
 import Foundation
 
 extension Tab {
-    /// Creates a pane with a loading overlay; terminal setup is deferred to `completeSetup`.
     @discardableResult
     func addPaneWithLoadingState(
         name: String,
@@ -45,8 +44,6 @@ extension Tab {
         return pane
     }
 
-    /// Finishes setup of a pane created by `addPaneWithLoadingState`: wires the terminal controller
-    /// and clears the loading state.
     func completeSetup(
         for pane: Pane,
         resolved: ResolvedWorktree,

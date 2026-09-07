@@ -23,8 +23,6 @@ final class OpenCodeStatusProviderTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - Helpers
-
     private func makeContext(
         workingDirectory: String? = nil,
         processStartTime: Date = Date(),
@@ -72,8 +70,6 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             time: OpenCodeSessionTime(created: created, updated: created)
         )
     }
-
-    // MARK: - Fakes
 
     private final class FakeClient: OpenCodeServerClient, @unchecked Sendable {
         nonisolated(unsafe) var healthResult: Result<(healthy: Bool, version: String?), Error> = .success(
@@ -141,8 +137,6 @@ final class OpenCodeStatusProviderTests: XCTestCase {
             }
         }
     }
-
-    // MARK: - Tests
 
     func testVersionAdapterNormalizesOpenCodeVersion() {
         XCTAssertEqual(OpenCodeVersionAdapter.normalize("1.17.20"), "1.17.20")

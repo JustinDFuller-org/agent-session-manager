@@ -46,9 +46,6 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         toggle.click()
     }
 
-    /// Defines presets for --effort (single-select) and --mcp-config (multi-select), creates a
-    /// profile that selects "high" and both mcp-config presets, marks both "Show on new pane",
-    /// and saves it. Leaves Settings open on the Profiles tab.
     private func createPresetTestProfile() {
         openToolsTab()
         definePresets(forFlagID: "--mcp-config", presets: ["mcp-a", "mcp-b"])
@@ -283,8 +280,6 @@ final class CLIOptionPresetFlowTests: BaseTestCase {
         app.buttons["new-pane-cancel-button"].click()
     }
 
-    /// Toggling "Allow multiple selections" on a non-mcp-config flag should switch its picker from
-    /// a single-select dropdown to the same checkbox-menu multi-select `--mcp-config` uses.
     func testTogglingAllowMultipleSelectionsSwitchesFlagToMultiSelectMenu() {
         openToolsTab()
         toggleAllowMultipleSelections(forFlagID: "--model")

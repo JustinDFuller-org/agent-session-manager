@@ -3,8 +3,6 @@ import XCTest
 @testable import AgentSessionManager
 
 final class StatusLineDataDecodingTests: XCTestCase {
-    // MARK: - ContextWindow new fields
-
     func testDecodeContextWindowSize() throws {
         let json = Data(
             """
@@ -15,7 +13,6 @@ final class StatusLineDataDecodingTests: XCTestCase {
     }
 
     func testDecodeContextWindowSizeAsDouble() throws {
-        // Claude may emit integer fields as floating-point (e.g. 200000.0)
         let json = Data(
             """
             {"context_window": {"context_window_size": 200000.0}}
@@ -45,8 +42,6 @@ final class StatusLineDataDecodingTests: XCTestCase {
         XCTAssertNil(data.contextWindow?.currentUsage)
     }
 
-    // MARK: - Cost new fields
-
     func testDecodeTotalApiDurationMs() throws {
         let json = Data(
             """
@@ -64,8 +59,6 @@ final class StatusLineDataDecodingTests: XCTestCase {
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertNil(data.cost?.totalApiDurationMs)
     }
-
-    // MARK: - Registry coverage
 
     func testNewFactIdsExistInMetadata() {
         for id in ["repo", "contextSize", "cacheRead", "cacheCreation", "apiDuration"] {
@@ -86,8 +79,6 @@ final class StatusLineDataDecodingTests: XCTestCase {
             XCTAssertTrue(allIDs.contains(id), "allItems missing \(id)")
         }
     }
-
-    // MARK: - Capability gating
 
     func testRepoIsGlobalCapability() {
         let cap = StatusLineConfig.itemCapabilities["repo"]
@@ -125,11 +116,7 @@ final class StatusLineDataDecodingTests: XCTestCase {
         XCTAssertFalse(cap?.supportedHarnesses.contains(.cursor) ?? true)
     }
 
-    // MARK: - PR block from Claude's statusLine payload
-
     func testDecodePrBlockSucceeds() throws {
-        // Claude sends pr:{number,url,review_state} — never title/state.
-        // Removing case pr from CodingKeys means the key is silently ignored, not a decode error.
         let json = Data(
             """
             {"model": {"id": "claude-sonnet-4-6"}, "pr": {"number": 42, "url": "https://github.com/org/repo/pull/42", "review_state": "draft"}}
@@ -147,8 +134,6 @@ final class StatusLineDataDecodingTests: XCTestCase {
         XCTAssertNil(data.pr)
     }
 
-    // MARK: - customFields is app-injected only, never decoded from a harness payload
-
     func testCustomFieldsAbsentByDefault() throws {
         let json = Data(#"{"model": {"id": "claude-sonnet-4-6"}}"#.utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
@@ -156,8 +141,6 @@ final class StatusLineDataDecodingTests: XCTestCase {
     }
 
     func testCustomFieldsCannotBeSpoofedByHarnessPayload() throws {
-        // customFields is excluded from CodingKeys — a harness (or malicious payload) including a
-        // "customFields" key must not be able to inject a resolved custom value.
         let json = Data(#"{"customFields": {"custom:x": {"text": "spoofed"}}}"#.utf8)
         let data = try JSONDecoder().decode(StatusLineData.self, from: json)
         XCTAssertNil(data.customFields)

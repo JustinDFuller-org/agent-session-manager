@@ -329,8 +329,6 @@ final class BridgeSendLimiterTests: XCTestCase {
     }
 }
 
-/// Signals once, and lets any number of waiters observe that signal even if they ask before
-/// or after it fires.
 private actor ReadyGate {
     private var isReady = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
@@ -348,8 +346,6 @@ private actor ReadyGate {
     }
 }
 
-/// Wraps a transport and fires a `ReadyGate` once `connect()` returns, so a test can await the
-/// bridge's local side actually starting instead of guessing with a fixed sleep.
 private actor ReadySignalingTransport: Transport {
     nonisolated let logger = InMemoryTransport().logger
     private let wrapped: any Transport

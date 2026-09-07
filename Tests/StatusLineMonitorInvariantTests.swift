@@ -17,8 +17,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         InvariantReporter.shared.resetForTesting()
     }
 
-    // MARK: - I2 Migration
-
     func testMigrationDropsWorktreeBranchWhenWorktreePresent() throws {
         let json = Data(
             """
@@ -97,8 +95,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         let events = TracingService.shared.recordedEventsForTesting
         XCTAssertTrue(events.contains { $0.name == "statusline.migration.gitworktree_dropped" })
     }
-
-    // MARK: - I1: Worktree Name
 
     func testI1WorktreeNameMismatchIsLogged() async throws {
         let workDir = FileManager.default.temporaryDirectory
@@ -191,8 +187,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(mismatch?.attributes["invariant.id"], "statusline.worktree.name")
     }
 
-    // MARK: - I3: Lines Added/Removed
-
     func testI3LinesMismatchIsLoggedAndOverwritten() async throws {
         let workDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -228,8 +222,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(mismatch?.attributes["computed_removed"], "0")
         XCTAssertEqual(mismatch?.attributes["reported_removed"], "0")
     }
-
-    // MARK: - I6: Liveness
 
     func testI6StatusWatcherAppliesWritesAndAtomicReplacements() async throws {
         let workDir = FileManager.default.temporaryDirectory
@@ -286,13 +278,11 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         monitor.testApplyLatestPayload(reason: "initial")
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 0.0)
 
-        // Simulate Claude writing a newer payload without firing the vnode handler
         let laterPayload = Data(
             """
             {"cost": {"total_cost_usd": 5.28}, "context_window": {"used_percentage": 8}}
             """.utf8)
         try laterPayload.write(to: URL(filePath: monitor.filePath))
-        // Force mtime to be strictly newer
         let future = Date().addingTimeInterval(1)
         try FileManager.default.setAttributes([.modificationDate: future], ofItemAtPath: monitor.filePath)
 
@@ -328,7 +318,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         monitor.testApplyLatestPayload(reason: "initial")
         TracingService.shared.resetForTesting()
 
-        // Freshness check with no new writes — should be a no-op
         monitor.testCheckPayloadFreshness()
 
         let events = TracingService.shared.recordedEventsForTesting
@@ -336,8 +325,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
             events.contains { $0.name == "statusline.payload.stale_recovered" },
             "stale_recovered must not fire when already up to date")
     }
-
-    // MARK: - I7: Integrity
 
     func testI7ValidPayloadRecordsApplied() async throws {
         let workDir = FileManager.default.temporaryDirectory
@@ -374,7 +361,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: workDir, harness: .claude)
 
-        // Apply a good payload first so currentData has a known value
         let good = Data(
             """
             {"cost": {"total_cost_usd": 1.00}}
@@ -388,7 +374,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         try bad.write(to: URL(filePath: monitor.filePath))
         monitor.testApplyLatestPayload(reason: "test")
 
-        // currentData must be preserved from the last good payload
         XCTAssertEqual(monitor.currentData?.cost?.totalCostUsd, 1.00)
 
         let events = TracingService.shared.recordedEventsForTesting
@@ -400,8 +385,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     }
 
     func testI7DecodingErrorNamesField() async throws {
-        // A payload with a present but incomplete `repo` object causes keyNotFound on a required field.
-        // Verifies that coding_path and missing_key are recorded in the trace.
         let workDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString).path
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
@@ -422,8 +405,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     }
 
     func testI7PayloadWithClaudePrBlockAppliesSuccessfully() async throws {
-        // Claude sends pr:{number,url,review_state} — never title/state. Before the fix, this
-        // caused keyNotFound on title/state and dropped the entire payload, freezing the status line.
         let workDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString).path
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
@@ -445,8 +426,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     }
 
     func testI7GhPrDataPreservedWhenClaudeSendsPrBlock() async throws {
-        // After PRTrackingCoordinator (gh) seeds pr data, a Claude payload with a pr block
-        // must not overwrite it — pr is owned by gh and set post-apply.
         let workDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString).path
         try FileManager.default.createDirectory(atPath: workDir, withIntermediateDirectories: true)
@@ -498,8 +477,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
     }
 
     func testI7ContextWindowToleratesDoublePercentage() throws {
-        // 14.000000000000002 is the real-world case from rate_limits; truncates to 14
-        // 85.999999999999998 rounds to 86.0 in IEEE 754 double, so Int(86.0) == 86
         let json = Data(
             """
             {"context_window": {"used_percentage": 14.000000000000002, "remaining_percentage": 85.999999999999998, "total_input_tokens": 140000, "total_output_tokens": 5}}
@@ -539,8 +516,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertFalse(events.contains { $0.name == "statusline.lines.source_mismatch" })
     }
 
-    // MARK: - I3: totalApiDurationMs preserved through enforcement
-
     func testI3PreservesTotalApiDurationMs() async throws {
         let workDir = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString).path
@@ -562,8 +537,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
         XCTAssertEqual(enforced.cost?.totalApiDurationMs, 1234.5, "totalApiDurationMs must survive I3 enforcement")
         XCTAssertEqual(enforced.cost?.totalCostUsd, 0.05)
     }
-
-    // MARK: - Repo identity injection
 
     func testRepoIdentityInjectedOnPayloadApply() throws {
         let workDir = FileManager.default.temporaryDirectory
@@ -598,8 +571,6 @@ final class StatusLineMonitorInvariantTests: XCTestCase {
 
         XCTAssertNil(monitor.currentData?.repo)
     }
-
-    // MARK: - I8: Custom field merge points
 
     func testCustomFieldsMergedIntoCurrentDataOnClaudePayloadApply() throws {
         let workDir = FileManager.default.temporaryDirectory

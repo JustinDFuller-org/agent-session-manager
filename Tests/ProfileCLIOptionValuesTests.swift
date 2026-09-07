@@ -50,8 +50,6 @@ struct ProfileCLIOptionValuesTests {
         #expect(args == ["--mcp-config", "\(NSHomeDirectory())/mcp/legacy.json"])
     }
 
-    // MARK: - seededValues (drives UI seeding in the profile editor and New Pane sheet)
-
     @Test("seededValues returns values verbatim when present")
     func seededValuesReturnsValuesVerbatim() {
         let option = ProfileCLIOption(id: "--mcp-config", isEnabled: true, value: "stale.json", values: ["a", "b"])

@@ -4,8 +4,6 @@ import XCTest
 
 @MainActor
 final class PlainTerminalAccessTests: XCTestCase {
-    // MARK: - Harness.shell
-
     func testShellHarnessDisplayName() {
         XCTAssertEqual(Harness.shell.displayName, "Shell")
     }
@@ -31,16 +29,12 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertEqual(decoded, .shell)
     }
 
-    // MARK: - Pane.restartToken
-
     func testRestartTokenIsInitializedToNonNilUUID() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         let pane = Pane(name: "test", tab: tab, harness: .claude)
         let token = pane.restartToken
         XCTAssertNotNil(token)
     }
-
-    // MARK: - Tab.restartPane
 
     func testRestartPanePreservesCommand() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
@@ -112,8 +106,6 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertFalse(pane.terminalController === original)
     }
 
-    // MARK: - Tab.openShellInPane
-
     func testOpenShellInPaneClearsCommand() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
         let pane = Pane(name: "test", tab: tab, harness: .claude)
@@ -168,8 +160,6 @@ final class PlainTerminalAccessTests: XCTestCase {
 
         XCTAssertNotEqual(pane.restartToken, originalToken)
     }
-
-    // MARK: - Tab.openShellPane
 
     func testOpenShellPaneAddsPaneToTab() {
         let tab = Tab(name: "T", directory: URL(filePath: "/tmp"))
@@ -238,8 +228,6 @@ final class PlainTerminalAccessTests: XCTestCase {
         XCTAssertEqual(tab.panes.last?.name, "shell")
     }
 
-    // MARK: - ExitBehavior
-
     func testExitBehaviorDisplayNames() {
         XCTAssertEqual(ExitBehavior.prompt.displayName, "Show Prompt")
         XCTAssertEqual(ExitBehavior.autoShell.displayName, "Open Shell")
@@ -258,8 +246,6 @@ final class PlainTerminalAccessTests: XCTestCase {
         let settings = AppSettings()
         XCTAssertEqual(settings.exitBehavior, .prompt)
     }
-
-    // MARK: - Session persistence excludes shell panes
 
     func testShellPanesExcludedFromSessionPersistence() {
         let appState = AppState()

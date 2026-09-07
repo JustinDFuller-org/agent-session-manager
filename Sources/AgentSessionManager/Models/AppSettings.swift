@@ -122,11 +122,8 @@ final class AppSettings {
     var alwaysShowNotificationsSidebar: Bool = true
     var isPriorityNotificationsEnabled: Bool = true
     var isMacOSBannerNotificationsEnabled: Bool = true
-    /// Installs a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
     var isCursorNotificationHookAttentionEnabled: Bool = true
-    /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool = true
-    /// When true, fire a notification when OpenCode finishes a turn.
     var isOpencodeStopNotificationEnabled: Bool = true
     var continueOnRestart: Bool = true
     var worktreeCleanupBehavior: WorktreeCleanupBehavior = .ask
@@ -144,7 +141,6 @@ final class AppSettings {
     var exitBehavior: ExitBehavior = .prompt
     var profiles: [Profile] = []
     var autoSetSessionName: Bool = true
-    /// Persisted shell path; empty string means auto-detect from $SHELL.
     var preferredShell: String = ""
     var hasCompletedOnboarding: Bool = false
     var paneActivityIndicatorsEnabled: Bool = true
@@ -156,7 +152,6 @@ final class AppSettings {
 
     nonisolated static let debugFileMaxBytes = 10 * 1024 * 1024
 
-    /// Fixed traces directory URL used while Debug mode is enabled.
     var resolvedTracingDirectoryURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return
@@ -166,7 +161,6 @@ final class AppSettings {
             .standardizedFileURL
     }
 
-    /// Fixed invariant log directory URL used while Debug mode is enabled.
     var resolvedInvariantDirectoryURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return
@@ -184,7 +178,6 @@ final class AppSettings {
         if active { activeTools.insert(tool.rawValue) } else { activeTools.remove(tool.rawValue) }
     }
 
-    /// User-facing harness types currently enabled in Tools, in canonical `Harness.allCases` order.
     var activeHarnesses: [Harness] {
         Harness.allCases.filter { isActive($0) }
     }

@@ -1,7 +1,5 @@
 import XCTest
 
-/// Tests session restoration across a full app restart. Intentionally does not extend
-/// BaseTestCase and does not use `--uitesting-skip-restore` so that the restore path runs.
 final class SessionPersistenceFlowTests: XCTestCase {
     var app: XCUIApplication!
 
@@ -35,7 +33,6 @@ final class SessionPersistenceFlowTests: XCTestCase {
     }
 
     func testSessionPersistenceFlow() {
-        // Create a tab
         app.typeKey("t", modifierFlags: .command)
         let field = app.textFields["new-tab-name-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -52,7 +49,6 @@ final class SessionPersistenceFlowTests: XCTestCase {
         screenshotBefore.lifetime = .keepAlways
         add(screenshotBefore)
 
-        // Quit and relaunch without clearing sessions — tab must be restored
         app.terminate()
         app.launch()
 

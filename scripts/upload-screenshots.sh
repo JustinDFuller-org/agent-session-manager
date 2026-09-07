@@ -5,7 +5,6 @@ REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 SCREENSHOTS_DIR="$REPO_ROOT/screenshots"
 GIST_ID_FILE="$REPO_ROOT/.screenshots-gist-id"
 
-# Create gist on first run, reuse on subsequent runs
 if [ ! -f "$GIST_ID_FILE" ]; then
   echo "Creating screenshots gist..."
   GIST_ID=$(gh api /gists --method POST \
@@ -30,8 +29,6 @@ git clone --quiet "https://${TOKEN}@gist.github.com/${GIST_ID}.git" "$tmpdir/gis
 cp "$SCREENSHOTS_DIR"/*.png "$tmpdir/gist/"
 cd "$tmpdir/gist"
 
-# Use an orphan commit to squash all history on every push, keeping the
-# gist repo at constant size regardless of how many times this runs.
 git checkout --orphan fresh
 git add .
 git -c user.email="ci@local" -c user.name="screenshots-bot" \

@@ -6,7 +6,6 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
     var onAttention: ((PaneAttentionEvent) -> Void)?
     var onUserInput: (() -> Void)?
     var onSelectionChanged: ((Bool) -> Void)?
-    /// Set from `Tab.addPane` for telemetry (read from PTY threads; best-effort for debugging).
     var telemetryTabName: String = ""
     var telemetryTabUUID: UUID?
     var telemetryPaneName: String = ""
@@ -16,11 +15,6 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // SwiftTerm clears the text selection on every PTY chunk and every newline
-        // while mouse reporting is on, so it never survives streaming output.
-        // Scroll-wheel forwarding to alt-buffer TUIs is handled separately in
-        // App.swift based on `terminal.mouseMode`, so this only gives up in-TUI
-        // mouse clicks/drags.
         allowMouseReporting = false
         installOsc777AttentionHookIfNeeded()
     }
@@ -31,9 +25,6 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
         installOsc777AttentionHookIfNeeded()
     }
 
-    /// Reject transient tiny frames from SwiftUI layout passes that would corrupt
-    /// scrollback by resizing the terminal to 1 column. SwiftUI's LazyVGrid can
-    /// produce intermediate non-zero but tiny frames when panes are added/removed.
     override func setFrameSize(_ newSize: NSSize) {
         let currentCols = terminal?.cols ?? 0
         guard currentCols >= 2 else {
@@ -90,9 +81,6 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
         }
     }
 
-    /// Hooks OSC 777 (`ESC]777;notify;title;body BEL`) into the same path as ``bell(source:)``.
-    /// SwiftTerm invokes this via `TerminalDelegate.notify`, but default protocol conformance is not
-    /// overridden by subclasses, so we register a parser handler (see `Terminal.registerOscHandler`).
     func installOsc777AttentionHookIfNeeded() {
         guard !osc777HookInstalled else { return }
         osc777HookInstalled = true
@@ -130,9 +118,6 @@ final class BellCapturingTerminalView: LocalProcessTerminalView {
         }
     }
 
-    /// Returns `false` without touching the pasteboard when there is no active selection.
-    /// SwiftTerm's own `copy(_:)` writes the (possibly empty) selected text unconditionally,
-    /// which would clear the pasteboard on an empty-selection copy.
     @discardableResult
     func copySelectionToPasteboard() -> Bool {
         guard let text = getSelection(), !text.isEmpty else {
@@ -188,9 +173,6 @@ final class TerminalController: NSObject {
     let terminalView: BellCapturingTerminalView
     var processState: ProcessState = .idle
     var hasSelection: Bool = false
-    /// Argument-vector form of the command to run. The shell is still used as the
-    /// executable so that PATH resolution from `~/.zshrc` works, but each token is
-    /// shell-quoted before concatenation, eliminating shell-injection risks.
     var pendingCommandArgs: [String]?
     var pendingDirectory: String?
     var pendingEnvironment: [String]?
@@ -214,29 +196,10 @@ final class TerminalController: NSObject {
         }
     }
 
-    /// Called by TerminalRepresentable.Coordinator after the view has a non-zero frame.
     func startProcess() {
         let shell = pendingShell ?? ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         if let commandArgs = pendingCommandArgs {
-            // Build a single shell command by quoting each token individually. This keeps
-            // the interactive shell (and therefore PATH resolution from ~/.zshrc) while
-            // preventing user-supplied values from being interpreted as shell metacharacters.
             let cmd = commandArgs.map { Self.shellQuote($0) }.joined(separator: " ")
-            // Args evolution:
-            // - Removed -l (login shell) because it causes zsh to source /etc/zprofile,
-            //   ~/.zprofile, and shell init scripts which access TCC-protected paths
-            //   (iCloud Drive, Music, etc.) and trigger macOS permission dialogs.
-            // - Do NOT use -f (fast start). It skips ~/.zshrc, which prevents tools
-            //   like nvm (node), homebrew, and other PATH-managing shell init from
-            //   running. This breaks CLI tools like codex and cursor that rely on the
-            //   user's shell environment for PATH resolution.
-            // - HOME is NOT scoped — Claude Code needs real HOME for ~/.claude/ auth.
-            //   Remaining TCC prompts are one-time decisions from Claude's startup
-            //   path scanning. See documentation/features/panes.md.
-            //
-            // Environment is sanitized at the last moment before starting the process so that
-            // GUI launches (e.g., opening the app from the DMG) get the same TERM/COLORTERM/LANG
-            // and PATH baseline that terminal-launched runs inherit from the parent shell.
             let args = ["-i", "-c", cmd]
             let env = ProcessEnvironment.sanitize(pendingEnvironment ?? [])
             let cwd = pendingDirectory

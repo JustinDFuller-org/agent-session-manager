@@ -32,8 +32,6 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
         settings.hasCompletedOnboarding = config.completed
     }
 
-    // MARK: - Shell settings
-
     func testSaveAndRestoreShellSettings() {
         let settings = AppSettings()
         settings.preferredShell = "/bin/bash"
@@ -60,8 +58,6 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
         restoreShellSettings(into: restored)
         XCTAssertEqual(restored.preferredShell, "")
     }
-
-    // MARK: - Onboarding settings
 
     func testSaveAndRestoreOnboardingCompleted() {
         let settings = AppSettings()
@@ -94,13 +90,10 @@ final class SettingsPersistenceOnboardingTests: XCTestCase {
         XCTAssertFalse(restored.hasCompletedOnboarding)
     }
 
-    // MARK: - Wizard apply logic
-
     func testWizardApplyAddsCheckedTools() {
         let settings = AppSettings()
         settings.activeTools = [Harness.claude.rawValue]
 
-        // Simulate wizard finishing with codex detected and checked
         settings.setActive(.codex, true)
         XCTAssertTrue(settings.isActive(.claude))
         XCTAssertTrue(settings.isActive(.codex))

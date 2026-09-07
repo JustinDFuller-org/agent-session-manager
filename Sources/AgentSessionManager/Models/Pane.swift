@@ -13,7 +13,6 @@ enum Harness: String, Codable, CaseIterable, Sendable {
     case opencode
     case shell
 
-    /// User-facing harness types — excludes `.shell` which is an internal session type.
     static var allCases: [Harness] { [.claude, .codex, .cursor, .opencode] }
 
     var displayName: String {
@@ -56,8 +55,6 @@ final class Pane: Identifiable {
     var profileID: UUID?
     var scrollbackOverride: ScrollbackLimit?
     var extraArgs: [String] = []
-    /// Runtime-only environment values resolved from pane setup or a selected profile.
-    /// Secret values are intentionally not persisted with the pane.
     var extraEnvVars: [String: String] = [:]
     var setupState: PaneSetupState?
     var agentControlInjectionEnabled: Bool
@@ -65,12 +62,8 @@ final class Pane: Identifiable {
     weak var appSettings: AppSettings?
     var uiTestActivityStateOverride: PaneActivityState?
     var opencodeRaceLossRestarted = false
-    /// Transient port assigned to an OpenCode pane for its local HTTP API.
-    /// Not persisted; a fresh port is allocated on every launch/restart.
     var opencodePort: Int?
-    /// Runtime-only private Cursor plugin directory used for Agent Control MCP injection.
     var cursorAgentControlPluginDirectory: URL?
-    /// OpenCode session ID to resume on relaunch. Persisted across app launches.
     var opencodeSessionID: String?
 
     init(

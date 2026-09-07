@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Signs a DMG with Sparkle's EdDSA signature. Requires SPARKLE_PRIVATE_KEY.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)

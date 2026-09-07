@@ -33,6 +33,20 @@ Concretely: the core workflow (create tab → create pane → terminal session) 
 
 Do not use the acronym **ASM** for this app in documentation, comments, UI copy, or commit messages—write **Agent Session Manager** in full. Avoid new temp-file basenames or code identifiers that use `asm-` as shorthand for the product; prefer explicit prefixes such as `agent-session-manager-…`.
 
+## No Code Comments
+
+Do not add explanatory comments to tracked non-Markdown code or configuration files. Use the appropriate durable channel instead:
+
+- Document how behavior should work in the relevant OpenSpec specification or change delta.
+- Document how an implementation should be built and why that approach was chosen in the active OpenSpec change's `proposal.md` and `design.md`.
+- Explain why a change is needed in the pull-request description.
+- Record change history in commit messages.
+- Explain usage in the user-facing documentation site or an agent skill.
+- Simplify confusing code first; put any remaining rationale in the pull-request description.
+- Explain package purpose in the nearest `README.md` or feature map.
+
+Markdown files, pull-request prose, and commit messages may contain prose. Keep executable shebangs and the first-line SwiftPM tools-version directive in `Package.swift`. Run `make no-code-comments` before review.
+
 ## No One-Off Methods
 
 Do not introduce or retain a named Swift function with fewer than two explicit call sites. This applies to instance, static, free, and local functions. Inline behavior at its sole caller and delete dead functions. Count production and test call sites separately. A production function may count direct test calls only in the rare case where it isolates substantial logic that is meaningfully tested apart from its caller. Exempt required indirect entry points such as protocol witnesses, overrides, delegate callbacks, Codable methods, SwiftUI representable requirements, and test-runner entry points. Do not satisfy this rule with ceremonial calls or another one-off wrapper.

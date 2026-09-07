@@ -28,8 +28,6 @@ final class PRClosedNotificationTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - StatusLineMonitor: closed transition detection
-
     func testClosedTransitionFiresCallback() {
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
@@ -41,11 +39,9 @@ final class PRClosedNotificationTests: XCTestCase {
             capturedTitle = title
         }
 
-        // First observation: "open" — no fire
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open", number: 42, title: "My PR"))
         XCTAssertEqual(firedCount, 0)
 
-        // Transition: "closed" — should fire once
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "closed", number: 42, title: "My PR"))
         XCTAssertEqual(firedCount, 1)
         XCTAssertEqual(capturedNumber, 42)
@@ -57,7 +53,6 @@ final class PRClosedNotificationTests: XCTestCase {
         var firedCount = 0
         monitor.onPRClosed = { _, _ in firedCount += 1 }
 
-        // First observation is already "closed" — suppress (avoid false positive on restart)
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "closed", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 0)
     }
@@ -74,7 +69,6 @@ final class PRClosedNotificationTests: XCTestCase {
     }
 
     func testMergedToClosedFiresClosedOnce() {
-        // Moving between two different resolved states is itself a live resolution event.
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var mergedCount = 0
         var closedCount = 0
@@ -103,8 +97,6 @@ final class PRClosedNotificationTests: XCTestCase {
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
         XCTAssertEqual(reopenedCount, 1, "Should fire once on closed→open transition")
     }
-
-    // MARK: - AppState: addPRClosedNotification
 
     func testAddPRClosedNotificationAppendsEntry() {
         let state = AppState()
@@ -168,15 +160,11 @@ final class PRClosedNotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications[0].kind, .prClosed)
     }
 
-    // MARK: - NotificationKind codable round-trip
-
     func testNotificationKindPRClosedCodableRoundTrip() throws {
         let data = try JSONEncoder().encode(NotificationKind.prClosed)
         let decoded = try JSONDecoder().decode(NotificationKind.self, from: data)
         XCTAssertEqual(decoded, .prClosed)
     }
-
-    // MARK: - AppSettings defaults and persistence
 
     func testAppSettingsPRClosedDefaultTrue() {
         let settings = AppSettings()
@@ -212,12 +200,9 @@ final class PRClosedNotificationTests: XCTestCase {
     }
 
     func testIsPRClosedNotificationsEnabledHelperDefaultsTrue() {
-        // No file on disk → defaults to true
         try? FileManager.default.removeItem(at: notificationSettingsURL)
         XCTAssertTrue(SettingsPersistence.isPRClosedNotificationsEnabled())
     }
-
-    // MARK: - isClosed on Pane
 
     func testPaneIsClosedSetOnAddPRClosedNotification() {
         let state = AppState()
@@ -258,7 +243,6 @@ final class PRClosedNotificationTests: XCTestCase {
         let pane = tab.addPane(name: "feature")
         state.tabs.append(tab)
 
-        // No closed notification or isClosed flag — should be a no-op with no crash
         XCTAssertFalse(pane.isClosed)
         let before = state.notifications.count
         state.clearPRClosedNotification(paneID: pane.id)
@@ -281,8 +265,6 @@ final class PRClosedNotificationTests: XCTestCase {
         XCTAssertTrue(pane.isClosed, "isClosed must survive notification clearance")
         XCTAssertTrue(state.notifications.isEmpty, "notification should be cleared")
     }
-
-    // MARK: - PersistedPane: isClosed round-trip
 
     func testPersistedPaneCarriesIsClosed() throws {
         let original = PersistedPane(
@@ -308,8 +290,6 @@ final class PRClosedNotificationTests: XCTestCase {
         let decoded = try JSONDecoder().decode(PersistedPane.self, from: json)
         XCTAssertFalse(decoded.isClosed)
     }
-
-    // MARK: - Helpers
 
     private func makePRJSON(state: String, number: Int = 1, title: String = "PR") -> Data {
         Data(

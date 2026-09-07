@@ -6,8 +6,6 @@ final class DragAndDropTests: BaseTestCase {
         try? Data("\"head\"".utf8).write(to: UITestAppSupport.directory.appending(path: "worktree-base-ref.json"))
     }
 
-    // MARK: - Tab Reordering
-
     func testDragTabForward() {
         createTab(named: "Alpha")
         createTab(named: "Beta")
@@ -79,8 +77,6 @@ final class DragAndDropTests: BaseTestCase {
 
         XCTAssertLessThan(beta.frame.minX, alpha.frame.minX, "Beta should now precede Alpha")
     }
-
-    // MARK: - Pane Reordering
 
     func testDragPaneForward() {
         createTab(named: "Work")

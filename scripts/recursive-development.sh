@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Serialized, agent-owned Dev validation. This script deliberately never touches
-# production or ordinary Dev persistence, and never uses broad process matching.
 set -euo pipefail
 
 usage() {
@@ -198,10 +196,8 @@ EOF
     if pid_is_live "$pid"; then die 'owned process did not exit gracefully; cleanup is unverified and state is preserved'; fi
     sampler="$(artifacts)/performance/sampler.pid"; [[ -f $sampler ]] && kill "$(cat "$sampler")" 2>/dev/null || true
     write_run_json stopped "$pid"
-    # Evidence remains; only successful run persistence is removed after collection.
     [[ -f "$(artifacts)/validation-report.md" ]] || die 'collect evidence before deleting isolated persistence'
     rm -rf "${support_base:?}/${run_id:?}"
-    # shellcheck disable=SC2016 # The Markdown examples are intentionally literal.
     sed -i '' 's#| Cleanup | unverified | Run `stop` only after collecting evidence\. |#| Cleanup | passed | Verified owned PID exited and isolated support was removed. |#' "$(artifacts)/validation-report.md"
     ;;
   *) usage ;;

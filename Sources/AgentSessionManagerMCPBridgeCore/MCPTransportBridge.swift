@@ -11,8 +11,6 @@ public enum MCPBridgeEnvironment {
     public static let tokenKey = "AGENT_SESSION_MANAGER_MCP_TOKEN"
     public static let bundledExecutableRelativePath = "Contents/Helpers/AgentSessionManagerMCPBridge"
 
-    /// The one shape the app-owned Agent Control server and the bridge agree on: HTTP over
-    /// loopback only, no path beyond `/mcp`, no credential in the URL itself.
     public static func makeLoopbackEndpoint(port: Int) -> URL? {
         guard (1...65_535).contains(port) else { return nil }
         return URL(string: "http://127.0.0.1:\(port)/mcp")
@@ -105,8 +103,6 @@ public struct MCPTransportBridge: Sendable {
             } catch {
                 firstOutcome = .failure(error)
             }
-            // The other direction is now cancelled deliberately; its cancellation is not a
-            // bridge failure, so drain it without letting the error surface.
             group.cancelAll()
             _ = try? await group.next()
             return firstOutcome

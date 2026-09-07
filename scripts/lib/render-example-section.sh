@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Render the ## Example markdown section from screenshots/*.png
-# Usage: render-example-section.sh <screenshots-dir> <gist-base-url>
 set -euo pipefail
 
 SCREENSHOTS_DIR="$1"
@@ -32,20 +30,16 @@ label_for() {
 }
 
 ORDER=(
-    # 1. New user walks through the setup wizard
     onboarding-welcome.png
     onboarding-shell.png
     onboarding-tools.png
     onboarding-status-line.png
     onboarding-cli-flags.png
     onboarding-profiles.png
-    # 2. App opens to its empty state
     empty-state.png
-    # 3. Create and use a tab
     new-tab-sheet.png
     new-tab-sheet-filled.png
     main-window-tab.png
-    # 4. Create and use a pane
     new-pane-sheet.png
     new-pane-agent-control.png
     split-panes.png
@@ -54,10 +48,8 @@ ORDER=(
     worktree-cleanup-alert.png
     reordered-tabs-and-panes.png
     pane-status-indicators.png
-    # 5. Notifications while working
     notification-sidebar.png
     focused-pane.png
-    # 6. Configure settings
     settings-panes.png
     settings-agent-control.png
     settings-notifications.png
@@ -66,7 +58,6 @@ ORDER=(
     settings-shortcuts.png
     settings-status-line.png
     settings-debug.png
-    # 7. Inspect diagnostics
     trace-dashboard.png
     trace-waterfall.png
     invariant-dashboard.png

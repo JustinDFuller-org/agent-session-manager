@@ -1,8 +1,6 @@
 import Foundation
 
 enum GitDiffStats {
-    /// Runs `git diff --shortstat HEAD` in `workingDirectory` and returns parsed line counts.
-    /// Returns `(0, 0)` when there are no uncommitted changes; `nil` on process error.
     static func compute(in workingDirectory: String) async -> (added: Int, removed: Int)? {
         await withCheckedContinuation { continuation in
             let task = Process()
@@ -29,8 +27,6 @@ enum GitDiffStats {
         }
     }
 
-    /// Parses the output of `git diff --shortstat HEAD`.
-    /// Accepts empty string (no changes) and returns `(0, 0)`.
     static func parse(_ output: String) -> (added: Int, removed: Int) {
         var added = 0
         var removed = 0

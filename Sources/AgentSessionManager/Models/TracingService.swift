@@ -4,9 +4,6 @@ import OpenTelemetrySdk
 import ResourceExtension
 import SignPostIntegration
 
-/// Opaque handle to a live span. Callers hold this to add child spans or end the span
-/// at a time they control — necessary for callback-based async flows where withSpan
-/// cannot wrap the body (e.g., Process terminationHandler).
 final class SpanHandle: @unchecked Sendable {
     fileprivate let span: any Span
 
@@ -15,7 +12,6 @@ final class SpanHandle: @unchecked Sendable {
     }
 }
 
-/// Thin wrapper around the OpenTelemetry Swift SDK. Thread-safe; callers on any actor may use it.
 final class TracingService: @unchecked Sendable {
     static let shared = TracingService()
 
@@ -26,8 +22,6 @@ final class TracingService: @unchecked Sendable {
     private var _recordedEventsForTesting: [(name: String, attributes: [String: String])] = []
 
     private init() {}
-
-    // MARK: - Test Capture
 
     var recordedEventsForTesting: [(name: String, attributes: [String: String])] {
         lock.withLock { _recordedEventsForTesting }
@@ -50,8 +44,6 @@ final class TracingService: @unchecked Sendable {
 
     private static let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
 
-    /// Call on startup and whenever tracing settings change. Must be called from the main actor
-    /// (AppSettings is @MainActor), but reconfigures the underlying SDK on whatever thread called it.
     @MainActor
     func configure(from settings: AppSettings) {
         guard settings.debugModeEnabled else {
@@ -75,9 +67,6 @@ final class TracingService: @unchecked Sendable {
             resourceAttributes: resource.attributes.mapValues(\.description)
         )
 
-        // SimpleSpanProcessor (not BatchSpanProcessor) is intentional: the trace dashboard
-        // live-tails JSONL via DispatchSource and record(...) models instant events, so spans
-        // must land on disk immediately rather than sit in a batch buffer.
         var builder = TracerProviderBuilder()
             .with(resource: resource)
             .add(spanProcessor: SimpleSpanProcessor(spanExporter: exporter))
@@ -101,11 +90,6 @@ final class TracingService: @unchecked Sendable {
         }
     }
 
-    // MARK: - Long-lived spans
-
-    /// Starts a span and returns a handle. The caller must call ``end(handle:attributes:)``
-    /// when the work completes. Use this for callback-based flows where ``withSpan`` cannot
-    /// wrap the body (e.g., Process terminationHandler chains).
     func startSpan(_ name: String, attributes: [String: String] = [:]) -> SpanHandle? {
         AppLog.log(name, level: .debug, attributes: attributes)
         guard let tracer = lock.withLock({ _isEnabled ? _tracer : nil }) else { return nil }
@@ -114,8 +98,6 @@ final class TracingService: @unchecked Sendable {
         return SpanHandle(span)
     }
 
-    /// Ends a span previously started with ``startSpan(_:attributes:)``.
-    /// Passing `nil` is a no-op, so callers can hold optional handles without guarding.
     func end(handle: SpanHandle?, attributes: [String: String] = [:]) {
         guard let handle else { return }
         AppLog.log(handle.span.name, level: .debug, attributes: attributes)
@@ -123,10 +105,6 @@ final class TracingService: @unchecked Sendable {
         handle.span.end()
     }
 
-    // MARK: - Instant events
-
-    /// Emits a zero-duration span (instantaneous event). Pass a `parent` handle to make
-    /// this span a child of an in-progress trace.
     func record(
         _ name: String,
         parent: SpanHandle? = nil,
@@ -152,10 +130,6 @@ final class TracingService: @unchecked Sendable {
         }
     }
 
-    // MARK: - Scoped spans
-
-    /// Wraps a synchronous throwing body in a span. Pass a `parent` handle to make this
-    /// span a child of an in-progress trace.
     @discardableResult
     func withSpan<T: Sendable>(
         _ name: String,
@@ -175,8 +149,6 @@ final class TracingService: @unchecked Sendable {
         }
     }
 
-    /// Wraps an async throwing body in a span. Pass a `parent` handle to make this
-    /// span a child of an in-progress trace.
     @discardableResult
     @MainActor
     func withSpan<T: Sendable>(

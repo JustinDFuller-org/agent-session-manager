@@ -7,8 +7,6 @@ enum MacNotificationUserInfoKey {
     static let notificationKind = "notificationKind"
 }
 
-/// Posts macOS banner notifications when a pane rings the terminal bell (with user permission).
-/// Banners are presented even while Agent Session Manager is frontmost so attention is visible on the desktop.
 @MainActor
 final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelegate {
     static let shared = MacNotificationCoordinator()
@@ -16,16 +14,12 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
     private weak var appState: AppState?
     private weak var appSettings: AppSettings?
 
-    /// Set while handling a banner click so `applicationShouldHandleReopen` can avoid redundant work.
     private(set) var isHandlingNotificationResponse = false
 
-    /// When we last actually played a sound for a pane; drives the time-based cooldown.
     private var lastChimeAt: [UUID: Date] = [:]
-    /// Present while a pane's notification is unacknowledged; drives "still open" + content preference.
     private var outstanding: [UUID: (reason: String, isSpecific: Bool)] = [:]
     private static let coalesceCooldown: TimeInterval = 6
 
-    /// Decides whether a repeat banner for a pane should re-chime (sound) or update silently in place.
     struct CoalesceDecision: Equatable {
         let silent: Bool
         let reason: String
@@ -51,9 +45,6 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         self.appSettings = appSettings
     }
 
-    /// Loads the app icon directly from the bundle's compiled .icns file so the correct icon is
-    /// used for both prod (AppIcon) and dev (AppIcon-Dev) builds. Falls back to
-    /// `NSApp.applicationIconImage` when loading from `Bundle.main` and no .icns is found.
     static func bundleAppIcon(in bundle: Bundle = .main) -> NSImage? {
         let name = (bundle.infoDictionary?["CFBundleIconFile"] as? String) ?? "AppIcon"
         if let url = bundle.url(forResource: name, withExtension: "icns") {
@@ -289,20 +280,15 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         }
     }
 
-    /// Marks a pane's notification as seen — a later chime is fresh (subject to cooldown) rather than "still open".
     func markPaneAcknowledged(paneID: UUID) {
         outstanding[paneID] = nil
     }
 
-    /// Clears all coalesce state for a pane — call when its tab/pane is closed.
     func forgetPane(paneID: UUID) {
         outstanding[paneID] = nil
         lastChimeAt[paneID] = nil
     }
 
-    /// Navigates to the pane identified by `paneIDStr`/`tabIDStr` and, for PR resolution
-    /// notifications, additionally posts `prResolutionActionRequested` so the alert appears.
-    /// Extracted for testability — does not call `NSApp.activate`.
     @discardableResult
     func handleNotificationNavigation(paneIDStr: String, tabIDStr: String, kind: String?) -> String {
         guard
@@ -390,10 +376,7 @@ final class MacNotificationCoordinator: NSObject, UNUserNotificationCenterDelega
         ]
     }
 
-    /// Options passed to `willPresent` — exposed for unit tests.
     nonisolated static let willPresentPresentationOptions: UNNotificationPresentationOptions = [.banner, .sound]
-
-    // MARK: - UNUserNotificationCenterDelegate
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,

@@ -88,7 +88,6 @@ final class TraceRepository {
                 continue
             }
 
-            // Read metadata from the first .jsonl file to get tab name
             guard
                 let paneFiles = try? fm.contentsOfDirectory(
                     at: tabDir, includingPropertiesForKeys: nil,
@@ -166,8 +165,6 @@ final class TraceRepository {
         fileWatcher?.start()
     }
 
-    // MARK: - JSONL loading
-
     func loadSpans(from url: URL) {
         guard let content = try? String(contentsOf: url, encoding: .utf8) else { return }
         selectedPaneSpans = Self.parseSpans(from: content)
@@ -181,7 +178,6 @@ final class TraceRepository {
             guard let data = trimmed.data(using: .utf8),
                 let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             else { continue }
-            // Skip metadata lines and truncation markers
             if (json["_type"] as? String) == "metadata" { continue }
             guard let name = json["name"] as? String,
                 let traceId = json["traceId"] as? String,
@@ -199,7 +195,4 @@ final class TraceRepository {
         }
         return result
     }
-
-    // MARK: - File watching
-
 }

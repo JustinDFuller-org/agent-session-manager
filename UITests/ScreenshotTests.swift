@@ -197,7 +197,6 @@ final class ScreenshotTests: BaseTestCase {
         waitFor(injectionPolicyPicker)
         screenshot("settings-agent-control")
 
-        // 7. Settings — Notifications tab
         let notificationsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-notifications")
             .firstMatch
         waitFor(notificationsTab)
@@ -308,7 +307,6 @@ final class ScreenshotTests: BaseTestCase {
     }
 
     func testTraceDashboard() {
-        // 1. Enable Debug mode
         app.typeKey(",", modifierFlags: .command)
         let debugTab = app.descendants(matching: .any)
             .matching(identifier: "settings-sidebar-debug").firstMatch
@@ -321,42 +319,35 @@ final class ScreenshotTests: BaseTestCase {
         }
         app.typeKey("w", modifierFlags: .command)
 
-        // 2. Create a tab and pane to generate real trace data
         createTab(named: "trace-demo")
         createPane(named: "worker")
 
-        // 3. Open the trace dashboard
         app.typeKey("d", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Trace Dashboard"]
         waitFor(dashboard)
         XCTAssertEqual(round(dashboard.frame.width), 900)
         XCTAssertEqual(round(dashboard.frame.height), 664)
 
-        // 4. Refresh so the dashboard reads the per-pane files written during step 2
         let refreshButton = dashboard.buttons["trace-dashboard-refresh-button"]
         waitFor(refreshButton)
         refreshButton.click()
 
-        // 5. Select the first pane row so the detail view loads
         let paneRow = dashboard.descendants(matching: .any)
             .matching(identifier: "trace-dashboard-pane-row").firstMatch
         waitFor(paneRow, timeout: 10)
         paneRow.click()
         XCTAssertTrue(paneRow.isSelected)
 
-        // 6. Wait for the per-pane trace list to appear
         let filterField = dashboard.textFields["trace-dashboard-filter-field"]
         waitFor(filterField, timeout: 10)
 
         screenshot("trace-dashboard")
 
-        // 7. Click the first trace row to open the waterfall
         let traceRow = dashboard.descendants(matching: .any)
             .matching(identifier: "trace-dashboard-list-row").firstMatch
         waitFor(traceRow, timeout: 10)
         traceRow.click()
 
-        // 8. Wait for the waterfall to render
         let waterfall = dashboard.descendants(matching: .any)
             .matching(identifier: "trace-dashboard-waterfall").firstMatch
         waitFor(waterfall, timeout: 10)
@@ -365,7 +356,6 @@ final class ScreenshotTests: BaseTestCase {
     }
 
     func testInvariantDashboardScreenshot() throws {
-        // 1. Enable Debug mode
         app.typeKey(",", modifierFlags: .command)
         let debugTab = app.descendants(matching: .any)
             .matching(identifier: "settings-sidebar-debug").firstMatch
@@ -378,7 +368,6 @@ final class ScreenshotTests: BaseTestCase {
         }
         app.typeKey("w", modifierFlags: .command)
 
-        // 2. Create a real Claude pane and find the monitor file created for it
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
         let existingStatusFiles = Set(
             (try? FileManager.default.contentsOfDirectory(
@@ -413,7 +402,6 @@ final class ScreenshotTests: BaseTestCase {
         wait(for: [monitorFileExpectation], timeout: 0.1)
         XCTAssertNotNil(monitorFile)
 
-        // 3. Open the dashboard after creating a real pane with debug mode enabled.
         app.typeKey("i", modifierFlags: [.command, .shift])
         let dashboard = app.windows["Invariant Dashboard"]
         waitFor(dashboard)
