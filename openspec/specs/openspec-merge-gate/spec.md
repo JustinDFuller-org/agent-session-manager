@@ -6,125 +6,110 @@ The OpenSpec merge gate ensures every pull request has a durable, reviewable, an
 
 ## Requirements
 
-### Requirement: Every pull request has an OpenSpec change
+### Requirement: Every pull request carries a new shared OpenSpec change set
 
-The repository SHALL require every pull request to include an OpenSpec change in its cumulative diff, regardless of whether the pull request changes source code, documentation, automation, dependencies, or only repository metadata. The same requirement SHALL apply to every layer of a formal stacked pull request.
+The repository SHALL require every pull request to carry at least one OpenSpec change that is new to the current stack relative to its trunk. An archived change already present on the trunk SHALL NOT satisfy this requirement, even when the pull request edits or otherwise touches that archived change.
 
-#### Scenario: Pull request has no OpenSpec artifacts
+For a stacked pull request, the change names SHALL remain the same across all layers. A non-bottom layer SHALL neither omit a change carried by its immediate base nor introduce a competing OpenSpec change. A standalone pull request SHALL be evaluated as the top layer of a one-pull-request stack.
 
-- **WHEN** a pull request's cumulative diff contains no OpenSpec change artifacts
-- **THEN** the OpenSpec required check SHALL fail with an actionable missing-change finding
+#### Scenario: Standalone pull request introduces a new archived change
 
-#### Scenario: Pull request contains an OpenSpec change
+- **WHEN** a standalone pull request introduces a valid archived OpenSpec change whose name is absent from the trunk's archived changes
+- **THEN** the OpenSpec check SHALL recognize that change as the pull request's required change set
 
-- **WHEN** a pull request's cumulative diff contains an OpenSpec change
-- **THEN** the OpenSpec required check SHALL evaluate that change's structure, validation, tasks, and archive state
+#### Scenario: Existing archived change is the only OpenSpec content
 
-#### Scenario: Pull request only inherits an archived change
+- **WHEN** a pull request only edits, copies, or relies on an archived change already present on the trunk
+- **THEN** the OpenSpec check SHALL fail with a finding that a new change is required
 
-- **WHEN** the candidate checkout contains a valid archived OpenSpec change but the pull request's effective diff introduces no OpenSpec change directory
-- **THEN** the OpenSpec required check SHALL fail with an actionable missing-change finding
+#### Scenario: Bottom stack layer introduces active changes
 
-#### Scenario: Draft pull request is incomplete
+- **WHEN** the bottom layer of a stack introduces one or more valid active changes absent from the stack trunk
+- **THEN** the OpenSpec check SHALL accept those names as the stack's change set
 
-- **WHEN** a draft pull request is missing the required OpenSpec change or has an incomplete change
-- **THEN** the OpenSpec check SHALL fail rather than downgrade the finding to a non-blocking notice
+#### Scenario: Higher layer preserves the shared change set
 
-#### Scenario: Higher stacked layer sees an incomplete base change
+- **WHEN** a higher stack layer carries exactly the active change set present in its immediate base
+- **THEN** the OpenSpec check SHALL accept the layer's OpenSpec identity even if the change remains unarchived
 
-- **WHEN** a higher layer of a formal stack contains implementation changes while the base PR's OpenSpec change is active, incomplete, or unarchived
-- **THEN** the OpenSpec check SHALL fail with guidance to complete and archive the change in the base PR and cascade-rebase the stack, and SHALL NOT instruct the contributor to archive the change in the higher layer
+#### Scenario: Higher layer changes the shared change set
 
-#### Scenario: Higher stacked layer inherits the base change
+- **WHEN** a higher stack layer omits an inherited change or introduces a different OpenSpec change
+- **THEN** the OpenSpec check SHALL fail and identify the change-set mismatch
 
-- **WHEN** a higher layer's effective diff from the stack trunk includes the base PR's newly introduced OpenSpec change
-- **THEN** the OpenSpec presence requirement SHALL be satisfied by that cumulative change, while the higher layer SHALL still use the same strict artifact and archive validation
+### Requirement: Only the current top layer finalizes the change
 
-### Requirement: OpenSpec artifacts are complete and valid
+The OpenSpec check SHALL determine the finalization owner from the current stack state. For a stacked pull request, the top layer SHALL be the layer whose one-based position equals the current stack size. A pull request without stack metadata SHALL be treated as a one-layer stack and SHALL own finalization.
 
-The OpenSpec check SHALL require the pull request's archived change to contain the repository's spec-driven planning artifacts, a corresponding main specification, and no invalid or unsupported specification shortcut. The complete artifact set SHALL pass strict OpenSpec validation.
+Non-top stack layers SHALL be allowed to retain active changes and unchecked tasks while implementation or QA proceeds, but SHALL NOT archive the shared change. The top layer and every standalone pull request SHALL require the shared change set to be archived, task-complete, and free of active changes.
 
-#### Scenario: Required artifact is missing
+#### Scenario: Non-top implementation layer remains active
 
-- **WHEN** an archived change is missing its metadata, proposal, design, task checklist, delta specification, or corresponding main specification
-- **THEN** the OpenSpec check SHALL fail and identify the missing artifact
+- **WHEN** a non-top stack layer contains the shared valid active change with one or more unchecked tasks
+- **THEN** the OpenSpec check SHALL pass its phase-specific state requirements and SHALL not require archival in that layer
 
-#### Scenario: Artifact structure is invalid
+#### Scenario: Non-top layer archives early
 
-- **WHEN** `openspec validate --all --strict` reports an error for the pull request contents
-- **THEN** the OpenSpec check SHALL fail and report the validation findings
+- **WHEN** a non-top stack layer archives the shared change before the top layer
+- **THEN** the OpenSpec check SHALL fail and direct archival to the final top layer
 
-#### Scenario: Specification shortcut is used
+#### Scenario: Top layer archives the shared change
 
-- **WHEN** a pull request uses a skip-specification marker or equivalent shortcut instead of providing the required specification
-- **THEN** the OpenSpec check SHALL fail
+- **WHEN** the current stack position equals the current stack size and the candidate archives exactly the shared change set with every task complete
+- **THEN** the OpenSpec check SHALL pass the phase-specific archive requirements
 
-### Requirement: Tasks are complete and the change is archived
+#### Scenario: Stack shrinks after a lower merge
 
-The OpenSpec check SHALL pass only when no active change remains in the pull request contents, every task in the relevant active and archived change set is checked, and archived-change validation succeeds. For a formal stack rooted at the default branch, the bottom PR SHALL own completion and archiving of the change; higher implementation PRs SHALL not independently archive it.
+- **WHEN** lower pull requests merge and GitHub updates the remaining pull requests' positions and stack size
+- **THEN** the OpenSpec check SHALL assign finalization to the new current top without relying on the original stack length or original pull-request number
 
-#### Scenario: Active change remains
+#### Scenario: Top layer is a one-pull-request stack
 
-- **WHEN** the pull request contents include an unarchived change directory
-- **THEN** the OpenSpec check SHALL fail and direct the contributor to archive the change after review feedback is resolved
+- **WHEN** a stack has one remaining pull request with position one and size one
+- **THEN** the OpenSpec check SHALL require that pull request to archive the complete shared change set
 
-#### Scenario: Task checklist is incomplete
+### Requirement: The archive pull request is a standalone finalization step
 
-- **WHEN** any task in the relevant change set remains unchecked
-- **THEN** the OpenSpec check SHALL fail and report the incomplete task count or task names
+The finalization pull request SHALL contain only the OpenSpec changes needed to move the shared active change set into the archive and synchronize the corresponding main specifications. It SHALL NOT combine implementation, QA, or unrelated repository changes with archival.
 
-#### Scenario: Change is archived and complete
+#### Scenario: Archive-only finalization is submitted
 
-- **WHEN** the pull request contains a valid archived change, its main specification, and no incomplete tasks
-- **THEN** the OpenSpec check SHALL pass the OpenSpec state requirements
+- **WHEN** the top pull request's direct diff contains only the exact shared OpenSpec archive transition and corresponding main-specification updates
+- **THEN** the OpenSpec check SHALL accept it as a standalone archive pull request
 
-#### Scenario: Base PR owns finalization for a stack
+#### Scenario: Archive pull request includes implementation work
 
-- **WHEN** a formal stack contains implementation layers above a base PR with an active OpenSpec change
-- **THEN** contributors SHALL complete the task checklist and archive the change in the base PR, cascade-rebase the higher branches, and rerun the strict check before merging the stack
+- **WHEN** the top pull request's direct diff includes source, tests, QA changes, documentation unrelated to the archive, or another non-OpenSpec path
+- **THEN** the OpenSpec check SHALL fail and identify that finalization must be isolated
 
-#### Scenario: Higher PR attempts to own finalization
+#### Scenario: Finalization follows an active change already on the trunk
 
-- **WHEN** a higher implementation PR archives the change or creates a competing finalized change instead of updating the base PR
-- **THEN** the OpenSpec check SHALL fail and identify the base PR as the required location for completion and archiving
+- **WHEN** lower stack layers have merged and the current trunk temporarily contains the shared active change
+- **THEN** the top pull request SHALL be allowed to archive that exact active change, while an existing archived change with no matching active-to-archived transition SHALL remain insufficient
 
-### Requirement: The CI guidance documents stacked OpenSpec workflow
+### Requirement: OpenSpec artifacts and enforcement remain valid and protected
 
-The OpenSpec check and repository OpenSpec documentation SHALL describe the distinct responsibilities of non-stacked, base-stack, and higher-stack pull requests.
+The OpenSpec check SHALL require the repository's spec-driven artifacts, reject specification shortcuts, require synchronized main specifications for archived changes, and run strict OpenSpec validation. The required check SHALL run for every relevant pull-request update, including drafts and stack transitions, from base-branch-owned enforcement logic against an immutable candidate revision.
 
-#### Scenario: Base-stack failure explains finalization
+#### Scenario: Required artifact or strict validation is invalid
 
-- **WHEN** the strict check fails on the bottom PR of a stack because tasks are incomplete or the change is unarchived
-- **THEN** the failure SHALL instruct the contributor to complete tasks and archive the change in that base PR
+- **WHEN** a relevant change is missing required artifacts, uses `skip_specs: true`, lacks a synchronized main specification, or fails strict OpenSpec validation
+- **THEN** the OpenSpec check SHALL fail with an actionable finding
 
-#### Scenario: Higher-stack failure explains rebasing
+#### Scenario: Non-top active artifacts are structurally valid
 
-- **WHEN** the strict check fails on a higher implementation PR because the base PR has not been finalized
-- **THEN** the failure SHALL state that the higher PR must not archive the change, identify the base branch or PR when available, and instruct the contributor to cascade-rebase after base-PR finalization
+- **WHEN** a non-top layer has complete valid planning artifacts but its task checklist is not yet complete
+- **THEN** strict artifact validation SHALL run and pass without converting the incomplete task checklist into a finalization failure
 
-#### Scenario: Documentation matches CI guidance
+#### Scenario: Candidate attempts to replace enforcement
 
-- **WHEN** a contributor reads the OpenSpec repository guide while using a stacked pull request
-- **THEN** the guide SHALL explain that strict failures in higher layers are expected until the base PR is completed and archived, and SHALL prescribe finalizing only the base PR before rebasing and merging
+- **WHEN** the pull request modifies the workflow or validator used by the gate
+- **THEN** the required check SHALL continue using the protected base-branch enforcement source and SHALL not execute candidate-controlled enforcement code
 
-### Requirement: The OpenSpec check is a merge prerequisite
+#### Scenario: Required status is missing or failing
 
-The default branch SHALL require the named OpenSpec check to pass before a pull request can merge. The check SHALL run for every pull request update, including draft transitions and subsequent commits, and SHALL validate the pull request's cumulative diff rather than only its latest commit.
-
-#### Scenario: Required check is failing or absent
-
-- **WHEN** the OpenSpec check fails, is skipped, or has not reported for the current pull request revision
-- **THEN** GitHub SHALL prevent the pull request from merging through the default branch ruleset
-
-#### Scenario: Required check passes
-
-- **WHEN** the OpenSpec check passes for the current pull request revision and all other branch rules are satisfied
-- **THEN** the pull request SHALL be eligible for merge subject to the repository's review requirements
-
-#### Scenario: Higher layer remains blocked by strict base requirements
-
-- **WHEN** a higher layer's own implementation is valid but a lower layer in the same main-rooted stack has not satisfied the strict OpenSpec requirement
-- **THEN** GitHub SHALL continue to block the higher layer from merging until the lower layer is finalized and the stack is rebased
+- **WHEN** the stable OpenSpec check has not passed for the current pull-request revision
+- **THEN** the repository's `main` ruleset SHALL prevent the pull request or stack from merging
 
 ### Requirement: The agent cannot alter or bypass the enforcement
 
