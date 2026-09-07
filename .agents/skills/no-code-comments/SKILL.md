@@ -28,14 +28,3 @@ make no-code-comments
 ```
 
 The checker scans all tracked files in the candidate tree and reports each violation as `path:line:column`. It is intentionally separate from Swift format and SwiftLint.
-
-## Stacked change workflow
-
-The no-code-comments work is delivered in four layers:
-
-1. Spec: OpenSpec proposal, requirements, design, and tasks.
-2. Implementation: validator, tests, local command, protected workflow, and guidance.
-3. Migration: remove all existing in-scope comments without changing behavior.
-4. QA: record full validation and verify failing and passing temporary pull requests.
-
-The Spec PR owns OpenSpec completion and archiving. Higher layers must not archive or create a competing change.
