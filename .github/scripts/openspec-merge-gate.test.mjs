@@ -6,9 +6,7 @@ import test from "node:test";
 
 import {
   archiveGuidance,
-  introducedOpenSpecChanges,
-  inspectCandidate,
-  readChangedFileManifest,
+  changedPaths,
   resolveCandidateTarget,
   stackContext,
   validateCandidate,
@@ -18,205 +16,163 @@ function fixture() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "openspec-merge-gate-"));
 }
 
-function write(root, relativePath, content = "") {
+function write(root, relativePath, content = "content\n") {
   const filePath = path.join(root, relativePath);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content);
 }
 
-function archivedChange(root, name = "2026-09-06-example") {
-  const prefix = `openspec/changes/archive/${name}`;
+function activeChange(root, name = "2026-09-07-example", complete = true) {
+  const prefix = `openspec/changes/${name}`;
   write(root, `${prefix}/.openspec.yaml`, "schema: spec-driven\n");
   write(root, `${prefix}/proposal.md`, "## Why\nA durable requirement record.\n");
   write(root, `${prefix}/design.md`, "## Context\nA protected merge gate.\n");
-  write(root, `${prefix}/tasks.md`, "## Tasks\n\n- [x] 1.1 Complete the gate\n");
+  write(root, `${prefix}/tasks.md`, `## Tasks\n\n- [${complete ? "x" : " "}] 1.1 Complete the gate\n`);
   write(root, `${prefix}/specs/example/spec.md`, "## ADDED Requirements\n\n### Requirement: Example\nThe system SHALL validate.\n\n#### Scenario: Valid\n- **WHEN** checked\n- **THEN** it passes\n");
-  write(root, "openspec/specs/example/spec.md", "## Purpose\nA durable main specification for the archived change.\n");
 }
 
-test("fails when the candidate has no OpenSpec change", () => {
-  const root = fixture();
-  const result = validateCandidate(root, {}, { runCli: false });
-  assert.match(result.findings.join("\n"), /No OpenSpec change/);
-});
+function archiveChange(root, name = "2026-09-07-example", complete = true) {
+  const source = fixture();
+  activeChange(source, name, complete);
+  for (const relativePath of [
+    `.openspec.yaml`,
+    "proposal.md",
+    "design.md",
+    "tasks.md",
+    "specs/example/spec.md",
+  ]) {
+    write(root, `openspec/changes/archive/${name}/${relativePath}`, fs.readFileSync(path.join(source, `openspec/changes/${name}/${relativePath}`), "utf8"));
+  }
+  write(root, "openspec/specs/example/spec.md", "## Purpose\nA durable main specification.\n");
+}
 
-test("fails active, incomplete, and skip_specs changes", () => {
-  const root = fixture();
-  write(root, "openspec/changes/example/.openspec.yaml", "schema: spec-driven\nskip_specs: true\n");
-  write(root, "openspec/changes/example/proposal.md", "proposal\n");
-  write(root, "openspec/changes/example/design.md", "design\n");
-  write(root, "openspec/changes/example/tasks.md", "- [ ] 1.1 Finish\n");
-  write(root, "openspec/changes/example/specs/example/spec.md", "spec\n");
-  const result = validateCandidate(root, {}, { runCli: false });
-  const findings = result.findings.join("\n");
-  assert.match(findings, /Active OpenSpec change/);
-  assert.match(findings, /skip_specs/);
-  assert.match(findings, /0\/1 tasks complete/);
-});
-
-test("fails malformed archived changes and missing main specs", () => {
-  const root = fixture();
-  write(root, "openspec/changes/archive/2026-09-06-example/proposal.md", "proposal\n");
-  const result = validateCandidate(root, {}, { runCli: false });
-  const findings = result.findings.join("\n");
-  assert.match(findings, /missing \.openspec\.yaml/);
-  assert.match(findings, /missing design\.md/);
-  assert.match(findings, /missing tasks\.md/);
-  assert.match(findings, /no corresponding main specification/);
-});
-
-test("fails an archived delta without its matching main specification", () => {
-  const root = fixture();
-  const prefix = "openspec/changes/archive/2026-09-06-example";
-  write(root, `${prefix}/.openspec.yaml`, "schema: spec-driven\n");
-  write(root, `${prefix}/proposal.md`, "proposal\n");
-  write(root, `${prefix}/design.md`, "design\n");
-  write(root, `${prefix}/tasks.md`, "- [x] 1.1 Complete\n");
-  write(root, `${prefix}/specs/missing/spec.md`, "delta\n");
-  write(root, "openspec/specs/other/spec.md", "main\n");
-  const result = validateCandidate(root, {}, { runCli: false });
-  assert.match(result.findings.join("\n"), /openspec\/specs\/missing\/spec\.md/);
-});
-
-test("passes a complete archived change", () => {
-  const root = fixture();
-  archivedChange(root);
-  const result = validateCandidate(root, {}, { runCli: false });
-  assert.deepEqual(result.findings, []);
-});
-
-test("requires a newly introduced OpenSpec change instead of an inherited archive", () => {
-  const root = fixture();
-  archivedChange(root);
-  const result = validateCandidate(root, {}, {
-    runCli: false,
-    requireNewChange: true,
-    changedFiles: [{ filename: "ordinary-change.txt", status: "added" }],
-  });
-  assert.match(result.findings.join("\n"), /No new OpenSpec change/);
-});
-
-test("does not count edits to an existing archive as a new change", () => {
-  const root = fixture();
-  archivedChange(root);
-  const result = validateCandidate(root, {}, {
-    runCli: false,
-    requireNewChange: true,
-    changedFiles: [{ filename: "openspec/changes/archive/2026-09-06-example/tasks.md", status: "modified" }],
-  });
-  assert.match(result.findings.join("\n"), /No new OpenSpec change/);
-});
-
-test("recognizes added and renamed active or archived change paths", () => {
-  assert.deepEqual(introducedOpenSpecChanges([
-    { filename: "README.md", status: "added" },
-    { filename: "openspec/README.md", status: "modified" },
-    { filename: "openspec/changes/feature/.openspec.yaml", status: "added" },
-    { filename: "openspec/changes/archive/2026-09-06-feature/tasks.md", status: "renamed" },
-  ]), ["2026-09-06-feature", "feature"]);
-});
-
-test("requires a valid trusted changed-file manifest", () => {
-  const root = fixture();
-  archivedChange(root);
-  const missingManifest = validateCandidate(root, {}, {
-    runCli: false,
-    requireNewChange: true,
-  });
-  assert.match(missingManifest.findings.join("\n"), /trusted effective pull request file manifest is required/);
-
-  const result = validateCandidate(root, {}, {
-    runCli: false,
-    requireNewChange: true,
-    changedFiles: [{ filename: 42, status: "added" }],
-  });
-  assert.match(result.findings.join("\n"), /manifest is invalid/);
-});
-
-test("reads and validates changed-file manifests", () => {
-  const root = fixture();
-  const manifestPath = path.join(root, "changed-files.json");
-  const files = [{ filename: "openspec/changes/example/design.md", status: "added" }];
-  write(root, "changed-files.json", JSON.stringify({ source: "base-head-compare", files }));
-  assert.deepEqual(readChangedFileManifest(manifestPath), files);
-  write(root, "invalid.json", "not json");
-  assert.throws(() => readChangedFileManifest(path.join(root, "invalid.json")), /not valid JSON/);
-  write(root, "missing-files.json", JSON.stringify({ source: "base-head-compare" }));
-  assert.throws(() => readChangedFileManifest(path.join(root, "missing-files.json")), /must be an array/);
-});
-
-test("CLI validation catches malformed archived specifications", () => {
-  const root = fixture();
-  archivedChange(root);
-  write(root, "openspec/changes/archive/2026-09-06-example/specs/example/spec.md", "This is not a requirement document.\n");
-  const result = validateCandidate(root);
-  assert.ok(result.findings.some((finding) => finding.includes("validate")));
-});
-
-test("inspects the complete candidate tree assembled across commits", () => {
-  const root = fixture();
-  archivedChange(root);
-  write(root, "implementation/first-layer.txt", "first layer\n");
-  write(root, "implementation/second-layer.txt", "second layer\n");
-  const result = validateCandidate(root, {}, {
-    runCli: false,
-    requireNewChange: true,
-    changedFiles: [
-      { filename: "openspec/changes/archive/2026-09-06-example/.openspec.yaml", status: "added" },
-      { filename: "implementation/first-layer.txt", status: "added" },
-      { filename: "implementation/second-layer.txt", status: "added" },
-    ],
-  });
-  assert.deepEqual(result.findings, []);
-});
-
-test("draft state does not relax strict findings", () => {
-  const root = fixture();
-  write(root, "openspec/changes/example/.openspec.yaml", "schema: spec-driven\n");
-  const draft = validateCandidate(root, { IS_DRAFT: "true" }, { runCli: false });
-  const ready = validateCandidate(root, { IS_DRAFT: "false" }, { runCli: false });
-  assert.deepEqual(draft.findings, ready.findings);
-});
-
-test("higher stack layers are told not to archive", () => {
-  const environment = {
-    STACK_BASE_REF: "main",
-    STACK_POSITION: "2",
-    PR_BASE_REF: "feat-require-openspec",
-  };
-  assert.equal(stackContext(environment).kind, "higher");
-  assert.match(archiveGuidance(environment), /Do not archive/);
-  assert.match(archiveGuidance(environment), /feat-require-openspec/);
-});
-
-test("base stack layer owns archive guidance", () => {
-  const environment = {
-    STACK_BASE_REF: "main",
-    STACK_POSITION: "1",
+function prEnvironment(overrides = {}) {
+  return {
+    EVENT_NAME: "pull_request_target",
     PR_BASE_REF: "main",
+    STACK_BASE_REF: "main",
+    STACK_BASE_SHA: "trunk-sha",
+    STACK_POSITION: "1",
+    STACK_SIZE: "2",
+    STACK_PRESENT: "true",
+    DEFAULT_BRANCH: "main",
+    ...overrides,
   };
-  assert.equal(stackContext(environment).kind, "base");
-  assert.match(archiveGuidance(environment), /base PR/);
-  assert.doesNotMatch(archiveGuidance(environment), /Do not archive/);
+}
+
+function validate(candidate, immediateBase, trunk, environment) {
+  return validateCandidate(candidate, environment, {
+    immediateBaseDirectory: immediateBase,
+    trunkDirectory: trunk,
+    runCli: false,
+  });
+}
+
+test("normalizes standalone, non-top, and current top stack context", () => {
+  assert.equal(stackContext({ PR_BASE_REF: "main" }).kind, "standalone");
+  assert.equal(stackContext(prEnvironment({ STACK_POSITION: "1", STACK_SIZE: "4" })).kind, "non-top");
+  assert.equal(stackContext(prEnvironment({ STACK_POSITION: "4", STACK_SIZE: "4" })).kind, "top");
+  assert.equal(stackContext(prEnvironment({ STACK_POSITION: "3", STACK_SIZE: "2" })).kind, "unknown");
+  assert.equal(stackContext(prEnvironment({ STACK_BASE_REF: "release", STACK_POSITION: "1", STACK_SIZE: "2" })).kind, "unknown");
+  assert.match(archiveGuidance(prEnvironment({ STACK_POSITION: "2", STACK_SIZE: "4" })), /Continue implementation or QA/);
 });
 
-test("malformed stack metadata stays strict", () => {
-  const context = stackContext({ STACK_BASE_REF: "main", STACK_POSITION: "not-a-number", PR_BASE_REF: "feature" });
+test("fails closed when formal stack metadata is incomplete", () => {
+  const context = stackContext(prEnvironment({ STACK_BASE_SHA: "" }));
   assert.equal(context.kind, "unknown");
-  assert.equal(context.strict, true);
 });
 
-test("pull request candidate uses head repository and immutable SHA", () => {
+test("accepts a non-top active change with incomplete tasks", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const candidate = fixture();
+  activeChange(immediateBase, undefined, false);
+  activeChange(candidate, undefined, false);
+  const result = validate(candidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "2", STACK_SIZE: "4", PR_BASE_REF: "layer-1" }));
+  assert.deepEqual(result.findings, []);
+});
+
+test("requires the current top to archive and complete the shared change", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const incompleteCandidate = fixture();
+  const completeCandidate = fixture();
+  activeChange(immediateBase, undefined, false);
+  activeChange(incompleteCandidate, undefined, false);
+  activeChange(completeCandidate, undefined, true);
+  const incomplete = validate(incompleteCandidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "4", STACK_SIZE: "4", PR_BASE_REF: "layer-3" }));
+  assert.match(incomplete.findings.join("\n"), /must not retain active|incomplete/);
+
+  archiveChange(completeCandidate);
+  fs.rmSync(path.join(completeCandidate, "openspec/changes/2026-09-07-example"), { recursive: true });
+  const complete = validate(completeCandidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "4", STACK_SIZE: "4", PR_BASE_REF: "layer-3" }));
+  assert.deepEqual(complete.findings, []);
+});
+
+test("accepts an active-to-archived handoff after main temporarily carries the active change", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const candidate = fixture();
+  activeChange(immediateBase);
+  archiveChange(candidate);
+  const result = validate(candidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "2", STACK_SIZE: "2", PR_BASE_REF: "main" }));
+  assert.deepEqual(result.findings, []);
+});
+
+test("rejects an inherited historical archive as a new change", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const candidate = fixture();
+  archiveChange(trunk, "2026-09-07-example");
+  archiveChange(candidate, "2026-09-07-example");
+  const result = validate(candidate, immediateBase, trunk, prEnvironment({ STACK_PRESENT: "false", STACK_BASE_REF: "", STACK_BASE_SHA: "", STACK_POSITION: "", STACK_SIZE: "", PR_BASE_REF: "main" }));
+  assert.match(result.findings.join("\n"), /new archived OpenSpec change|absent from the trunk/);
+});
+
+test("rejects omitted or competing names on a higher layer", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const omitted = fixture();
+  const competing = fixture();
+  activeChange(immediateBase, "shared-change");
+  activeChange(omitted, "other-change");
+  activeChange(competing, "shared-change");
+  activeChange(competing, "other-change");
+  const omittedResult = validate(omitted, immediateBase, trunk, prEnvironment({ STACK_POSITION: "2", STACK_SIZE: "3", PR_BASE_REF: "layer-1" }));
+  assert.match(omittedResult.findings.join("\n"), /change-set mismatch/);
+  const competingResult = validate(competing, immediateBase, trunk, prEnvironment({ STACK_POSITION: "2", STACK_SIZE: "3", PR_BASE_REF: "layer-1" }));
+  assert.match(competingResult.findings.join("\n"), /change-set mismatch/);
+});
+
+test("requires archive-only top diffs", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const candidate = fixture();
+  activeChange(immediateBase);
+  archiveChange(candidate);
+  write(candidate, "Sources/Unexpected.swift", "implementation\n");
+  const result = validate(candidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "2", STACK_SIZE: "2", PR_BASE_REF: "main" }));
+  assert.match(result.findings.join("\n"), /unexpected changed path 'Sources\/Unexpected.swift'/);
+});
+
+test("supports a standalone one-layer archive and reports exact changed paths", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const candidate = fixture();
+  archiveChange(candidate, "new-change");
+  const result = validate(candidate, immediateBase, trunk, {
+    EVENT_NAME: "pull_request_target",
+    PR_BASE_REF: "main",
+    STACK_PRESENT: "false",
+  });
+  assert.deepEqual(result.findings, []);
+  assert.ok(changedPaths(immediateBase, candidate).includes("openspec/changes/archive/new-change/tasks.md"));
+});
+
+test("resolves pull request candidates from the immutable head repository and SHA", () => {
   assert.deepEqual(resolveCandidateTarget({
     name: "pull_request_target",
     pullRequest: { head: { repository: { fullName: "fork-owner/repo" }, sha: "abc123" } },
   }), { repository: "fork-owner/repo", ref: "abc123" });
   assert.throws(() => resolveCandidateTarget({ name: "pull_request_target", pullRequest: { head: {} } }), /immutable SHA/);
-});
-
-test("push candidate uses repository SHA", () => {
-  assert.deepEqual(resolveCandidateTarget({ name: "push", repository: "owner/repo", sha: "def456" }), {
-    repository: "owner/repo",
-    ref: "def456",
-  });
 });
