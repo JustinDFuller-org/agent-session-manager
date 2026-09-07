@@ -87,11 +87,11 @@ function datedArchiveChange(root, changeName = "example", archiveName = "2026-09
     "proposal.md",
     "design.md",
     "tasks.md",
-    "specs/example/spec.md",
+    `specs/${changeName}.md`,
   ]) {
     write(root, `openspec/changes/archive/${archiveName}/${relativePath}`, fs.readFileSync(path.join(source, `openspec/changes/${changeName}/${relativePath}`), "utf8"));
   }
-  write(root, "openspec/specs/example/spec.md", "## Purpose\nA durable main specification.\n");
+  write(root, `openspec/specs/${changeName}.md`, "## Purpose\nA durable main specification.\n");
 }
 
 function prEnvironment(overrides = {}) {
