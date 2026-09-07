@@ -19,8 +19,10 @@ rules:
 operations:
   apply:
     guidance:
-      - Do not archive as part of implementation — archiving happens after review feedback on the change has been resolved, as the last step before a pull request is marked ready for review
+      - On a non-top stacked pull request, preserve the shared active change and continue implementation or QA without archiving; only the current top layer or a standalone pull request performs finalization
+      - The intended sequence is OpenSpec -> implementation 1..n -> QA -> archive, with the final archive pull request containing only the archive transition and synchronized main specifications
   archive:
     guidance:
+      - Archive only the exact shared change set in the current top stacked pull request or standalone pull request; lower layers must leave the change active
       - Archiving happens after review feedback on the change itself has been resolved
-      - Archiving is the last step before a pull request is marked ready for review, not part of implementation
+      - Archiving is the last step before the archive pull request is marked ready for review, not part of implementation or QA
