@@ -1,20 +1,63 @@
 # OpenSpec in this repo
 
-This repo uses [OpenSpec](https://openspec.dev)'s `opsx` workflow. It exists to close a gap: on a long-running agent session, the only durable record of what was actually asked for is the session itself — the commit log and the code faithfully record whatever the session drifted into, not necessarily what was agreed. OpenSpec makes the requirements a committed artifact a human reads and approves before implementation starts.
+This repo uses [OpenSpec](https://openspec.dev)'s `opsx` workflow. OpenSpec
+keeps the agreed requirements, design decisions, and implementation tasks in
+the repository so a human can review the contract before implementation is
+merged.
 
-## Using it is optional
+## Every pull request needs OpenSpec
 
-Nothing here is required. A pull request that touches no path under `openspec/` is unaffected by the checks and labeling described below.
+Every pull request requires a complete, valid, archived OpenSpec change,
+including drafts and pull requests that change only code, documentation,
+automation, dependencies, or repository metadata. The `openspec-check` status
+is strict on every pull request and every layer of a formal GitHub stacked pull
+request. A draft does not relax the gate.
+
+The required final state includes:
+
+- the repository's spec-driven artifacts (`.openspec.yaml`, `proposal.md`,
+  `design.md`, `tasks.md`, and a delta specification);
+- a corresponding main specification under `openspec/specs/`;
+- no `skip_specs` shortcut;
+- every task checked; and
+- no active change remaining under `openspec/changes/`.
+
+The gate runs the pinned OpenSpec CLI with strict validation and archived-change
+validation. It evaluates the immutable candidate revision for the pull request,
+not scripts or workflows supplied by that candidate.
 
 ## The command sequence
 
 1. `/opsx:explore` — work out the requirements and open questions with the agent
-2. `/opsx:propose` — write `proposal.md`, `specs/<capability>/spec.md`, `design.md`, and `tasks.md` for review; **no implementation yet**
-3. Iterate on the spec with your reviewer(s) until it's locked in
+2. `/opsx:propose` — write `proposal.md`, `specs/<capability>/spec.md`,
+   `design.md`, and `tasks.md` for review; **no implementation yet**
+3. Iterate on the spec with your reviewer(s) until it is locked in
 4. `/opsx:apply` — implement `tasks.md`
 5. PR review — human and AI feedback on the implementation and the spec
-6. `/opsx:archive` — **after** review feedback on the change is resolved, and as the **last step** before marking the PR ready for review, not part of implementation
-7. Merge
+6. Complete every task and run the required checks
+7. `/opsx:archive` — archive the change as the last OpenSpec step, after review
+   feedback is resolved and before the pull request is marked ready for review
+8. Merge
+
+### Stacked pull requests
+
+For a formal stack rooted at `main`, the bottom PR owns the OpenSpec change.
+Higher PRs contain implementation layers and must not archive the change or
+create a competing finalized change.
+
+While implementation proceeds, higher PRs may show the same strict check
+failure because the base PR is still active or has incomplete tasks. That is
+expected. Do not archive in the higher PR. Instead:
+
+1. Finish the implementation work in the higher PRs.
+2. Return to the base PR, complete the task checklist, and archive the change
+   there.
+3. Cascade-rebase the stack so the higher branches contain the archived state.
+4. Rerun the checks, then mark the stack ready and merge it.
+
+For a higher-layer failure, CI explicitly says not to archive in that PR and
+points to the base branch when available. For a base-layer failure, CI directs
+the contributor to complete and archive the change in that base PR.
 
 ## Install OpenSpec
 
@@ -24,44 +67,94 @@ Install the repository's pinned OpenSpec CLI version:
 npm install -g @fission-ai/openspec@1.10.0
 ```
 
-The `/opsx:*` commands are OpenSpec workflows that run inside a supported AI coding assistant. Follow the [official OpenSpec setup guide](https://openspec.dev/docs/getting-started) to install the integration for your assistant. The `openspec` CLI must be on `PATH` before a workflow starts.
+The `/opsx:*` commands are OpenSpec workflows that run inside a supported AI
+coding assistant. Follow the [official OpenSpec setup guide](https://openspec.dev/docs/getting-started)
+to install the integration for your assistant. The `openspec` CLI must be on
+`PATH` before a workflow starts.
 
 ### Preserve the repository configuration
 
-This repository has a curated `openspec/config.yaml`. Review the working-tree diff after running `openspec init` or `openspec update`, and do not overwrite that file with profile-generated defaults.
+This repository has a curated `openspec/config.yaml`. Review the working-tree
+diff after running `openspec init` or `openspec update`, and do not overwrite
+that file with profile-generated defaults.
 
 ## What a reviewer should read
 
-Read `specs/<capability>/spec.md`. It's the requirement contract, written to stand on its own. The other planning artifacts (`proposal.md`, `design.md`, `tasks.md`, `.openspec.yaml`) are working material for the agent and a historical record — they're collapsed by default in the GitHub diff so they don't compete for attention, but they remain fully visible to automated code review and are not out of scope for findings.
+Read `specs/<capability>/spec.md`. It is the requirement contract, written to
+stand on its own. The other planning artifacts (`proposal.md`, `design.md`,
+`tasks.md`, `.openspec.yaml`) are working material for the agent and a
+historical record; they remain visible to automated code review and are not out
+of scope for findings.
 
 ## If you disagree with a requirement
 
-Stop reviewing the parts of the implementation affected by that requirement until the disagreement is resolved. Reviewing an implementation against a requirement you don't agree with wastes both sides' time.
+Stop reviewing the parts of the implementation affected by that requirement
+until the disagreement is resolved. Reviewing an implementation against a
+requirement you do not agree with wastes both sides' time.
 
-## Archiving is the last step, not part of implementation
+## Archiving is the last OpenSpec step
 
-A change is archived only after review feedback on it has been resolved, immediately before the PR is marked ready for review. A pull request that is a draft is never held to being archived or to having a complete checklist — open one, iterate, and collect feedback without the `openspec-check` going red. Once a PR is marked ready for review (or a commit reaches `main`, directly or through the merge queue), the check requires the change to be archived with every task complete, on both the active and archived change.
+A change is archived only after review feedback on the change has been
+resolved, immediately before the pull request is marked ready for review. The
+archive is required even when the pull request is a draft; keeping a draft only
+allows the work to remain under review while the strict check explains what is
+still missing.
 
-### Tasks can only contain work completable before archiving
+Tasks must describe work that can be completed and verified before archiving.
+Verifying, archiving, marking the pull request ready, and merging are the
+workflow itself, not tasks. Work that can only happen after merge belongs under
+a `## Follow-ups after merge` heading in `proposal.md`, with a tracking issue
+when it needs an owner.
 
-Because archiving happens before the PR is marked ready, and a ready PR must have every task complete, a task whose completion depends on the PR being marked ready, merged, or observed after merge can never be honestly checked. `tasks.md` should contain only work that's completable and verifiable before archiving. Verifying, archiving, marking the PR ready, and merging are the workflow itself, not tasks. Work that can only happen after merge belongs under a `## Follow-ups after merge` heading in `proposal.md` instead, linking a tracking issue when it needs an owner.
+## What CI enforces
 
-## What CI enforces, and when
+`openspec-check` runs on every pull request through the base-owned
+`pull_request_target` workflow and on pushes to the default branch. Its
+validation is strict for ordinary pull requests, drafts, and every layer of a
+formal stack:
 
-`openspec-check` runs on every pull request and on pushes to the default branch. Structural validity is always enforced; the two "how far along is this" facts relax to notices on a draft PR so iterating on a change never shows as a failure:
+| Invariant | Required result |
+|---|---|
+| An OpenSpec change is present in the candidate tree | pass |
+| Required artifacts and matching main specifications exist | pass |
+| Artifacts pass `openspec validate --all --strict` | pass |
+| Archived-change validation passes | pass |
+| No active change remains outside `openspec/changes/archive/` | pass |
+| All tasks are checked in the relevant change set | pass |
 
-| Invariant | Draft PR | Ready for review, or a commit on the default branch |
-|---|---|---|
-| Artifacts pass `openspec validate --all --strict` | error | error |
-| No change outside `openspec/changes/archive/` | notice | error |
-| All tasks checked — active and archived changes | notice | error |
+Missing, malformed, active, incomplete, or unarchived changes fail the check.
+The `openspec-check` job is the merge gate; the guide comment and `openspec`
+label are informational only.
 
-A notice appears in the check's output but does not fail it — draft-mode findings surface as GitHub notices, not failures. Converting a PR back to draft re-relaxes a red check to green.
+## GitHub merge controls and ownership
+
+The `main` branch ruleset is external repository configuration. It must require
+the stable `openspec-check` status in addition to the repository's existing
+review, code-owner, latest-push approval, and thread-resolution requirements.
+Only the human account `JustinDFuller` may use the configured ruleset bypass.
+`JustinDFuller-Agents` must not have administrator, maintain, or ruleset-bypass
+permission.
+
+The existing `.github/CODEOWNERS` policy remains in force:
+
+- `JustinDFuller` owns the repository by default.
+- Selected implementation paths remain intentionally agent-editable.
+- The enforcement surface, including `.github/workflows/`,
+  `.github/scripts/`, `.github/CODEOWNERS`, and `openspec/`, remains covered by
+  the human default because no exception grants those paths to the agent.
+
+The ruleset and CODEOWNERS policy are complementary: CODEOWNERS controls human
+review of enforcement changes, while the ruleset controls the required status
+and its only authorized bypass.
 
 ## The OpenSpec guide comment
 
-The `.github/workflows/openspec-guide.yml` workflow maintains a sticky pull request comment reporting the status of each OpenSpec change touched by the pull request's cumulative diff against its base branch — not just the latest push. Each fact is a row prefixed with `✅`, `⚠️`, or `❌`. For each active change it shows whether its artifacts validate, how many tasks are complete, and whether it's archived, plus a plain-language next step; an archived change collapses to a single row reporting whether it still passes its own validation. The comment updates in place on later pushes rather than reposting, and is removed if a later push leaves the cumulative diff touching no OpenSpec change. It is purely informational — it reports what `openspec-check` already decided and is not itself a required status check.
+The `.github/workflows/openspec-guide.yml` workflow maintains a sticky pull
+request comment reporting OpenSpec status. It is purely informational and is
+not itself a required status check.
 
 ## The `openspec` label
 
-Any pull request whose diff touches `openspec/` is labeled `openspec` automatically, so OpenSpec's impact on cycle time and quality can be measured. No contributor action is required.
+Any pull request whose diff touches `openspec/` is labeled `openspec`
+automatically, so OpenSpec's impact on cycle time and quality can be measured.
+No contributor action is required.
