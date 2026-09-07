@@ -31,18 +31,13 @@ Open **Settings → Harnesses** and enable the tool you want to configure. Agent
 9. Choose **Add Custom Flag** to add a boolean or text option that is not in the catalog.
 10. For Claude Code or OpenCode, configure supported entries under **Environment Variables** when needed.
 
-The options available from **New Pane → CLI Options** change when you select a
-different **Harness**. You can also configure options while editing a profile.
+The options available from **New Pane → CLI Options** change when you select a different **Harness**. You can also configure options while editing a profile.
 
 Text options without presets remain text fields. Options with presets use a single-selection menu unless **Allow multiple selections** is enabled. In either menu, choose **Custom…** or **Add custom…** when you need a value that is not in the preset list.
 
 ## What you should see
 
-Options marked **Show** appear in the selected tool’s **CLI Options** surface
-in **New Pane**. Options marked **Default on** start enabled there. Custom flags
-and environment variables are saved with the tool configuration and can be
-included in profiles. Choose **Show all options** when you need an option that
-is not part of the compact profile view.
+Options marked **Show** appear in the selected tool’s **CLI Options** surface in **New Pane**. Options marked **Default on** start enabled there. Custom flags and environment variables are saved with the tool configuration and can be included in profiles. Choose **Show all options** when you need an option that is not part of the compact profile view.
 
 ![Agent Session Manager New Pane showing harness-specific CLI options]({{ '/assets/img/docs/new-pane-sheet.png' | relative_url }})
 
@@ -51,8 +46,7 @@ _The selected harness controls which CLI options appear during pane creation._
 ## If it does not work
 
 - If a tool’s options are unavailable, enable the tool first in **Harnesses**.
-- If an option does not appear in the compact view, open **New Pane → CLI
-  Options → Show all options**, or turn on **Show** for that option.
+- If an option does not appear in the compact view, open **New Pane → CLI Options → Show all options**, or turn on **Show** for that option.
 - If a custom flag has no effect, confirm that the installed version of the selected tool recognizes it.
 - If an environment variable is not available for editing, it may be controlled by Agent Session Manager for that tool.
 

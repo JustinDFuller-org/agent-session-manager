@@ -8,9 +8,7 @@ permalink: /documentation/user-guide/quickstart/
 
 ## What you will learn
 
-This lesson takes you from the main window to a running agent session in a
-project directory. You will create one tab, choose one task context, and
-recognize the pane that Agent Session Manager starts for you.
+This lesson takes you from the main window to a running agent session in a project directory. You will create one tab, choose one task context, and recognize the pane that Agent Session Manager starts for you.
 
 ## Before you start
 
@@ -28,8 +26,7 @@ Complete [Install and First Launch]({{ '/documentation/user-guide/install/' | re
 8. Enter a session name, branch, or worktree in **Session, branch, or worktree**. For a new task, use a simple name such as `feature-a`.
 9. Choose **Create Pane**.
 
-At this point, keep the first session simple. The configuration guides explain
-profiles, CLI options, and pane settings after the basic workflow is working.
+At this point, keep the first session simple. The configuration guides explain profiles, CLI options, and pane settings after the basic workflow is working.
 
 ## Check your result
 

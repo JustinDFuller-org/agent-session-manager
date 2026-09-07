@@ -36,25 +36,17 @@ Agent Session Manager creates linked worktrees for new tasks and can also open a
 
 ### Session, branch, or worktree
 
-The **Session, branch, or worktree** field in **New Pane** identifies the
-working context for a pane. Its value can represent a new task name, an
-existing local or remote branch, or an existing worktree name.
+The **Session, branch, or worktree** field in **New Pane** identifies the working context for a pane. Its value can represent a new task name, an existing local or remote branch, or an existing worktree name.
 
 ## How the concepts relate
 
-Tabs keep repositories separate. Panes keep task worktrees separate within a
-repository. The agent tool determines which command-line assistant runs,
-while the task name or branch identifies the work associated with that pane.
+Tabs keep repositories separate. Panes keep task worktrees separate within a repository. The agent tool determines which command-line assistant runs, while the task name or branch identifies the work associated with that pane.
 
-The repository, branch, and worktree are related but not interchangeable. A
-repository contains the shared history, a branch names a line of development,
-and a worktree is the directory where that branch is checked out.
+The repository, branch, and worktree are related but not interchangeable. A repository contains the shared history, a branch names a line of development, and a worktree is the directory where that branch is checked out.
 
 ## The visible workspace
 
-The main window shows tabs across the top and panes below them. Each pane has
-its own terminal session, working directory, tool, and status information.
-Switching tabs changes the project context and its panes.
+The main window shows tabs across the top and panes below them. Each pane has its own terminal session, working directory, tool, and status information. Switching tabs changes the project context and its panes.
 
 ![Agent Session Manager main window with an active tab]({{ '/assets/img/docs/main-window-tab.png' | relative_url }})
 

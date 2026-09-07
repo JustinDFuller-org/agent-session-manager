@@ -45,8 +45,7 @@ Enable a supported tool in [Agent Tools]({{ '/documentation/user-guide/agent-too
    - **Tab** lets the agent access every pane in its tab.
    - **Global** lets the agent access the entire app.
 4. Open **New Pane** and select Claude Code, Cursor, Codex, or OpenCode in **Harness**.
-5. Open **New Pane → More Settings**. If you chose an ask policy, enable or
-   disable **Agent Session Manager control** in the **Agent Control** section.
+5. Open **New Pane → More Settings**. If you chose an ask policy, enable or disable **Agent Session Manager control** in the **Agent Control** section.
 6. Choose **Create Pane**.
 
 **Global** is the default scope. Some app-wide configuration and diagnostic actions require Global scope.
@@ -70,18 +69,13 @@ Names are display values. Agent Control uses stable object identities so actions
 
 ## What you should see
 
-With an ask policy, **New Pane → More Settings** shows the **Agent Session
-Manager control** checkbox and the current scope. With **Always** or **Never**,
-the sheet shows whether control will be enabled or disabled instead of showing
-a checkbox.
+With an ask policy, **New Pane → More Settings** shows the **Agent Session Manager control** checkbox and the current scope. With **Always** or **Never**, the sheet shows whether control will be enabled or disabled instead of showing a checkbox.
 
 After the pane starts, the supported agent can use Agent Control within the selected scope. The pane continues to run the selected agent tool in its prepared Git worktree.
 
 ## If it does not work
 
-- If the control checkbox is not shown, open **New Pane → More Settings** and
-  check **Settings → Panes → Injection Policy**. **Always** and **Never** show
-  a status message instead of a checkbox.
+- If the control checkbox is not shown, open **New Pane → More Settings** and check **Settings → Panes → Injection Policy**. **Always** and **Never** show a status message instead of a checkbox.
 - A Cursor pane prompts to approve the Agent Session Manager server unless you enable **Approve MCPs** (`--approve-mcps`) under **New Pane → Cursor CLI options**. That option auto-approves every MCP server the pane sees, not only Agent Control's, so enable it only if that fits your workflow.
 - If a policy or scope change has no effect on a running pane, restart the pane.
 - If an action is unavailable, choose **Global** scope when the action needs access beyond the current pane or tab.

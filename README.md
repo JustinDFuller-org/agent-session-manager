@@ -1,7 +1,6 @@
 <img width="1600" height="auto" alt="image" src="assets/img/hero.png" />
 
-<br />
-<br />
+<br /> <br />
 
 Keeps Claude Code, Codex, Cursor, and OpenCode managed in a window optimized for multi-agent workflows.
 

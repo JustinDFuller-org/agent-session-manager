@@ -7,14 +7,11 @@ permalink: /docs/
 
 # Documentation
 
-Use these guides to learn Agent Session Manager, complete everyday tasks,
-consult exact supported-tool and shortcut information, and understand how
-tabs, panes, sessions, and Git worktrees fit together.
+Use these guides to learn Agent Session Manager, complete everyday tasks, consult exact supported-tool and shortcut information, and understand how tabs, panes, sessions, and Git worktrees fit together.
 
 New to Agent Session Manager? Read the [Overview]({{ '/documentation/user-guide/overview/' | relative_url }}), complete [Install and First Launch]({{ '/documentation/user-guide/install/' | relative_url }}), and follow the [Quickstart]({{ '/documentation/user-guide/quickstart/' | relative_url }}). Then choose a how-to guide, reference page, or explanation for the need you have now.
 
-<label for="doc-search">Search documentation</label>
-<input id="doc-search" class="catalog-search" type="search" placeholder="Filter by type or title" autocomplete="off">
+<label for="doc-search">Search documentation</label> <input id="doc-search" class="catalog-search" type="search" placeholder="Filter by type or title" autocomplete="off">
 
 <div id="doc-catalog" class="doc-catalog">
   {% for group in site.data.navigation %}

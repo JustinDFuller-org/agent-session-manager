@@ -37,39 +37,24 @@ Each file begins with a metadata header:
 }
 ```
 
-`resource` is the process-wide OTel `Resource` (`TracingService.configure`), written once per file
-and identical across every file from the same process. It comes from
-`ResourceExtension`'s `DefaultResources()` merged with an explicit `service.name`/`service.version`
-override; `device.id` may also appear.
+`resource` is the process-wide OTel `Resource` (`TracingService.configure`), written once per file and identical across every file from the same process. It comes from `ResourceExtension`'s `DefaultResources()` merged with an explicit `service.name`/`service.version` override; `device.id` may also appear.
 
 The exporter routes every span with `pane.id` to a pane file. Spans without `pane.id` route to `_global/global.jsonl`. Tab and pane names are sanitized only for paths; diagnosis should read metadata rather than derive filenames.
 
 ## App Lifecycle Correlation
 
-The app synchronously writes `app-lifecycle.json` in its application-support directory. Launch writes
-`running` with a launch UUID; an approved AppKit termination writes `clean` after Agent Control stops
-only when the on-disk marker still belongs to that launch. This ownership check prevents an older
-concurrent instance from marking a newer instance clean; an interprocess file lock keeps the
-read/check/write sequence atomic across instances. A later launch that finds `running` reports
-`previous_exit=unclean`, while a missing, unsupported, or unreadable marker reports
-`previous_exit=unknown`.
+The app synchronously writes `app-lifecycle.json` in its application-support directory. Launch writes `running` with a launch UUID; an approved AppKit termination writes `clean` after Agent Control stops only when the on-disk marker still belongs to that launch. This ownership check prevents an older concurrent instance from marking a newer instance clean; an interprocess file lock keeps the read/check/write sequence atomic across instances. A later launch that finds `running` reports `previous_exit=unclean`, while a missing, unsupported, or unreadable marker reports `previous_exit=unknown`.
 
-`app.launched` records the previous-exit classification and marker write result after tracing is
-configured. `app.termination.requested` records whether the clean marker was written. A force kill,
-signal crash, or power loss cannot emit a final span, so the next launch's marker classification is the
-durable evidence for an unclean process exit.
+`app.launched` records the previous-exit classification and marker write result after tracing is configured. `app.termination.requested` records whether the clean marker was written. A force kill, signal crash, or power loss cannot emit a final span, so the next launch's marker classification is the durable evidence for an unclean process exit.
 
 ## Auto-forwarding to other signals
 
 Every `TracingService.startSpan`/`record`/`withSpan` call also, unconditionally:
 
-- writes a unified-log line via `AppLog` (see `documentation/features/debug-logging.md`) — always on,
-  independent of Debug Mode
-- emits an `os_signpost` interval (`OSSignposterIntegration`/`SignPostIntegration`) for Instruments'
-  Points of Interest — also always on
+- writes a unified-log line via `AppLog` (see `documentation/features/debug-logging.md`) — always on, independent of Debug Mode
+- emits an `os_signpost` interval (`OSSignposterIntegration`/`SignPostIntegration`) for Instruments' Points of Interest — also always on
 
-Instrumenting a code path is a single `TracingService` call, not three. Do not add separate
-`print`/`NSLog`/log calls alongside a span for the same event.
+Instrumenting a code path is a single `TracingService` call, not three. Do not add separate `print`/`NSLog`/log calls alongside a span for the same event.
 
 Each file is trimmed at the fixed 10 MB cap. `TraceCleanupService` removes files older than one day on app launch and emits `trace.cleanup.ran`.
 

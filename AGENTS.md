@@ -85,9 +85,7 @@ make clean        # remove .build/, .app/, .xcodeproj/
 make docs-check   # render the GitHub Pages site and check generated local links
 ```
 
-The documentation check requires a current Ruby installation and Bundler. It
-builds the site into `.build/docs-site` and validates the rendered HTML without
-checking external URLs over the network.
+The documentation check requires a current Ruby installation and Bundler. It builds the site into `.build/docs-site` and validates the rendered HTML without checking external URLs over the network.
 
 ## Testing
 
@@ -183,11 +181,9 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 
 ## Documentation
 
-For the optional OpenSpec `opsx` workflow, see
-[`openspec/README.md`](openspec/README.md).
+For the optional OpenSpec `opsx` workflow, see [`openspec/README.md`](openspec/README.md).
 
-Load `.agents/skills/diataxis-documentation` before creating, editing,
-moving, or reviewing documentation.
+Load `.agents/skills/diataxis-documentation` before creating, editing, moving, or reviewing documentation.
 
 Public documentation has four types, each serving one dominant need:
 
@@ -196,17 +192,9 @@ Public documentation has four types, each serving one dominant need:
 - **Reference** pages provide neutral, exact facts for consultation.
 - **Explanation** pages provide context, relationships, and rationale.
 
-Public pages belong under `documentation/tutorials/`,
-`documentation/how-to/`, `documentation/reference/`, or
-`documentation/explanation/`. Internal feature, architecture, diagnostic,
-release, and agent documentation remains excluded from the Jekyll site.
+Public pages belong under `documentation/tutorials/`, `documentation/how-to/`, `documentation/reference/`, or `documentation/explanation/`. Internal feature, architecture, diagnostic, release, and agent documentation remains excluded from the Jekyll site.
 
-Preserve existing public permalinks when moving pages. Verify user-facing
-claims against the current UI, source, tests, or canonical internal feature
-documentation. Keep implementation-only details out of public pages, explain
-product terms at first use, and update navigation, related links, inventories,
-screenshots, and rendered-site checks when documentation changes. Use
-`Agent Session Manager` in full; do not use the acronym `ASM`.
+Preserve existing public permalinks when moving pages. Verify user-facing claims against the current UI, source, tests, or canonical internal feature documentation. Keep implementation-only details out of public pages, explain product terms at first use, and update navigation, related links, inventories, screenshots, and rendered-site checks when documentation changes. Use `Agent Session Manager` in full; do not use the acronym `ASM`.
 
 ## Skills
 
@@ -269,10 +257,7 @@ Each feature has a skill that loads its documentation on demand. Do NOT auto-loa
 **Workflow reminders:**
 1. **When working on a feature** — load the corresponding skill (e.g. `feature-panes`) before starting.
 2. **After updating a feature doc** (`documentation/features/<name>.md`) — verify the skill still points to it correctly (no action needed if skill uses `!`cat``, but confirm the doc path hasn't changed).
-3. **When creating a new feature** — create all three artifacts in order:
-   a. `documentation/features/<name>.md` — the feature guide
-   b. `.agents/skills/feature-<name>/SKILL.md` — the skill (use `!`cat`` to reference the doc)
-   c. Add a line to the `## Feature Skills` section of `AGENTS.md`
+3. **When creating a new feature** — create all three artifacts in order: a. `documentation/features/<name>.md` — the feature guide b. `.agents/skills/feature-<name>/SKILL.md` — the skill (use `!`cat`` to reference the doc) c. Add a line to the `## Feature Skills` section of `AGENTS.md`
 
 ## Key Behaviors to Know
 

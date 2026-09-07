@@ -27,8 +27,7 @@ Archive a completed change in the experimental workflow.
    - Auto-select if only one active change exists
    - If ambiguous, run `openspec list --json` to get available changes and ask the user to select one
 
-   When prompting, show only active changes (not already archived).
-   Include the schema used for each change if available.
+   When prompting, show only active changes (not already archived). Include the schema used for each change if available.
 
    Always announce: "Using change: <name>" and how to override (e.g., `/openspec-archive-change <other>`).
 
@@ -38,26 +37,11 @@ Archive a completed change in the experimental workflow.
    ```bash
    openspec instructions archive --change "<name>" --json
    ```
-   Keep the same selected-root flags on this command. This lookup is advisory and
-   optional: it only supplies extra prompt inputs, so it must never block archiving.
-   If it exits non-zero or returns invalid JSON — for example on an older CLI that
-   does not support this command yet — continue the archive workflow with no
-   context and no operation guidance. Do not report an error and do not stop.
+   Keep the same selected-root flags on this command. This lookup is advisory and optional: it only supplies extra prompt inputs, so it must never block archiving. If it exits non-zero or returns invalid JSON — for example on an older CLI that does not support this command yet — continue the archive workflow with no context and no operation guidance. Do not report an error and do not stop.
 
-   A successful response may omit both optional fields. Treat `context` as a
-   required prompt-level input: read and consider it, and apply relevant project
-   facts, conventions, and constraints. Treat `operationGuidance` as optional
-   additive advice: read and consider every entry, and follow entries that are
-   applicable and compatible with the built-in archive workflow.
+   A successful response may omit both optional fields. Treat `context` as a required prompt-level input: read and consider it, and apply relevant project facts, conventions, and constraints. Treat `operationGuidance` as optional additive advice: read and consider every entry, and follow entries that are applicable and compatible with the built-in archive workflow.
 
-   Keep both fields separate from built-in steps, explicit user choices, resolved
-   paths, CLI checks, and command contracts. If context conflicts with one of those
-   controlling inputs, report the conflict and preserve the controlling value. If
-   guidance is inapplicable or conflicts with a controlling input, do not follow it
-   and explain why. Do not infer replacement paths, skipped prompts, or flags from
-   either field, and do not copy their text verbatim into specs, change artifacts,
-   or archive summaries unless the user separately asks for it. These are
-   prompt-level behavior contracts, not enforceable checks.
+   Keep both fields separate from built-in steps, explicit user choices, resolved paths, CLI checks, and command contracts. If context conflicts with one of those controlling inputs, report the conflict and preserve the controlling value. If guidance is inapplicable or conflicts with a controlling input, do not follow it and explain why. Do not infer replacement paths, skipped prompts, or flags from either field, and do not copy their text verbatim into specs, change artifacts, or archive summaries unless the user separately asks for it. These are prompt-level behavior contracts, not enforceable checks.
 
 2. **Check artifact completion status**
 
@@ -88,10 +72,7 @@ Archive a completed change in the experimental workflow.
 
 4. **Assess delta spec sync state**
 
-   Use `artifactPaths.specs.existingOutputPaths` from status JSON as the only
-   delta-spec source. If the `specs` entry is missing or
-   `existingOutputPaths` is empty, proceed without a sync prompt and do not infer
-   delta specs from other artifacts.
+   Use `artifactPaths.specs.existingOutputPaths` from status JSON as the only delta-spec source. If the `specs` entry is missing or `existingOutputPaths` is empty, proceed without a sync prompt and do not infer delta specs from other artifacts.
 
    **If delta specs exist:**
    - Compare each delta spec with its corresponding main spec at `<planningHome.root>/openspec/specs/<capability-path>/spec.md` (use the store-aware `planningHome.root` from step 2, not a hardcoded repo path)
@@ -108,14 +89,7 @@ Archive a completed change in the experimental workflow.
    - "Sync now" or "Sync anyway" — sync, then verify (below)
    - Anything else — ask again rather than archiving
 
-   Before a selected sync writes any main spec, run
-   `openspec instructions specs --change "<name>" --json` once with the same
-   selected-root flags. Require a zero exit status and valid artifact-instruction
-   JSON. If the lookup fails or returns invalid JSON, report the error and stop
-   before writing any main spec or moving the change. A valid response with omitted
-   `rules` is the no-rules case. Apply returned `rules` only to the content and
-   form of main specs produced by this merge; do not use them as archive guidance,
-   change CLI behavior, or copy the rule text into any output file.
+   Before a selected sync writes any main spec, run `openspec instructions specs --change "<name>" --json` once with the same selected-root flags. Require a zero exit status and valid artifact-instruction JSON. If the lookup fails or returns invalid JSON, report the error and stop before writing any main spec or moving the change. A valid response with omitted `rules` is the no-rules case. Apply returned `rules` only to the content and form of main specs produced by this merge; do not use them as archive guidance, change CLI behavior, or copy the rule text into any output file.
 
    Then run the `openspec-sync-specs` workflow inline (agent-driven intelligent merge) for change '<name>', passing the delta spec analysis and the fetched specs-rule snapshot from above, and wait for it to finish. The inline sync must reuse that snapshot without fetching `specs` instructions again. Do not delegate it to a background task — step 5 would move `changeRoot` out from under a sync that is still reading it, leaving the change archived and the main specs never updated. If your agent can only run it by delegation, delegate synchronously and wait for the result.
 

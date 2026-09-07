@@ -6,8 +6,7 @@ diataxis_type: reference
 permalink: /documentation/user-guide/shortcuts/
 ---
 
-Keyboard shortcuts open, close, and move through tabs and panes without
-leaving the terminal.
+Keyboard shortcuts open, close, and move through tabs and panes without leaving the terminal.
 
 ## Default shortcuts
 
@@ -23,14 +22,11 @@ leaving the terminal.
 
 ## Shortcut configuration
 
-**Settings → Shortcuts** contains the configurable shortcut fields. Each field
-accepts one key, and the command modifier remains fixed. The ⌘1 through ⌘9
-tab-switching shortcuts are fixed.
+**Settings → Shortcuts** contains the configurable shortcut fields. Each field accepts one key, and the command modifier remains fixed. The ⌘1 through ⌘9 tab-switching shortcuts are fixed.
 
 ## Terminal editing
 
-⌘C and ⌘V copy and paste in the active pane. A pane's context menu contains
-the same **Copy** and **Paste** actions.
+⌘C and ⌘V copy and paste in the active pane. A pane's context menu contains the same **Copy** and **Paste** actions.
 
 ## Related documentation
 

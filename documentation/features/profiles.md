@@ -16,23 +16,15 @@ In **Settings → Profiles**, select a profile and click **Edit**. Every availab
 
 ## Show on Create
 
-By default, options enabled in a selected profile appear in the New Pane
-sheet so their values can be reviewed or changed. Options stored in the
-profile but disabled remain hidden unless they are marked **Show on new pane**.
+By default, options enabled in a selected profile appear in the New Pane sheet so their values can be reviewed or changed. Options stored in the profile but disabled remain hidden unless they are marked **Show on new pane**.
 
-Marking an option **Show** means it will appear as an editable toggle or text
-field even when it is disabled in the profile. This is useful for options you
-want to decide on per-pane, like `--continue` or `--resume`.
+Marking an option **Show** means it will appear as an editable toggle or text field even when it is disabled in the profile. This is useful for options you want to decide on per-pane, like `--continue` or `--resume`.
 
-Options that are enabled in the profile are still passed to the selected
-harness exactly as configured, whether or not they are changed in the sheet.
+Options that are enabled in the profile are still passed to the selected harness exactly as configured, whether or not they are changed in the sheet.
 
 ## Applying a Profile
 
-In the New Pane sheet, choose a profile from the **Profile** picker. The
-harness is locked to the profile's harness. Enabled options and options marked
-**Show** in the profile are displayed; other catalog entries remain under
-**Show all options** or **Show all environment variables**.
+In the New Pane sheet, choose a profile from the **Profile** picker. The harness is locked to the profile's harness. Enabled options and options marked **Show** in the profile are displayed; other catalog entries remain under **Show all options** or **Show all environment variables**.
 
 If you change any option while a profile is selected, the picker label updates to show **(modified)**. You can click **Save Profile & Create** to save the modified form as a new or updated profile before creating the pane.
 

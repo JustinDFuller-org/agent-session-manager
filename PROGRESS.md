@@ -2,8 +2,7 @@
 
 ## Initial Build — Complete
 
-Built a native macOS session manager (Swift/SwiftUI + SwiftTerm) from scratch.
-All 7 planned stages completed and committed.
+Built a native macOS session manager (Swift/SwiftUI + SwiftTerm) from scratch. All 7 planned stages completed and committed.
 
 ### What works
 

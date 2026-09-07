@@ -24,8 +24,7 @@ Calibration succeeds only after an isolated launch/title, a real tab, saved scre
 
 ## Choosing validation tools
 
-Use the tools together, not as interchangeable proof. Each produces a
-different kind of evidence.
+Use the tools together, not as interchangeable proof. Each produces a different kind of evidence.
 
 | Tool | Use it for | Do not treat it as |
 | --- | --- | --- |
@@ -35,25 +34,13 @@ different kind of evidence.
 | Telemetry and invariants | Bounded corroboration of runtime behavior after Debug Mode is enabled | A substitute for a screenshot or real visible interaction |
 | Instruments | Targeted diagnosis of startup, rendering, concurrency, or terminal behavior | A mandatory pass/fail benchmark in V1 |
 
-Computer Use is usually less disruptive to the desktop than local XCTest
-because it operates the owned app through Accessibility rather than starting
-an Xcode UI test session. It can still foreground the target window while it
-clicks or types, so it is not guaranteed background automation. Keep a run
-serialized, avoid operating it while a user is performing sensitive work, and
-use XCTest/CI for large deterministic suites.
+Computer Use is usually less disruptive to the desktop than local XCTest because it operates the owned app through Accessibility rather than starting an Xcode UI test session. It can still foreground the target window while it clicks or types, so it is not guaranteed background automation. Keep a run serialized, avoid operating it while a user is performing sensitive work, and use XCTest/CI for large deterministic suites.
 
 ### Reusable sample flow
 
-The agent skill includes a `tab-and-pane-calibration` sample flow. It starts a
-fresh owned run, verifies identity, creates a tab through the visible UI,
-saves a safe screenshot, enables Debug Mode, optionally attaches an existing
-disposable worktree through New Pane, collects selected-pane evidence, runs
-focused XCTest separately, and closes only the owned run.
+The agent skill includes a `tab-and-pane-calibration` sample flow. It starts a fresh owned run, verifies identity, creates a tab through the visible UI, saves a safe screenshot, enables Debug Mode, optionally attaches an existing disposable worktree through New Pane, collects selected-pane evidence, runs focused XCTest separately, and closes only the owned run.
 
-The sample deliberately attaches a caller-supplied disposable checkout rather
-than creating and deleting worktrees as test debris. Copy it for a new visual
-journey, rename the expected UI outcome, and keep its ownership and evidence
-rules unchanged.
+The sample deliberately attaches a caller-supplied disposable checkout rather than creating and deleting worktrees as test debris. Copy it for a new visual journey, rename the expected UI outcome, and keep its ownership and evidence rules unchanged.
 
 ## Deferred scope
 

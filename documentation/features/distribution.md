@@ -18,10 +18,7 @@ The shippable artifact is produced by:
 make dist
 ```
 
-This builds the `.app` bundle (via the existing `make app` SPM-based flow),
-embeds `Sparkle.framework` under `Contents/Frameworks` and the Agent Control MCP
-bridge under `Contents/Helpers`, then re-signs and packages it through
-`scripts/dist.sh`:
+This builds the `.app` bundle (via the existing `make app` SPM-based flow), embeds `Sparkle.framework` under `Contents/Frameworks` and the Agent Control MCP bridge under `Contents/Helpers`, then re-signs and packages it through `scripts/dist.sh`:
 
 1. Stamps a version into `Info.plist`.
 2. Re-signs the `.app` with the **Developer ID Application** certificate, the entitlements file, and hardened runtime.
@@ -36,9 +33,7 @@ The standalone bundle check is available before a release build:
 make test-app-bundles
 ```
 
-It verifies that both production and development app bundles contain Sparkle
-and the executable `AgentSessionManagerMCPBridge`, resolve the framework through
-the app bundle rpath, and have valid app and nested-helper signatures.
+It verifies that both production and development app bundles contain Sparkle and the executable `AgentSessionManagerMCPBridge`, resolve the framework through the app bundle rpath, and have valid app and nested-helper signatures.
 
 The DMG is written next to the `.app` bundle at the git common root, named:
 
@@ -108,8 +103,7 @@ The normal release workflow deploys a Pages artifact through GitHub Actions. The
 
 #### Documentation-only publication
 
-For documentation changes, use the local Jekyll build and preserve the current
-release assets. This does not build, sign, notarize, or publish a new DMG.
+For documentation changes, use the local Jekyll build and preserve the current release assets. This does not build, sign, notarize, or publish a new DMG.
 
 From the source checkout:
 
@@ -127,12 +121,9 @@ cp CNAME "$site_dir/CNAME"
 touch "$site_dir/.nojekyll"
 ```
 
-`preserve` downloads the current public appcast and the DMG named by its latest
-appcast enclosure. If the public appcast has no release item, the resulting
-site contains no DMG, which is valid for a documentation-only publication.
+`preserve` downloads the current public appcast and the DMG named by its latest appcast enclosure. If the public appcast has no release item, the resulting site contains no DMG, which is valid for a documentation-only publication.
 
-Before publishing, verify the new route and the internal-documentation
-boundary:
+Before publishing, verify the new route and the internal-documentation boundary:
 
 ```bash
 test -f "$site_dir/documentation/user-guide/agent-control/index.html"
@@ -144,9 +135,7 @@ test ! -e "$site_dir/documentation/agent-control-mcp-qa-findings.md"
 test ! -e "$site_dir/documentation/features"
 ```
 
-Replace the rendered contents of a temporary `gh-pages` checkout. Preserve its
-existing `downloads/` directory before replacing the rest of the branch so
-older release files remain available:
+Replace the rendered contents of a temporary `gh-pages` checkout. Preserve its existing `downloads/` directory before replacing the rest of the branch so older release files remain available:
 
 ```bash
 remote_url=$(git remote get-url origin)
@@ -164,8 +153,7 @@ git -C "$branch_dir" commit -m "Publish documentation site from $(git rev-parse 
 git -C "$branch_dir" push origin gh-pages
 ```
 
-Configure Pages once before the first branch publication. The API equivalent
-of **Settings → Pages → Deploy from a branch → gh-pages → /(root)** is:
+Configure Pages once before the first branch publication. The API equivalent of **Settings → Pages → Deploy from a branch → gh-pages → /(root)** is:
 
 ```bash
 gh api --method PUT repos/JustinDFuller/agent-session-manager/pages \
@@ -174,9 +162,7 @@ gh api --method PUT repos/JustinDFuller/agent-session-manager/pages \
     -f 'source[path]=/'
 ```
 
-Keep the custom domain and HTTPS enforcement enabled. If the first branch push
-was made before switching Pages from workflow mode to legacy mode, push a
-follow-up commit to `gh-pages` to trigger the initial legacy build.
+Keep the custom domain and HTTPS enforcement enabled. If the first branch push was made before switching Pages from workflow mode to legacy mode, push a follow-up commit to `gh-pages` to trigger the initial legacy build.
 
 Verify the branch, Pages build, public route, and preserved release endpoints:
 
@@ -215,9 +201,7 @@ export SPARKLE_PRIVATE_KEY="$(security find-generic-password \
 scripts/validate-sparkle-key.sh
 ```
 
-The validation command strictly checks the committed public key and confirms
-that it matches the private signing key without printing either value. Release
-packaging also rejects malformed public-key material before embedding it.
+The validation command strictly checks the committed public key and confirms that it matches the private signing key without printing either value. Release packaging also rejects malformed public-key material before embedding it.
 
 For each local publication, build and notarize the DMG first:
 
