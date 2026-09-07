@@ -5,15 +5,7 @@ description: "Development workflow for this repo: plan → test → implement �
 
 ## Fixed-width prose policy
 
-Write each logical prose paragraph, list item, blockquote paragraph, and pull-request description paragraph on one physical line; let Markdown and GitHub renderers wrap it naturally instead of inserting line breaks inside sentences.
-
-Run `make no-fixed-width-prose` before review. CI hard-fails on findings in tracked Markdown-family files and the current pull-request description, including drafts and formal stacked pull requests.
-
-Leave fenced and indented code, tables, YAML front matter, headings, thematic breaks, raw HTML blocks, and separate one-line list items in their required line-oriented form.
-
-Write commit-body prose as one-line logical paragraphs as strongly worded guidance, but do not treat commit bodies as a hard CI input because force-pushes are prohibited and pushed messages cannot be removed from a pull request's commit set without rewriting history.
-
-Never force-push to bypass or repair this policy; fix Markdown and pull-request-description findings in new commits and rerun the local check.
+Use the canonical [fixed-width-prose skill](../fixed-width-prose/SKILL.md) for prose-formatting guidance and load it before authoring or reviewing Markdown, pull-request descriptions, commit bodies, agent guidance, or repository documentation.
 
 ## Workflow
 

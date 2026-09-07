@@ -49,17 +49,7 @@ Markdown files, pull-request prose, and commit messages may contain prose. Keep 
 
 ## Fixed-Width Prose
 
-Keep each logical prose paragraph, list item, blockquote paragraph, and pull-request description paragraph on one physical line so renderers can wrap it naturally; do not insert formatting-driven line breaks inside sentences.
-
-The `no-fixed-width-prose` CI check hard-blocks violations in every tracked Markdown-family file and the current pull-request description, including drafts and every formal stacked pull-request layer.
-
-Fenced code, indented code, tables, YAML front matter, headings, thematic breaks, raw HTML blocks, and separate one-line list items remain line-oriented structural content and are not prose violations.
-
-Commit bodies should follow the same one-line logical-prose rule, but commit bodies are guidance-only and are not a hard CI input because force-pushes are prohibited and a pushed message cannot be removed from the pull request's commit set without rewriting history.
-
-Do not force-push to bypass or repair this policy; resolve file and pull-request-description findings in new commits and rerun `make no-fixed-width-prose` before review.
-
-Run `make no-fixed-width-prose` locally before review; CI will fail when the validator reports any tracked Markdown or pull-request-description finding.
+The canonical fixed-width prose policy is [the `fixed-width-prose` skill](.agents/skills/fixed-width-prose/SKILL.md); load it before writing or reviewing Markdown, pull-request descriptions, commit bodies, agent guidance, or repository documentation. It defines the one-line logical-prose rule, structural exceptions, local validator, CI hard block, commit-body guidance, and no-force-push rule.
 
 ## No One-Off Methods
 

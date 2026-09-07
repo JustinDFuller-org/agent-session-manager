@@ -12,8 +12,8 @@
 
 ## 3. Repository and agent guidance
 
-- [x] 3.1 Update `AGENTS.md` and the repository workflow skill with the one-line logical-prose rule, structural exceptions, local command, CI failure behavior, strong commit-body guidance, and the prohibition on force-push bypasses; verify all guidance uses the repository's required terminology.
-- [x] 3.2 Add a dedicated fixed-width-prose agent skill with valid front matter, authoring examples, migration guidance, and validation instructions, and verify it passes the available Agent Skills validator.
+- [x] 3.1 Update `AGENTS.md` and the repository workflow skill to reference the canonical fixed-width-prose policy for the one-line logical-prose rule, structural exceptions, local command, CI failure behavior, strong commit-body guidance, and the prohibition on force-push bypasses; verify all guidance uses the repository's required terminology.
+- [x] 3.2 Add the canonical fixed-width-prose agent skill with valid front matter, authoring examples, migration guidance, and validation instructions, and verify it passes the available Agent Skills validator.
 
 ## 4. Existing Markdown migration
 
