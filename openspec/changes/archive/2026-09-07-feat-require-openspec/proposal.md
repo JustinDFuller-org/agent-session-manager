@@ -6,6 +6,7 @@ OpenSpec is currently enforced only when a pull request touches `openspec/`, and
 
 - Require every pull request, including drafts, ordinary pull requests, and every layer of a formal stacked pull request, to include a complete OpenSpec change.
 - Require the change to use the repository's spec-driven artifacts, pass strict validation, have every task completed, update the main spec, and be archived before the required check passes.
+- Require the effective pull request diff to introduce an OpenSpec change directory; a valid archive inherited from the base branch must not satisfy the requirement by itself.
 - Keep the same strict gate on every stacked-PR layer. The base PR is the only place where the change's tasks are completed and the change is archived; higher implementation PRs must not archive a second copy or independently finalize the change.
 - Make CI failures and repository documentation explain the stacked workflow: finish implementation in higher PRs, complete and archive in the base PR, then cascade-rebase the stack before merging.
 - Run the enforcement logic from the base branch with read-only permissions while validating the pull request commit, so pull request changes cannot replace the gate logic.

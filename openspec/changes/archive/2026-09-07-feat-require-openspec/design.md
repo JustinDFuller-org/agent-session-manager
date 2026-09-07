@@ -37,7 +37,7 @@ This is preferred over a normal `pull_request` workflow because an agent could o
 
 Remove path-based job skipping, draft severity relaxation, and any stack-position-based relaxation. The `openspec-check` job will run for every pull request event relevant to merge eligibility, including new commits and draft/ready transitions, and will retain its stable job name for the required ruleset status. A higher stacked-PR layer may receive a more specific explanation of the blocking base PR, but it still receives the same failing result until the complete archived state is present.
 
-The check will inspect the cumulative pull request file set, requiring at least one archived change directory and a corresponding main specification. It will detect archive directories by path shape rather than assuming a particular date or change name.
+The check will inspect a trusted effective-diff manifest in addition to the candidate checkout. For an ordinary pull request, the manifest covers the pull request base-to-head diff. For a formal stack, it covers the stack trunk-to-head cumulative diff. For a fork pull request, it uses the trusted pull-request file listing because formal cross-fork stacks are unsupported. At least one added, copied, or renamed path under `openspec/changes/<name>/` or `openspec/changes/archive/<name>/` must be present; an inherited archive or an edit to an existing archive is not sufficient. It will detect change directories by path shape rather than assuming a particular date or change name.
 
 ### Make the base PR the sole archive owner
 
@@ -51,7 +51,7 @@ The failure output must distinguish the base PR from a higher implementation PR.
 
 ### Fail closed around the spec-driven artifact contract
 
-After the presence check, validate the candidate checkout with the pinned OpenSpec CLI. The gate will require the default spec-driven artifact set, reject `skip_specs`, reject remaining active changes, require all task checkboxes to be complete, and run both strict full validation and archived-change validation. Missing items, empty reports, command failures, or malformed JSON will fail the job rather than being treated as no-op success.
+The base-owned workflow will create the effective-diff manifest outside the candidate checkout and pass it to the validator. Missing or malformed manifest data fails closed. After the presence check, validate the candidate checkout with the pinned OpenSpec CLI. The gate will require the default spec-driven artifact set, reject `skip_specs`, reject remaining active changes, require all task checkboxes to be complete, and run both strict full validation and archived-change validation. Missing items, empty reports, command failures, or malformed JSON will fail the job rather than being treated as no-op success.
 
 Keep the existing CLI version pin and Node 22 setup unchanged for reproducibility; version upgrades are a separate change.
 
@@ -82,6 +82,6 @@ Do not replace the current broad-default-plus-agent-exceptions policy. The OpenS
 3. Open the base pull request with the OpenSpec change, then stack implementation pull requests above it if desired. Keep the change active while implementation proceeds; after review feedback and implementation are complete, finish tasks and archive only in the base pull request, then cascade-rebase the stack.
 4. Confirm the `openspec-check` status context on the pull request.
 5. Have `JustinDFuller` update the `main` ruleset to require that context and replace the role-level bypass with the direct human-user bypass.
-6. Verify the ruleset, collaborator permissions, and representative passing/failing pull requests before considering the gate active.
+6. Verify the ruleset, collaborator permissions, and representative pre-archive validator results before marking the base pull request ready. The final merge activates the protected default-branch workflow; no post-merge validation task is required.
 
 Rollback consists of reverting the workflow/documentation implementation and having `JustinDFuller` remove the required status context from the `main` ruleset. The agent account cannot perform that rollback because it has no ruleset bypass or administrative permission.

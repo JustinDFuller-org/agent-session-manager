@@ -18,6 +18,11 @@ The repository SHALL require every pull request to include an OpenSpec change in
 - **WHEN** a pull request's cumulative diff contains an OpenSpec change
 - **THEN** the OpenSpec required check SHALL evaluate that change's structure, validation, tasks, and archive state
 
+#### Scenario: Pull request only inherits an archived change
+
+- **WHEN** the candidate checkout contains a valid archived OpenSpec change but the pull request's effective diff introduces no OpenSpec change directory
+- **THEN** the OpenSpec required check SHALL fail with an actionable missing-change finding
+
 #### Scenario: Draft pull request is incomplete
 
 - **WHEN** a draft pull request is missing the required OpenSpec change or has an incomplete change
@@ -27,6 +32,11 @@ The repository SHALL require every pull request to include an OpenSpec change in
 
 - **WHEN** a higher layer of a formal stack contains implementation changes while the base PR's OpenSpec change is active, incomplete, or unarchived
 - **THEN** the OpenSpec check SHALL fail with guidance to complete and archive the change in the base PR and cascade-rebase the stack, and SHALL NOT instruct the contributor to archive the change in the higher layer
+
+#### Scenario: Higher stacked layer inherits the base change
+
+- **WHEN** a higher layer's effective diff from the stack trunk includes the base PR's newly introduced OpenSpec change
+- **THEN** the OpenSpec presence requirement SHALL be satisfied by that cumulative change, while the higher layer SHALL still use the same strict artifact and archive validation
 
 ### Requirement: OpenSpec artifacts are complete and valid
 
