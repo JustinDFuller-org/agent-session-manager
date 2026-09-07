@@ -9,10 +9,10 @@ The change is documentation and repository-policy work only. It must preserve Ma
 **Goals:**
 
 - Detect logical prose continuations deterministically without relying on a particular column width.
-- Reuse one scanner contract for files, pull-request descriptions, and commit bodies.
+- Reuse one scanner contract for tracked Markdown files and pull-request descriptions.
 - Keep enforcement independent of candidate-controlled workflow and validator changes.
 - Migrate the existing tracked Markdown corpus with behavior-preserving formatting changes.
-- Make the rule explicit for agents, commits, and pull requests.
+- Make the rule explicit for agents, commit bodies, and pull requests, while hard-blocking only files and pull-request descriptions.
 
 **Non-Goals:**
 
@@ -31,17 +31,17 @@ The validator will reject any non-empty continuation line within a logical prose
 
 The scanner will track YAML front matter, fenced code, indented code, tables, headings, thematic breaks, list boundaries, blockquotes, and raw HTML blocks. It will report only prose continuations and will emit a repository-relative source label, line number, and concise reason. A full Markdown parser was rejected because the rule concerns physical block boundaries and the repository does not currently carry a Markdown parser dependency.
 
-### Share the scanner contract across all communication channels
+### Share the scanner contract across hard-blocked channels
 
-The local command and tests will expose file and text inputs through the same validation logic. CI will pass the complete candidate Markdown tree, the pull-request body from the trusted event payload, and the introduced commit messages from trusted GitHub metadata to that contract. This prevents local and remote checks from implementing subtly different definitions of a wrapped paragraph.
+The local command and tests will expose file and text inputs through the same validation logic. CI will pass the complete candidate Markdown tree and the pull-request body from the trusted event payload to that contract. Commit bodies will receive strong guidance but will not be hard-blocked: with force-pushes prohibited, a pushed bad message cannot be removed from the pull request's commit set without rewriting history. This prevents local and remote checks from implementing subtly different definitions of a wrapped paragraph where enforcement is possible.
 
 ### Run enforcement from the protected base branch
 
 The workflow will use a base-owned pull-request trigger with read-only permissions, check out enforcement code from the default branch, and inspect the candidate at its immutable head SHA. It will run on pull-request creation, edits, synchronization, reopening, and draft-state transitions, and it will not relax for drafts or stack layers. Candidate workflow or validator changes will therefore be scanned but not executed as enforcement logic.
 
-### Scan the full candidate tree and introduced communication
+### Scan the full candidate tree and pull-request communication
 
-The file scan will enumerate tracked Markdown-family files in the candidate tree, including unchanged files, so the repository cannot retain a known violation indefinitely. The pull-request and commit scans will cover only the current communication channels and commits introduced by that pull request; historical commit bodies are not rewritten or retroactively made merge blockers.
+The file scan will enumerate tracked Markdown-family files in the candidate tree, including unchanged files, so the repository cannot retain a known violation indefinitely. The pull-request scan will cover the current description. Commit bodies are not scanned as merge blockers; guidance will explain the one-line rule and the reason force-pushes cannot be used to repair an already-pushed message.
 
 ### Separate enforcement from migration
 
@@ -55,6 +55,6 @@ The stack will be opened only after the pending top-layer archive gate is availa
 
 - [Risk] Markdown has syntax that resembles prose continuation. -> [Mitigation] Cover code, tables, front matter, HTML, headings, list boundaries, and blockquotes with explicit regression fixtures before scanning the full corpus.
 - [Risk] A one-time reflow could change rendered Markdown or intentional spacing. -> [Mitigation] Preserve structural blocks, inspect the full migration diff, run documentation rendering/link checks, and require a clean post-migration scan.
-- [Risk] Pull-request metadata may be incomplete or exceed API pagination limits. -> [Mitigation] Use trusted paginated metadata, fail closed on missing or truncated commit data, and include bounded diagnostics in QA evidence.
+- [Risk] Pull-request metadata may be incomplete. -> [Mitigation] Use the trusted event payload for the description, fail closed on missing data, and include bounded diagnostics in QA evidence.
 - [Risk] A stack layer may try to weaken the gate. -> [Mitigation] Load enforcement from the protected base branch and evaluate the immutable candidate without executing candidate enforcement code.
 - [Risk] The migration produces a large review. -> [Mitigation] Keep the implementation and migration in separate PRs, use deterministic reflow, and report the number and paths of changed Markdown files in the migration PR.

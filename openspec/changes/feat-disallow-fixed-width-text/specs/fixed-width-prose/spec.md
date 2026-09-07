@@ -6,7 +6,7 @@ The fixed-width prose capability keeps repository communication readable by prev
 
 ### Requirement: Prose blocks use one physical line
 
-The repository SHALL treat each logical paragraph, list item, blockquote paragraph, pull-request description paragraph, and commit-message paragraph as one physical line of prose. A non-empty continuation line within one such logical block SHALL be reported as a violation regardless of its width.
+The repository SHALL treat each logical paragraph, list item, blockquote paragraph, and pull-request description paragraph as one physical line of prose. A non-empty continuation line within one such logical block SHALL be reported as a violation regardless of its width. Commit-message prose SHALL follow the same authoring rule as guidance, but commit messages SHALL not be a hard-blocking scan input.
 
 #### Scenario: Wrapped Markdown paragraph
 
@@ -52,23 +52,23 @@ The prose check SHALL not report violations for fenced code, indented code, tabl
 - **WHEN** a Markdown file contains a raw HTML block whose syntax spans multiple physical lines
 - **THEN** the prose check SHALL accept the HTML block
 
-### Requirement: Pull-request descriptions and commit bodies are checked
+### Requirement: Pull-request descriptions are checked and commit bodies receive guidance
 
-The repository SHALL apply the same prose rule to the current pull-request description and to every commit message introduced by that pull request. A violation in either source SHALL fail the prose check and identify its source and location.
+The repository SHALL apply the same prose rule to the current pull-request description. A violation SHALL fail the prose check and identify its source and location. Repository guidance SHALL strongly require one-line logical prose in commit bodies, but commit bodies SHALL not be a hard-blocking CI input because force-pushes are prohibited and a pushed commit message cannot be removed from the pull request's commit set without rewriting history.
 
 #### Scenario: Wrapped pull-request description
 
 - **WHEN** a pull-request description contains a logical paragraph split across physical lines
 - **THEN** the prose check SHALL fail with a pull-request-description finding
 
-#### Scenario: Wrapped commit body
+#### Scenario: Wrapped commit body receives guidance
 
-- **WHEN** a commit introduced by a pull request contains a logical body paragraph split across physical lines
-- **THEN** the prose check SHALL fail with a commit-message finding
+- **WHEN** a commit body contains a logical paragraph split across physical lines
+- **THEN** authoring guidance SHALL identify the commit body as non-conforming, but the prose check SHALL not fail solely because of that commit body
 
 #### Scenario: Clean communication channels
 
-- **WHEN** the pull-request description and all introduced commit messages contain only accepted one-line prose blocks and structural content
+- **WHEN** the pull-request description contains only accepted one-line prose blocks and structural content
 - **THEN** the prose check SHALL accept them
 
 ### Requirement: CI enforcement is fail-closed
@@ -77,7 +77,7 @@ The repository SHALL run the prose check for every relevant pull-request revisio
 
 #### Scenario: Draft pull request contains a violation
 
-- **WHEN** a draft pull request contains a wrapped Markdown paragraph, pull-request paragraph, or commit body
+- **WHEN** a draft pull request contains a wrapped Markdown paragraph or pull-request paragraph
 - **THEN** the prose check SHALL fail rather than downgrade the finding to a notice
 
 #### Scenario: Higher stacked pull request contains a violation
@@ -92,7 +92,7 @@ The repository SHALL run the prose check for every relevant pull-request revisio
 
 ### Requirement: The complete tracked Markdown corpus is covered
 
-The prose check SHALL scan every tracked Markdown-family file in the candidate tree, not only files changed by the current pull request. A clean repository SHALL contain no reported fixed-width prose violations after the migration.
+The prose check SHALL scan every tracked Markdown-family file in the candidate tree, not only files changed by the current pull request. A clean repository SHALL contain no reported fixed-width prose violations after the migration. Commit bodies are intentionally outside this hard-blocking corpus and are covered by authoring guidance instead.
 
 #### Scenario: Existing file is unchanged by the pull request
 

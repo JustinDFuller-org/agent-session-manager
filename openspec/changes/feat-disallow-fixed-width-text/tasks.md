@@ -1,18 +1,18 @@
 ## 1. Prose validator and local interface
 
 - [ ] 1.1 Add the dependency-free Markdown prose validator and local command, including repository-relative file, source-channel, line, and reason diagnostics, and verify clean and violating fixtures return the expected exit status.
-- [ ] 1.2 Add regression tests for wrapped paragraphs, list items, blockquotes, pull-request bodies, commit bodies, blank-separated paragraphs, fenced and indented code, tables, front matter, headings, thematic breaks, raw HTML, and non-width-specific continuations, and verify the complete validator test suite passes.
+- [ ] 1.2 Add regression tests for wrapped paragraphs, list items, blockquotes, pull-request bodies, blank-separated paragraphs, fenced and indented code, tables, front matter, headings, thematic breaks, raw HTML, and non-width-specific continuations; verify commit-body guidance is documented without making commit bodies blocking inputs; and verify the complete validator test suite passes.
 - [ ] 1.3 Add a local Make target that runs the same validator used by CI and verify it scans every tracked Markdown-family file in the candidate tree.
 
 ## 2. Base-owned CI enforcement
 
 - [ ] 2.1 Add the stable `no-fixed-width-prose` pull-request check for opened, edited, synchronized, reopened, and draft-state transitions, and verify draft and stacked pull requests remain fail-closed.
-- [ ] 2.2 Make CI load enforcement logic from the protected default branch, inspect the immutable candidate revision, and consume trusted pull-request and commit metadata without executing candidate enforcement code; verify candidate workflow or validator edits cannot weaken the check.
-- [ ] 2.3 Add full-tree Markdown scanning, pull-request description scanning, and introduced-commit scanning with bounded actionable diagnostics, and verify a deliberate violation fails while clean communication passes.
+- [ ] 2.2 Make CI load enforcement logic from the protected default branch, inspect the immutable candidate revision, and consume the trusted pull-request description without executing candidate enforcement code; verify candidate workflow or validator edits cannot weaken the check.
+- [ ] 2.3 Add full-tree Markdown scanning and pull-request description scanning with bounded actionable diagnostics, and verify a deliberate violation fails while clean communication passes.
 
 ## 3. Repository and agent guidance
 
-- [ ] 3.1 Update `AGENTS.md` and the repository workflow skill with the one-line logical-prose rule, structural exceptions, local command, CI failure behavior, and the prohibition on force-push bypasses; verify all guidance uses the repository's required terminology.
+- [ ] 3.1 Update `AGENTS.md` and the repository workflow skill with the one-line logical-prose rule, structural exceptions, local command, CI failure behavior, strong commit-body guidance, and the prohibition on force-push bypasses; verify all guidance uses the repository's required terminology.
 - [ ] 3.2 Add a dedicated fixed-width-prose agent skill with valid front matter, authoring examples, migration guidance, and validation instructions, and verify it passes the available Agent Skills validator.
 
 ## 4. Existing Markdown migration
@@ -23,5 +23,5 @@
 ## 5. Integrated acceptance
 
 - [ ] 5.1 Run the validator tests, local prose check, strict OpenSpec validation, workflow/YAML checks, documentation checks, and the repository's applicable CI-equivalent checks, and verify every required result passes.
-- [ ] 5.2 Exercise a disposable candidate containing one wrapped Markdown paragraph, one wrapped pull-request paragraph, and one wrapped commit body, then remove each violation and verify the corresponding CI findings fail and pass as specified.
+- [ ] 5.2 Exercise a disposable candidate containing one wrapped Markdown paragraph and one wrapped pull-request paragraph, then remove each violation and verify the corresponding CI findings fail and pass as specified; separately verify that a wrapped commit body receives guidance but does not block.
 - [ ] 5.3 Exercise accepted structural examples and verify code, tables, front matter, headings, raw HTML, and separate one-line list items do not produce false positives.
