@@ -130,7 +130,6 @@ final class URLSessionOpenCodeClientTests: XCTestCase {
                 XCTFail("Expected forbiddenTUIEndpoint for \(path)")
             } catch let error as OpenCodeServerClientError {
                 if case .forbiddenTUIEndpoint = error {
-                    // expected
                 } else {
                     XCTFail("Expected forbiddenTUIEndpoint for \(path), got \(error)")
                 }

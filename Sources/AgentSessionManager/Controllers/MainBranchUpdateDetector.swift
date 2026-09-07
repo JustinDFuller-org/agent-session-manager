@@ -1,7 +1,5 @@
 import Foundation
 
-/// Detects when GitHub `main` has moved ahead of the commit this source build was made from.
-/// Only active for `make`-built binaries on the `main` branch (see `DistributionChannel`).
 @MainActor
 final class MainBranchUpdateDetector: UpdateDetector {
     static let githubRepoSlug = "JustinDFuller/agent-session-manager"
@@ -44,7 +42,6 @@ final class MainBranchUpdateDetector: UpdateDetector {
         reportState()
     }
 
-    // Source-main builds require manual `git pull && make run`; no in-app install path.
     func performUpdate() {}
 
     func check() {
@@ -106,10 +103,6 @@ final class MainBranchUpdateDetector: UpdateDetector {
             ))
     }
 
-    // MARK: - Pure helpers (internal for testing)
-
-    /// Parses `gh api .../commits/main --jq .sha` output (a bare 40-char SHA, possibly with a
-    /// trailing newline); returns `nil` for empty/malformed output.
     nonisolated static func parseCommitSHA(_ output: String) -> String? {
         let sha = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard sha.count == 40, sha.allSatisfy(\.isHexDigit) else { return nil }

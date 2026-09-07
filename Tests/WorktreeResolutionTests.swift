@@ -77,7 +77,6 @@ final class WorktreeResolutionLocalOnlyTests: XCTestCase {
 
     func testBaseBranchOverrideUsedAsWorktreeBase() async throws {
         let repo = try makeGitRepo(branchName: "main")
-        // Create qa branch with a sentinel file
         try runGit(["-c", "user.email=t@t.com", "-c", "user.name=t", "checkout", "-b", "qa"], cwd: repo)
         let sentinel = repo.appending(path: "qa-only.txt")
         try "qa".write(to: sentinel, atomically: true, encoding: .utf8)
@@ -88,7 +87,6 @@ final class WorktreeResolutionLocalOnlyTests: XCTestCase {
         )
         try runGit(["checkout", "main"], cwd: repo)
 
-        // Simulate what NewPaneSheet does: resolve the effective branch from the tab override
         let tab = Tab(name: "T", directory: repo, baseBranchOverride: "qa")
         let effectiveBranch = tab.baseBranchOverride
 
@@ -98,7 +96,6 @@ final class WorktreeResolutionLocalOnlyTests: XCTestCase {
             baseRef: .fresh
         )
 
-        // Worktree branched from qa must contain the sentinel file
         let worktreeSentinel = resolved.checkoutURL.appending(path: "qa-only.txt")
         XCTAssertTrue(
             FileManager.default.fileExists(atPath: worktreeSentinel.path),
@@ -280,7 +277,6 @@ final class TabBaseBranchOverrideModelTests: XCTestCase {
     }
 
     func testEmptyStringNormalizationAtCallSite() {
-        // NewTabSheet trims and converts empty string to nil before passing to Tab init
         let raw = "   "
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let override: String? = trimmed.isEmpty ? nil : trimmed

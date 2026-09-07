@@ -1,14 +1,12 @@
 import Foundation
 import XCTest
 
-/// Mirrors `NSTemporaryDirectory()/UITestWorkspace` used by `NewTabSheet` in UITesting mode.
 enum GitUITestWorkspace {
     static var directoryURL: URL {
         URL(fileURLWithPath: NSTemporaryDirectory())
             .appending(path: "UITestWorkspace", directoryHint: .isDirectory)
     }
 
-    /// Wipes prior content, initializes a deterministic Git repo (`ui-root`).
     static func prepareCleanRepo() {
         let url = directoryURL
         try? FileManager.default.removeItem(at: url)
@@ -26,7 +24,6 @@ enum GitUITestWorkspace {
         runGitOrFail(["branch", "-M", "ui-root"], cwd: url)
     }
 
-    /// Adds a linked secondary worktree under `.agent-session-manager/worktrees/<folder>/`.
     static func addManagedSecondaryWorktree(
         folder: String,
         newTrackingBranch: String,

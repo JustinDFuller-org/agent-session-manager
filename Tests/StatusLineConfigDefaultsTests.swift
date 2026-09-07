@@ -102,8 +102,6 @@ final class StatusLineConfigDefaultsTests: XCTestCase {
         XCTAssertTrue(decoded.showPercentagesAsText)
     }
 
-    // MARK: - Custom Fields
-
     func testDefaultInitCustomFieldsIsEmpty() {
         XCTAssertTrue(StatusLineConfig().customFields.isEmpty)
     }

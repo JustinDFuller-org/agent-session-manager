@@ -33,7 +33,6 @@ final class TracingServiceTests: XCTestCase {
 
     func testNoOutputWhenDisabled() throws {
         TracingService.shared.record("test.event", attributes: ["key": "value"])
-        // No files should exist in the test dir
         let contents = (try? FileManager.default.contentsOfDirectory(atPath: testTraceDir.path)) ?? []
         XCTAssertTrue(contents.isEmpty)
     }
@@ -42,7 +41,6 @@ final class TracingServiceTests: XCTestCase {
         appSettings.debugModeEnabled = true
         TracingService.shared.configure(from: appSettings)
 
-        // Emit a span with pane.id so it routes to a named pane file
         TracingService.shared.record(
             "test.event",
             attributes: [
@@ -59,7 +57,6 @@ final class TracingServiceTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2)
 
-        // Should have at least one JSONL file somewhere under testTraceDir
         var foundContent = ""
         let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
         while let file = enumerator?.nextObject() as? URL {
@@ -128,7 +125,6 @@ final class TracingServiceTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { wait.fulfill() }
         self.wait(for: [wait], timeout: 1)
 
-        // No JSONL files should exist
         var foundFile = false
         let enumerator = FileManager.default.enumerator(at: testTraceDir, includingPropertiesForKeys: nil)
         while let file = enumerator?.nextObject() as? URL {

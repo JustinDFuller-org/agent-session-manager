@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Version adapter
-
 enum OpenCodeVersionAdapter {
     static func normalize(_ version: String?) -> String? {
         guard let version else { return nil }
@@ -14,8 +12,6 @@ enum OpenCodeVersionAdapter {
         return normalized.isEmpty ? nil : normalized
     }
 }
-
-// MARK: - Server models
 
 struct OpenCodeSession: Sendable {
     let id: String
@@ -49,8 +45,6 @@ struct OpenCodeSessionTime: Sendable {
     let updated: Int64?
 }
 
-// MARK: - Server events
-
 enum OpenCodeEvent: Sendable {
     case sessionIdle(sessionID: String)
     case permissionAsked(sessionID: String, permission: String, patterns: [String])
@@ -60,8 +54,6 @@ enum OpenCodeEvent: Sendable {
     case heartbeat
     case other(type: String)
 }
-
-// MARK: - Server client protocol
 
 protocol OpenCodeServerClient: Sendable {
     func health() async throws -> (healthy: Bool, version: String?)
@@ -78,8 +70,6 @@ enum OpenCodeServerClientError: Error {
     case decodingFailed(underlying: Error)
     case forbiddenTUIEndpoint(path: String)
 }
-
-// MARK: - URLSession client
 
 final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable {
     private let port: Int?
@@ -317,8 +307,6 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
         let version: String?
     }
 
-    /// Rejects any HTTP redirect so the OpenCode client cannot be tricked into
-    /// leaving the localhost trust boundary.
     private final class OpenCodeURLSessionDelegate: NSObject, URLSessionTaskDelegate {
         func urlSession(
             _ session: URLSession,
@@ -451,8 +439,6 @@ final class URLSessionOpenCodeClient: OpenCodeServerClient, @unchecked Sendable 
     }
 }
 
-// MARK: - Status provider
-
 @MainActor
 final class OpenCodeStatusProvider: StatusLineDataProvider {
     var onUpdate: ((StatusLineData) -> Void)?
@@ -532,8 +518,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         pollTimer = nil
         baseline.stop()
     }
-
-    // MARK: - Binding
 
     private func bindSession() async {
         guard context.opencodePort != nil else {
@@ -738,8 +722,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         }
     }
 
-    // MARK: - Polling
-
     private func startPollTimer() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + pollInterval, repeating: pollInterval)
@@ -778,8 +760,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         }
     }
 
-    // MARK: - Events
-
     private func startEventStream() {
         eventTask = Task { [weak self] in
             await self?.consumeEvents()
@@ -811,8 +791,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
 
                 for try await event in stream {
                     guard !Task.isCancelled else { return }
-                    // Reset retry budget after a successfully delivered event; only genuine
-                    // transport failures should back off.
                     if attempt > 1 { attempt = 1 }
                     await handleEvent(event)
                 }
@@ -912,8 +890,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         }
     }
 
-    // MARK: - Merge
-
     private func mergeHarnessData(_ session: OpenCodeSession) {
         let model: StatusLineData.Model? = session.model.map { sessionModel in
             let displayName: String? = {
@@ -979,8 +955,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         onUpdate?(data)
     }
 
-    // MARK: - Retry helpers
-
     private func sleepUntilNextRetry(deadline: Date) async -> Bool {
         let remaining = deadline.timeIntervalSince(Date())
         let interval = min(startupRetryInterval, max(0, remaining))
@@ -989,8 +963,6 @@ final class OpenCodeStatusProvider: StatusLineDataProvider {
         }
         return Task.isCancelled
     }
-
-    // MARK: - Tracing
 
     private func trace(_ name: String, attributes extraAttributes: [String: String] = [:]) {
         var attributes = [

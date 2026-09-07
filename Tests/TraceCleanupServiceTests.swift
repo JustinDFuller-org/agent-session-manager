@@ -23,7 +23,6 @@ final class TraceCleanupServiceTests: XCTestCase {
         let oldFile = subDir.appendingPathComponent("pane1-efgh5678.jsonl")
         FileManager.default.createFile(atPath: oldFile.path, contents: Data("old data".utf8))
 
-        // Set mtime to 2 days ago
         let twoDaysAgo = Date(timeIntervalSinceNow: -2 * 24 * 3600)
         try FileManager.default.setAttributes([.modificationDate: twoDaysAgo], ofItemAtPath: oldFile.path)
 
@@ -38,7 +37,6 @@ final class TraceCleanupServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: subDir, withIntermediateDirectories: true)
         let recentFile = subDir.appendingPathComponent("pane1-efgh5678.jsonl")
         FileManager.default.createFile(atPath: recentFile.path, contents: Data("recent".utf8))
-        // mtime is now (default), which is within 24h
 
         let (deleted, _) = TraceCleanupService.cleanup(in: testDir, olderThan: 24 * 3600)
 
@@ -63,7 +61,6 @@ final class TraceCleanupServiceTests: XCTestCase {
     func testNonEmptyDirectoriesAreNotRemoved() throws {
         let subDir = testDir.appendingPathComponent("tab-nonempty", isDirectory: true)
         try FileManager.default.createDirectory(at: subDir, withIntermediateDirectories: true)
-        // One old file (will be deleted), one recent file (kept)
         let oldFile = subDir.appendingPathComponent("old.jsonl")
         let recentFile = subDir.appendingPathComponent("recent.jsonl")
         FileManager.default.createFile(atPath: oldFile.path, contents: Data("x".utf8))

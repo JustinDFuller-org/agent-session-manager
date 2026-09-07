@@ -501,7 +501,6 @@ private final class WindowTrackingView: NSView {
     }
 }
 
-// Captures ⌘W / ⌘1-9 via local event monitor, and tracks active pane via mouse-down.
 private struct KeyboardShortcutView: NSViewRepresentable {
     let appState: AppState
     let onClosePane: () -> Void
@@ -530,10 +529,6 @@ private struct KeyboardShortcutView: NSViewRepresentable {
                 eventWindow: event.window
             )
             guard shouldHandleEvent else { return event }
-            // Intercept Shift+Return so Claude CLI receives the Kitty keyboard protocol
-            // Shift+Enter sequence (ESC [ 13 ; 2 u) instead of plain carriage return.
-            // SwiftTerm's doCommand(by:) discards the shift modifier for insertNewline,
-            // so we must send the correct sequence before the event reaches the terminal.
             let flags = event.modifierFlags.intersection([.shift, .command, .control, .option])
             if event.keyCode == 36 && flags == .shift,
                 let termView = coordinator.appState?.activePane?.terminalController?.terminalView,

@@ -167,7 +167,6 @@ private struct ProfileEditorSheet: View {
     @State private var envVarStates: [String: ProfileOptionDraft] = [:]
     @State private var useCustomStatusLine = false
     @State private var statusLineConfig = StatusLineConfig()
-    /// True once we seeded from disk or after copying from global settings on first toggle.
     @State private var didSeedCustomStatusLineFromGlobal = false
     @State private var showHiddenOptions = false
     @State private var showHiddenEnvVars = false

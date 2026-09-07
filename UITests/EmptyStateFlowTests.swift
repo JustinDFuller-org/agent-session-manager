@@ -19,7 +19,6 @@ final class EmptyStateFlowTests: BaseTestCase {
             "No Settings window should exist at launch"
         )
 
-        // Index 0 is the Apple menu; index 1 is the app's own menu.
         let appMenu = app.menuBars.menuBarItems.element(boundBy: 1)
         appMenu.click()
         let settingsMenuItems = appMenu.menuItems.matching(

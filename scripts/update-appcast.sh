@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# Generates an appcast containing a new item for the freshly built DMG.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo_root"
-# shellcheck source=scripts/release-config.sh
 source "$repo_root/scripts/release-config.sh"
 
 if [ $# -ne 3 ]; then

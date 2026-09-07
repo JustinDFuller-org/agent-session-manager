@@ -1,7 +1,6 @@
 import Foundation
 
 extension Pane {
-    /// Hooks the pane's notification sources into `AppState` notification UI (sidebar and dots).
     @MainActor
     func bindNotifications(appState: AppState, isPriority: Bool) {
         self.isPriority = isPriority

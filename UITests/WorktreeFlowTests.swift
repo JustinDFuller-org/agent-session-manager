@@ -1,19 +1,16 @@
 import XCTest
 
-/// Covers Git-backed pane routing and worktree cleanup, one app launch per flow.
 final class WorktreeFlowTests: BaseTestCase {
     private let primaryCheckoutPaneIdentifier = "UITestWorkspace"
     private let paneWait: TimeInterval = 25
 
     override func setUp() {
         super.setUp()
-        // UITestWorkspace has no remote; "head" avoids origin/<branch> fetch failures
         try? Data("\"head\"".utf8).write(to: UITestAppSupport.directory.appending(path: "worktree-base-ref.json"))
         createTab(named: "RoutingTab")
     }
 
     func testWorktreeRoutingFlow() {
-        // Novel name creates a new worktree without errors
         app.typeKey("p", modifierFlags: .command)
         var nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
@@ -28,7 +25,6 @@ final class WorktreeFlowTests: BaseTestCase {
                 .waitForExistence(timeout: paneWait))
         XCTAssertFalse(app.textFields["new-pane-name-field"].waitForExistence(timeout: 2))
 
-        // Loose branch resolves via app routing without error
         GitUITestWorkspace.runGitOrFail(["branch", "loose-ui", "HEAD"], cwd: GitUITestWorkspace.directoryURL)
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
@@ -42,7 +38,6 @@ final class WorktreeFlowTests: BaseTestCase {
                 timeout: paneWait))
         XCTAssertFalse(app.scrollViews["new-pane-worktree-error"].waitForExistence(timeout: 2))
 
-        // Reuse confirmation: cancel leaves sheet open, continue opens pane
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
@@ -50,7 +45,6 @@ final class WorktreeFlowTests: BaseTestCase {
         nameField.typeText("ui-root")
         app.buttons["new-pane-open-button"].click()
 
-        // Takeover dialog buttons: takeover-cancel-button, takeover-dont-manage-button, takeover-manage-button
         let cancelBtn = app.descendants(matching: .any).matching(identifier: "takeover-cancel-button").firstMatch
         XCTAssertTrue(cancelBtn.waitForExistence(timeout: paneWait))
         cancelBtn.click()
@@ -63,7 +57,6 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertFalse(dontManageBtn.exists || cancelBtn.exists)
         XCTAssertTrue(app.textFields["new-pane-name-field"].waitForExistence(timeout: 3))
 
-        // Now confirm reuse: pane opens on primary checkout
         app.buttons["new-pane-open-button"].click()
         let continueBtn = app.descendants(matching: .any).matching(identifier: "takeover-dont-manage-button").firstMatch
         XCTAssertTrue(continueBtn.waitForExistence(timeout: paneWait))
@@ -74,8 +67,6 @@ final class WorktreeFlowTests: BaseTestCase {
                 .waitForExistence(timeout: paneWait))
         XCTAssertFalse(app.textFields["new-pane-name-field"].waitForExistence(timeout: 2))
 
-        // Duplicate managed worktree shows error, cancel closes sheet
-        // Managed secondary worktrees open directly (isExternalTakeover: false) — no dialog.
         GitUITestWorkspace.addManagedSecondaryWorktree(folder: "wt-dup", newTrackingBranch: "wt-track-dup-ui")
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
@@ -86,7 +77,6 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertTrue(
             app.staticTexts.matching(identifier: "pane-name-wt-dup").firstMatch.waitForExistence(timeout: paneWait))
 
-        // Opening a duplicate pane name triggers inline validation before submit.
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
@@ -98,7 +88,6 @@ final class WorktreeFlowTests: BaseTestCase {
         app.buttons["new-pane-cancel-button"].click()
         waitForDisappear(nameField)
 
-        // Managed secondary worktree reuse after confirmation
         GitUITestWorkspace.addManagedSecondaryWorktree(folder: "wt-side", newTrackingBranch: "wt-track-side-ui")
         app.typeKey("p", modifierFlags: .command)
         nameField = app.textFields["new-pane-name-field"]
@@ -111,8 +100,6 @@ final class WorktreeFlowTests: BaseTestCase {
     }
 
     func testWorktreeCleanupFlow() {
-        // Non-managed pane close shows no cleanup alert.
-        // Open primary checkout with "Don't Manage" → worktreeIsManaged = false.
         openPrimaryCheckoutPane()
         let primaryPaneName = app.staticTexts.matching(identifier: "pane-name-UITestWorkspace").firstMatch
         waitFor(primaryPaneName, timeout: paneWait)
@@ -123,7 +110,6 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertFalse(app.buttons["Keep Worktree"].firstMatch.waitForExistence(timeout: 2))
         waitForDisappear(primaryPaneName)
 
-        // Managed worktree pane close shows cleanup alert with all three buttons
         createManagedWorktreePane(folder: "wt-alert")
         app.descendants(matching: .any).matching(identifier: "pane-close-wt-alert").firstMatch.click()
         screenshot("15-cleanup-alert")
@@ -133,13 +119,10 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertTrue(app.buttons["Delete Worktree"].firstMatch.exists)
         XCTAssertTrue(app.buttons["Cancel"].firstMatch.exists)
 
-        // Dismiss the alert so we can continue
         app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
         waitForDisappear(keepButton)
 
-        // Mixed layout: managed + non-managed — only managed shows cleanup alert
         createManagedWorktreePane(folder: "wt-managed")
-        // Re-open primary checkout as non-managed (previous one was closed above)
         openPrimaryCheckoutPane()
         let primaryPaneName2 = app.staticTexts.matching(identifier: "pane-name-UITestWorkspace").firstMatch
         waitFor(primaryPaneName2, timeout: paneWait)
@@ -167,15 +150,12 @@ final class WorktreeFlowTests: BaseTestCase {
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 5))
         deleteButton.click()
 
-        // Pane must vanish within 2 seconds — confirming it didn't block on git I/O.
         XCTAssertFalse(paneLabel.waitForExistence(timeout: 2))
     }
 
     func testBaseBranchOverrideCreatesWorktreeFromOverrideBranch() {
-        // Create a qa-ui branch in the workspace so the override has a valid base
         GitUITestWorkspace.runGitOrFail(["branch", "qa-ui", "HEAD"], cwd: GitUITestWorkspace.directoryURL)
 
-        // Open New Tab sheet, fill name + directory via UITesting Choose path, and set base branch
         app.typeKey("t", modifierFlags: .command)
         let nameField = app.textFields["new-tab-name-field"]
         waitFor(nameField)
@@ -190,7 +170,6 @@ final class WorktreeFlowTests: BaseTestCase {
         app.buttons["new-tab-create-button"].click()
         waitFor(app.buttons["tab-button-OverrideTab"].firstMatch)
 
-        // Open a pane with a novel name — should branch from qa-ui without worktree error
         let uniqueName = "qa-override-\(UUID().uuidString.prefix(8))"
         app.typeKey("p", modifierFlags: .command)
         let paneField = app.textFields["new-pane-name-field"]

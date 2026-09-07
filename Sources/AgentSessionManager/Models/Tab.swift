@@ -45,24 +45,17 @@ enum WorktreeResolutionError: Error, LocalizedError, Equatable {
     }
 }
 
-/// Result after resolving Git worktree input.
 struct ResolvedWorktree: Equatable {
-    /// Pane header label.
     var paneTitle: String
-    /// The directory where the CLI tool runs.
     var processDirectory: URL
-    /// Directory used for duplicate detection and session restore.
     var checkoutURL: URL
-    /// Whether this is an existing worktree outside `.agent-session-manager/worktrees/`.
     var isExternalTakeover: Bool
-    /// Whether this resolution created a new managed worktree during the request.
     var wasCreated: Bool = false
 }
 
 @Observable
 @MainActor
 final class Tab: Identifiable {
-    /// Relative to the tab's git repo root. Git worktrees this app creates live here (parallel to Claude's `.claude/worktrees/`).
     nonisolated static let worktreesRootRelativePath = ".agent-session-manager/worktrees"
 
     let id: UUID
@@ -98,7 +91,6 @@ final class Tab: Identifiable {
             .appending(path: name, directoryHint: .notDirectory)
     }
 
-    /// Path segment passed to `git worktree add` (forward slashes).
     nonisolated static func gitWorktreeAddPath(name: String) -> String {
         "\(worktreesRootRelativePath)/\(name)"
     }
@@ -114,7 +106,6 @@ final class Tab: Identifiable {
             .joined()
     }
 
-    /// Parses `git worktree list --porcelain`.
     nonisolated static func parseWorktreeListPorcelain(_ output: String) -> [GitWorktreeListEntry] {
         var entries: [GitWorktreeListEntry] = []
         var currentPath: String?
@@ -192,9 +183,6 @@ final class Tab: Identifiable {
         return name
     }
 
-    /// Picks a `git worktree list --porcelain` entry for user input: **directory name** under the repo wins first,
-    /// then branch/ref match. Avoids opening the wrong tree when several listings share similar branch names
-    /// (e.g. `.claude/worktrees/foo` on branch `worktree-foo` vs `.claude/worktrees/worktree-foo`).
     nonisolated static func preferWorktreeEntry(
         matchingUserRef ref: String, entries: [GitWorktreeListEntry]
     ) -> GitWorktreeListEntry? {
@@ -210,8 +198,6 @@ final class Tab: Identifiable {
         })
     }
 
-    /// Resolves user input (branch, remote ref, plain name, or managed worktree name) when attaching or creating Git worktrees in-app.
-    /// If the ref does not exist but is a valid worktree name and `defaultBranch` is provided, creates a worktree from that branch.
     func resolveOrAttachWorktree(
         userRef raw: String,
         defaultBranch: String? = nil,
@@ -349,7 +335,6 @@ final class Tab: Identifiable {
             wasCreated: wasCreated)
     }
 
-    /// Paths from `git worktree list` are authoritative (includes main checkout with a `.git` directory).
     private func resolvedExternalGitListPath(_ absolutePath: String) -> ResolvedWorktree {
         let url = URL(fileURLWithPath: absolutePath).standardizedFileURL
         var title = url.lastPathComponent
@@ -602,7 +587,6 @@ final class Tab: Identifiable {
         return pane
     }
 
-    /// Restarts a pane by replacing its terminal controller with a new one running the same command.
     func restartPane(_ pane: Pane, appSettings: AppSettings? = nil) {
         guard !pane.isRestarting, let old = pane.terminalController else { return }
         pane.isRestarting = true
@@ -620,8 +604,6 @@ final class Tab: Identifiable {
         new.pendingShell = old.pendingShell
 
         if pane.harness == .opencode {
-            // OpenCode binds an ephemeral port per process; a restart must re-allocate
-            // a fresh port and rebuild the command/env so the new server is reachable.
             let cwd = pane.worktreeDirectory?.path ?? directory.path
             configureOpenCodeController(
                 new, pane: pane, extraArgs: pane.extraArgs, extraEnvVars: pane.extraEnvVars,
@@ -647,7 +629,6 @@ final class Tab: Identifiable {
         pane.restartToken = UUID()
     }
 
-    /// Refreshes a pane with either its existing command or new CLI settings.
     func refreshPane(
         _ pane: Pane,
         extraArgs: [String]? = nil,
@@ -783,7 +764,6 @@ final class Tab: Identifiable {
         pane.restartToken = UUID()
     }
 
-    /// Replaces a pane's terminal with a plain shell session in the same working directory.
     func openShellInPane(_ pane: Pane) {
         guard let old = pane.terminalController else { return }
         let new = TerminalController()
@@ -838,7 +818,6 @@ final class Tab: Identifiable {
 }
 
 extension Tab {
-    /// Opens a new plain shell pane in this tab, in the same working directory as the active pane.
     func openShellPane(activePane: Pane?, appSettings: AppSettings? = nil) {
         setFocusedPane(id: nil, reason: "shell_pane_opened")
         let cwd = activePane?.terminalController?.pendingDirectory
@@ -1034,7 +1013,6 @@ extension Tab {
 }
 
 extension Tab {
-    /// Removes private CoreFoundation bundle markers before a pane inherits the GUI environment.
     nonisolated static func hostEnvironmentForChildProcess() -> [String] {
         ProcessInfo.processInfo.environment
             .filter { !$0.key.hasPrefix("__CF") }
@@ -1073,9 +1051,6 @@ extension Tab {
         return args + OpenCodeLaunchPolicy.sanitize(extraArgs)
     }
 
-    /// Builds the inline JSON config injected per pane via `OPENCODE_CONFIG_CONTENT`.
-    /// This config sits at tier-6 precedence (below managed settings) and lets Agent
-    /// Session Manager enforce pane-safe defaults without modifying files in the worktree.
     nonisolated static func buildOpenCodeConfigContent() -> String {
         let settings: [String: Any] = [
             "share": "manual",
@@ -1092,15 +1067,11 @@ extension Tab {
         "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 
-    /// Single-quoting suppresses the shell's tilde expansion, so paths like `~/.claude/...`
-    /// must be expanded here before quoting.
     nonisolated static func expandingLeadingTilde(_ value: String) -> String {
         guard value.hasPrefix("~") else { return value }
         return (value as NSString).expandingTildeInPath
     }
 
-    /// Returns `extraArgs` prepended with `--name '<tabName>/<paneName>'` when auto-naming is
-    /// enabled and neither `--name` nor `-n` is already present in `extraArgs`.
     nonisolated static func applyAutoSessionName(
         tabName: String,
         paneName: String,
@@ -1156,7 +1127,6 @@ extension Tab {
         }
     }
 
-    /// Injects `--continue` unless the arguments already select a resume mode.
     nonisolated static func injectContinueFlagIntoArgs(_ args: [String]) -> [String] {
         guard !args.contains("--continue"),
             !args.contains("--resume"),

@@ -1,9 +1,6 @@
 import AppKit
 import SwiftUI
 
-// Explicit sRGB values matching the macOS 26.4 dark appearance. Pinning these
-// in code prevents the macOS 27 SDK design system from remapping semantic colors
-// to lighter values when building against a newer SDK.
 enum WindowChromeButton: CaseIterable, Hashable {
     case close
     case minimize
@@ -28,7 +25,6 @@ struct WindowChromeConfiguration {
 }
 
 enum Theme {
-    // rgb(0, 90, 209) — matches the xcode 26 dark system accent
     static let accent = Color(.sRGB, red: 0.0, green: 0.353, blue: 0.820, opacity: 1.0)
     static let mac26WindowChrome = Color(.sRGB, red: 0.106, green: 0.106, blue: 0.106, opacity: 1.0)
     static let mac26Content = Color(.sRGB, red: 0.118, green: 0.118, blue: 0.118, opacity: 1.0)

@@ -2,7 +2,6 @@ import XCTest
 
 @testable import AgentSessionManager
 
-/// Runs `/bin/zsh -c` and drains stderr so pipes cannot fill.
 private enum PRQueryShellIO {
     static func zshCollectOutput(script: String, currentDirectory: URL?) throws -> Data {
         let task = Process()
@@ -20,7 +19,6 @@ private enum PRQueryShellIO {
     }
 }
 
-/// Regression cover for PR query subprocess I/O: use `terminationHandler`-style full read + drain stderr (see `PRQueryShellIO`), not `readabilityHandler` without EOF teardown (which could spin CPU).
 final class PRQueryShellIOTests: XCTestCase {
     func testZshCollectOutputDecodesPullRequestJSON() throws {
         let json =
@@ -50,8 +48,6 @@ final class PRQueryShellIOTests: XCTestCase {
         let pr = try JSONDecoder().decode(PullRequest.self, from: data)
         XCTAssertEqual(pr.number, 1)
     }
-
-    // MARK: - Merge conflict detection
 
     func testMergeConflictingDecodes() throws {
         let json =

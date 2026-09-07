@@ -1,7 +1,5 @@
 import Foundation
 
-/// Dev-only, argument-derived storage isolation for an agent-owned validation run.
-/// The argument deliberately accepts a UUID, never a filesystem path.
 enum RecursiveDevelopmentRunContext {
     static let launchArgument = "--recursive-development-run-id"
     static let supportParentName = "agent-session-manager-recursive-runs"
@@ -44,8 +42,6 @@ enum RecursiveDevelopmentRunContext {
         return run
     }
 
-    /// Called before AppState/AppSettings construction. A production binary exits before
-    /// any production persistence path can be resolved when it receives this Dev-only flag.
     static func validateProcessLaunch() -> Run? {
         do {
             let run = try validatedRun(

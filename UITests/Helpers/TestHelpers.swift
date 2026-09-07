@@ -1,6 +1,5 @@
 import XCTest
 
-/// Mirrors `AppDelegate.windowTitle` for the Dev configuration `make test-ui-dev` runs under.
 let mainWindowTitle = "Agent Session Manager (Dev)"
 
 extension XCTestCase {
@@ -44,7 +43,6 @@ extension BaseTestCase {
         field.typeText(name)
         app.buttons["new-pane-open-button"].click()
         waitForDisappear(field, timeout: 25)
-        // Wait for the pane name text — Text elements are reliably in the accessibility tree.
         waitFor(app.staticTexts.matching(identifier: "pane-name-\(name)").firstMatch, timeout: 10)
         waitFor(app.descendants(matching: .any).matching(identifier: "status-line-row").firstMatch, timeout: 10)
     }

@@ -19,8 +19,6 @@ final class TraceDashboardTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: StoredSpan
-
     func testStoredSpanDurationMs() {
         let span = StoredSpan(
             name: "test", traceId: "abc", spanId: "def", parentSpanId: nil,
@@ -52,8 +50,6 @@ final class TraceDashboardTests: XCTestCase {
         let span2 = makeSpan(name: "same.name")
         XCTAssertNotEqual(span1.id, span2.id)
     }
-
-    // MARK: buildWaterfallRows
 
     func testBuildRowsRootSpanHasDepthZero() {
         let span = makeSpan(name: "root")
@@ -97,8 +93,6 @@ final class TraceDashboardTests: XCTestCase {
         XCTAssertEqual(rows[0].depth, 0)
         XCTAssertEqual(rows[0].span.name, "orphan")
     }
-
-    // MARK: buildTraceSummaries
 
     func testBuildTraceSummariesGroupsByTraceId() {
         let traceId = "trace-xyz"
@@ -159,8 +153,6 @@ final class TraceDashboardTests: XCTestCase {
         let summaries = buildTraceSummaries(from: [root, longChild])
         XCTAssertEqual(summaries[0].durationMs, 2000)
     }
-
-    // MARK: Helpers
 
     private func makeSpan(name: String) -> StoredSpan {
         StoredSpan(

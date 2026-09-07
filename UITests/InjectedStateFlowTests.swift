@@ -1,7 +1,5 @@
 import XCTest
 
-/// Tests that require pre-injected session state. Does not extend BaseTestCase because
-/// each test function controls its own launch arguments and injected JSON.
 final class InjectedStateFlowTests: XCTestCase {
     var app: XCUIApplication!
 
@@ -70,14 +68,11 @@ final class InjectedStateFlowTests: XCTestCase {
         app.launch()
         app.activate()
 
-        // Sidebar shows notification row with PR number.
-        // Plain-style buttons don't always appear under app.buttons — search all descendants.
         let row = app.descendants(matching: .any).matching(identifier: "notification-row-test-pane").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["TestTab / test-pane"].exists)
         XCTAssertTrue(app.staticTexts["PR #1 merged"].exists)
 
-        // Clicking row shows action alert with all three buttons
         row.click()
         let alertTitle = app.staticTexts["PR Merged"]
         XCTAssertTrue(alertTitle.waitForExistence(timeout: 5))
@@ -85,7 +80,6 @@ final class InjectedStateFlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Close Pane and Clean Up Worktree"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 3))
 
-        // Cancel dismisses the alert — scope to main window to avoid Touch Bar element
         let cancelButton = app.windows.firstMatch.buttons["Cancel"].firstMatch
         XCTAssertTrue(cancelButton.waitForExistence(timeout: 5))
         cancelButton.click()
@@ -93,16 +87,13 @@ final class InjectedStateFlowTests: XCTestCase {
         let alertExp = XCTNSPredicateExpectation(predicate: alertPred, object: alertTitle)
         XCTAssertEqual(XCTWaiter.wait(for: [alertExp], timeout: 3), .completed)
 
-        // Tab is active after dismissing alert
         let tabButton = app.buttons.matching(identifier: "tab-button-TestTab").firstMatch
         XCTAssertTrue(tabButton.waitForExistence(timeout: 3))
         XCTAssertEqual(tabButton.value as? String, "active")
 
-        // After notification is cleared, pane shows idle activity indicator
         let idleDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-test-pane").firstMatch
         XCTAssertTrue(idleDot.waitForExistence(timeout: 3))
 
-        // PR merged notifications toggle is reachable in settings
         app.typeKey(",", modifierFlags: .command)
         let notificationsTab = app.buttons["Notifications"]
         XCTAssertTrue(notificationsTab.waitForExistence(timeout: 3))
@@ -158,8 +149,6 @@ final class InjectedStateFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["TestTab / test-pane"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["Permission needed for Bash"].exists)
     }
-
-    // MARK: - Session injection
 
     private func writeSession(_ json: String) {
         let support = UITestAppSupport.directory

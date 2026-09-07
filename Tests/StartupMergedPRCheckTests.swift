@@ -15,8 +15,6 @@ final class StartupMergedPRCheckTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - buildStaticBatchQuery
-
     func testStaticBatchQuerySingleBranch() {
         let paneID = UUID()
         let info = PRTrackingCoordinator.BranchInfo(
@@ -67,8 +65,6 @@ final class StartupMergedPRCheckTests: XCTestCase {
         let query = PRTrackingCoordinator.buildStaticBatchQuery(branches: [])
         XCTAssertTrue(query.isEmpty)
     }
-
-    // MARK: - parseStaticBatchResponse
 
     func testParseStaticBatchResponseMergedPR() {
         let paneID = UUID()
@@ -194,8 +190,6 @@ final class StartupMergedPRCheckTests: XCTestCase {
         XCTAssertEqual(mergedResults[0].paneID, pane1)
     }
 
-    // MARK: - BranchInfo
-
     func testBranchInfoStoresFields() {
         let id = UUID()
         let info = PRTrackingCoordinator.BranchInfo(
@@ -205,8 +199,6 @@ final class StartupMergedPRCheckTests: XCTestCase {
         XCTAssertEqual(info.repo, "myrepo")
         XCTAssertEqual(info.branch, "mybranch")
     }
-
-    // MARK: - checkForResolvedPRsAfterRestore candidate filtering
 
     func testStartupCheckSkipsAlreadyMergedPanes() async {
         let state = AppState()

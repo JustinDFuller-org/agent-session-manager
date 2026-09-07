@@ -1,8 +1,6 @@
 import Foundation
 import Sparkle
 
-/// Detects newer DMG releases by polling the Sparkle appcast. Only active for DMG builds
-/// marked with `ASMDistributionChannel == "dmg"` and a valid `SUFeedURL` + `SUPublicEdKey`.
 @MainActor
 final class DMGReleaseDetector: NSObject, UpdateDetector {
     let channel: DistributionChannel = .dmg
@@ -41,7 +39,6 @@ final class DMGReleaseDetector: NSObject, UpdateDetector {
         do {
             try updater.start()
         } catch {
-            // Sparkle is unavailable for this configuration; remain dormant.
         }
     }
 

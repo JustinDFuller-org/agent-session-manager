@@ -1,6 +1,5 @@
 import Foundation
 
-/// Direct, noninteractive runner for app-owned GitHub CLI requests.
 protocol GitHubCLIRunning: Sendable {
     func run(arguments: [String], stdin: Data?, timeout: TimeInterval) async -> GitHubCLIResult
 }

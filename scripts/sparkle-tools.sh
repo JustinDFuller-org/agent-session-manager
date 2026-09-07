@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Ensures Sparkle CLI tools (generate_keys, sign_update) are available under
-# .sparkle-tools/. Downloads a pinned Sparkle release on first run.
 set -euo pipefail
 
 readonly SPARKLE_VERSION="2.6.4"

@@ -1,14 +1,9 @@
 import Foundation
 import os
 
-/// Unified-logging façade (`os.Logger`). Complements ``TracingService``'s OTel spans:
-/// spans are gated behind Debug Mode and written to per-pane JSONL, while these logs are
-/// always-on and surface in Console.app / `log stream` regardless of Debug Mode.
 enum AppLog {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "com.justinfuller.agent-session-manager"
 
-    /// Logging categories, one per `os.Logger`. Mirrors the span-name prefixes already in use
-    /// across the codebase (see ``category(forSpanName:)``).
     enum Category: String, CaseIterable, Equatable, Sendable {
         case terminal
         case pane
@@ -31,15 +26,11 @@ enum AppLog {
     static let invariant = Logger(subsystem: subsystem, category: Category.invariant.rawValue)
     static let app = Logger(subsystem: subsystem, category: Category.app.rawValue)
 
-    /// Maps a dotted span name (e.g. `"pane.created"`) to its logging category by prefix.
-    /// Pure so it can be unit-tested independently of `os.Logger`; mirrors `spanColor(for:)`
-    /// in `TraceDashboardView.swift`.
     static func category(forSpanName name: String) -> Category {
         let prefix = name.components(separatedBy: ".").first ?? name
         return Category(rawValue: prefix) ?? .app
     }
 
-    /// Maps an invariant severity to the matching unified-logging level.
     static func osLogType(for severity: Invariant.Severity) -> OSLogType {
         switch severity {
         case .warning: return .default
@@ -61,9 +52,6 @@ enum AppLog {
         }
     }
 
-    /// Logs an event by name, routed to the appropriate category logger. The event name is
-    /// public (it's a static string); attribute values default to private since they may
-    /// contain filesystem paths, git arguments, or error text.
     static func log(_ name: String, level: OSLogType = .debug, attributes: [String: String] = [:]) {
         let logger = logger(for: category(forSpanName: name))
         guard !attributes.isEmpty else {

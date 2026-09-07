@@ -11,7 +11,6 @@ concurrency:
 jobs:
   test:
     name: make test-ui-dev-launch
-    # Toggle the repository Actions variable ENABLE_MACOSX_JOBS to re-enable.
     if: ${{ vars.ENABLE_MACOSX_JOBS == 'true' }}
     runs-on: macos-15
     timeout-minutes: 30

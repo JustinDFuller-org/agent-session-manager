@@ -185,8 +185,6 @@ final class WorktreeCleanupGitIntegrationTests: XCTestCase {
         tab.closePane(pane)
         XCTAssertFalse(tab.panes.contains(where: { $0.id == pane.id }))
 
-        // Pane is gone from the tab but the pane object still holds worktreeDirectory and
-        // worktreeIsManaged — cleanup must still run correctly.
         try await tab.cleanupWorktree(for: pane)
         XCTAssertFalse(FileManager.default.fileExists(atPath: worktreeURL.path))
     }

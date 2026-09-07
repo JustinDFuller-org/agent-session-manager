@@ -25,8 +25,6 @@ final class CustomFieldRunnerTests: XCTestCase {
         )
     }
 
-    // MARK: - Execution: success paths
-
     func testPlainTextEchoSucceeds() async {
         let field = CustomStatusLineField(label: "Echo", command: "echo hello")
         let result = await CustomFieldRunner.run(field: field, context: makeContext())
@@ -95,7 +93,6 @@ final class CustomFieldRunnerTests: XCTestCase {
     }
 
     func testRunReceivesStdinContextPayload() async throws {
-        // Mirrors asm-model-short.sh's consumption pattern: read stdin JSON, extract model.display_name.
         let json = Data(#"{"model": {"display_name": "Sonnet"}}"#.utf8)
         let currentData = try JSONDecoder().decode(StatusLineData.self, from: json)
         let field = CustomStatusLineField(
@@ -108,8 +105,6 @@ final class CustomFieldRunnerTests: XCTestCase {
         }
         XCTAssertEqual(value.text, "Sonnet")
     }
-
-    // MARK: - Execution: failure paths
 
     func testNonzeroExitReportsFailure() async {
         let field = CustomStatusLineField(label: "Fail", command: "exit 1")
@@ -184,8 +179,6 @@ final class CustomFieldRunnerTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(startedAt), 2.5)
     }
 
-    // MARK: - Output parsing
-
     func testANSIEscapeSequencesAreStripped() {
         let input = "\u{1B}[31mHello\u{1B}[0m World"
         XCTAssertEqual(CustomFieldRunner.stripANSI(input), "Hello World")
@@ -204,8 +197,6 @@ final class CustomFieldRunnerTests: XCTestCase {
     }
 
     func testAllNilStructuredOutputFallsBackToPlainText() {
-        // {} decodes to a CustomFieldRenderValue with every field nil — not useful as structured
-        // output, so it must fall back to the plain-text path instead of an empty fact.
         let (value, kind) = CustomFieldRunner.parse("{}")
         XCTAssertEqual(kind, .text)
         XCTAssertEqual(value.text, "{}")
@@ -216,8 +207,6 @@ final class CustomFieldRunnerTests: XCTestCase {
         XCTAssertEqual(kind, .text)
         XCTAssertEqual(value.text, "24.6%")
     }
-
-    // MARK: - buildContextPayload
 
     func testBuildContextPayloadIncludesPaneTabHarnessProfileAndWorkingDirectory() throws {
         let context = makeContext()
@@ -248,8 +237,6 @@ final class CustomFieldRunnerTests: XCTestCase {
         let model = obj?["model"] as? [String: Any]
         XCTAssertEqual(model?["id"] as? String, "claude-sonnet-4-6")
     }
-
-    // MARK: - buildEnvironment
 
     func testBuildEnvironmentIncludesCuratedKeys() {
         let env = CustomFieldRunner.buildEnvironment(context: makeContext())

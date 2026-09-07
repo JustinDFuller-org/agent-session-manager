@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Validates the committed Sparkle public key and, when available, confirms it
-# matches the private signing material without printing either key.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)

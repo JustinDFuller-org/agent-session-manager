@@ -52,8 +52,6 @@ struct CLIOptionConfigCommandLineArgumentsTests {
         #expect(result == ["--model", "claude-opus-4-7"])
     }
 
-    // MARK: - Multi-value flags (--mcp-config)
-
     @Test("Multi-value flag with no values returns just the flag")
     func multiValueEmptyReturnsFlagOnly() {
         #expect(option("--mcp-config").commandLineArguments(value: nil, values: []) == ["--mcp-config"])

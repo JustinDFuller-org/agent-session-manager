@@ -98,8 +98,6 @@ struct CLIOptionConfigPresetValuesTests {
         #expect(!decodedEffort.allowsMultipleValues)
     }
 
-    // MARK: - normalizedPresetValues (preset-editor draft flattening)
-
     @Test("normalizedPresetValues drops blank and whitespace-only drafts")
     func normalizedPresetValuesDropsBlanks() {
         let result = CLIOptionConfig.normalizedPresetValues(["low", "", "  ", "high"])

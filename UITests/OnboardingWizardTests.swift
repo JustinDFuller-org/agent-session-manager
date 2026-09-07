@@ -1,16 +1,10 @@
 import XCTest
 
 final class OnboardingWizardTests: BaseTestCase {
-    // MARK: - Wizard suppressed on normal launch (onboarding already done)
-
     func testWizardDoesNotAppearWhenOnboardingComplete() {
-        // BaseTestCase launches with --uitesting-skip-restore, so no onboarding file exists,
-        // but isUITesting == true suppresses the wizard without --uitesting-show-onboarding.
         let setupButton = app.buttons["onboarding-setup-button"]
         XCTAssertFalse(setupButton.waitForExistence(timeout: 1))
     }
-
-    // MARK: - Wizard shown when forced via launch arg
 
     func testWizardAppearsWithShowOnboardingArg() {
         app.terminate()
@@ -107,7 +101,6 @@ final class OnboardingWizardTests: BaseTestCase {
         forcedApp.launch()
         forcedApp.activate()
 
-        // Walk through: Welcome → Shell → Tools → Status Line → CLI Flags → Profiles → Finish
         let setupButton = forcedApp.buttons["onboarding-setup-button"]
         XCTAssertTrue(setupButton.waitForExistence(timeout: 5))
         setupButton.click()
@@ -274,8 +267,6 @@ final class OnboardingWizardTests: BaseTestCase {
 
         forcedApp.terminate()
     }
-
-    // MARK: - CLI Flags step
 
     func testCliFlagsStepAppearsAfterStatusLine() {
         app.terminate()
@@ -518,8 +509,6 @@ final class OnboardingWizardTests: BaseTestCase {
 
         forcedApp.terminate()
     }
-
-    // MARK: - Profiles step
 
     func testProfilesStepAppearsAfterCliFlags() {
         app.terminate()

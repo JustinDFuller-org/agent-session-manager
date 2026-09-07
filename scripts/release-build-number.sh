@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# Computes a Sparkle build number that is newer than every published release.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck source=scripts/release-config.sh
 source "$repo_root/scripts/release-config.sh"
 
 if [[ $# -ne 1 || ! $1 =~ ^[0-9]+$ ]]; then

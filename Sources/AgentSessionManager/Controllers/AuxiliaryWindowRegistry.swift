@@ -39,9 +39,6 @@ extension AuxiliaryWindowRegistry {
     @MainActor
     private static var requestedWindowIDs: Set<String> = []
 
-    /// Opens an auxiliary dashboard and records the request together, so no call site can
-    /// open one without the other — the requested-window bookkeeping only means something if
-    /// every opener goes through here.
     @MainActor
     static func open(_ window: AuxiliaryWindow, using openWindow: OpenWindowAction) {
         recordExplicitOpen(id: window.rawValue)
@@ -61,7 +58,6 @@ extension AuxiliaryWindowRegistry {
     @MainActor
     @discardableResult
     static func checkOpenWindows() -> Bool {
-        // NSApp is nil under plain `swift test`, which has no running NSApplication.
         let openTitles = NSApp?.windows.filter(\.isVisible).map(\.title) ?? []
         TracingService.shared.record(
             "app.launch.auxiliary_windows_checked",

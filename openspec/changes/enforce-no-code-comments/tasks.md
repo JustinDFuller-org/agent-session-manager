@@ -17,9 +17,9 @@
 
 ## 4. Existing-comment migration
 
-- [ ] 4.1 Remove explanatory, documentation, section, and inline comments from tracked Swift sources, tests, and UI tests while preserving behavior, strings, and the SwiftPM tools-version directive; verify the focused Swift format, lint, and unit checks pass.
-- [ ] 4.2 Remove explanatory comments from tracked scripts, workflows, Make, hooks, CODEOWNERS, `.gitignore`, and other supported configuration while preserving shebangs and executable data; verify the complete no-code-comments scan passes.
-- [ ] 4.3 Review the migration diff for accidental behavior changes and verify the repository build, format, lint, documentation, and applicable test checks pass.
+- [x] 4.1 Remove explanatory, documentation, section, and inline comments from tracked Swift sources, tests, and UI tests while preserving behavior, strings, and the SwiftPM tools-version directive; verify the focused Swift format, lint, and unit checks pass.
+- [x] 4.2 Remove explanatory comments from tracked scripts, workflows, Make, hooks, CODEOWNERS, `.gitignore`, and other supported configuration while preserving shebangs and executable data; verify the complete no-code-comments scan passes.
+- [x] 4.3 Review the migration diff for accidental behavior changes and verify the repository build, format, lint, documentation, and applicable test checks pass.
 
 ## 5. QA evidence
 

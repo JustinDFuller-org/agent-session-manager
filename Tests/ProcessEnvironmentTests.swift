@@ -3,8 +3,6 @@ import XCTest
 @testable import AgentSessionManager
 
 final class ProcessEnvironmentTests: XCTestCase {
-    // MARK: - Helpers
-
     private func envDict(from env: [String]) -> [String: String] {
         var dict: [String: String] = [:]
         for entry in env {
@@ -16,7 +14,6 @@ final class ProcessEnvironmentTests: XCTestCase {
         return dict
     }
 
-    /// Creates a temporary directory with an `etc/paths` file and optional `etc/paths.d` files.
     private func makeEtcDirectory(paths: String, pathDEntries: [String: String] = [:]) throws -> String {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -33,8 +30,6 @@ final class ProcessEnvironmentTests: XCTestCase {
         }
         return root
     }
-
-    // MARK: - sanitize
 
     func testSanitizeAddsMissingTERM() {
         let env = ProcessEnvironment.sanitize([])
@@ -88,13 +83,11 @@ final class ProcessEnvironmentTests: XCTestCase {
         let path = dict["PATH"] ?? ""
         let parts = path.split(separator: ":").map(String.init)
 
-        // Each entry appears exactly once.
         XCTAssertEqual(parts.filter { $0 == "/opt/homebrew/bin" }.count, 1)
         XCTAssertEqual(parts.filter { $0 == "/usr/bin" }.count, 1)
         XCTAssertEqual(parts.filter { $0 == "/bin" }.count, 1)
         XCTAssertEqual(parts.filter { $0 == "/custom" }.count, 1)
 
-        // The user-specific entry is appended after all default entries.
         XCTAssertEqual(parts.last, "/custom")
     }
 
@@ -104,8 +97,6 @@ final class ProcessEnvironmentTests: XCTestCase {
         XCTAssertEqual(dict["FOO"], "bar")
         XCTAssertEqual(dict["BAZ"], "qux")
     }
-
-    // MARK: - defaultPATHEntries
 
     func testDefaultPATHEntriesReadsEtcPaths() throws {
         let root = try makeEtcDirectory(paths: "/one\n/two")
@@ -140,8 +131,6 @@ final class ProcessEnvironmentTests: XCTestCase {
         let entries = ProcessEnvironment.defaultPATHEntries(etcDirectory: etc)
         XCTAssertEqual(entries, ["/one", "/two"])
     }
-
-    // MARK: - mergedPATH
 
     func testMergedPATHPrependsDefaultsAndPreservesOriginalOrder() {
         let result = ProcessEnvironment.mergedPATH(
