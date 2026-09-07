@@ -410,6 +410,10 @@ function phaseFindings(candidate, immediateBase, trunk, stack, environment) {
   if (archivedConflict.size > 0) {
     findings.push(`Finalization layer relies on archived change(s) already present on the trunk: ${namesText(archivedConflict)}.`);
   }
+  const activeConflict = intersection(newArchives, trunkState.activeChanges);
+  if (activeConflict.size > 0) {
+    findings.push(`Finalization layer archives active change(s) already present on the trunk: ${namesText(activeConflict)}.`);
+  }
   findings.push(...archiveOnlyFindings(immediateBase, candidate, newArchives));
   return findings;
 }

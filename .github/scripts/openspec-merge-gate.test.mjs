@@ -129,6 +129,20 @@ test("rejects an inherited historical archive as a new change", () => {
   assert.match(result.findings.join("\n"), /new archived OpenSpec change|absent from the trunk/);
 });
 
+test("rejects archiving an active change already present on the trunk as new", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const candidate = fixture();
+  activeChange(trunk, "already-active");
+  archiveChange(candidate, "already-active");
+  const result = validate(candidate, immediateBase, trunk, {
+    EVENT_NAME: "pull_request_target",
+    PR_BASE_REF: "main",
+    STACK_PRESENT: "false",
+  });
+  assert.match(result.findings.join("\n"), /active change\(s\) already present on the trunk/);
+});
+
 test("rejects omitted or competing names on a higher layer", () => {
   const trunk = fixture();
   const immediateBase = fixture();
