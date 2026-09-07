@@ -36,6 +36,14 @@ gh stack --help
 
 Follow the repository's GitHub authentication instructions. Do not replace the configured authentication or credential flow to make a stack command work.
 
+Before using a history-rewriting command, determine which branches are covered
+by the repository's protection rules. This repository disables force pushing on
+`main`; stack feature branches may use `--force-with-lease` when they are not
+covered by a protected-branch or ruleset pattern and the authenticated actor
+has permission to update them. Never force-push `main` or another protected
+branch. If the applicable branch policy is uncertain, stop and resolve that
+uncertainty before syncing, pushing, or rebasing.
+
 ## Create a new stack
 
 Use this flow when the branches or pull requests do not exist yet:
@@ -104,9 +112,9 @@ Do not consider the stack formally verified if the branch bases are correct but 
 | `gh stack checkout` | Fetches a remote stack when needed and changes local checkout/tracking. | Confirm local changes are safe to switch. |
 | `gh stack link` | Creates or updates formal stack metadata; branch arguments can push and create pull requests. | Review inputs and intended remote changes first. |
 | `gh stack submit` | Pushes branches and creates or updates pull requests and formal stack metadata. | Review the complete stack before submitting. |
-| `gh stack push` | Pushes active stack branches and can use force-with-lease. | Explicit approval is required for rewritten remote history. |
-| `gh stack sync` | Fetches, reconciles, rebases, and pushes the stack; it can use force-with-lease and atomic updates. | Explicit approval is required before running it. |
-| `gh stack rebase` | Rewrites local stack commits while cascading branches upward. | Resolve the resulting history change before any push. |
+| `gh stack push` | Pushes active stack branches and can use force-with-lease. | Confirm force-with-lease is allowed for every rewritten stack branch; never update `main` or another protected branch this way. |
+| `gh stack sync` | Fetches, reconciles, rebases, and pushes the stack; it can use force-with-lease and atomic updates. | Confirm the stack branches are eligible for force-with-lease and that trunk updates remain fast-forward; never force-update `main` or another protected branch. |
+| `gh stack rebase` | Rewrites local stack commits while cascading branches upward. | Resolve the resulting history change before pushing; any force-with-lease push is limited to eligible stack feature branches. |
 | `gh stack merge` | Merges one or more stacked pull requests. | Explicit approval is required; do not use unconditional `--yes` in ordinary implementation work. |
 
 If `gh stack rebase` stops on conflicts, resolve and stage the files, then run:
@@ -121,6 +129,19 @@ To restore the pre-rebase state instead, run:
 gh stack rebase --abort
 ```
 
+## Force-with-lease boundary
+
+Rebasing a formal stack is compatible with this repository's branch policy
+when the rewritten branches are stack feature branches that are not protected
+by a matching ruleset. `gh stack rebase`, `gh stack sync`, and `gh stack push`
+may use `--force-with-lease` for those branches. This is still a force push,
+even though the lease protects against overwriting an unexpected remote tip.
+
+The no-force-push rule for `main` remains absolute. Do not pass `main` as a
+force-push target, and stop if a stack command would rewrite trunk or another
+protected branch. After a permitted stack update, repeat the formal metadata
+and base-chain checks below.
+
 ## Verification checklist
 
 Before reporting a stack as ready, confirm all of the following:
@@ -131,7 +152,8 @@ Before reporting a stack as ready, confirm all of the following:
 - `gh stack checkout <top-pr>` imported or selected the remote stack locally.
 - `gh stack view --json` shows the expected formal stack and order.
 - `gh pr view` confirms every pull request targets its immediate parent branch.
-- Any rebase, force-with-lease push, or merge has the required explicit approval.
+- Branch protection or ruleset coverage was checked for every branch that may be rewritten.
+- Any force-with-lease push targets only eligible stack feature branches; `main` and other protected branches are never force-updated.
 
 ## Official references
 
