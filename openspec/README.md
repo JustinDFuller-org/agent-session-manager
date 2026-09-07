@@ -36,7 +36,33 @@ For a formal stack rooted at `main`, the change follows this lifecycle:
 
 `OpenSpec -> implementation 1..n -> QA -> archive`
 
-The archive pull request is always the current top layer. Lower layers must carry the exact active change set from their immediate base, may leave tasks unchecked, and must not archive or introduce a competing change. The top layer must complete the tasks, archive the shared changes, synchronize the matching main specifications, and contain no implementation, QA, or unrelated files in its direct diff.
+#### Use the `gh stack` CLI
+
+Use the [canonical stacked-PR skill](../.agents/skills/openspec-stacked-prs/SKILL.md)
+for the complete command procedure. The short form is:
+
+1. Create a new stack with `gh stack init`, `gh stack add`, and
+   `gh stack submit`, or formally link existing PRs with
+   `gh stack link <bottom-pr> <next-pr> ...` in bottom-to-top order.
+2. Import the remote stack with `gh stack checkout <top-pr>`.
+3. Verify formal metadata with `gh stack view --json` and verify every PR's
+   immediate-parent base with `gh pr view`.
+
+`gh pr create --base` establishes a branch dependency but does not prove formal
+stack membership. One implementation PR contains one complete top-level task
+group and all of its subtasks. `gh stack sync`, `gh stack push`, and
+`gh stack rebase` may use `--force-with-lease` for eligible stack feature
+branches; never force-update `main` or another protected branch. See GitHub's
+[stacked pull request overview](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs),
+[quickstart](https://docs.github.com/en/pull-requests/get-started/stacked-prs-quickstart),
+and [CLI reference](https://docs.github.com/en/pull-requests/reference/stacked-prs-cli-commands).
+
+The archive pull request is always the current top layer. Lower layers must
+carry the exact active change set from their immediate base, may leave tasks
+unchecked, and must not archive or introduce a competing change. The top layer
+must complete the tasks, archive the shared changes, synchronize the matching
+main specifications, and contain no implementation, QA, or unrelated files in
+its direct diff.
 
 Four pull requests are the intended decomposition: the OpenSpec proposal, implementation, QA, and archive. This is guidance rather than a CI minimum; standalone and shorter stacks are supported. A standalone pull request is treated as a one-layer stack and must perform the final archive step itself.
 
