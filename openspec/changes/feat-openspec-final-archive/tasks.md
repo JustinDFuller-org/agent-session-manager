@@ -16,9 +16,9 @@
 
 ## 3. Workflow documentation and guidance
 
-- [ ] 3.1 Update `openspec/README.md` with the `OpenSpec -> implementation -> QA -> archive` sequence, the archive-only top pull request, allowed lower-layer state, standalone behavior, and stack-collapse behavior; verify documented commands and CI findings agree.
-- [ ] 3.2 Update `openspec/config.yaml` archive/apply guidance and `.github/workflows/openspec-guide.yml` status text so lower layers are told to continue implementation or QA and only the current top is told to archive; verify no guidance directs an earlier layer to archive.
-- [ ] 3.3 Document that four pull requests are the intended decomposition but not a CI minimum, and document the external `main` ruleset requirements for `openspec-check` and non-fast-forward protection without changing the existing CODEOWNERS boundary; verify the documentation uses `Agent Session Manager` in full.
+- [x] 3.1 Update `openspec/README.md` with the `OpenSpec -> implementation -> QA -> archive` sequence, the archive-only top pull request, allowed lower-layer state, standalone behavior, and stack-collapse behavior; verify documented commands and CI findings agree.
+- [x] 3.2 Update `openspec/config.yaml` archive/apply guidance and `.github/workflows/openspec-guide.yml` status text so lower layers are told to continue implementation or QA and only the current top is told to archive; verify no guidance directs an earlier layer to archive.
+- [x] 3.3 Document that four pull requests are the intended decomposition but not a CI minimum, and document the external `main` ruleset requirements for `openspec-check` and non-fast-forward protection without changing the existing CODEOWNERS boundary; verify the documentation uses `Agent Session Manager` in full.
 
 ## 4. Repository policy and verification
 

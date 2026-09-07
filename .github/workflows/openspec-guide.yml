@@ -69,6 +69,23 @@ jobs:
             const pull_number = context.payload.pull_request.number
             const scope = JSON.parse(process.env.OPENSPEC_SCOPE || '[]')
 
+            function stackPhase() {
+              const stack = context.payload.pull_request.stack
+              if (stack == null) {
+                return { kind: 'standalone', isTop: true, description: 'standalone finalization layer' }
+              }
+
+              const position = Number(stack.position)
+              const size = Number(stack.size)
+              if (!Number.isInteger(position) || position < 1 || !Number.isInteger(size) || size < 1 || position > size) {
+                return { kind: 'unknown', isTop: false, description: 'stack metadata is malformed; openspec-check will fail closed' }
+              }
+
+              return position === size
+                ? { kind: 'top', isTop: true, description: `current top finalization layer (${position} of ${size})` }
+                : { kind: 'continuation', isTop: false, description: `continuation layer (${position} of ${size})` }
+            }
+
             async function findExistingComment() {
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner,
@@ -124,26 +141,45 @@ jobs:
               return `- ${symbol} **${label}** — ${summary}`
             }
 
+            const phase = stackPhase()
+
             function renderActive(name, valid, completed, total) {
               const tasksDone = completed === total
+              const archiveSummary = phase.kind === 'top' || phase.kind === 'standalone'
+                ? 'required in the archive-only final pull request'
+                : phase.kind === 'continuation'
+                  ? 'leave active here; the current top archives it'
+                  : 'resolve stack metadata before finalization'
               const lines = [
                 `### \`${name}\``,
                 statusRow('Artifacts', valid ? '✅' : '❌', valid ? 'valid' : 'invalid'),
                 statusRow('Tasks', tasksDone ? '✅' : '⚠️', `${completed} of ${total} complete`),
-                statusRow('Archive', '⚠️', 'not archived'),
+                statusRow('Archive', phase.kind === 'unknown' ? '❌' : phase.isTop ? '⚠️' : '✅', archiveSummary),
                 '',
               ]
               if (!valid) {
                 lines.push('Next step: run `openspec validate --all --strict` locally to see why the artifacts are invalid.')
               } else if (!tasksDone) {
-                lines.push('Next step: finish the remaining tasks.')
+                lines.push(phase.isTop
+                  ? 'Next step: finish the remaining tasks before creating the archive-only pull request.'
+                  : 'Next step: continue implementation or QA on this layer and leave the shared change active.')
+              } else if (phase.kind === 'continuation') {
+                lines.push('Next step: continue implementation or QA here; create the separate archive pull request at the current top.')
+              } else if (phase.kind === 'unknown') {
+                lines.push('Next step: resolve the malformed stack metadata; do not archive this layer.')
               } else {
-                lines.push('Next step: archive with `/opsx:archive` — once every AI and human review comment on this pull request is resolved, as the last step before merge.')
+                lines.push('Next step: archive with `/opsx:archive` in the archive-only pull request once every AI and human review comment on this pull request is resolved.')
               }
               return lines.join('\n')
             }
 
             function renderArchived(name, valid) {
+              if (phase.kind === 'continuation') {
+                return [
+                  `### \`${name}\``,
+                  statusRow('Archived', '❌', 'archived before the current top finalization layer; lower layers must leave the shared change active'),
+                ].join('\n')
+              }
               if (valid) {
                 return [
                   `### \`${name}\``,
@@ -179,7 +215,7 @@ jobs:
               }
             }
 
-            const body = `${marker}\n## OpenSpec status\n\n${sections.join('\n\n')}\n`
+            const body = `${marker}\n## OpenSpec status\n\n**Stack phase:** ${phase.description}\n\n${sections.join('\n\n')}\n`
 
             const existing = await findExistingComment()
             if (existing) {

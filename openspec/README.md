@@ -7,13 +7,15 @@ merged.
 
 ## Every pull request needs OpenSpec
 
-Every pull request requires a complete, valid, archived OpenSpec change,
-including drafts and pull requests that change only code, documentation,
-automation, dependencies, or repository metadata. The `openspec-check` status
-is strict on every pull request and every layer of a formal GitHub stacked pull
-request. A draft does not relax the gate.
+Every pull request requires a valid OpenSpec change, including drafts and pull
+requests that change only code, documentation, automation, dependencies, or
+repository metadata. The `openspec-check` status is strict on every pull
+request and every layer of a formal GitHub stacked pull request. A draft does
+not relax the gate.
 
-The required final state includes:
+Continuation layers may retain the shared active change and unchecked tasks
+while implementation or QA proceeds. The current top layer of a stack, and
+every standalone pull request, is the finalization layer. It must contain:
 
 - the repository's spec-driven artifacts (`.openspec.yaml`, `proposal.md`,
   `design.md`, `tasks.md`, and a delta specification);
@@ -21,6 +23,11 @@ The required final state includes:
 - no `skip_specs` shortcut;
 - every task checked; and
 - no active change remaining under `openspec/changes/`.
+
+The finalization layer must archive the exact shared change set in an
+archive-only pull request. Existing archived changes on the stack trunk do not
+count as a new change, and higher layers must preserve the change names handed
+off by their immediate base.
 
 The gate runs the pinned OpenSpec CLI with strict validation and archived-change
 validation. It evaluates the immutable candidate revision for the pull request,
@@ -34,53 +41,46 @@ not scripts or workflows supplied by that candidate.
 3. Iterate on the spec with your reviewer(s) until it is locked in
 4. `/opsx:apply` — implement `tasks.md`
 5. PR review — human and AI feedback on the implementation and the spec
-6. Complete every task and run the required checks. If the remaining tasks are
-   QA or validation, use a final validation-only stacked PR and record the
-   commands, results, and evidence links in that PR's description.
-7. `/opsx:archive` — archive the change as the last OpenSpec step, after review
-   feedback is resolved and before the pull request is marked ready for review
-8. Merge
+6. Run QA in its own continuation pull request when the stack has a separate
+   QA layer; record the commands, results, and evidence links in that PR's
+   description.
+7. Create the final archive pull request at the current top of the stack. It
+   must contain only the archive transition and synchronized main
+   specifications.
+8. `/opsx:archive` — archive the change as the last OpenSpec step, after review
+   feedback is resolved and before the archive pull request is marked ready
+   for review
+9. Merge
 
 ### Stacked pull requests
 
-For a formal stack rooted at `main`, the bottom PR owns the OpenSpec change.
-Higher PRs contain implementation layers and must not archive the change or
-create a competing finalized change.
+For a formal stack rooted at `main`, the change follows this lifecycle:
 
-While implementation proceeds, higher PRs may show the same strict check
-failure because the base PR is still active or has incomplete tasks. That is
-expected. Do not archive in the higher PR. Instead:
+`OpenSpec -> implementation 1..n -> QA -> archive`
 
-1. Finish the implementation work in the higher PRs.
-2. Return to the base PR, complete the task checklist, and archive the change
-   there.
-3. Cascade-rebase the stack so the higher branches contain the archived state.
-4. Rerun the checks, then mark the stack ready and merge it.
+The archive pull request is always the current top layer. Lower layers must
+carry the exact active change set from their immediate base, may leave tasks
+unchecked, and must not archive or introduce a competing change. The top layer
+must complete the tasks, archive the shared changes, synchronize the matching
+main specifications, and contain no implementation, QA, or unrelated files in
+its direct diff.
 
-For a higher-layer failure, CI explicitly says not to archive in that PR and
-points to the base branch when available. For a base-layer failure, CI directs
-the contributor to complete and archive the change in that base PR.
+Four pull requests are the intended decomposition: the OpenSpec proposal,
+implementation, QA, and archive. This is guidance rather than a CI minimum;
+standalone and shorter stacks are supported. A standalone pull request is
+treated as a one-layer stack and must perform the final archive step itself.
 
-#### Validation-only final layer
+When lower pull requests merge, GitHub reduces the remaining stack's position
+and size. The pull request that is then `position == size` remains the archive
+owner. The stack trunk may temporarily contain the active change during this
+collapse; the immediate base preserves the shared identity and permits the
+active-to-archived handoff. Do not use the original stack length or pull
+request number to choose the archive owner.
 
-When the remaining tasks are QA or validation rather than implementation, the
-last stacked PR may be a validation-only layer. That PR should check off the
-validation tasks only after running them and its description must record the
-validation that was performed. The exact checks will vary by change and may
-include commands, workflows, tests, manual checks, or other relevant evidence;
-GitHub API or ruleset checks are only required when they are part of that
-change's validation:
-
-- the exact validation steps that were run;
-- the expected and observed result for each check;
-- links to useful CI runs or other durable evidence, when available; and
-- any disposable diagnostic workflow or fixture used, including confirmation
-  that it was removed afterward.
-
-The validation-only PR still must not archive the OpenSpec change. After the
-validation results are reviewed, return to the base PR to complete any
-remaining task checklist items, archive the change there, cascade-rebase the
-stack, and rerun the final checks.
+When the QA work is the last non-archive layer, record its exact validation
+steps, expected and observed results, useful CI links, and any disposable
+fixture cleanup in that QA pull request's description. Then create the separate
+archive pull request and resolve its review feedback before marking it ready.
 
 ## Install OpenSpec
 
@@ -142,21 +142,27 @@ formal stack:
 | Required artifacts and matching main specifications exist | pass |
 | Artifacts pass `openspec validate --all --strict` | pass |
 | Archived-change validation passes | pass |
-| No active change remains outside `openspec/changes/archive/` | pass |
-| All tasks are checked in the relevant change set | pass |
+| Continuation layers preserve the shared active change set | pass |
+| The current top or standalone layer archives the shared change set | pass |
+| The current top or standalone layer has no active change and all tasks checked | pass |
 
-Missing, malformed, active, incomplete, or unarchived changes fail the check.
-The `openspec-check` job is the merge gate; the guide comment and `openspec`
-label are informational only.
+Missing or malformed changes fail the check on every layer. Active or
+incomplete changes fail only when a current top or standalone layer attempts
+finalization; the guide comment and `openspec` label are informational, while
+the `openspec-check` job is the merge gate.
 
 ## GitHub merge controls and ownership
 
 The `main` branch ruleset is external repository configuration. It must require
-the stable `openspec-check` status in addition to the repository's existing
-review, code-owner, latest-push approval, and thread-resolution requirements.
-Only the human account `JustinDFuller` may use the configured ruleset bypass.
+the stable `openspec-check` status, block force pushes and other non-fast-
+forward updates, and preserve the repository's existing review, code-owner,
+latest-push approval, and thread-resolution requirements. Only the human
+account `JustinDFuller` may use the configured ruleset bypass.
 `JustinDFuller-Agents` must not have administrator, maintain, or ruleset-bypass
-permission.
+permission. The ruleset is configured and verified manually; CI does not
+change repository administration settings.
+
+This workflow change does not alter the existing `.github/CODEOWNERS` boundary.
 
 The existing `.github/CODEOWNERS` policy remains in force:
 
@@ -167,8 +173,8 @@ The existing `.github/CODEOWNERS` policy remains in force:
   the human default because no exception grants those paths to the agent.
 
 The ruleset and CODEOWNERS policy are complementary: CODEOWNERS controls human
-review of enforcement changes, while the ruleset controls the required status
-and its only authorized bypass.
+review of enforcement changes, while the ruleset controls the required status,
+non-fast-forward protection, and its only authorized bypass.
 
 ## The OpenSpec guide comment
 
