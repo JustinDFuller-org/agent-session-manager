@@ -1,10 +1,10 @@
 ## 1. Phase-aware merge gate
 
-- [ ] 1.1 Replace the base-versus-higher archive decision with normalized standalone, non-top, and top stack context using current `stack.position`, `stack.size`, and stack trunk metadata; verify malformed or unsupported context fails closed.
-- [ ] 1.2 Update the base-owned workflow to run unconditionally for relevant pull-request revisions, check out enforcement code from the protected base branch, and provide immutable candidate, stack-trunk, and immediate-base snapshots or trusted manifests; verify candidate workflow and validator code are never executed.
-- [ ] 1.3 Implement state-aware OpenSpec change-set comparison that rejects inherited archived changes, preserves exact names across stack layers, recognizes active-to-archived handoffs after lower merges, and fails when a layer omits or introduces a competing change; verify findings identify the mismatched names.
-- [ ] 1.4 Split common artifact validation from phase validation so non-top layers may retain valid active changes and unchecked tasks, while the top or standalone layer requires complete tasks, no active changes, synchronized main specifications, and strict archived validation; verify actionable guidance distinguishes continuation from finalization.
-- [ ] 1.5 Enforce that the top layer's direct diff contains only the exact OpenSpec archive transition and corresponding main-specification updates; verify implementation, QA, unrelated documentation, and other non-OpenSpec changes fail the archive-only check.
+- [x] 1.1 Replace the base-versus-higher archive decision with normalized standalone, non-top, and top stack context using current `stack.position`, `stack.size`, and stack trunk metadata; verify malformed or unsupported context fails closed.
+- [x] 1.2 Update the base-owned workflow to run unconditionally for relevant pull-request revisions, check out enforcement code from the protected base branch, and provide immutable candidate, stack-trunk, and immediate-base snapshots or trusted manifests; verify candidate workflow and validator code are never executed.
+- [x] 1.3 Implement state-aware OpenSpec change-set comparison that rejects inherited archived changes, preserves exact names across stack layers, recognizes active-to-archived handoffs after lower merges, and fails when a layer omits or introduces a competing change; verify findings identify the mismatched names.
+- [x] 1.4 Split common artifact validation from phase validation so non-top layers may retain valid active changes and unchecked tasks, while the top or standalone layer requires complete tasks, no active changes, synchronized main specifications, and strict archived validation; verify actionable guidance distinguishes continuation from finalization.
+- [x] 1.5 Enforce that the top layer's direct diff contains only the exact OpenSpec archive transition and corresponding main-specification updates; verify implementation, QA, unrelated documentation, and other non-OpenSpec changes fail the archive-only check.
 
 ## 2. Regression coverage
 
