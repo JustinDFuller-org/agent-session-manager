@@ -3,6 +3,18 @@ name: workflow
 description: "Development workflow for this repo: plan → test → implement → human review → repeat. Load when starting any feature, bug fix, or refactor."
 ---
 
+## Fixed-width prose policy
+
+Write each logical prose paragraph, list item, blockquote paragraph, and pull-request description paragraph on one physical line; let Markdown and GitHub renderers wrap it naturally instead of inserting line breaks inside sentences.
+
+Run `make no-fixed-width-prose` before review. CI hard-fails on findings in tracked Markdown-family files and the current pull-request description, including drafts and formal stacked pull requests.
+
+Leave fenced and indented code, tables, YAML front matter, headings, thematic breaks, raw HTML blocks, and separate one-line list items in their required line-oriented form.
+
+Write commit-body prose as one-line logical paragraphs as strongly worded guidance, but do not treat commit bodies as a hard CI input because force-pushes are prohibited and pushed messages cannot be removed from a pull request's commit set without rewriting history.
+
+Never force-push to bypass or repair this policy; fix Markdown and pull-request-description findings in new commits and rerun the local check.
+
 ## Workflow
 
 **1. Plan** — Always present a plan before writing code, whether or not plan mode is active. Use knowledge of the codebase from AGENTS.md. Explor relevant details further. Reference specific files and functions. End with a clear list of changes.
