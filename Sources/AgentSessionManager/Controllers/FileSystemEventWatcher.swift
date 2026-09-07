@@ -1,11 +1,6 @@
 import Darwin
 import Foundation
 
-/// Owns a vnode dispatch source and delivers its lifecycle on the main actor.
-///
-/// Consumers keep parsing, debounce, and domain state in their own types. This
-/// type owns only file-descriptor attachment, replacement recovery, and
-/// cancellation so actor and descriptor lifetimes cannot diverge.
 @MainActor
 final class FileSystemEventWatcher {
     enum Event: Equatable, Sendable {

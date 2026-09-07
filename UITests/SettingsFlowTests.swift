@@ -122,7 +122,6 @@ final class SettingsFlowTests: BaseTestCase {
         verifyNotificationsTab()
         assertOnlySidebarShowsSelectedSectionTitle("Notifications", in: settingsWindow)
 
-        // ── Shortcuts tab ────────────────────────────────────────────────────
         let shortcutsTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-shortcuts").firstMatch
         waitFor(shortcutsTab)
         shortcutsTab.click()
@@ -165,7 +164,6 @@ final class SettingsFlowTests: BaseTestCase {
             "Shortcut key editor should be visibly farther from the description than the title"
         )
 
-        // ── Status Line tab ──────────────────────────────────────────────────
         let statusLineTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-status-line")
             .firstMatch
         waitFor(statusLineTab)
@@ -179,7 +177,6 @@ final class SettingsFlowTests: BaseTestCase {
         prTrackingToggle.click()
         XCTAssertEqual(prTrackingToggle.value as? Int, 1)
 
-        // ── Panes tab (base ref picker) ──────────────────────────────────────
         let worktreesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-panes").firstMatch
         waitFor(worktreesTab)
         worktreesTab.click()
@@ -195,7 +192,6 @@ final class SettingsFlowTests: BaseTestCase {
         XCTAssertEqual(freshButton.value as? Int, 0)
         XCTAssertEqual(headButton.value as? Int, 1)
 
-        // ── Profiles tab ─────────────────────────────────────────────────────
         let profilesTab = app.descendants(matching: .any).matching(identifier: "settings-sidebar-profiles").firstMatch
         waitFor(profilesTab)
         profilesTab.click()
@@ -390,7 +386,6 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(toolsTab)
         toolsTab.click()
 
-        // Shell picker and detect button must not appear in CLI Tools
         XCTAssertFalse(
             app.descendants(matching: .any).matching(identifier: "settings-shell-picker").firstMatch
                 .waitForExistence(timeout: 1),
@@ -402,13 +397,11 @@ final class SettingsFlowTests: BaseTestCase {
             "Detect Installed Tools button should not exist anywhere in Settings"
         )
 
-        // All four CLIs should appear in the picker regardless of enabled state
         let codexSegment = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label == 'Codex'")).firstMatch
         waitFor(codexSegment)
         codexSegment.click()
 
-        // Codex is disabled by default — enable toggle should be off, options hidden
         let codexEnableToggle = app.checkBoxes["settings-tool-enable-toggle-codex"]
         waitFor(codexEnableToggle)
         XCTAssertEqual(codexEnableToggle.value as? Int, 0, "Codex enable toggle should be off by default")
@@ -418,7 +411,6 @@ final class SettingsFlowTests: BaseTestCase {
             "Option sections should not appear while Codex is disabled"
         )
 
-        // Enable Codex — option sections should appear
         codexEnableToggle.click()
         XCTAssertEqual(codexEnableToggle.value as? Int, 1, "Codex enable toggle should be on after click")
 
@@ -426,7 +418,6 @@ final class SettingsFlowTests: BaseTestCase {
         waitFor(notEnabledSection)
         XCTAssertTrue(notEnabledSection.exists, "Option sections should appear after enabling Codex")
 
-        // Disable Codex again — options should disappear
         codexEnableToggle.click()
         XCTAssertEqual(codexEnableToggle.value as? Int, 0, "Codex enable toggle should be off after second click")
 

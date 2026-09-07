@@ -112,7 +112,6 @@ final class TerminalBellNotificationTests: XCTestCase {
         controller.terminalView.layoutSubtreeIfNeeded()
         #endif
 
-        // SwiftTerm: ESC ] 777 ; notify ; title ; body BEL
         controller.terminalView.feed(text: "\u{1b}]777;notify;OSC Title;OSC Body\u{07}")
         try? await Task.sleep(nanoseconds: 250_000_000)
 
@@ -163,7 +162,6 @@ final class TerminalBellNotificationTests: XCTestCase {
     }
 }
 
-/// Thread-safe flag for closure capture in async bell test.
 private final class LockedFlag: @unchecked Sendable {
     private var _value = false
     private let lock = NSLock()

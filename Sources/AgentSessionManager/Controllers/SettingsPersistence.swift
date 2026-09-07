@@ -16,14 +16,11 @@ struct NotificationConfig: Codable {
     var sidebarSide: SidebarSide
     var isPriorityEnabled: Bool
     var isMacOSBannerEnabled: Bool
-    /// When true, install a Cursor `stop` hook to fire attention notifications when the agent completes a turn.
     var isCursorHookAttentionEnabled: Bool
     var isPRMergedNotificationsEnabled: Bool
     var isPRClosedNotificationsEnabled: Bool
     var alwaysShowNotificationsSidebar: Bool
-    /// When true, fire a notification when Claude finishes a turn.
     var isClaudeStopNotificationEnabled: Bool
-    /// When true, fire a notification when OpenCode finishes a turn.
     var isOpencodeStopNotificationEnabled: Bool
 
     enum CodingKeys: String, CodingKey {

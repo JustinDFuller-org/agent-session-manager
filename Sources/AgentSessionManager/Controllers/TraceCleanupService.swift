@@ -1,7 +1,5 @@
 import Foundation
 
-/// Deletes per-pane JSONL files older than `retentionInterval` and removes empty
-/// subdirectories. Runs once on initialization and then every 6 hours on a background timer.
 @MainActor
 final class TraceCleanupService {
     private let tracesDirectory: URL
@@ -71,7 +69,6 @@ final class TraceCleanupService {
                 }
             }
 
-            // Remove subdirectory if now empty
             let remaining = (try? fm.contentsOfDirectory(atPath: subDir.path)) ?? []
             if remaining.isEmpty {
                 if (try? fm.removeItem(at: subDir)) != nil {

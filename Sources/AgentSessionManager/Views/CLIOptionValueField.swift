@@ -1,9 +1,5 @@
 import SwiftUI
 
-/// Renders a CLI option's value control. Shows a plain text field when the flag has no presets
-/// (the zero-regression path), or a preset picker — single- or multi-select depending on
-/// `option.allowsMultipleValues` — when presets are defined in Settings → Tools. Both picker
-/// forms keep a "Custom…" escape hatch since presets never make a one-off value unreachable.
 struct CLIOptionValueField: View {
     let option: CLIOptionConfig
     @Binding var value: String

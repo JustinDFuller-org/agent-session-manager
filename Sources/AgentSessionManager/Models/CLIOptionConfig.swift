@@ -13,23 +13,13 @@ struct CLIOptionConfig: Identifiable, Codable {
     var isDefaultEnabled: Bool
     var isUserAdded: Bool
     var customIsStringType: Bool
-    /// Candidate values offered when selecting this flag, defined at harness scope in Settings → Tools.
     var presetValues: [String]
-    /// Whether this flag's CLI syntax accepts multiple space-separated values behind one flag
-    /// (e.g. `--mcp-config 'a.json' 'b.json'`), rather than a single value. User-configurable per
-    /// flag in Settings → Tools; the user is responsible for only enabling this on flags whose CLI
-    /// is actually variadic.
     var allowsMultipleValues: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, isAvailable, isDefaultEnabled, isUserAdded, customIsStringType, presetValues, allowsMultipleValues
     }
 
-    /// When set on a `JSONDecoder`'s `userInfo`, harness-aware decode resolves colliding
-    /// flag IDs (e.g. `--agent`, `--continue`, `--model`) to the matching template from
-    /// the supplied harness's catalog before falling back to a combined search across all
-    /// catalogs. Without this key the decoder preserves legacy behavior: combined search
-    /// with the Claude catalog searched first.
     static let harnessUserInfoKey =
         CodingUserInfoKey(rawValue: "io.opencode.clioption.harness")!
 
@@ -125,7 +115,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return customIsStringType ? .string(placeholder: "Value") : .boolean
         }
         switch id {
-        // Boolean flags
         case "--allow-dangerously-skip-permissions",
             "--bare",
             "--chrome",
@@ -138,13 +127,11 @@ struct CLIOptionConfig: Identifiable, Codable {
             "--strict-mcp-config",
             "--verbose":
             return .boolean
-        // Codex-specific boolean flags (not in Claude's all list)
         case "--dangerously-bypass-approvals-and-sandbox",
             "--no-alt-screen",
             "--oss",
             "--search":
             return .boolean
-        // Cursor-specific boolean flags
         case "--approve-mcps",
             "--force",
             "--list-models",
@@ -153,7 +140,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             "--trust",
             "--yolo":
             return .boolean
-        // Cursor-specific string flags
         case "--api-key":
             return .string(placeholder: "API key (or set CURSOR_API_KEY env var)")
         case "--header":
@@ -162,7 +148,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "plan / ask (default: agent)")
         case "--workspace":
             return .string(placeholder: "Path to workspace directory")
-        // Codex-specific string flags (not in Claude's all list)
         case "--ask-for-approval":
             return .string(placeholder: "untrusted / on-request / never")
         case "--config":
@@ -177,7 +162,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "profile name")
         case "--sandbox":
             return .string(placeholder: "read-only / workspace-write / danger-full-access")
-        // OpenCode-specific string flags (not in Claude's all list)
         case "--cors":
             return .string(placeholder: "Origin(s) allowed for CORS")
         case "--hostname":
@@ -190,7 +174,6 @@ struct CLIOptionConfig: Identifiable, Codable {
             return .string(placeholder: "Initial prompt")
         case "--session":
             return .string(placeholder: "Session ID to continue")
-        // String flags
         case "--add-dir":
             return .string(placeholder: "Path to additional working directory")
         case "--agent":
@@ -244,7 +227,6 @@ struct CLIOptionConfig: Identifiable, Codable {
         }
     }
 
-    /// Builds raw argv tokens. Shell serialization happens once at the terminal boundary.
     func commandLineArguments(value: String?, values: [String] = []) -> [String] {
         switch optionType {
         case .boolean:
@@ -266,8 +248,6 @@ struct CLIOptionConfig: Identifiable, Codable {
         }
     }
 
-    /// Cleans up user-edited preset drafts for persistence: trims whitespace, drops blanks, and
-    /// removes duplicates while preserving first-seen order.
     static func normalizedPresetValues(_ raw: [String]) -> [String] {
         var seen = Set<String>()
         var result: [String] = []

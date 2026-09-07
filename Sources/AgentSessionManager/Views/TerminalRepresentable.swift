@@ -87,10 +87,6 @@ struct TerminalRepresentable: NSViewRepresentable {
                 }
                 return
             }
-            // SwiftUI's GeometryReader/LazyVGrid can produce multiple layout passes
-            // with intermediate (tiny but non-zero) frames. Wait until the frame is
-            // stable across two consecutive run-loop iterations before opening the PTY,
-            // so terminal.cols/rows reflect the final layout dimensions.
             started = true
             waitForStableFrame(view: view, controller: controller, lastSize: view.frame.size, attempt: 0)
         }

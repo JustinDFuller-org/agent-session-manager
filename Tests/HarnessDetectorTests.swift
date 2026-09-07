@@ -41,7 +41,6 @@ final class HarnessDetectorTests: XCTestCase {
     }
 
     func testCursorMapsToAgentBinary() async {
-        // Cursor's commandDescription is "agent", not "cursor".
         let result = await HarnessDetector.detectInstalled(shell: "/bin/zsh") { _, command in
             command == "agent"
         }
@@ -50,7 +49,6 @@ final class HarnessDetectorTests: XCTestCase {
     }
 
     func testHarnessAllCasesExcludesShell() {
-        // HarnessDetector only probes Harness.allCases which excludes .shell.
         XCTAssertFalse(Harness.allCases.contains(.shell))
     }
 

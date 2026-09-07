@@ -22,7 +22,6 @@ ICON_PARTIAL_DEV = .build/icon-partial-dev.plist
 
 export PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
 
-# --- Production targets ---
 
 build: build-prd
 
@@ -101,7 +100,6 @@ watch-prd:
 		sleep 1; \
 	done
 
-# --- Dev targets ---
 
 build-dev:
 	$(MAKE) check-toolchain
@@ -174,7 +172,6 @@ watch-dev:
 		sleep 1; \
 	done
 
-# --- Shared targets ---
 
 check-toolchain:
 	@scripts/check-toolchain.sh

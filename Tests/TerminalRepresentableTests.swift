@@ -32,7 +32,6 @@ final class TerminalRepresentableTests: XCTestCase {
         #if os(macOS)
         view.layoutSubtreeIfNeeded()
         #endif
-        // Non-zero frame but no window: readiness guard must fail, no crash, schedules retry
         coordinator.focusWhenReady(view: view, attempt: 0)
         XCTAssertNil(view.window, "view must not be in a window for this test to be valid")
     }
@@ -62,7 +61,6 @@ final class TerminalRepresentableTests: XCTestCase {
     func testFocusWhenReadyRespectsAttemptLimit() {
         let coordinator = TerminalRepresentable.Coordinator()
         let view = TerminalController().terminalView
-        // attempt >= 10 → must return immediately without scheduling
         coordinator.focusWhenReady(view: view, attempt: 10)
     }
 }

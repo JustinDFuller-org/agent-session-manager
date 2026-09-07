@@ -2,9 +2,6 @@ import AppKit
 import Foundation
 import Observation
 
-/// Routes update detection to the detector appropriate for the current `DistributionChannel`.
-/// `sourceMain` builds use `MainBranchUpdateDetector`; released DMG builds use
-/// `DMGReleaseDetector` (Sparkle). All other builds remain dormant.
 @Observable
 @MainActor
 final class UpdateCheckCoordinator: UpdateDetectorDelegate {
@@ -22,8 +19,6 @@ final class UpdateCheckCoordinator: UpdateDetectorDelegate {
 
     private init() {}
 
-    /// Call once at startup. No-op unless this build is a `sourceMain` or `dmg` distribution
-    /// and the user hasn't disabled the reminder in Settings.
     func start() {
         let currentChannel = DistributionChannel.current()
         guard currentChannel == .sourceMain || currentChannel == .dmg else {
@@ -57,8 +52,6 @@ final class UpdateCheckCoordinator: UpdateDetectorDelegate {
         }
     }
 
-    /// Called when the user disables the reminder in Settings. Clears state so the tab-bar
-    /// pill disappears immediately, and stops the active detector.
     func stop() {
         activeDetector?.stop()
         activeDetector = nil
@@ -69,12 +62,10 @@ final class UpdateCheckCoordinator: UpdateDetectorDelegate {
         channel = nil
     }
 
-    /// Triggers a manual or periodic check on the active detector.
     func check() {
         activeDetector?.check()
     }
 
-    /// Triggers the platform-appropriate update UI (Sparkle for DMG, Settings for source builds).
     func performUpdate() {
         activeDetector?.performUpdate()
     }

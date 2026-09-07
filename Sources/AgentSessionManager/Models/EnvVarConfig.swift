@@ -107,12 +107,7 @@ struct EnvVarConfig: Identifiable, Codable {
         }
     }
 
-    // MARK: - Predefined Claude Code environment variables
-    // Source: https://code.claude.com/docs/en/env-vars
-    // Excludes deprecated vars (ANTHROPIC_SMALL_FAST_MODEL) and auto-set vars (CLAUDECODE).
-
     static let all: [EnvVarConfig] = [
-        // --- Authentication & API Keys ---
         EnvVarConfig(
             id: "ANTHROPIC_API_KEY",
             label: "API Key",
@@ -124,7 +119,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Custom Authorization header value (prefixed with Bearer)"
         ),
 
-        // --- API Configuration ---
         EnvVarConfig(
             id: "ANTHROPIC_BASE_URL",
             label: "Base URL",
@@ -151,14 +145,12 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Timeout for API requests in milliseconds (default: 600000)"
         ),
 
-        // --- Model Configuration ---
         EnvVarConfig(
             id: "ANTHROPIC_MODEL",
             label: "Model",
             description: "Name of the model setting to use"
         ),
 
-        // --- Bash / Shell ---
         EnvVarConfig(
             id: "BASH_DEFAULT_TIMEOUT_MS",
             label: "Bash Default Timeout",
@@ -175,7 +167,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Maximum timeout for bash commands in ms (default: 600000)"
         ),
 
-        // --- Compaction ---
         EnvVarConfig(
             id: "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
             label: "Autocompact Percentage",
@@ -187,21 +178,18 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Context capacity in tokens for auto-compaction calculations"
         ),
 
-        // --- Bash Behavior ---
         EnvVarConfig(
             id: "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR",
             label: "Maintain Project Working Dir",
             description: "Return to original working directory after each Bash command"
         ),
 
-        // --- Accessibility ---
         EnvVarConfig(
             id: "CLAUDE_CODE_ACCESSIBILITY",
             label: "Accessibility",
             description: "Set to 1 to keep native terminal cursor visible for screen magnifiers"
         ),
 
-        // --- Memory / CLAUDE.md ---
         EnvVarConfig(
             id: "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD",
             label: "Additional Dirs CLAUDE.md",
@@ -218,21 +206,18 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to 1 to prevent loading any CLAUDE.md memory files"
         ),
 
-        // --- Prompt / Attribution ---
         EnvVarConfig(
             id: "CLAUDE_CODE_ATTRIBUTION_HEADER",
             label: "Attribution Header",
             description: "Set to 0 to omit attribution block from system prompt"
         ),
 
-        // --- IDE ---
         EnvVarConfig(
             id: "CLAUDE_CODE_AUTO_CONNECT_IDE",
             label: "Auto Connect IDE",
             description: "Override automatic IDE connection (true/false)"
         ),
 
-        // --- TLS / Certificates ---
         EnvVarConfig(
             id: "CLAUDE_CODE_CERT_STORE",
             label: "Certificate Store",
@@ -254,7 +239,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Passphrase for encrypted client key"
         ),
 
-        // --- Debug ---
         EnvVarConfig(
             id: "CLAUDE_CODE_DEBUG_LOGS_DIR",
             label: "Debug Logs Dir",
@@ -266,7 +250,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Minimum debug log level: verbose, debug, info, warn, error"
         ),
 
-        // --- Disable Features ---
         EnvVarConfig(
             id: "CLAUDE_CODE_DISABLE_1M_CONTEXT",
             label: "Disable 1M Context",
@@ -358,14 +341,12 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to 1 to disable virtual scrolling in fullscreen mode"
         ),
 
-        // --- Effort / Thinking ---
         EnvVarConfig(
             id: "CLAUDE_CODE_EFFORT_LEVEL",
             label: "Effort Level",
             description: "Effort level: low, medium, high, xhigh, max, or auto"
         ),
 
-        // --- Enable Features ---
         EnvVarConfig(
             id: "CLAUDE_CODE_ENABLE_AWAY_SUMMARY",
             label: "Enable Away Summary",
@@ -377,7 +358,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to 1 to enable OpenTelemetry data collection"
         ),
 
-        // --- Misc Configuration ---
         EnvVarConfig(
             id: "CLAUDE_CODE_EXTRA_BODY",
             label: "Extra Body",
@@ -389,7 +369,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Override the default token limit for file reads"
         ),
 
-        // --- Glob ---
         EnvVarConfig(
             id: "CLAUDE_CODE_GLOB_HIDDEN",
             label: "Glob Hidden",
@@ -406,7 +385,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Timeout in seconds for Glob file discovery (default: 20)"
         ),
 
-        // --- Display ---
         EnvVarConfig(
             id: "CLAUDE_CODE_HIDE_CWD",
             label: "Hide CWD",
@@ -418,7 +396,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to 1 to show terminal's own cursor at input caret"
         ),
 
-        // --- Context / Tokens ---
         EnvVarConfig(
             id: "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
             label: "Max Context Tokens",
@@ -445,21 +422,18 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Cap the number of agentic turns"
         ),
 
-        // --- MCP ---
         EnvVarConfig(
             id: "CLAUDE_CODE_MCP_ALLOWLIST_ENV",
             label: "MCP Allowlist Env",
             description: "Set to 1 to restrict MCP server environment inheritance"
         ),
 
-        // --- Notifications ---
         EnvVarConfig(
             id: "CLAUDE_CODE_NOTIFICATION_FILTER",
             label: "Notification Filter",
             description: "Notification level: all, warnings, errors"
         ),
 
-        // --- OpenTelemetry ---
         EnvVarConfig(
             id: "CLAUDE_CODE_OTEL_ENDPOINT",
             label: "OTel Endpoint",
@@ -471,7 +445,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Headers to include with OpenTelemetry requests"
         ),
 
-        // --- Telemetry / Traffic Control ---
         EnvVarConfig(
             id: "DISABLE_AUTOUPDATER",
             label: "Disable Autoupdater",
@@ -493,25 +466,18 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to 1 to disable tracking"
         ),
 
-        // --- Compact ---
         EnvVarConfig(
             id: "DISABLE_COMPACT",
             label: "Disable Compact",
             description: "Set to 1 to disable auto-compaction"
         ),
 
-        // --- Debug ---
         EnvVarConfig(
             id: "DEBUG",
             label: "Debug",
             description: "Set to 1 to enable debug mode"
         ),
     ]
-
-    // MARK: - Predefined OpenCode environment variables
-    // Source: https://opencode.ai/docs/config/
-    // App-controlled keys are shown in the editor as disabled with a caption, because Agent
-    // Session Manager injects them per-pane and any user-provided value would be overridden.
 
     static let opencodeDisableDefaultPluginsIsAppControlled: Bool = {
         #if DEV_BUILD
@@ -522,7 +488,6 @@ struct EnvVarConfig: Identifiable, Codable {
     }()
 
     static let opencodeAll: [EnvVarConfig] = [
-        // --- App-controlled config ---
         EnvVarConfig(
             id: "OPENCODE_CONFIG_CONTENT",
             label: "Config Content",
@@ -538,7 +503,6 @@ struct EnvVarConfig: Identifiable, Codable {
             isAppControlled: true
         ),
 
-        // --- Config path ---
         EnvVarConfig(
             id: "OPENCODE_CONFIG",
             label: "Config Path",
@@ -555,7 +519,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Path to the TUI-specific configuration file"
         ),
 
-        // --- Server auth ---
         EnvVarConfig(
             id: "OPENCODE_SERVER_PASSWORD",
             label: "Server Password",
@@ -567,7 +530,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Username for the local OpenCode HTTP server"
         ),
 
-        // --- Behavior ---
         EnvVarConfig(
             id: "OPENCODE_AUTO_SHARE",
             label: "Auto Share",
@@ -594,7 +556,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to true to disable mouse support in the TUI"
         ),
 
-        // --- Claude Code interop ---
         EnvVarConfig(
             id: "OPENCODE_DISABLE_CLAUDE_CODE",
             label: "Disable Claude Code",
@@ -611,7 +572,6 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Set to true to disable Claude Code skills import"
         ),
 
-        // --- Models / network ---
         EnvVarConfig(
             id: "OPENCODE_DISABLE_MODELS_FETCH",
             label: "Disable Models Fetch",
@@ -623,14 +583,12 @@ struct EnvVarConfig: Identifiable, Codable {
             description: "Override the URL used to fetch available models"
         ),
 
-        // --- LSP / tools ---
         EnvVarConfig(
             id: "OPENCODE_DISABLE_LSP_DOWNLOAD",
             label: "Disable LSP Download",
             description: "Set to true to disable automatic LSP server downloads"
         ),
 
-        // --- Dev/prod isolation ---
         EnvVarConfig(
             id: "OPENCODE_DISABLE_DEFAULT_PLUGINS",
             label: "Disable Default Plugins",
@@ -639,7 +597,6 @@ struct EnvVarConfig: Identifiable, Codable {
             isAppControlled: opencodeDisableDefaultPluginsIsAppControlled
         ),
 
-        // --- Restore ---
         EnvVarConfig(
             id: "OPENCODE_DISABLE_PRUNE",
             label: "Disable Prune",
@@ -648,21 +605,18 @@ struct EnvVarConfig: Identifiable, Codable {
             isAppControlled: true
         ),
 
-        // --- Telemetry ---
         EnvVarConfig(
             id: "OPENCODE_CLIENT",
             label: "Client Identifier",
             description: "Client identifier string reported by OpenCode"
         ),
 
-        // --- Testing ---
         EnvVarConfig(
             id: "OPENCODE_FAKE_VCS",
             label: "Fake VCS",
             description: "Set to true to use a fake version control provider"
         ),
 
-        // --- Experimental ---
         EnvVarConfig(
             id: "OPENCODE_EXPERIMENTAL",
             label: "Experimental Umbrella",

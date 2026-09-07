@@ -421,8 +421,6 @@ struct SessionPersistence {
         }
     }
 
-    /// Queries GitHub for all restored panes that aren't already marked resolved,
-    /// and creates notifications for any whose PR has been merged or closed since last run.
     static func checkForResolvedPRsAfterRestore(appState: AppState) async {
         guard SettingsPersistence.isPRTrackingEnabled() else { return }
         guard

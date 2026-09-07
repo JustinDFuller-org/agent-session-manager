@@ -2,8 +2,6 @@
 set -e
 echo "==> Running UI smoke tests..."
 cd "$(git rev-parse --show-toplevel)"
-# Unset git env vars so the app's git commands during UI tests operate on the
-# test workspace repo, not the host repo that invoked this hook.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 rm -rf .build/TestResults.xcresult
 make xcodeproj >/dev/null 2>&1

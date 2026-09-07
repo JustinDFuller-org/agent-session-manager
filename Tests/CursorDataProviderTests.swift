@@ -5,8 +5,6 @@ import Testing
 
 @Suite("CursorDataProvider")
 struct CursorDataProviderTests {
-    // MARK: - CursorHookPayload parsing
-
     @Test func testParseValidPayload() {
         let json = Data(
             """
@@ -69,8 +67,6 @@ struct CursorDataProviderTests {
         #expect(payload == nil)
     }
 
-    // MARK: - CursorHookSetup (afterAgentResponse)
-
     @Test func testHookScriptContentIsValidBash() {
         let content = CursorHookSetup.hookScriptContent
         #expect(content.hasPrefix("#!/bin/bash"))
@@ -93,8 +89,6 @@ struct CursorDataProviderTests {
         #expect(provider.hookDirectoryPath.contains("agent-session-manager-cursor-"))
         #expect(provider.hookOutputFilePath.hasSuffix("/hook.json"))
     }
-
-    // MARK: - CursorHookSetup (stop hook for notifications)
 
     @Test func testStopHookScriptContentIsValidBash() {
         let content = CursorHookSetup.stopHookScriptContent
@@ -252,8 +246,6 @@ struct CursorDataProviderTests {
         #expect(!FileManager.default.fileExists(atPath: provider.hookDirectoryPath))
     }
 
-    // MARK: - Hooks config merging
-
     @Test func testMergeHooksConfigIntoBareConfig() throws {
         let tmpDir = NSTemporaryDirectory() + "cursor-hook-test-\(UUID().uuidString)/"
         try FileManager.default.createDirectory(atPath: tmpDir, withIntermediateDirectories: true)
@@ -378,8 +370,6 @@ struct CursorDataProviderTests {
         #expect(
             (finalStop[1]["command"] as? String)?.contains("agent-session-manager-cursor-stop-hook.sh") == true)
     }
-
-    // MARK: - StatusLineConfig availability
 
     @Test func testModelAvailabilityIncludesCursor() {
         let availability = StatusLineConfig.itemAvailability["model"]

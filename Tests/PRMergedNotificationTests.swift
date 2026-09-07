@@ -28,8 +28,6 @@ final class PRMergedNotificationTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - StatusLineMonitor: merged transition detection
-
     func testMergedTransitionFiresCallback() {
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
@@ -41,11 +39,9 @@ final class PRMergedNotificationTests: XCTestCase {
             capturedTitle = title
         }
 
-        // First observation: "open" — no fire
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open", number: 42, title: "My PR"))
         XCTAssertEqual(firedCount, 0)
 
-        // Transition: "merged" — should fire once
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 42, title: "My PR"))
         XCTAssertEqual(firedCount, 1)
         XCTAssertEqual(capturedNumber, 42)
@@ -112,7 +108,6 @@ final class PRMergedNotificationTests: XCTestCase {
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
 
-        // First observation is already "merged" — suppress (avoid false positive on restart)
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 0)
     }
@@ -139,16 +134,12 @@ final class PRMergedNotificationTests: XCTestCase {
 
         monitor.stop()
 
-        // After stop, state resets — next open→merged should fire again
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open", number: 1, title: "PR"))
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 2)
     }
 
     func testClosedToMergedDoesNotFire() {
-        // The first observation as "closed" is suppressed (no onPRClosed handler registered here
-        // anyway). The live closed→merged transition that follows still fires onPRMerged once,
-        // since moving between two different resolved states is itself a live resolution event.
         let monitor = StatusLineMonitor(paneID: UUID(), workingDirectory: nil, harness: .claude)
         var firedCount = 0
         monitor.onPRMerged = { _, _ in firedCount += 1 }
@@ -157,8 +148,6 @@ final class PRMergedNotificationTests: XCTestCase {
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged", number: 1, title: "PR"))
         XCTAssertEqual(firedCount, 1)
     }
-
-    // MARK: - AppState: addPRMergedNotification
 
     func testAddPRMergedNotificationAppendsEntry() {
         let state = AppState()
@@ -253,8 +242,6 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertEqual(state.notifications[0].kind, .prMerged)
     }
 
-    // MARK: - NotificationKind codable round-trip
-
     func testNotificationKindCodableRoundTrip() throws {
         let data = try JSONEncoder().encode(NotificationKind.prMerged)
         let decoded = try JSONDecoder().decode(NotificationKind.self, from: data)
@@ -267,8 +254,6 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertEqual(decoded, .terminalBell)
     }
 
-    // MARK: - PaneNotification defaults
-
     func testPaneNotificationDefaultKindIsTerminalBell() {
         let notification = PaneNotification(
             paneID: UUID(), paneName: "p", tabID: UUID(), tabName: "t", isPriority: false)
@@ -276,8 +261,6 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertNil(notification.prNumber)
         XCTAssertNil(notification.prTitle)
     }
-
-    // MARK: - PersistedPaneNotification: new fields round-trip
 
     func testPersistedPaneNotificationCarriesKindAndPR() throws {
         let original = PersistedPaneNotification(
@@ -310,8 +293,6 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertNil(decoded.prNumber)
         XCTAssertNil(decoded.prTitle)
     }
-
-    // MARK: - AppSettings defaults and persistence
 
     func testAppSettingsPRMergedDefaultTrue() {
         let settings = AppSettings()
@@ -347,12 +328,9 @@ final class PRMergedNotificationTests: XCTestCase {
     }
 
     func testIsPRMergedNotificationsEnabledHelperDefaultsTrue() {
-        // No file on disk → defaults to true
         try? FileManager.default.removeItem(at: notificationSettingsURL)
         XCTAssertTrue(SettingsPersistence.isPRMergedNotificationsEnabled())
     }
-
-    // MARK: - isMerged on Pane
 
     func testPaneIsMergedSetOnAddPRMergedNotification() {
         let state = AppState()
@@ -393,7 +371,6 @@ final class PRMergedNotificationTests: XCTestCase {
         let pane = tab.addPane(name: "feature")
         state.tabs.append(tab)
 
-        // No merged notification or isMerged flag — should be a no-op with no crash
         XCTAssertFalse(pane.isMerged)
         let before = state.notifications.count
         state.clearPRMergedNotification(paneID: pane.id)
@@ -413,7 +390,6 @@ final class PRMergedNotificationTests: XCTestCase {
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
         XCTAssertEqual(reopenedCount, 1, "Should fire once on merged→open transition")
 
-        // Stays open — no further fires
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
         XCTAssertEqual(reopenedCount, 1)
     }
@@ -428,7 +404,6 @@ final class PRMergedNotificationTests: XCTestCase {
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
         XCTAssertEqual(mergedCount, 1)
 
-        // Reused branch: new PR opened on same branch
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "open"))
         monitor.simulatePRUpdateForTesting(makePRJSON(state: "merged"))
         XCTAssertEqual(mergedCount, 2, "Merged notification should re-arm after a non-merged poll")
@@ -449,8 +424,6 @@ final class PRMergedNotificationTests: XCTestCase {
         XCTAssertTrue(pane.isMerged, "isMerged must survive notification clearance")
         XCTAssertTrue(state.notifications.isEmpty, "notification should be cleared")
     }
-
-    // MARK: - Helpers
 
     private func makePRJSON(state: String, number: Int = 1, title: String = "PR") -> Data {
         Data(

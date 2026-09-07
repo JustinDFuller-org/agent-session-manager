@@ -5,8 +5,6 @@ import XCTest
 @MainActor
 final class ShellResolverTests: XCTestCase {
     func testDetectedLoginShellReturnsProcessInfoShell() {
-        // ProcessInfo.processInfo.environment["SHELL"] is set in test environment.
-        // We just check the fallback when SHELL is empty would return /bin/zsh.
         let shell = ShellResolver.detectedLoginShell()
         XCTAssertFalse(shell.isEmpty)
         XCTAssertTrue(shell.hasPrefix("/"), "Expected absolute path, got: \(shell)")

@@ -1,14 +1,6 @@
 import Foundation
 import OpenTelemetrySdk
 
-/// Routes spans to per-pane JSONL files under `tracesDirectory`.
-///
-/// Spans with a `pane.id` attribute go to
-///   `<tracesDirectory>/<tab.name>-<tab.id[..<8]>/<pane.name>-<pane.id[..<8]>.jsonl`
-/// Spans without `pane.id` go to `<tracesDirectory>/_global/global.jsonl`.
-///
-/// Each file begins with a JSON metadata line (written once), followed by one span JSON
-/// object per line. Files are trimmed from the top when they exceed `maxBytesPerFile`.
 final class PerPaneSpanExporter: SpanExporter {
     let tracesDirectory: URL
     private let maxBytesPerFile: Int
@@ -17,7 +9,6 @@ final class PerPaneSpanExporter: SpanExporter {
         label: "com.justinfuller.agent-session-manager.per-pane-exporter",
         qos: .utility
     )
-    // paneId (or "_global") → (fileURL, metadataWritten)
     private var writers: [String: (fileURL: URL, metadataWritten: Bool)] = [:]
 
     private static let encoder: JSONEncoder = {
@@ -32,8 +23,6 @@ final class PerPaneSpanExporter: SpanExporter {
         self.resourceAttributes = resourceAttributes
     }
 
-    /// Metadata header written once per file, identifying the pane/tab and (for observability)
-    /// the process-wide OTel resource attributes (service name/version, os/device info, ...).
     private struct MetadataLine: Encodable {
         let paneId: String
         let paneName: String
@@ -88,7 +77,6 @@ final class PerPaneSpanExporter: SpanExporter {
 
     @discardableResult
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) -> SpanExporterResultCode {
-        // Group spans by pane.id attribute (or "_global" bucket)
         var groups: [String: [SpanData]] = [:]
         for span in spans {
             let key: String
@@ -219,8 +207,6 @@ final class PerPaneSpanExporter: SpanExporter {
     func flush(explicitTimeout: TimeInterval?) -> SpanExporterResultCode { .success }
 
     func shutdown(explicitTimeout: TimeInterval?) {}
-
-    // MARK: - Private helpers
 
     private func attributeString(_ span: SpanData, _ key: String) -> String? {
         guard case .string(let str) = span.attributes[key] else { return nil }

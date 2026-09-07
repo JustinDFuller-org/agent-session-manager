@@ -10,7 +10,6 @@ final class TabPaneFlowTests: BaseTestCase {
         createTab(named: "StatusTab")
         createPane(named: "running-pane")
 
-        // Circle shapes don't appear under otherElements — search all descendants.
         let runningDot = app.descendants(matching: .any).matching(identifier: "pane-activity-idle-running-pane")
             .firstMatch
         XCTAssertTrue(runningDot.waitForExistence(timeout: 15))
@@ -244,11 +243,9 @@ final class TabPaneFlowTests: BaseTestCase {
     }
 
     func testTabPaneFlow() {
-        // Create first tab and assert initial state
         createTab(named: "WorkTab")
         waitFor(app.buttons["tab-button-WorkTab"].firstMatch)
 
-        // File menu pane item enabled after tab created
         app.menuBars.menuBarItems["File"].click()
         let newPaneMenuItem = app.menuBars.menuBarItems["File"].menuItems["New Pane in Current Tab"]
         waitFor(newPaneMenuItem)
@@ -258,24 +255,20 @@ final class TabPaneFlowTests: BaseTestCase {
         app.typeKey(.escape, modifierFlags: [])
         waitForDisappear(app.textFields["new-pane-name-field"])
 
-        // Tab with no panes shows idle activity indicator
         let idleTabDot = app.descendants(matching: .any).matching(identifier: "tab-activity-idle-WorkTab").firstMatch
         XCTAssertTrue(idleTabDot.waitForExistence(timeout: 5))
 
-        // Tab empty state hint mentions pane shortcut
         waitFor(app.staticTexts["tab-empty-state-WorkTab"])
         XCTAssertEqual(
             app.staticTexts["tab-empty-state-WorkTab"].value as? String,
             "Press ⌘P to open a pane"
         )
 
-        // Open pane sheet: open button disabled when name is empty
         app.typeKey("p", modifierFlags: .command)
         let nameField = app.textFields["new-pane-name-field"]
         waitFor(nameField)
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
 
-        // Less-frequent settings are hidden until More Settings is opened.
         let newPanePriorityToggle = app.checkBoxes["new-pane-priority-toggle"]
         XCTAssertFalse(newPanePriorityToggle.exists)
         let moreSettingsButton = app.buttons["new-pane-more-settings-button"]
@@ -284,33 +277,27 @@ final class TabPaneFlowTests: BaseTestCase {
         XCTAssertTrue(newPanePriorityToggle.waitForExistence(timeout: 3))
         app.buttons["new-pane-advanced-settings-done-button"].click()
 
-        // CLI picker exists (Claude Code is always active)
         let cliPicker = app.descendants(matching: .any).matching(identifier: "new-pane-cli-picker").firstMatch
         XCTAssertTrue(cliPicker.waitForExistence(timeout: 3))
 
-        // Session name autofocus: field accepts typed text immediately
         nameField.click()
         nameField.typeText("my-session")
         XCTAssertEqual(nameField.value as? String, "my-session")
 
-        // Invalid name shows error and disables open button
         nameField.typeKey("a", modifierFlags: .command)
         nameField.typeText("invalid name")
         let nameError = app.staticTexts["new-pane-name-error"]
         waitFor(nameError)
         XCTAssertFalse(app.buttons["new-pane-open-button"].isEnabled)
 
-        // Branch-ref style input is valid (slash does not trigger error)
         nameField.typeKey("a", modifierFlags: .command)
         nameField.typeText("origin/feature-branch")
         XCTAssertFalse(app.staticTexts["new-pane-name-error"].exists)
         XCTAssertTrue(app.buttons["new-pane-open-button"].isEnabled)
 
-        // Cancel dismisses sheet
         app.buttons["new-pane-cancel-button"].click()
         waitForDisappear(nameField)
 
-        // Disable priority notifications, verify toggle disappears from pane sheet
         app.typeKey(",", modifierFlags: .command)
         waitFor(app.buttons["Notifications"])
         app.buttons["Notifications"].click()
@@ -331,7 +318,6 @@ final class TabPaneFlowTests: BaseTestCase {
         app.typeKey(.escape, modifierFlags: [])
         waitForDisappear(paneField2)
 
-        // Create "feature-a": header visible, terminal receives focus after creation
         createPane(named: "feature-a")
         waitFor(app.staticTexts["pane-name-feature-a"].firstMatch)
         let idleTabDot2 = app.descendants(matching: .any).matching(identifier: "tab-activity-idle-WorkTab").firstMatch
@@ -339,7 +325,6 @@ final class TabPaneFlowTests: BaseTestCase {
         app.typeText("a")
         XCTAssertTrue(app.staticTexts["pane-name-feature-a"].firstMatch.exists)
 
-        // Duplicate name shows error and disables open button
         app.typeKey("p", modifierFlags: .command)
         let dupeField = app.textFields["new-pane-name-field"]
         waitFor(dupeField)
@@ -351,7 +336,6 @@ final class TabPaneFlowTests: BaseTestCase {
         app.buttons["new-pane-cancel-button"].click()
         waitForDisappear(dupeField)
 
-        // Create additional panes for layout tests
         createPane(named: "feature-b")
         XCTAssertTrue(app.staticTexts["pane-name-feature-a"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["pane-name-feature-b"].firstMatch.exists)
@@ -362,9 +346,7 @@ final class TabPaneFlowTests: BaseTestCase {
         XCTAssertTrue(app.staticTexts["pane-name-feature-d"].firstMatch.exists)
         screenshot("split-panes-four")
 
-        // Close one pane: layout updates, remaining pane headers intact
         app.buttons.matching(identifier: "pane-close-feature-d").firstMatch.click()
-        // Managed worktree panes show a cleanup alert — dismiss it to proceed.
         if app.windows.firstMatch.buttons["Keep Worktree"].waitForExistence(timeout: 3) {
             app.windows.firstMatch.buttons["Keep Worktree"].click()
         }
@@ -373,7 +355,6 @@ final class TabPaneFlowTests: BaseTestCase {
         XCTAssertTrue(app.staticTexts["pane-name-feature-c"].firstMatch.exists)
         screenshot("pane-layout-after-close")
 
-        // Close another pane via close button
         app.buttons.matching(identifier: "pane-close-feature-c").firstMatch.click()
         if app.windows.firstMatch.buttons["Keep Worktree"].waitForExistence(timeout: 3) {
             app.windows.firstMatch.buttons["Keep Worktree"].click()
@@ -382,27 +363,22 @@ final class TabPaneFlowTests: BaseTestCase {
         XCTAssertTrue(app.staticTexts["pane-name-feature-a"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["pane-name-feature-b"].firstMatch.exists)
 
-        // Create second tab and verify tab switching
         createTab(named: "BetaTab")
         XCTAssertTrue(app.buttons["tab-button-WorkTab"].firstMatch.exists)
         XCTAssertTrue(app.buttons["tab-button-BetaTab"].firstMatch.exists)
 
-        // Click-switch back to WorkTab
         app.buttons["tab-button-WorkTab"].firstMatch.click()
         waitFor(app.staticTexts["pane-name-feature-a"].firstMatch)
 
-        // ⌘1 keyboard shortcut: both tabs survive
         app.typeKey("1", modifierFlags: .command)
         XCTAssertTrue(app.buttons["tab-button-WorkTab"].firstMatch.exists)
         XCTAssertTrue(app.buttons["tab-button-BetaTab"].firstMatch.exists)
 
-        // Close BetaTab via ⌘K while it is active
         app.buttons["tab-button-BetaTab"].firstMatch.click()
         app.typeKey("k", modifierFlags: .command)
         waitForDisappear(app.buttons["tab-button-BetaTab"].firstMatch)
         XCTAssertTrue(app.buttons["tab-button-WorkTab"].firstMatch.exists)
 
-        // Close WorkTab via its tab close button → empty state restored
         app.buttons["tab-close-WorkTab"].firstMatch.click()
         waitForDisappear(app.buttons["tab-button-WorkTab"].firstMatch)
         waitFor(app.staticTexts["empty-state-hint"])

@@ -1,7 +1,5 @@
 import Foundation
 
-/// Everything a custom field's command may need so it never has to recompute what the app
-/// already knows (git branch, worktree, lines changed, model, cost, PR, profile, pane/tab identity).
 struct CustomFieldExecutionContext {
     var currentData: StatusLineData?
     var paneID: UUID
@@ -38,8 +36,6 @@ enum CustomFieldExecutionResult {
     case failure(CustomFieldExecutionError)
 }
 
-/// Runs a `CustomStatusLineField`'s command: builds the stdin JSON context and env vars, executes
-/// with a per-field timeout, strips ANSI escapes, and parses the result as structured JSON or plain text.
 enum CustomFieldRunner {
     static let outputCharacterLimit = 200
     private static let environmentPrefix = "AGENT_SESSION_MANAGER"
@@ -56,8 +52,6 @@ enum CustomFieldRunner {
         )
     }
 
-    /// Claude hook-JSON-shaped stdin payload, plus everything the app additionally knows
-    /// (pane/tab identity, harness, working directory, profile) that `StatusLineData` doesn't carry.
     static func buildContextPayload(context: CustomFieldExecutionContext) -> Data {
         var dict: [String: Any] = [:]
         if let currentData = context.currentData,
@@ -66,8 +60,6 @@ enum CustomFieldRunner {
         {
             dict = obj
         }
-        // Defense in depth: a field's own/sibling resolved values must never reach a command,
-        // even if a future change starts encoding customFields on StatusLineData.
         dict["custom_fields"] = nil
         dict["pane"] = ["id": context.paneID.uuidString, "name": context.paneName]
         dict["tab"] = ["id": context.tabID.uuidString, "name": context.tabName]
@@ -81,8 +73,6 @@ enum CustomFieldRunner {
         return (try? JSONSerialization.data(withJSONObject: dict)) ?? Data()
     }
 
-    /// Curated flat `AGENT_SESSION_MANAGER_*` env vars for one-liners that don't want to shell out to `jq`.
-    /// Not exhaustive — the stdin JSON is the "everything" channel.
     static func buildEnvironment(context: CustomFieldExecutionContext) -> [String: String] {
         var env = context.extraEnvironment
         env["\(environmentPrefix)_PANE_ID"] = context.paneID.uuidString
@@ -124,16 +114,12 @@ enum CustomFieldRunner {
         return env
     }
 
-    /// Strips ANSI CSI escape sequences (color codes, cursor movement) — native `Text` can't render
-    /// them, and scripts copied from terminal-statusline examples commonly emit color codes.
     static func stripANSI(_ input: String) -> String {
         guard let regex = try? NSRegularExpression(pattern: "\u{1B}\\[[0-9;]*[A-Za-z]") else { return input }
         let range = NSRange(input.startIndex..., in: input)
         return regex.stringByReplacingMatches(in: input, range: range, withTemplate: "")
     }
 
-    /// Plain text is the floor of the render contract: try structured JSON first, fall back to the
-    /// first line of trimmed output, capped at `outputCharacterLimit`.
     static func parse(_ trimmedOutput: String) -> (CustomFieldRenderValue, outputKind: CustomFieldOutputKind) {
         if let data = trimmedOutput.data(using: .utf8),
             let decoded = try? JSONDecoder().decode(CustomFieldRenderValue.self, from: data),
@@ -146,8 +132,6 @@ enum CustomFieldRunner {
         return (CustomFieldRenderValue(text: capped, percent: nil, tint: nil, icon: nil), .text)
     }
 
-    /// Mutable value shared between `Process` callbacks that fire on different queues; access is
-    /// serialized by `resumeLock` in `execute`, so this is safe despite the `@unchecked Sendable`.
     private final class Box<Value>: @unchecked Sendable {
         var value: Value
         init(_ value: Value) { self.value = value }

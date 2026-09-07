@@ -327,8 +327,6 @@ struct NewPaneSheet: View {
         }
     }
 
-    // MARK: - Sections
-
     @ViewBuilder
     private var profilePickerSection: some View {
         let profiles = appSettings.profiles.filter { activeToolList.contains($0.harness) }
@@ -532,8 +530,6 @@ struct NewPaneSheet: View {
         }
     }
 
-    // MARK: - State management
-
     private func applyProfileOrDefaults() {
         if let profile = selectedProfile {
             selectedHarness = profile.harness
@@ -571,8 +567,6 @@ struct NewPaneSheet: View {
             }
         }
     }
-
-    // MARK: - Create flow
 
     private func create() {
         guard canSubmit else { return }
@@ -709,8 +703,6 @@ struct NewPaneSheet: View {
     }
 }
 
-// MARK: - Create helpers
-
 extension NewPaneSheet {
     static func defaultVisibleCLIOptions(
         catalog: [CLIOptionConfig],
@@ -808,8 +800,6 @@ extension NewPaneSheet {
         }
     }
 }
-
-// MARK: - Save Profile Sheet
 
 private struct SaveProfileSheet: View {
     @Environment(\.dismiss) private var dismiss

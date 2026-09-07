@@ -29,8 +29,6 @@ final class NotificationTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - AppState notification management
-
     func testAddNotification() {
         let state = AppState()
         let paneID = UUID()
@@ -121,8 +119,6 @@ final class NotificationTests: XCTestCase {
         state.addNotification(paneID: UUID(), paneName: "pane1", tabID: UUID(), tabName: "myapp", isPriority: true)
         XCTAssertTrue(state.notifications[0].isPriority)
     }
-
-    // MARK: - AppSettings defaults
 
     func testNotificationSettingsDefaults() {
         let settings = AppSettings()
@@ -266,7 +262,6 @@ final class NotificationTests: XCTestCase {
         XCTAssertNil(saved["isClaudeHookAttentionEnabled"])
     }
 
-    /// Older `notification-settings.json` files did not encode the macOS banner flag; it should default on.
     func testNotificationSettingsLegacyJSONDefaultsMacOSBannerOn() throws {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -289,8 +284,6 @@ final class NotificationTests: XCTestCase {
         XCTAssertTrue(restored.isMacOSBannerNotificationsEnabled)
     }
 
-    // MARK: - PersistedPane isPriority round-trip
-
     func testPersistedPaneIsPriorityRoundTrip() throws {
         let pane = PersistedPane(id: UUID(), name: "test", harness: .claude, isPriority: true)
         let data = try JSONEncoder().encode(pane)
@@ -307,14 +300,11 @@ final class NotificationTests: XCTestCase {
         XCTAssertFalse(decoded.isPriority)
     }
 
-    // MARK: - Clear notification on user input
-
     func testUserInputClearsNotificationForActivePane() {
         let state = AppState()
         let paneID = UUID()
         state.addNotification(paneID: paneID, paneName: "fix", tabID: UUID(), tabName: "myapp", isPriority: false)
         XCTAssertEqual(state.notifications.count, 1)
-        // Simulate the onUserInput closure that bindNotifications installs.
         state.clearNotification(paneID: paneID)
         XCTAssertTrue(state.notifications.isEmpty)
     }
@@ -322,7 +312,6 @@ final class NotificationTests: XCTestCase {
     func testUserInputIsNoOpWhenNoNotification() {
         let state = AppState()
         let paneID = UUID()
-        // No notification present — clearNotification should be safe to call.
         state.clearNotification(paneID: paneID)
         XCTAssertTrue(state.notifications.isEmpty)
     }
@@ -333,13 +322,10 @@ final class NotificationTests: XCTestCase {
         let otherPane = UUID()
         let tabID = UUID()
         state.addNotification(paneID: otherPane, paneName: "other", tabID: tabID, tabName: "myapp", isPriority: false)
-        // Simulate user typing in typingPane — should not affect otherPane's notification.
         state.clearNotification(paneID: typingPane)
         XCTAssertEqual(state.notifications.count, 1)
         XCTAssertEqual(state.notifications[0].paneID, otherPane)
     }
-
-    // MARK: - SidebarSide
 
     func testSidebarSideCodable() throws {
         let encoded = try JSONEncoder().encode(SidebarSide.left)
@@ -352,8 +338,6 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(SidebarSide.right.displayName, "Right")
     }
 
-    // MARK: - PaneNotification
-
     func testPaneNotificationHasUniqueIDs() {
         let tabID = UUID()
         let paneID = UUID()
@@ -361,8 +345,6 @@ final class NotificationTests: XCTestCase {
         let n2 = PaneNotification(paneID: paneID, paneName: "pane", tabID: tabID, tabName: "tab", isPriority: false)
         XCTAssertNotEqual(n1.id, n2.id)
     }
-
-    // MARK: - PaneAttentionEvent
 
     func testRawBellReason() {
         XCTAssertEqual(PaneAttentionEvent.rawBell.reason, "Attention needed")

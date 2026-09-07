@@ -8,8 +8,6 @@ struct StatusLineEditorPhases: OptionSet {
     static let full: StatusLineEditorPhases = [.display, .rows]
 }
 
-/// Facts, alignment, rows, and add-row controls for [`StatusLineConfig`]. Omit PR tracking —
-/// that stays on [`AppSettings`].
 private enum CustomFieldSheetTarget: Identifiable {
     case new
     case edit(CustomStatusLineField)
@@ -1216,7 +1214,6 @@ struct NotificationsContent: View {
                         }
                         .font(.caption).foregroundStyle(.secondary)
                         Button("Open Notification Settings") {
-                            // swiftlint:disable:next force_unwrapping
                             let url = URL(
                                 string: "x-apple.systempreferences:com.apple.preference.notifications"
                             )!

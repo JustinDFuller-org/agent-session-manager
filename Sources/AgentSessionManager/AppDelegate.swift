@@ -26,7 +26,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     override init() {
-        // This must happen before AppState and AppSettings can initialize persistence-backed services.
         recursiveDevelopmentRun = RecursiveDevelopmentRunContext.validateProcessLaunch()
         appState = AppState()
         appSettings = AppSettings()
@@ -89,9 +88,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Always on, unlike the WindowSnapshot observers below: a dashboard that opens
-        // spontaneously after launch (not just at the first activation) must still be caught,
-        // and `recordExplicitOpen` only matters if something re-checks after it runs.
         auxiliaryWindowVisibilityObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
         ) { _ in

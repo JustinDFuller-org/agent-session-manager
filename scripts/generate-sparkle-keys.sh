@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Generate the EdDSA key pair used to sign appcast updates and verify them in
-# the distributed app. Run once per machine/CI environment; keep the private
-# key secret.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)

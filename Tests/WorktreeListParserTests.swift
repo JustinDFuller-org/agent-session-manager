@@ -63,7 +63,6 @@ final class WorktreeListParserTests: XCTestCase {
         XCTAssertEqual(Tab.gitWorktreeAddPath(name: "auth-fix"), ".agent-session-manager/worktrees/auth-fix")
     }
 
-    /// When a branch name equals one folder and another folder’s name equals the typed ref, pick by folder.
     func testPreferWorktreeEntryDirectoryNameBeforeBranch() {
         let entries = Tab.parseWorktreeListPorcelain(
             """

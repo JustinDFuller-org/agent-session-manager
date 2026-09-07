@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Full ship pipeline: commit → push → ensure PR → screenshots → upload → update PR body.
-# Each step asserts invariants; hard-fails with a diagnostic on the first violation.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -61,7 +59,6 @@ BRANCH=$(git -C "$REPO_ROOT" branch --show-current)
 PORCELAIN=$(git -C "$REPO_ROOT" status --porcelain)
 PR_URL=$(gh pr view --json url --jq '.url' 2>/dev/null || echo "")
 
-# --- Invariant 1: Pre-flight ---
 step "pre-flight"
 
 if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
@@ -79,7 +76,6 @@ run_xcode_step "preflight-build" make -C "$REPO_ROOT" build-for-testing || \
 
 if [[ "$SCREENSHOTS_ONLY" == false ]]; then
 
-    # --- Invariant 2: Commit ---
     if [[ -n "$PORCELAIN" ]]; then
         step "commit"
 
@@ -99,7 +95,6 @@ if [[ "$SCREENSHOTS_ONLY" == false ]]; then
             die "commit: HEAD did not advance after commit"
     fi
 
-    # --- Invariant 3: Push ---
     step "push"
 
     git -C "$REPO_ROOT" push -u origin "$BRANCH" || \
@@ -109,7 +104,6 @@ if [[ "$SCREENSHOTS_ONLY" == false ]]; then
     [[ -n "$UPSTREAM" ]] || \
         die "push: upstream tracking branch not set after push"
 
-    # --- Invariant 4: Ensure PR ---
     step "ensure-pr"
 
     if [[ -z "$PR_URL" ]]; then
@@ -134,7 +128,6 @@ if [[ "$SCREENSHOTS_ONLY" == true ]]; then
         die "ensure-pr: no PR found for branch '$BRANCH' — run without --screenshots-only to create one"
 fi
 
-# --- Invariant 5: Build screenshots ---
 step "build-screenshots"
 
 EXPECTED_NAMES=()
@@ -179,7 +172,6 @@ if [[ ${#MISSING[@]} -gt 0 || ${#EXTRA[@]} -gt 0 ]]; then
     die "$msg"
 fi
 
-# --- Invariant 6: Upload to gist ---
 step "upload-screenshots"
 
 GIST_ID=$(bash "$SCRIPT_DIR/upload-screenshots.sh" | tail -1)
@@ -193,7 +185,6 @@ HTTP_STATUS=$(curl -sfI "$BASE_URL/$FIRST_PNG" -o /dev/null -w "%{http_code}" 2>
 [[ "$HTTP_STATUS" == "200" ]] || \
     die "upload-screenshots: spot-check of $FIRST_PNG returned HTTP $HTTP_STATUS (expected 200)"
 
-# --- Invariant 7: Render & update PR body ---
 step "update-pr-body"
 
 EXAMPLE_SECTION=$(bash "$SCRIPT_DIR/lib/render-example-section.sh" "$REPO_ROOT/screenshots" "$BASE_URL")
@@ -219,6 +210,5 @@ if [[ ${#MISSING_FROM_BODY[@]} -gt 0 ]]; then
     die "update-pr-body: the following PNGs are missing from the updated PR body: ${MISSING_FROM_BODY[*]}"
 fi
 
-# --- Done ---
 step "done"
 echo "PR: $PR_URL"

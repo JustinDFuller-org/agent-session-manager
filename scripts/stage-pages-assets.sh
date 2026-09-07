@@ -2,7 +2,6 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck source=scripts/release-config.sh
 source "$repo_root/scripts/release-config.sh"
 
 if [[ $# -lt 2 ]]; then

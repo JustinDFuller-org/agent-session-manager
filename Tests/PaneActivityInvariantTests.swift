@@ -14,8 +14,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         TracingService.shared.resetForTesting()
     }
 
-    // MARK: - paneActivityState derivation
-
     func testWaitingWhenHasNotification() {
         let state = paneActivityState(
             processState: .running(pid: 1),
@@ -141,11 +139,7 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(state, .idle)
     }
 
-    // MARK: - PR separation invariant
-
     func testPRSignalsAbsentFromSignature() {
-        // paneActivityState takes no pr/isMerged parameter — PR cannot influence the result.
-        // This test documents that invariant structurally.
         let withNotification = paneActivityState(
             processState: .running(pid: 1),
             isWorking: false,
@@ -161,8 +155,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(withNotification, .waiting)
         XCTAssertEqual(withoutNotification, .idle)
     }
-
-    // MARK: - Waiting ⇔ notification invariants
 
     func testNoNotificationNeverWaiting() {
         let states: [PaneActivityState] = [
@@ -193,8 +185,6 @@ final class PaneActivityInvariantTests: XCTestCase {
             XCTAssertEqual(state, .waiting, "Expected waiting with notification, got \(state)")
         }
     }
-
-    // MARK: - tabActivityState aggregation
 
     func testTabWaitingIfAnyPaneWaiting() {
         let result = tabActivityState([.idle, .working, .waiting])
@@ -231,8 +221,6 @@ final class PaneActivityInvariantTests: XCTestCase {
     func testTabWaitingBeatsStopped() {
         XCTAssertEqual(tabActivityState([.waiting, .stopped]), .waiting)
     }
-
-    // MARK: - visual appearance separation
 
     func testWorkingAndWaitingUseDistinctCircularAppearances() {
         let working = activityIndicatorAppearance(for: .working)
@@ -280,8 +268,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertEqual(stopped.blurRadius, 0)
         XCTAssertEqual(stopped.opacityRange, 0.5...0.5)
     }
-
-    // MARK: - Claude lifecycle parsing and edge-once tracing
 
     func testClaudeLifecyclePayloadTransitionsWorkingAndIdle() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
@@ -350,7 +336,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertEqual(callCount, 1)
 
-        // Duplicate Stop — already stopped, no second fire.
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertEqual(callCount, 1)
     }
@@ -363,8 +348,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertEqual(callCount, 0)
     }
-
-    // MARK: - Stop notification grace-delay
 
     func testGracePeriodZeroFiresImmediatelyOnStop() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
@@ -387,7 +370,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertTrue(monitor.isClaudeStopped, "lifecycle flips to stopped immediately regardless of grace")
 
-        // Forced continuation resumes before the grace period elapses — cancels the false first chime.
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
         XCTAssertEqual(callCount, 0)
 
@@ -396,7 +378,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         wait(for: [expectation], timeout: 1)
         XCTAssertEqual(callCount, 0)
 
-        // The real stop still fires exactly once.
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         let realStopExpectation = XCTestExpectation(description: "real stop fires after grace period")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { realStopExpectation.fulfill() }
@@ -411,8 +392,6 @@ final class PaneActivityInvariantTests: XCTestCase {
         XCTAssertFalse(monitor.isClaudeWorking)
         XCTAssertTrue(TracingService.shared.recordedEventsForTesting.isEmpty)
     }
-
-    // MARK: - Background-agent gating (statusline.hook.event + outstanding count)
 
     func testPreToolUseAgentLaunchIncrementsOutstandingCount() {
         let monitor = StatusLineMonitor(paneID: UUID(), harness: .claude)
@@ -450,22 +429,18 @@ final class PaneActivityInvariantTests: XCTestCase {
         monitor.onClaudeStopped = { callCount += 1 }
 
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"UserPromptSubmit"}"#.utf8))
-        // Plan mode launches two background Explore agents.
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse","tool_name":"Task"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"PreToolUse","tool_name":"Task"}"#.utf8))
 
-        // Main agent finishes its turn while both children are still running — must be suppressed.
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertEqual(callCount, 0)
         XCTAssertTrue(monitor.isClaudeWorking)
 
-        // First background agent completes; re-wake produces another Stop — still one outstanding.
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"SubagentStop"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertEqual(callCount, 0)
         XCTAssertTrue(monitor.isClaudeWorking)
 
-        // Second background agent completes; the final Stop is the genuine "done" edge.
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"SubagentStop"}"#.utf8))
         monitor.testApplyClaudeActivityPayload(Data(#"{"hook_event_name":"Stop"}"#.utf8))
         XCTAssertEqual(callCount, 1)
@@ -480,8 +455,6 @@ final class PaneActivityInvariantTests: XCTestCase {
             ["suppressed_background_agents", "suppressed_background_agents", "fired"]
         )
     }
-
-    // MARK: - clearNotification trace
 
     func testClearNotificationEmitsTrace() {
         let appState = AppState()

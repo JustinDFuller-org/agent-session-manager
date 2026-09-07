@@ -123,9 +123,6 @@ struct StatusLineIconOption: Identifiable, Hashable, Sendable {
     }
 }
 
-/// The render contract a custom field's command emits on stdout. Plain text (the "echo hello" path)
-/// decodes to this with only `text` set; a script opts into a progress bar or state color by
-/// printing this shape as JSON instead.
 struct CustomFieldRenderValue: Codable, Equatable {
     var text: String?
     var percent: Double?
@@ -135,8 +132,6 @@ struct CustomFieldRenderValue: Codable, Equatable {
     var isEmpty: Bool { text == nil && percent == nil && tint == nil && icon == nil }
 }
 
-/// An engineer-defined status line field backed by a shell command. See `CustomFieldRunner` for
-/// execution, context-building, and output parsing.
 struct CustomStatusLineField: Codable, Identifiable, Equatable {
     static let minimumRefreshIntervalSeconds = 5
     static let defaultRefreshIntervalSeconds = 15
@@ -264,7 +259,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
 
     static let allHarnesses: Set<Harness> = [.claude, .codex, .cursor, .opencode]
     static let customFieldIconOptions: [StatusLineIconOption] = [
-        // Development
         StatusLineIconOption(
             symbol: "terminal", displayName: "Terminal", category: .development,
             keywords: ["shell", "command", "console"]),
@@ -284,7 +278,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "pencil.line", displayName: "Draft", category: .development,
             keywords: ["edit", "writing", "change"]),
 
-        // Repository
         StatusLineIconOption(
             symbol: "folder", displayName: "Folder", category: .repository,
             keywords: ["directory", "project", "workspace"]),
@@ -304,7 +297,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "tag", displayName: "Tag", category: .repository,
             keywords: ["release", "version", "label"]),
 
-        // Status
         StatusLineIconOption(
             symbol: "checkmark.circle", displayName: "Complete", category: .status,
             keywords: ["success", "passed", "done"]),
@@ -324,7 +316,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "text.alignleft", displayName: "Response Style", category: .status,
             keywords: ["style", "text", "response"]),
 
-        // Time
         StatusLineIconOption(
             symbol: "clock", displayName: "Clock", category: .time,
             keywords: ["duration", "time", "elapsed"]),
@@ -344,7 +335,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "stopwatch", displayName: "Stopwatch", category: .time,
             keywords: ["duration", "performance", "elapsed"]),
 
-        // Cost
         StatusLineIconOption(
             symbol: "dollarsign.circle", displayName: "Cost", category: .cost,
             keywords: ["price", "spend", "budget"]),
@@ -358,7 +348,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "chart.line.uptrend.xyaxis", displayName: "Spend Trend", category: .cost,
             keywords: ["cost", "budget", "chart"]),
 
-        // Data
         StatusLineIconOption(
             symbol: "gauge.with.needle", displayName: "Usage", category: .data,
             keywords: ["context", "rate", "capacity"]),
@@ -387,7 +376,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "ruler", displayName: "Context Size", category: .data,
             keywords: ["tokens", "window", "limit"]),
 
-        // Network
         StatusLineIconOption(
             symbol: "network", displayName: "Network", category: .network,
             keywords: ["connection", "service", "api"]),
@@ -404,7 +392,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "link", displayName: "Link", category: .network,
             keywords: ["url", "connection", "reference"]),
 
-        // People
         StatusLineIconOption(
             symbol: "person", displayName: "Person", category: .people,
             keywords: ["user", "owner", "author"]),
@@ -421,7 +408,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
             symbol: "figure.walk", displayName: "Walking", category: .people,
             keywords: ["activity", "progress", "movement"]),
 
-        // Alert
         StatusLineIconOption(
             symbol: "bell", displayName: "Bell", category: .alert,
             keywords: ["notification", "attention", "alert"]),
@@ -525,7 +511,6 @@ struct StatusLineConfig: Codable, Equatable, Sendable {
         }
     }
 
-    /// Built-in catalog plus this config's own custom fields — the full set eligible for the Add Item picker.
     func availableItems() -> [StatusLineItem] {
         Self.allItems + customFields.map { StatusLineItem(id: $0.id, label: $0.label, sfSymbol: $0.sfSymbol) }
     }
@@ -1071,13 +1056,9 @@ struct StatusLineData: Codable {
     var sessionName: String?
     var version: String?
     var exceeds200kTokens: Bool?
-    // Owned by PRTrackingCoordinator (gh GraphQL). Not decoded from Claude's statusLine payload,
-    // which carries only number/url/review_state — never title/state (non-optional on PullRequest).
     var pr: PullRequest?
     var sessionStatus: SessionStatus?
     var repo: Repo?
-    // Owned by StatusLineMonitor's custom-field scheduler. Not decoded from any harness's JSON —
-    // excluding it from CodingKeys means nothing external can spoof a resolved custom value.
     var customFields: [String: CustomFieldRenderValue]?
 
     enum CodingKeys: String, CodingKey {

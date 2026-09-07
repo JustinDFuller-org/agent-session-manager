@@ -3,8 +3,6 @@ import XCTest
 @testable import AgentSessionManager
 
 final class RefreshPaneTests: XCTestCase {
-    // MARK: - injectContinueFlagIntoArgs
-
     func testInjectContinueFlagIntoArgsAddsWhenMissing() {
         let result = Tab.injectContinueFlagIntoArgs(["--model", "opus"])
         XCTAssertEqual(result, ["--model", "opus", "--continue"])
@@ -29,8 +27,6 @@ final class RefreshPaneTests: XCTestCase {
             XCTAssertEqual(Tab.injectContinueFlagIntoArgs(args), args)
         }
     }
-
-    // MARK: - buildClaudeCommand
 
     func testBuildClaudeCommandIncludesContinue() {
         let cmd = Tab.buildClaudeCommand(settingsPath: "/tmp/test.json", extraArgs: ["--model", "opus", "--continue"])
