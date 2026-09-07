@@ -23,4 +23,4 @@
 ## 4. Repository policy and verification
 
 - [ ] 4.1 Have the human repository owner configure and verify the external `main` ruleset to require the stable `openspec-check`, block force pushes, preserve existing review and thread requirements, and retain only the approved human bypass; record the observed ruleset result before archival.
-- [ ] 4.2 Run the merge-gate Node tests, strict OpenSpec validation, workflow/YAML checks, repository lint, and documentation checks; record successful results and any manual ruleset evidence before the change is archived.
+- [x] 4.2 Run the merge-gate Node tests, strict OpenSpec validation, workflow/YAML checks, repository lint, and documentation checks; record successful results and any manual ruleset evidence before the change is archived.
