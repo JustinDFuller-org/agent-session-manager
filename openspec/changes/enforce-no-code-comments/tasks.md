@@ -23,6 +23,6 @@
 
 ## 5. QA evidence
 
-- [ ] 5.1 Run the complete local and CI-equivalent validation set, including the no-code-comments tests and scan, OpenSpec strict validation, build, unit tests, format, lint, and applicable documentation checks; record the results in the QA PR description.
-- [ ] 5.2 Exercise a temporary pull request or equivalent immutable candidate with one deliberate code comment, then remove it and rerun the check; verify the first result fails with a location and the second passes.
-- [ ] 5.3 Exercise comment-looking strings and allowed machine directives in a temporary candidate; verify they pass without exceptions being added to the policy.
+- [x] 5.1 Run the complete local and CI-equivalent validation set, including the no-code-comments tests and scan, OpenSpec strict validation, build, unit tests, format, lint, and applicable documentation checks; record the results in the QA PR description.
+- [x] 5.2 Exercise a temporary pull request or equivalent immutable candidate with one deliberate code comment, then remove it and rerun the check; verify the first result fails with a location and the second passes.
+- [x] 5.3 Exercise comment-looking strings and allowed machine directives in a temporary candidate; verify they pass without exceptions being added to the policy.
