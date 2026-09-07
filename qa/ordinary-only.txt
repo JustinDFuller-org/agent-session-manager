@@ -1,0 +1,1 @@
+This file intentionally exercises a pull request that inherits an archived OpenSpec change.
