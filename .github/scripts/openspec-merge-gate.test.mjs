@@ -46,6 +46,21 @@ function archiveChange(root, name = "2026-09-07-example", complete = true) {
   write(root, "openspec/specs/example/spec.md", "## Purpose\nA durable main specification.\n");
 }
 
+function datedArchiveChange(root, changeName = "example", archiveName = "2026-09-07-example", complete = true) {
+  const source = fixture();
+  activeChange(source, changeName, complete);
+  for (const relativePath of [
+    `.openspec.yaml`,
+    "proposal.md",
+    "design.md",
+    "tasks.md",
+    "specs/example/spec.md",
+  ]) {
+    write(root, `openspec/changes/archive/${archiveName}/${relativePath}`, fs.readFileSync(path.join(source, `openspec/changes/${changeName}/${relativePath}`), "utf8"));
+  }
+  write(root, "openspec/specs/example/spec.md", "## Purpose\nA durable main specification.\n");
+}
+
 function prEnvironment(overrides = {}) {
   return {
     EVENT_NAME: "pull_request_target",
@@ -107,6 +122,16 @@ test("requires the current top to archive and complete the shared change", () =>
   fs.rmSync(path.join(completeCandidate, "openspec/changes/2026-09-07-example"), { recursive: true });
   const complete = validate(completeCandidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "4", STACK_SIZE: "4", PR_BASE_REF: "layer-3" }));
   assert.deepEqual(complete.findings, []);
+});
+
+test("accepts the dated archive directory produced by OpenSpec for the shared change", () => {
+  const trunk = fixture();
+  const immediateBase = fixture();
+  const candidate = fixture();
+  activeChange(immediateBase, "example");
+  datedArchiveChange(candidate);
+  const result = validate(candidate, immediateBase, trunk, prEnvironment({ STACK_POSITION: "2", STACK_SIZE: "2", PR_BASE_REF: "layer-1" }));
+  assert.deepEqual(result.findings, []);
 });
 
 test("accepts an active-to-archived handoff after main temporarily carries the active change", () => {

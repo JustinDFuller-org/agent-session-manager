@@ -246,6 +246,19 @@ function relativePathsUnder(root, prefix) {
   return new Set([...pathsUnder(root, prefix)].map((filePath) => filePath.slice(prefix.length + 1)));
 }
 
+function archiveDirectoryName(root, name) {
+  const archiveDirectory = path.join(root, "openspec", "changes", "archive");
+  const names = directoryNames(archiveDirectory);
+  if (names.includes(name)) return name;
+  const datedNames = names.filter((candidate) => candidate.replace(/^\d{4}-\d{2}-\d{2}-/, "") === name
+    && /^\d{4}-\d{2}-\d{2}-.+/.test(candidate));
+  return datedNames.length === 1 ? datedNames[0] : null;
+}
+
+function archivePrefix(root, name) {
+  return `openspec/changes/archive/${archiveDirectoryName(root, name) || name}`;
+}
+
 function archiveTransitionFindings(immediateBase, candidate, expectedNames) {
   const findings = [];
   const changed = new Set(changedPaths(immediateBase, candidate));
@@ -255,9 +268,9 @@ function archiveTransitionFindings(immediateBase, candidate, expectedNames) {
 
   for (const name of expectedNames) {
     const activePrefix = `openspec/changes/${name}`;
-    const archivePrefix = `openspec/changes/archive/${name}`;
+    const candidateArchivePrefix = archivePrefix(candidate, name);
     const activeRelative = relativePathsUnder(immediateBase, activePrefix);
-    const archiveRelative = relativePathsUnder(candidate, archivePrefix);
+    const archiveRelative = relativePathsUnder(candidate, candidateArchivePrefix);
     const immediateHasActive = activeRelative.size > 0;
 
     if (immediateHasActive) {
@@ -268,7 +281,7 @@ function archiveTransitionFindings(immediateBase, candidate, expectedNames) {
       }
       for (const relativePath of activeRelative) {
         const activePath = `${activePrefix}/${relativePath}`;
-        const archivePath = `${archivePrefix}/${relativePath}`;
+        const archivePath = `${candidateArchivePrefix}/${relativePath}`;
         allowed.add(activePath);
         allowed.add(archivePath);
         required.add(activePath);
@@ -284,7 +297,7 @@ function archiveTransitionFindings(immediateBase, candidate, expectedNames) {
       }
     } else {
       for (const relativePath of archiveRelative) {
-        const archivePath = `${archivePrefix}/${relativePath}`;
+        const archivePath = `${candidateArchivePrefix}/${relativePath}`;
         allowed.add(archivePath);
         required.add(archivePath);
         if (!changed.has(archivePath)) findings.push(`New archived change '${name}' has an unchanged archive file where a new file was expected.`);
@@ -292,7 +305,7 @@ function archiveTransitionFindings(immediateBase, candidate, expectedNames) {
       if (archiveRelative.size === 0) findings.push(`New archived change '${name}' has no archive files.`);
     }
 
-    for (const relativePath of relativePathsUnder(candidate, `${archivePrefix}/specs`)) {
+    for (const relativePath of relativePathsUnder(candidate, `${candidateArchivePrefix}/specs`)) {
       const mainSpec = `openspec/specs/${relativePath}`;
       candidateMainSpecs.add(mainSpec);
       allowed.add(mainSpec);
@@ -323,7 +336,7 @@ function archiveOnlyFindings(immediateBase, candidate, expectedNames) {
   const changed = changedPaths(immediateBase, candidate);
   const expectedMainSpecs = new Set();
   for (const name of expectedNames) {
-    for (const relativePath of relativePathsUnder(candidate, `openspec/changes/archive/${name}/specs`)) {
+    for (const relativePath of relativePathsUnder(candidate, `${archivePrefix(candidate, name)}/specs`)) {
       expectedMainSpecs.add(`openspec/specs/${relativePath}`);
     }
   }
@@ -372,8 +385,11 @@ function phaseFindings(candidate, immediateBase, trunk, stack, environment) {
     if (candidateState.activeChanges.size > 0) {
       findings.push(`Top finalization layer still has active OpenSpec change(s): ${namesText(candidateState.activeChanges)}. ${guidance}`);
     }
+    const expectedArchivedDirectories = new Set([...expectedFromBase]
+      .map((name) => archiveDirectoryName(candidate, name))
+      .filter(Boolean));
     const newArchives = difference(candidateState.archivedChanges, immediateState.archivedChanges);
-    if (!setsEqual(newArchives, expectedFromBase)) {
+    if (!setsEqual(newArchives, expectedArchivedDirectories)) {
       findings.push(`OpenSpec archive-set mismatch: the top layer must archive exactly (${namesText(expectedFromBase)}), but the new archived names are (${namesText(newArchives)}).`);
     }
     findings.push(...archiveOnlyFindings(immediateBase, candidate, expectedFromBase));
