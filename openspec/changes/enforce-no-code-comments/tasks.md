@@ -6,9 +6,9 @@
 
 ## 2. Protected CI enforcement
 
-- [ ] 2.1 Add the separate base-owned pull-request workflow with stable job name `no-code-comments`, required pull-request events, `main` push coverage, and read-only permissions; verify the workflow contains no draft or stack-layer relaxation.
-- [ ] 2.2 Make the workflow load enforcement logic from the protected base branch and scan the immutable pull-request candidate without executing candidate scripts; verify the workflow source and candidate checkout paths through review and a representative local candidate run.
-- [ ] 2.3 Add CI-facing failure output and workflow regression checks for clean candidates, violating candidates, modified enforcement files, and higher stacked layers; verify failures identify locations and cannot be bypassed by candidate changes.
+- [x] 2.1 Add the separate base-owned pull-request workflow with stable job name `no-code-comments`, required pull-request events, `main` push coverage, and read-only permissions; verify the workflow contains no draft or stack-layer relaxation.
+- [x] 2.2 Make the workflow load enforcement logic from the protected base branch and scan the immutable pull-request candidate without executing candidate scripts; verify the workflow source and candidate checkout paths through review and a representative local candidate run.
+- [x] 2.3 Add CI-facing failure output and workflow regression checks for clean candidates, violating candidates, modified enforcement files, and higher stacked layers; verify failures identify locations and cannot be bypassed by candidate changes.
 
 ## 3. Agent guidance
 
