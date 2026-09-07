@@ -34,7 +34,9 @@ not scripts or workflows supplied by that candidate.
 3. Iterate on the spec with your reviewer(s) until it is locked in
 4. `/opsx:apply` — implement `tasks.md`
 5. PR review — human and AI feedback on the implementation and the spec
-6. Complete every task and run the required checks
+6. Complete every task and run the required checks. If the remaining tasks are
+   QA or validation, use a final validation-only stacked PR and record the
+   commands, results, and evidence links in that PR's description.
 7. `/opsx:archive` — archive the change as the last OpenSpec step, after review
    feedback is resolved and before the pull request is marked ready for review
 8. Merge
@@ -58,6 +60,27 @@ expected. Do not archive in the higher PR. Instead:
 For a higher-layer failure, CI explicitly says not to archive in that PR and
 points to the base branch when available. For a base-layer failure, CI directs
 the contributor to complete and archive the change in that base PR.
+
+#### Validation-only final layer
+
+When the remaining tasks are QA or validation rather than implementation, the
+last stacked PR may be a validation-only layer. That PR should check off the
+validation tasks only after running them and its description must record the
+validation that was performed. The exact checks will vary by change and may
+include commands, workflows, tests, manual checks, or other relevant evidence;
+GitHub API or ruleset checks are only required when they are part of that
+change's validation:
+
+- the exact validation steps that were run;
+- the expected and observed result for each check;
+- links to useful CI runs or other durable evidence, when available; and
+- any disposable diagnostic workflow or fixture used, including confirmation
+  that it was removed afterward.
+
+The validation-only PR still must not archive the OpenSpec change. After the
+validation results are reviewed, return to the base PR to complete any
+remaining task checklist items, archive the change there, cascade-rebase the
+stack, and rerun the final checks.
 
 ## Install OpenSpec
 
