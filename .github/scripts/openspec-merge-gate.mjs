@@ -96,8 +96,13 @@ export function stackContext(environment = process.env) {
   const stackBaseSha = environment.STACK_BASE_SHA?.trim() || "";
   const positionText = environment.STACK_POSITION?.trim() || "";
   const sizeText = environment.STACK_SIZE?.trim() || "";
-  const stackPresent = environment.STACK_PRESENT === "true"
-    || [stackBase, stackBaseSha, positionText, sizeText].some(Boolean);
+  const stackPresence = environment.STACK_PRESENT?.trim() || "";
+  const hasStackMetadata = [stackBase, stackBaseSha, positionText, sizeText].some(Boolean);
+  if ((stackPresence && !["true", "false"].includes(stackPresence))
+    || (stackPresence === "false" && hasStackMetadata)) {
+    return { kind: "unknown", phase: "unknown", strict: true, isTop: false, directBase };
+  }
+  const stackPresent = stackPresence === "true" || hasStackMetadata;
 
   if (!stackPresent) {
     if (!directBase) {

@@ -8,11 +8,11 @@
 
 ## 2. Regression coverage
 
-- [ ] 2.1 Add deterministic active, archived, trunk, and immediate-base fixtures plus trusted snapshot/manifest helpers; verify fixtures represent both the initial stack and a partially collapsed stack with an active change on `main`.
-- [ ] 2.2 Cover standalone, one-layer, and four-layer stack decisions, including each non-top position and the current top; verify only `position == size` requires archival and no minimum stack size is enforced.
-- [ ] 2.3 Cover stack collapse from four to three to two to one remaining pull requests; verify the finalization requirement follows the updated position and size while the shared change names remain stable.
-- [ ] 2.4 Cover new-change proof, inherited historical archives, active-to-archived transitions, omitted or competing change names, incomplete non-top tasks, complete top tasks, and archive-only versus mixed finalization diffs; verify each acceptance and failure scenario from the specification.
-- [ ] 2.5 Preserve coverage for strict CLI validation, missing or malformed artifacts, `skip_specs`, immutable head resolution, fork handling, and base-owned enforcement; verify the complete Node regression suite passes.
+- [x] 2.1 Add deterministic active, archived, trunk, and immediate-base fixtures plus trusted snapshot/manifest helpers; verify fixtures represent both the initial stack and a partially collapsed stack with an active change on `main`.
+- [x] 2.2 Cover standalone, one-layer, and four-layer stack decisions, including each non-top position and the current top; verify only `position == size` requires archival and no minimum stack size is enforced.
+- [x] 2.3 Cover stack collapse from four to three to two to one remaining pull requests; verify the finalization requirement follows the updated position and size while the shared change names remain stable.
+- [x] 2.4 Cover new-change proof, inherited historical archives, active-to-archived transitions, omitted or competing change names, incomplete non-top tasks, complete top tasks, and archive-only versus mixed finalization diffs; verify each acceptance and failure scenario from the specification.
+- [x] 2.5 Preserve coverage for strict CLI validation, missing or malformed artifacts, `skip_specs`, immutable head resolution, fork handling, and base-owned enforcement; verify the complete Node regression suite passes.
 
 ## 3. Workflow documentation and guidance
 
