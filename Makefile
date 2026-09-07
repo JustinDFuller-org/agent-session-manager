@@ -287,6 +287,9 @@ open-results:
 lint:
 	swift-format lint --recursive --strict Sources/ Tests/ UITests/
 
+no-code-comments:
+	node .github/scripts/no-code-comments.mjs --root "$(CURDIR)"
+
 setup-hooks:
 	git config core.hooksPath "$$(dirname $$(git rev-parse --git-common-dir))/.githooks"
 
