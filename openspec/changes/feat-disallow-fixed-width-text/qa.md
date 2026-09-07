@@ -14,6 +14,7 @@ This validation layer records integrated acceptance evidence for the fixed-width
 - `swift test` passed 1,126 XCTest cases and 123 Swift Testing cases with 0 failures; the compiler emitted existing warnings only.
 - `skills-ref validate` passed for all 62 top-level agent skills.
 - `git diff --check` passed.
+- The GitHub `openspec-check` for higher-layer PR #345 failed as expected because the active change remains unarchived; the workflow directs archiving only in the base PR followed by a cascade rebase.
 
 ## Disposable candidate checks
 
