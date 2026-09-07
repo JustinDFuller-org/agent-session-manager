@@ -9,6 +9,8 @@ Do not add explanatory comments to tracked source, test, script, build, CI, hook
 
 Use the appropriate durable channel instead:
 
+- Document how behavior should work in the relevant OpenSpec specification or change delta.
+- Document how an implementation should be built and why that approach was chosen in the active OpenSpec change's `proposal.md` and `design.md`.
 - Explain why a change is needed in the pull-request description.
 - Record change history in commit titles and messages.
 - Explain how to use a feature in the user-facing documentation site or an agent skill.
@@ -28,3 +30,7 @@ make no-code-comments
 ```
 
 The checker scans all tracked files in the candidate tree and reports each violation as `path:line:column`. It is intentionally separate from Swift format and SwiftLint.
+
+## Migration guidance
+
+When removing existing comments, preserve behavior and leave comment-like text inside strings, URLs, raw or multiline strings, embedded scripts, heredocs, generated values, and CSS colors unchanged. Keep executable shebangs and the first-line SwiftPM tools-version directive. Run the focused tests, then `make no-code-comments`, before review.
