@@ -47,6 +47,45 @@ function taskCounts(tasksPath) {
   };
 }
 
+const INTRODUCED_CHANGE_STATUSES = new Set(["added", "copied", "renamed"]);
+
+export function introducedOpenSpecChanges(changedFiles) {
+  if (!Array.isArray(changedFiles)) {
+    throw new Error("Trusted changed-file manifest must be an array");
+  }
+
+  const names = new Set();
+  for (const file of changedFiles) {
+    if (!file || typeof file.filename !== "string" || typeof file.status !== "string") {
+      throw new Error("Trusted changed-file manifest contains an invalid file entry");
+    }
+    if (!INTRODUCED_CHANGE_STATUSES.has(file.status)) continue;
+
+    const match = file.filename.match(/^openspec\/changes\/(?:archive\/)?([^/]+)\//);
+    if (match) names.add(match[1]);
+  }
+
+  return [...names].sort();
+}
+
+export function readChangedFileManifest(manifestPath) {
+  const content = readFileIfPresent(manifestPath);
+  if (content === null) {
+    throw new Error(`Trusted changed-file manifest '${manifestPath}' was not found`);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch (error) {
+    throw new Error(`Trusted changed-file manifest is not valid JSON: ${error.message}`);
+  }
+
+  const files = Array.isArray(parsed) ? parsed : parsed?.files;
+  introducedOpenSpecChanges(files);
+  return files;
+}
+
 export function resolveCandidateTarget(event) {
   if (event.name === "pull_request_target") {
     const repository = event.pullRequest?.head?.repository;
@@ -185,6 +224,21 @@ export function validateCandidate(candidateDirectory, environment = process.env,
   const inspected = inspectCandidate(candidateDirectory, environment);
   const findings = [...inspected.findings];
 
+  if (options.requireNewChange) {
+    if (options.changedFiles === undefined) {
+      findings.push("A trusted effective pull request file manifest is required to prove that this pull request introduces an OpenSpec change.");
+    } else {
+      try {
+        const introducedChanges = introducedOpenSpecChanges(options.changedFiles);
+        if (introducedChanges.length === 0) {
+          findings.push("No new OpenSpec change was introduced by the effective pull request diff. Add a file under openspec/changes/<name>/ or openspec/changes/archive/<name>/.");
+        }
+      } catch (error) {
+        findings.push(`Trusted effective pull request file manifest is invalid: ${error.message}`);
+      }
+    }
+  }
+
   if (options.runCli !== false) {
     for (const args of [
       ["validate", "--archived", "--no-interactive"],
@@ -214,7 +268,27 @@ function main() {
     process.exit(2);
   }
 
-  const result = validateCandidate(candidateDirectory);
+  const requiresNewChange = process.argv.includes("--require-new-change");
+  const changedFilesIndex = process.argv.indexOf("--changed-files");
+  const changedFilesPath = changedFilesIndex >= 0 ? process.argv[changedFilesIndex + 1] : null;
+  let changedFiles;
+  if (requiresNewChange) {
+    if (!changedFilesPath) {
+      printFindings(["--changed-files is required with --require-new-change."]);
+      process.exit(1);
+    }
+    try {
+      changedFiles = readChangedFileManifest(changedFilesPath);
+    } catch (error) {
+      printFindings([error.message]);
+      process.exit(1);
+    }
+  }
+
+  const result = validateCandidate(candidateDirectory, process.env, {
+    changedFiles,
+    requireNewChange: requiresNewChange,
+  });
   if (result.findings.length > 0) {
     printFindings(result.findings);
     process.exit(1);

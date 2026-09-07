@@ -6,7 +6,9 @@ import test from "node:test";
 
 import {
   archiveGuidance,
+  introducedOpenSpecChanges,
   inspectCandidate,
+  readChangedFileManifest,
   resolveCandidateTarget,
   stackContext,
   validateCandidate,
@@ -83,6 +85,66 @@ test("passes a complete archived change", () => {
   assert.deepEqual(result.findings, []);
 });
 
+test("requires a newly introduced OpenSpec change instead of an inherited archive", () => {
+  const root = fixture();
+  archivedChange(root);
+  const result = validateCandidate(root, {}, {
+    runCli: false,
+    requireNewChange: true,
+    changedFiles: [{ filename: "ordinary-change.txt", status: "added" }],
+  });
+  assert.match(result.findings.join("\n"), /No new OpenSpec change/);
+});
+
+test("does not count edits to an existing archive as a new change", () => {
+  const root = fixture();
+  archivedChange(root);
+  const result = validateCandidate(root, {}, {
+    runCli: false,
+    requireNewChange: true,
+    changedFiles: [{ filename: "openspec/changes/archive/2026-09-06-example/tasks.md", status: "modified" }],
+  });
+  assert.match(result.findings.join("\n"), /No new OpenSpec change/);
+});
+
+test("recognizes added and renamed active or archived change paths", () => {
+  assert.deepEqual(introducedOpenSpecChanges([
+    { filename: "README.md", status: "added" },
+    { filename: "openspec/README.md", status: "modified" },
+    { filename: "openspec/changes/feature/.openspec.yaml", status: "added" },
+    { filename: "openspec/changes/archive/2026-09-06-feature/tasks.md", status: "renamed" },
+  ]), ["2026-09-06-feature", "feature"]);
+});
+
+test("requires a valid trusted changed-file manifest", () => {
+  const root = fixture();
+  archivedChange(root);
+  const missingManifest = validateCandidate(root, {}, {
+    runCli: false,
+    requireNewChange: true,
+  });
+  assert.match(missingManifest.findings.join("\n"), /trusted effective pull request file manifest is required/);
+
+  const result = validateCandidate(root, {}, {
+    runCli: false,
+    requireNewChange: true,
+    changedFiles: [{ filename: 42, status: "added" }],
+  });
+  assert.match(result.findings.join("\n"), /manifest is invalid/);
+});
+
+test("reads and validates changed-file manifests", () => {
+  const root = fixture();
+  const manifestPath = path.join(root, "changed-files.json");
+  const files = [{ filename: "openspec/changes/example/design.md", status: "added" }];
+  write(root, "changed-files.json", JSON.stringify({ source: "base-head-compare", files }));
+  assert.deepEqual(readChangedFileManifest(manifestPath), files);
+  write(root, "invalid.json", "not json");
+  assert.throws(() => readChangedFileManifest(path.join(root, "invalid.json")), /not valid JSON/);
+  write(root, "missing-files.json", JSON.stringify({ source: "base-head-compare" }));
+  assert.throws(() => readChangedFileManifest(path.join(root, "missing-files.json")), /must be an array/);
+});
+
 test("CLI validation catches malformed archived specifications", () => {
   const root = fixture();
   archivedChange(root);
@@ -96,7 +158,15 @@ test("inspects the complete candidate tree assembled across commits", () => {
   archivedChange(root);
   write(root, "implementation/first-layer.txt", "first layer\n");
   write(root, "implementation/second-layer.txt", "second layer\n");
-  const result = validateCandidate(root, {}, { runCli: false });
+  const result = validateCandidate(root, {}, {
+    runCli: false,
+    requireNewChange: true,
+    changedFiles: [
+      { filename: "openspec/changes/archive/2026-09-06-example/.openspec.yaml", status: "added" },
+      { filename: "implementation/first-layer.txt", status: "added" },
+      { filename: "implementation/second-layer.txt", status: "added" },
+    ],
+  });
   assert.deepEqual(result.findings, []);
 });
 
