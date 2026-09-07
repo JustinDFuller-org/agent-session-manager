@@ -22,6 +22,6 @@
 
 ## 5. Integrated acceptance
 
-- [ ] 5.1 Run the validator tests, local prose check, strict OpenSpec validation, workflow/YAML checks, documentation checks, and the repository's applicable CI-equivalent checks, and verify every required result passes.
-- [ ] 5.2 Exercise a disposable candidate containing one wrapped Markdown paragraph and one wrapped pull-request paragraph, then remove each violation and verify the corresponding CI findings fail and pass as specified; separately verify that a wrapped commit body receives guidance but does not block.
-- [ ] 5.3 Exercise accepted structural examples and verify code, tables, front matter, headings, raw HTML, and separate one-line list items do not produce false positives.
+- [x] 5.1 Run the validator tests, local prose check, strict OpenSpec validation, workflow/YAML checks, documentation checks, and the repository's applicable CI-equivalent checks, and verify every required result passes.
+- [x] 5.2 Exercise a disposable candidate containing one wrapped Markdown paragraph and one wrapped pull-request paragraph, then remove each violation and verify the corresponding CI findings fail and pass as specified; separately verify that a wrapped commit body receives guidance but does not block.
+- [x] 5.3 Exercise accepted structural examples and verify code, tables, front matter, headings, raw HTML, and separate one-line list items do not produce false positives.
