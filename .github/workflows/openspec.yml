@@ -3,8 +3,6 @@ name: OpenSpec pull_request diagnostic
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-  push:
-    branches: [main]
 
 permissions: {}
 
@@ -17,11 +15,11 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - name: Checkout temporary pull-request enforcement source
+      - name: Checkout candidate enforcement source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
           path: enforcement-source
           persist-credentials: false
 
@@ -29,14 +27,39 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Test base-owned validator
+      - name: Test candidate validator
         run: node --test enforcement-source/.github/scripts/openspec-merge-gate.test.mjs
+
+      - name: Collect pull request file manifest
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MANIFEST_PATH: ${{ runner.temp }}/openspec-changed-files.json
+        with:
+          script: |
+            const fs = require('fs')
+            const { owner, repo } = context.repo
+            const pullRequest = context.payload.pull_request
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            })
+
+            fs.writeFileSync(process.env.MANIFEST_PATH, JSON.stringify({
+              source: 'pull-request-files-diagnostic',
+              files: files.map(file => ({
+                filename: file.filename,
+                status: file.status,
+                previous_filename: file.previous_filename || null,
+              })),
+            }))
 
       - name: Checkout immutable pull request candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
           path: candidate
           persist-credentials: false
 
@@ -48,36 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           cp enforcement-source/.github/scripts/openspec-merge-gate.mjs "$RUNNER_TEMP/openspec-merge-gate.mjs"
-          node "$RUNNER_TEMP/openspec-merge-gate.mjs" --candidate "$GITHUB_WORKSPACE/candidate"
-
-  openspec-label:
-    name: openspec-label
-    if: false
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Apply openspec label
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          retries: 3
-          script: |
-            const { owner, repo } = context.repo
-            const pull_number = context.payload.pull_request.number
-
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner,
-              repo,
-              pull_number,
-            })
-
-            const touchesOpenspec = files.some(f => f.filename.startsWith('openspec/'))
-            if (!touchesOpenspec) return
-
-            await github.rest.issues.addLabels({
-              owner,
-              repo,
-              issue_number: pull_number,
-              labels: ['openspec'],
-            })
+          node "$RUNNER_TEMP/openspec-merge-gate.mjs" \
+            --candidate "$GITHUB_WORKSPACE/candidate" \
+            --require-new-change \
+            --changed-files "$RUNNER_TEMP/openspec-changed-files.json"
