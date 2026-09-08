@@ -25,6 +25,7 @@ const contextFor = (files = ["Sources/AgentSessionManager/App.swift"], variable 
   repositoryFullName: repository,
   headRepositoryFullName,
   baseSha,
+  pullRequestNumber: 353,
   headSha,
   draft: true,
   event: "edited",
@@ -44,7 +45,7 @@ const completedEvidence = (context, overrides = {}) => {
     const runId = runIDs.get(workflowKey) ?? nextRunID++;
     runIDs.set(workflowKey, runId);
     if (!workflowRuns.some(run => run.id === runId)) {
-      workflowRuns.push({id: runId, name: validation.workflowName, path: validation.workflowFile, head_sha: headSha, event: validation.event, status: "completed", conclusion: "success"});
+      workflowRuns.push({id: runId, name: validation.workflowName, path: validation.workflowFile, head_sha: headSha, event: validation.event, pull_request_number: context.pullRequestNumber, status: "completed", conclusion: "success"});
       jobs.push({run_id: runId, name: validation.jobName, head_sha: headSha, status: "completed", conclusion: "success"});
     } else {
       jobs.push({run_id: runId, name: validation.jobName, head_sha: headSha, status: "completed", conclusion: "success"});
@@ -74,6 +75,7 @@ test("rejects missing, conflicting, and unknown policy data", () => {
   assert.match(validatePolicy({...policy, validations: [...policy.validations, policy.validations[0]]}).errors.join(" "), /Duplicate validation id/u);
   assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, checkName: "PR Description Check"} : validation)}).errors.join(" "), /Duplicate validation check name/u);
   assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, prerequisites: ["missing"]} : validation)}).errors.join(" "), /Unknown prerequisite/u);
+  assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, pullRequestTypes: ["opened"]} : validation)}).errors.join(" "), /trigger types/u);
   assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, applicability: {...validation.applicability, categories: ["missing"]}} : validation)}).errors.join(" "), /Unknown changed category/u);
   assert.equal(validatePolicy({...policy, expectedIntegration: "candidate"}).valid, false);
 });
@@ -140,9 +142,10 @@ test("covers fork, draft, edited, and candidate workflow-policy fixture context"
   assert.equal(candidateWorkflowEdit.find(validation => validation.id === "unit-tests").state, "waiting");
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "agent-session-manager-ci-gate-candidate-"));
   fs.mkdirSync(path.join(temporary, ".github"), {recursive: true});
-  fs.writeFileSync(path.join(temporary, ".github", "ci-gate-policy.json"), JSON.stringify({...policy, validations: []}));
+  fs.writeFileSync(path.join(temporary, ".github", "ci-gate-policy.json"), JSON.stringify({...policy, validations: policy.validations.slice(0, -1)}));
   assert.equal(loadPolicy(root).validations.length, 14);
-  assert.throws(() => loadPolicy(temporary), /validations must be non-empty/u);
+  assert.equal(loadPolicy(temporary).validations.length, 13);
+  assert.equal(expectedValidations(loadPolicy(root), contextFor([".github/workflows/unit-tests.yml"])).length, 14);
 });
 
 test("returns success only when every applicable current-head validation has exact provenance", () => {
@@ -181,15 +184,19 @@ test("requires exact workflow and job provenance rather than a display-name coll
   const evidence = completedEvidence(context);
   const target = evidence.checkRuns.find(check => check.name === "PR Description Check");
   const wrongWorkflow = evaluateGate({...evidence, workflowRuns: evidence.workflowRuns.map(run => run.id === target.run_id ? {...run, name: "Untrusted workflow"} : run)});
-  assert.equal(wrongWorkflow.validations.find(validation => validation.id === "pr-description").state, "failed");
+  assert.equal(wrongWorkflow.validations.find(validation => validation.id === "pr-description").state, "missing");
   const wrongJob = evaluateGate({...evidence, jobs: evidence.jobs.map(job => job.run_id === target.run_id ? {...job, name: "collision"} : job)});
-  assert.equal(wrongJob.validations.find(validation => validation.id === "pr-description").state, "failed");
+  assert.equal(wrongJob.validations.find(validation => validation.id === "pr-description").state, "missing");
   const wrongPath = evaluateGate({...evidence, workflowRuns: evidence.workflowRuns.map(run => run.id === target.run_id ? {...run, path: ".github/workflows/untrusted.yml"} : run)});
   assert.equal(wrongPath.validations.find(validation => validation.id === "pr-description").state, "failed");
   const staleJob = evaluateGate({...evidence, jobs: evidence.jobs.map(job => job.run_id === target.run_id ? {...job, head_sha: "c".repeat(40)} : job)});
   assert.equal(staleJob.validations.find(validation => validation.id === "pr-description").state, "stale");
   const unrelatedSameName = evaluateGate({...evidence, checkRuns: evidence.checkRuns.map(check => check.name === target.name ? {...check, run_id: undefined} : check)});
   assert.equal(unrelatedSameName.validations.find(validation => validation.id === "pr-description").state, "failed");
+  const otherPullRequest = evaluateGate({...evidence, workflowRuns: evidence.workflowRuns.map(run => run.id === target.run_id ? {...run, pull_request_number: 999} : run)});
+  assert.equal(otherPullRequest.validations.find(validation => validation.id === "pr-description").state, "stale");
+  const spoofedIntegration = evaluateGate({...evidence, checkRuns: evidence.checkRuns.map(check => check.name === target.name ? {...check, app: {name: "GitHub Actions"}} : check)});
+  assert.equal(spoofedIntegration.validations.find(validation => validation.id === "pr-description").state, "failed");
 });
 
 test("reports disabled macOS policy without treating it as a test pass", () => {
@@ -238,6 +245,14 @@ test("fails closed when policy or changed-file input is invalid", () => {
   const missingHead = evaluateGate(completedEvidence(context, {headSha: undefined}));
   assert.equal(missingHead.decision, "failure");
   assert.match(missingHead.validations.find(validation => validation.id === "pr-description").reason, /head SHA is missing/u);
+  const missingIdentity = evaluateGate({...completedEvidence(context), context: {...context, baseSha: undefined, pullRequestNumber: undefined, event: undefined}});
+  assert.equal(missingIdentity.decision, "failure");
+  assert.match(missingIdentity.policyErrors.join(" "), /base SHA|pull-request number|event/u);
+  const malformedApplicability = evaluateGate({...completedEvidence(context), policy: {...policy, validations: policy.validations.map(validation => validation.id === "pr-description" ? {...validation, applicability: null} : validation)}});
+  assert.equal(malformedApplicability.decision, "failure");
+  const unsupportedEvent = evaluateGate({...completedEvidence(context), context: {...context, event: "deleted"}});
+  assert.equal(unsupportedEvent.decision, "failure");
+  assert.match(unsupportedEvent.policyErrors.join(" "), /unsupported/u);
 });
 
 test("exposes every contract terminal state", () => {

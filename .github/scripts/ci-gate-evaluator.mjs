@@ -102,7 +102,7 @@ export function validatePolicy(policy) {
     if (validation.macOS === true && kind !== "changed-categories") errors.push(`macOS validation ${validation.id} must use changed-categories applicability.`);
     if (validation.prerequisites && !Array.isArray(validation.prerequisites)) errors.push(`Prerequisites must be an array for ${validation.id}.`);
     if (Array.isArray(policy.workflowEvents) && !policy.workflowEvents.includes(validation.event)) errors.push(`Validation event ${validation.event} is not declared by workflowEvents.`);
-    if (Array.isArray(policy.pullRequestEvents) && (!Array.isArray(validation.pullRequestTypes) || validation.pullRequestTypes.some(event => !policy.pullRequestEvents.includes(event)))) errors.push(`Validation pull-request trigger types are missing or unknown for ${validation.id}.`);
+    if (Array.isArray(policy.pullRequestEvents) && (!Array.isArray(validation.pullRequestTypes) || validation.pullRequestTypes.some(event => !policy.pullRequestEvents.includes(event)) || policy.pullRequestEvents.some(event => !validation.pullRequestTypes.includes(event)))) errors.push(`Validation pull-request trigger types are missing or unknown for ${validation.id}.`);
   }
   for (const validation of policy.validations ?? []) {
     for (const prerequisite of validation.prerequisites ?? []) {
@@ -240,27 +240,30 @@ export function expectedValidations(policy, context) {
 
 const normalizedIntegration = check => {
   const app = check?.app;
-  const value = typeof app === "string" ? app : app?.slug ?? app?.name;
+  const value = app !== null && typeof app === "object" ? app.slug : null;
   if (typeof value !== "string") return null;
   return value.toLowerCase().replaceAll(" ", "-");
 };
 
 const checkConclusionState = (check, timedOut) => {
+  const status = typeof check?.status === "string" ? check.status.toLowerCase() : null;
   const conclusion = typeof check?.conclusion === "string" ? check.conclusion.toLowerCase() : null;
-  if (conclusion === "success") return "passed";
+  if (!status) return "failed";
+  if (conclusion === "success") return status === "completed" ? "passed" : "failed";
   if (conclusion === "skipped") return "skipped";
   if (conclusion === "cancelled" || conclusion === "canceled") return "cancelled";
   if (conclusion === "timed_out" || conclusion === "timed-out") return "timed-out";
   if (conclusion === "neutral") return "neutral";
   if (conclusion) return "failed";
+  if (status === "completed") return "failed";
   if (timedOut) return "timed-out";
   return "waiting";
 };
 
 const currentChecks = (checks, expected, headSha) => checks.filter(check => check.name === expected.checkName && check.head_sha === headSha);
 const staleChecks = (checks, expected, headSha) => checks.filter(check => check.name === expected.checkName && check.head_sha !== headSha);
-const currentRuns = (runs, expected, headSha) => runs.filter(run => run.name === expected.workflowName && run.head_sha === headSha && run.event === expected.event);
-const staleRuns = (runs, expected, headSha) => runs.filter(run => run.name === expected.workflowName && run.head_sha !== headSha);
+const currentRuns = (runs, expected, headSha, pullRequestNumber) => runs.filter(run => run.name === expected.workflowName && run.head_sha === headSha && run.event === expected.event && run.pull_request_number === pullRequestNumber);
+const staleRuns = (runs, expected, headSha, pullRequestNumber) => runs.filter(run => run.name === expected.workflowName && (run.head_sha !== headSha || run.pull_request_number !== pullRequestNumber));
 
 const observeValidation = (validation, input) => {
   if (!validSha(input.headSha)) return {state: "failed", reason: "current pull-request head SHA is missing or malformed", observed: null};
@@ -280,17 +283,17 @@ const observeValidation = (validation, input) => {
   if (matches.length > 1) return {state: "failed", reason: "duplicate check runs match the expected name and head SHA", observed: matches};
   const check = matches[0];
   if (normalizedIntegration(check) !== input.expectedIntegration) return {state: "failed", reason: "check run has unexpected integration provenance", observed: check};
-  const candidateRuns = currentRuns(runs, validation, input.headSha);
+  const candidateRuns = currentRuns(runs, validation, input.headSha, input.pullRequestNumber);
   const runMatches = check.run_id == null
     ? candidateRuns
     : candidateRuns.filter(run => String(run.id) === String(check.run_id));
-  const oldRuns = staleRuns(runs, validation, input.headSha);
-  if (runMatches.length !== 1) return {state: oldRuns.length > 0 ? "stale" : "failed", reason: oldRuns.length > 0 ? "workflow run exists only for an earlier head SHA" : "workflow run provenance is missing or ambiguous", observed: check};
+  const oldRuns = staleRuns(runs, validation, input.headSha, input.pullRequestNumber);
+  if (runMatches.length !== 1) return {state: oldRuns.length > 0 ? "stale" : runMatches.length === 0 ? "missing" : "failed", reason: oldRuns.length > 0 ? "workflow run exists for an earlier head or another pull request" : runMatches.length === 0 ? "workflow run provenance is missing" : "workflow run provenance is ambiguous", observed: check};
   const run = runMatches[0];
   if (run.path !== validation.workflowFile) return {state: "failed", reason: "workflow run has unexpected or missing workflow-file provenance", observed: check};
   if (check.run_id != null && String(check.run_id) !== String(run.id)) return {state: "failed", reason: "check run is attached to an unexpected workflow run", observed: check};
   const jobMatches = jobs.filter(job => String(job.run_id) === String(run.id) && job.name === validation.jobName);
-  if (jobMatches.length !== 1) return {state: "failed", reason: "workflow job provenance is missing or ambiguous", observed: check};
+  if (jobMatches.length !== 1) return {state: jobMatches.length === 0 ? "missing" : "failed", reason: jobMatches.length === 0 ? "workflow job provenance is missing" : "workflow job provenance is ambiguous", observed: check};
   if (!validSha(jobMatches[0].head_sha)) return {state: "failed", reason: "workflow job head SHA is missing or malformed", observed: check};
   if (jobMatches[0].head_sha !== input.headSha) return {state: "stale", reason: "workflow job belongs to an earlier head SHA", observed: check};
   const state = checkConclusionState(check, input.timedOut);
@@ -316,23 +319,26 @@ export function evaluateGate({policy, context, checkRuns = [], workflowRuns = []
   for (const validation of evaluations) {
     let result = {state: validation.state, reason: validation.applicabilityReason, observed: null};
     if (result.state === "waiting") {
-      const prerequisiteStates = (validation.prerequisites ?? []).map(id => results.get(id));
+      const prerequisiteStates = (validation.prerequisites ?? []).map(id => results.get(id)?.state);
       if (prerequisiteStates.some(state => terminalFailureStates.has(state))) {
-        result = {state: "prerequisite-blocked", reason: `prerequisite failed: ${validation.prerequisites.find(id => terminalFailureStates.has(results.get(id)))}`, observed: null};
+        result = {state: "prerequisite-blocked", reason: `prerequisite failed: ${validation.prerequisites.find(id => terminalFailureStates.has(results.get(id)?.state))}`, observed: null};
       } else if (prerequisiteStates.some(state => state === "waiting" || state === "missing")) {
         result = {state: "waiting", reason: "waiting for prerequisite validation", observed: null};
       } else {
-        result = observeValidation(validation, {checkRuns, workflowRuns, jobs, headSha, timedOut, expectedIntegration: policy.expectedIntegration});
+        result = observeValidation(validation, {checkRuns, workflowRuns, jobs, headSha, pullRequestNumber: evaluationContext.pullRequestNumber, timedOut, expectedIntegration: policy.expectedIntegration});
       }
     }
-    results.set(validation.id, result.state);
-    validation.result = result;
+    results.set(validation.id, result);
   }
   const policyErrors = [
     ...(!policyValidation.valid ? policyValidation.errors : []),
     ...(changedFiles?.errors ?? ["Changed-file assessment is missing."]),
+    ...(validSha(headSha) ? [] : ["Current pull-request head SHA is missing or malformed."]),
+    ...(validSha(evaluationContext?.baseSha) ? [] : ["Pull-request base SHA is missing or malformed."]),
+    ...(Number.isInteger(evaluationContext?.pullRequestNumber) && evaluationContext.pullRequestNumber > 0 ? [] : ["Pull-request number is missing or malformed."]),
+    ...(policy.pullRequestEvents?.includes(evaluationContext?.event) ? [] : ["Pull-request event is missing or unsupported."]),
   ];
-  const success = policyErrors.length === 0 && evaluations.every(validation => ["passed", "not-applicable", "disabled-policy"].includes(validation.result.state));
+  const success = policyErrors.length === 0 && evaluations.every(validation => ["passed", "not-applicable", "disabled-policy"].includes(results.get(validation.id).state));
   return {
     decision: success ? "success" : "failure",
     headSha,
@@ -344,9 +350,9 @@ export function evaluateGate({policy, context, checkRuns = [], workflowRuns = []
       checkName: validation.checkName,
       applicabilityReason: validation.applicabilityReason,
       expected: validation.expected,
-      state: validation.result.state,
-      reason: validation.result.reason,
-      observed: validation.result.observed,
+      state: results.get(validation.id).state,
+      reason: results.get(validation.id).reason,
+      observed: results.get(validation.id).observed,
     })),
   };
 }
