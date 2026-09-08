@@ -41,8 +41,9 @@ jobs:
           GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
           CI_GATE_TIMEOUT_MS: "180000"
           CI_GATE_POLL_MS: "5000"
-        run: node .github/scripts/ci-gate-workflow.mjs
-
-      - name: Print CI gate summary
-        if: always()
-        run: cat "$GITHUB_STEP_SUMMARY"
+        run: |
+          set +e
+          node .github/scripts/ci-gate-workflow.mjs
+          status=$?
+          cat "$GITHUB_STEP_SUMMARY"
+          exit "$status"
