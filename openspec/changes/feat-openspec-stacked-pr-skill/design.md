@@ -37,7 +37,7 @@ The guidance will state only the necessary mapping: one implementation PR per to
 
 ### Describe side effects without automating them
 
-The skill will identify read-only inspection, local checkout/rebase, remote push/link/submit/sync, and merge commands. It will call out force-with-lease-capable updates and rebase conflict recovery, while leaving execution approval to the existing repository workflow and the user.
+The skill will identify read-only inspection, local checkout/rebase, remote push/link/submit/sync, and merge commands. It will call out force-with-lease-capable updates, distinguish eligible stack feature branches from protected trunk branches, and document rebase conflict recovery. Rebasing is allowed only when the rewritten stack branches are outside the repository's protected-branch or ruleset coverage; `main` must never be force-updated.
 
 ## Risks / Trade-offs
 

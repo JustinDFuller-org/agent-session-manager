@@ -2,9 +2,9 @@ Each implementation PR SHALL contain one numbered task group below, including al
 
 ## 1. Canonical gh stack CLI skill
 
-- [ ] 1.1 Add `.agents/skills/openspec-stacked-prs/SKILL.md` with valid Agent Skills frontmatter and focused `gh stack` scope; verify it with `skills-ref validate .agents/skills/openspec-stacked-prs`.
-- [ ] 1.2 Document new-stack and existing-PR procedures using `gh stack init`, `add`, `submit`, and bottom-to-top `link`; verify the guidance rejects `gh pr create --base` as sufficient formal-stack proof.
-- [ ] 1.3 Document `gh stack checkout`, `view --json`, and per-PR `gh pr view` verification plus command side effects and conflict recovery; verify the acceptance checklist requires both metadata and base-chain checks.
+- [x] 1.1 Add `.agents/skills/openspec-stacked-prs/SKILL.md` with valid Agent Skills frontmatter and focused `gh stack` scope; verify it with `skills-ref validate .agents/skills/openspec-stacked-prs`.
+- [x] 1.2 Document new-stack and existing-PR procedures using `gh stack init`, `add`, `submit`, and bottom-to-top `link`; verify the guidance rejects `gh pr create --base` as sufficient formal-stack proof.
+- [x] 1.3 Document `gh stack checkout`, `view --json`, and per-PR `gh pr view` verification plus command side effects and conflict recovery; verify the acceptance checklist requires both metadata and base-chain checks.
 
 ## 2. Repository pointers
 
