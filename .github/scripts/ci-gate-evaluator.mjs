@@ -46,6 +46,7 @@ const globPattern = pattern => {
 const matchesAny = (value, patterns) => patterns.some(pattern => globPattern(pattern).test(value));
 const shaPattern = /^[0-9a-f]{40}$/iu;
 const validSha = value => typeof value === "string" && shaPattern.test(value);
+const validRepositoryFullName = value => typeof value === "string" && /^[^/]+\/[^/]+$/u.test(value);
 
 const validationIdentity = validation => ({
   checkName: validation.checkName,
@@ -216,7 +217,7 @@ export function assembleChangedFileManifest(pages, {pageSize = 100, maxChangedFi
     if (hasNextPage === false && index !== pages.length - 1) errors.push("Changed-file pagination contains pages after its terminal page.");
     if (index === pages.length - 1 && hasNextPage !== false && pageFiles.length === pageSize) errors.push("Changed-file pagination ended at the page-size boundary and may be truncated.");
   });
-  if (files.length > maxChangedFiles) errors.push(`Changed-file manifest exceeds the supported ceiling of ${maxChangedFiles}.`);
+  if (files.length >= maxChangedFiles) errors.push(`Changed-file manifest reaches the supported ceiling of ${maxChangedFiles} and may be truncated.`);
   return {files, complete: errors.length === 0, errors};
 }
 
@@ -360,6 +361,8 @@ export function evaluateGate({policy, context, checkRuns = [], workflowRuns = []
     ...(changedFiles?.errors ?? ["Changed-file assessment is missing."]),
     ...(validSha(headSha) ? [] : ["Current pull-request head SHA is missing or malformed."]),
     ...(validSha(evaluationContext?.baseSha) ? [] : ["Pull-request base SHA is missing or malformed."]),
+    ...(validRepositoryFullName(evaluationContext?.repositoryFullName) ? [] : ["Pull-request base repository identity is missing or malformed."]),
+    ...(validRepositoryFullName(evaluationContext?.headRepositoryFullName) ? [] : ["Pull-request head repository identity is missing or malformed."]),
     ...(Number.isInteger(evaluationContext?.pullRequestNumber) && evaluationContext.pullRequestNumber > 0 ? [] : ["Pull-request number is missing or malformed."]),
     ...(policy?.pullRequestEvents?.includes(evaluationContext?.event) ? [] : ["Pull-request event is missing or unsupported."]),
   ];
@@ -368,11 +371,15 @@ export function evaluateGate({policy, context, checkRuns = [], workflowRuns = []
     decision: success ? "success" : "failure",
     headSha,
     policyVersion: policy?.version,
+    policySourceSHA: policy?.sourceSHA,
+    expectedIntegration: policy?.expectedIntegration,
     policyErrors,
     macOSPolicy: parseMacOSPolicy(evaluationContext?.macOSVariable),
+    inputWarnings: evaluationContext?.macOSVariableError ? [evaluationContext.macOSVariableError] : [],
     validations: evaluations.map(validation => ({
       id: validation.id,
       checkName: validation.checkName,
+      pullRequestTypes: validation.pullRequestTypes,
       applicabilityReason: validation.applicabilityReason,
       expected: validation.expected,
       state: results.get(validation.id).state,
@@ -380,6 +387,86 @@ export function evaluateGate({policy, context, checkRuns = [], workflowRuns = []
       observed: results.get(validation.id).observed,
     })),
   };
+}
+
+const safeSummaryValue = value => String(value ?? "unknown").replaceAll("|", "\\|").replaceAll("\n", " ");
+
+const rawRecordSummary = record => [
+  `name=${safeSummaryValue(record.name)}`,
+  `sha=${safeSummaryValue(record.head_sha)}`,
+  `integration=${safeSummaryValue(record.app?.slug)}`,
+  `run=${safeSummaryValue(record.run_id)}`,
+  `status=${safeSummaryValue(record.status)}`,
+  `conclusion=${safeSummaryValue(record.conclusion)}`,
+].join(", ");
+
+const observedSummary = observed => {
+  if (Array.isArray(observed)) return `${observed.length} matching records: ${observed.map(rawRecordSummary).join("; ")}`;
+  if (!observed) return "none";
+  if (observed.check) {
+    const check = observed.check;
+    const run = observed.run;
+    const job = observed.job;
+    return [
+      `check=${safeSummaryValue(check.name)}`,
+      `check-sha=${safeSummaryValue(check.head_sha)}`,
+      `integration=${safeSummaryValue(check.app?.slug)}`,
+      `run=${safeSummaryValue(run?.id ?? check.run_id)}`,
+      `workflow=${safeSummaryValue(run?.name)}`,
+      `workflow-file=${safeSummaryValue(run?.path)}`,
+      `event=${safeSummaryValue(run?.event)}`,
+      `run-sha=${safeSummaryValue(run?.head_sha)}`,
+      `run-status=${safeSummaryValue(run?.status)}`,
+      `run-conclusion=${safeSummaryValue(run?.conclusion)}`,
+      `job=${safeSummaryValue(job?.name)}`,
+      `job-sha=${safeSummaryValue(job?.head_sha)}`,
+      `job-status=${safeSummaryValue(job?.status)}`,
+      `job-conclusion=${safeSummaryValue(job?.conclusion)}`,
+      `check-status=${safeSummaryValue(check.status)}`,
+      `check-conclusion=${safeSummaryValue(check.conclusion)}`,
+    ].join(", ");
+  }
+  if (typeof observed === "object" && (observed.name || observed.head_sha || observed.run_id)) return rawRecordSummary(observed);
+  return "record present";
+};
+
+const expectedSummary = (validation, expectedIntegration) => {
+  if (!validation.expected) return "unavailable";
+  return [
+    `workflow=${safeSummaryValue(validation.expected.workflowName)}`,
+    `workflow-file=${safeSummaryValue(validation.expected.workflowFile)}`,
+    `job=${safeSummaryValue(validation.expected.jobName)}`,
+    `event=${safeSummaryValue(validation.expected.event)}`,
+    `types=${safeSummaryValue(validation.pullRequestTypes?.join(",") ?? "unknown")}`,
+    `integration=${safeSummaryValue(expectedIntegration)}`,
+  ].join(", ");
+};
+
+export function renderDiagnosticSummary(result) {
+  const lines = [
+    "# ci-gate",
+    "",
+    `Decision: **${result.decision}**`,
+    `Evaluated head SHA: \`${result.headSha ?? "unavailable"}\``,
+    `Base-owned policy source: default branch commit \`${result.policySourceSHA ?? "unavailable"}\` (version ${result.policyVersion ?? "unavailable"})`,
+    `Expected integration: ${result.expectedIntegration ?? "unavailable"}`,
+    `macOS policy: ${result.macOSPolicy?.state ?? "unknown"} (${result.macOSPolicy?.reason ?? "unavailable"})`,
+    "",
+    "| Validation | State | Applicability | Expected provenance | Observed provenance | Reason |",
+    "| --- | --- | --- | --- | --- | --- |",
+  ];
+  for (const validation of result.validations ?? []) {
+    lines.push(`| ${validation.id} | ${validation.state} | ${safeSummaryValue(validation.applicabilityReason)} | ${expectedSummary(validation, result.expectedIntegration)} | ${observedSummary(validation.observed)} | ${safeSummaryValue(validation.reason)} |`);
+  }
+  if ((result.policyErrors ?? []).length > 0) {
+    lines.push("", "Input and policy failures:");
+    for (const error of result.policyErrors) lines.push(`- ${safeSummaryValue(error)}`);
+  }
+  if ((result.inputWarnings ?? []).length > 0) {
+    lines.push("", "Trusted policy warnings:");
+    for (const warning of result.inputWarnings) lines.push(`- ${safeSummaryValue(warning)}`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 export {terminalStates};

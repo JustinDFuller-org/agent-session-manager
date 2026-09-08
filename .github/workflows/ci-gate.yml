@@ -1,0 +1,47 @@
+name: CI Gate
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+
+concurrency:
+  group: ci-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  ci-gate:
+    name: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout default-branch enforcement source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.workflow_sha }}
+          path: enforcement-source
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+
+      - name: Run base-owned CI gate
+        env:
+          CI_GATE_POLICY_ROOT: ${{ github.workspace }}/enforcement-source
+          CI_GATE_POLICY_SHA: ${{ github.workflow_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_EVENT: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
+          CI_GATE_TIMEOUT_MS: "840000"
+          CI_GATE_POLL_MS: "20000"
+        run: node enforcement-source/.github/scripts/ci-gate-workflow.mjs

@@ -12,6 +12,7 @@ import {
   expectedValidations,
   loadPolicy,
   parseMacOSPolicy,
+  renderDiagnosticSummary,
   terminalStates,
   validatePolicy,
 } from "./ci-gate-evaluator.mjs";
@@ -114,6 +115,10 @@ test("allows only the explicit documentation allowlist to be macOS non-applicabl
 test("fails closed for incomplete, truncated, and over-ceiling changed-file manifests", () => {
   assert.equal(classifyChangedFiles(policy, ["Sources/App.swift"], false).complete, false);
   assert.match(classifyChangedFiles(policy, ["Sources/App.swift"], false).errors.join(" "), /incomplete/u);
+  const boundary = Array.from({length: policy.maxChangedFiles}, (_, index) => `documentation/File${index}.md`);
+  const boundaryManifest = assembleChangedFileManifest([{files: boundary, hasNextPage: false}], {pageSize: policy.maxChangedFiles, maxChangedFiles: policy.maxChangedFiles});
+  assert.equal(boundaryManifest.complete, false);
+  assert.match(boundaryManifest.errors.join(" "), /may be truncated/u);
   const files = Array.from({length: policy.maxChangedFiles + 1}, (_, index) => `Sources/File${index}.swift`);
   assert.match(classifyChangedFiles(policy, files).errors.join(" "), /ceiling/u);
 });
@@ -159,6 +164,15 @@ test("returns success only when every applicable current-head validation has exa
   const result = evaluateGate(completedEvidence(contextFor(["documentation/ci.md"]), {headSha}));
   assert.equal(result.decision, "success");
   assert.ok(result.validations.every(validation => ["passed", "not-applicable"].includes(validation.state)));
+  const summary = renderDiagnosticSummary(result);
+  assert.match(summary, /Applicability/u);
+  assert.match(summary, /workflow-file=\.github\/workflows\/pr-quality\.yml/u);
+  assert.match(summary, /integration=github-actions/u);
+  assert.match(summary, /workflow=PR Quality/u);
+  assert.match(summary, /job=PR Description Check/u);
+  const wrongIntegration = evaluateGate({...completedEvidence(contextFor(["documentation/ci.md"])), checkRuns: completedEvidence(contextFor(["documentation/ci.md"])).checkRuns.map(check => check.name === "PR Description Check" ? {...check, app: {slug: "circleci"}} : check)});
+  assert.match(renderDiagnosticSummary(wrongIntegration), /integration=circleci/u);
+  assert.match(renderDiagnosticSummary(wrongIntegration), /check-conclusion=success/u);
 });
 
 test("classifies missing, waiting, failed, skipped, cancelled, timed-out, and neutral results", () => {
@@ -213,6 +227,8 @@ test("reports disabled macOS policy without treating it as a test pass", () => {
   assert.equal(unit.state, "disabled-policy");
   assert.equal(result.decision, "success");
   assert.equal(result.macOSPolicy.enabled, false);
+  assert.match(renderDiagnosticSummary(result), /macOS policy: disabled-policy/u);
+  assert.match(renderDiagnosticSummary(result), /Evaluated head SHA/u);
 });
 
 test("requires macOS for missing and malformed policy variables", () => {
@@ -255,6 +271,9 @@ test("fails closed when policy or changed-file input is invalid", () => {
   const missingIdentity = evaluateGate({...completedEvidence(context), context: {...context, baseSha: undefined, pullRequestNumber: undefined, event: undefined}});
   assert.equal(missingIdentity.decision, "failure");
   assert.match(missingIdentity.policyErrors.join(" "), /base SHA|pull-request number|event/u);
+  const missingHeadRepository = evaluateGate({...completedEvidence(context), context: {...context, headRepositoryFullName: undefined}});
+  assert.equal(missingHeadRepository.decision, "failure");
+  assert.match(missingHeadRepository.policyErrors.join(" "), /head repository identity/u);
   const malformedApplicability = evaluateGate({...completedEvidence(context), policy: {...policy, validations: policy.validations.map(validation => validation.id === "pr-description" ? {...validation, applicability: null} : validation)}});
   assert.equal(malformedApplicability.decision, "failure");
   const unsupportedEvent = evaluateGate({...completedEvidence(context), context: {...context, event: "deleted"}});

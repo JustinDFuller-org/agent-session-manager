@@ -6,9 +6,9 @@
 
 ## 2. Base-owned aggregate workflow
 
-- [ ] 2.1 Add the base-owned `pull_request_target` workflow for `ci-gate` with `opened`, `reopened`, `synchronize`, `ready_for_review`, `converted_to_draft`, and `edited` events, read-only permissions, immutable default-branch enforcement source, bounded timeout, and concurrency cancellation; verify workflow inspection shows no candidate checkout or candidate-code execution.
-- [ ] 2.2 Implement the GitHub API adapter that reads the current pull-request head and base SHAs, the complete paginated changed-file list, trusted repository variable state, workflow runs, check runs, and jobs; verify it enforces the changed-file ceiling and ignores earlier revisions, other pull requests, unexpected sources, and unrelated display-name collisions.
-- [ ] 2.3 Publish the stable `ci-gate` job result and diagnostic summary for every evaluated state; verify the summary includes head SHA, policy source/version, applicability reasons, expected and observed provenance, validation state, incomplete-input failures, and macOS-disabled policy without presenting disabled coverage as a test pass.
+- [x] 2.1 Add the base-owned `pull_request_target` workflow for `ci-gate` with `opened`, `reopened`, `synchronize`, `ready_for_review`, `converted_to_draft`, and `edited` events, read-only permissions, immutable default-branch enforcement source, bounded timeout, and concurrency cancellation; verify workflow inspection shows no candidate checkout or candidate-code execution.
+- [x] 2.2 Implement the GitHub API adapter that reads the current pull-request head and base SHAs, the complete paginated changed-file list, trusted repository variable state, workflow runs, check runs, and jobs; verify it enforces the changed-file ceiling and ignores earlier revisions, other pull requests, unexpected sources, and unrelated display-name collisions.
+- [x] 2.3 Publish the stable `ci-gate` job result and diagnostic summary for every evaluated state; verify the summary includes head SHA, policy source/version, applicability reasons, expected and observed provenance, validation state, incomplete-input failures, and macOS-disabled policy without presenting disabled coverage as a test pass.
 
 ## 3. Existing workflow integration and cost controls
 
