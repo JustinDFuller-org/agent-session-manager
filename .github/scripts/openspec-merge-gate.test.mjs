@@ -359,7 +359,7 @@ test("keeps strict CLI validation and base-owned enforcement in the workflow", (
   assert.match(workflow, /workflow_call:/);
   assert.doesNotMatch(workflow, /pull_request_target:\n/);
   assert.match(workflow, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
-  assert.match(workflow, /node --test enforcement-source\/\.github\/scripts\/openspec-merge-gate\.test\.mjs/);
+  assert.match(workflow, /node --test enforcement-source\/\.github\/scripts\/openspec-merge-gate\.test\.mjs enforcement-source\/\.github\/scripts\/ci-gate-guidance\.test\.mjs/);
   assert.match(workflow, /github\.event\.pull_request\.head\.sha/);
   assert.match(workflow, /STACK_POSITION:/);
   assert.doesNotMatch(workflow, /candidate\/\.github\/scripts\/openspec-merge-gate\.mjs/);
