@@ -1,0 +1,256 @@
+{
+  "version": 1,
+  "maxChangedFiles": 3000,
+  "pullRequestEvents": [
+    "opened",
+    "edited",
+    "synchronize",
+    "reopened",
+    "ready_for_review",
+    "converted_to_draft"
+  ],
+  "workflowEvents": ["pull_request", "pull_request_target"],
+  "expectedIntegration": "github-actions",
+  "macOS": {
+    "nonApplicableAllowlist": [
+      "documentation/**",
+      "README.md",
+      "USER_FACING_DOCS.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "AGENTIC_CONTROL.md",
+      "OPENCODE_SUPPORT.md",
+      "PROGRESS.md"
+    ],
+    "variable": "ENABLE_MACOSX_JOBS"
+  },
+  "pathCategories": {
+    "documentation": [
+      "documentation/**",
+      "README.md",
+      "USER_FACING_DOCS.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "AGENTIC_CONTROL.md",
+      "OPENCODE_SUPPORT.md",
+      "PROGRESS.md"
+    ],
+    "resources": [
+      "Sources/**/Resources/**",
+      "Assets.xcassets/**"
+    ],
+    "source": ["Sources/**"],
+    "tests": ["Tests/**"],
+    "ui-tests": ["UITests/**"],
+    "package": ["Package.swift", "Package.resolved"],
+    "project": [
+      "project.yml",
+      "*.xcodeproj/**",
+      "*.xcworkspace/**"
+    ],
+    "build": [
+      "Makefile",
+      "scripts/**",
+      "*.xcconfig",
+      "*.plist"
+    ],
+    "toolchain": [".swift-version", ".xcode-version"],
+    "enforcement": [".github/**", ".agents/**", "openspec/**"]
+  },
+  "validations": [
+    {
+      "id": "pr-description",
+      "checkName": "PR Description Check",
+      "workflowName": "PR Quality",
+      "workflowFile": ".github/workflows/pr-quality.yml",
+      "jobName": "PR Description Check",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "wip-check",
+      "checkName": "WIP Check",
+      "workflowName": "PR Quality",
+      "workflowFile": ".github/workflows/pr-quality.yml",
+      "jobName": "WIP Check",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "openspec-guide",
+      "checkName": "openspec-guide",
+      "workflowName": "OpenSpec Guide",
+      "workflowFile": ".github/workflows/openspec-guide.yml",
+      "jobName": "openspec-guide",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "same-repository"}
+    },
+    {
+      "id": "openspec-check",
+      "checkName": "openspec-check",
+      "workflowName": "OpenSpec",
+      "workflowFile": ".github/workflows/openspec.yml",
+      "jobName": "openspec-check",
+      "event": "pull_request_target",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "openspec-label",
+      "checkName": "openspec-label",
+      "workflowName": "OpenSpec",
+      "workflowFile": ".github/workflows/openspec.yml",
+      "jobName": "openspec-label",
+      "event": "pull_request_target",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "same-repository"}
+    },
+    {
+      "id": "no-code-comments",
+      "checkName": "no-code-comments",
+      "workflowName": "No Code Comments",
+      "workflowFile": ".github/workflows/no-code-comments.yml",
+      "jobName": "no-code-comments",
+      "event": "pull_request_target",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "no-fixed-width-prose",
+      "checkName": "no-fixed-width-prose",
+      "workflowName": "Fixed-width Prose",
+      "workflowFile": ".github/workflows/no-fixed-width-prose.yml",
+      "jobName": "no-fixed-width-prose",
+      "event": "pull_request_target",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "swift-format",
+      "checkName": "swift-format check",
+      "workflowName": "Format",
+      "workflowFile": ".github/workflows/format.yml",
+      "jobName": "swift-format check",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "swiftlint",
+      "checkName": "SwiftLint",
+      "workflowName": "Lint",
+      "workflowFile": ".github/workflows/lint.yml",
+      "jobName": "SwiftLint",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "docs-check",
+      "checkName": "Jekyll build and link check",
+      "workflowName": "Documentation",
+      "workflowFile": ".github/workflows/docs.yml",
+      "jobName": "Jekyll build and link check",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "resolve",
+      "checkName": "swift package resolve",
+      "workflowName": "Swift Build Check",
+      "workflowFile": ".github/workflows/swift-build-check.yml",
+      "jobName": "swift package resolve",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "applicability": {"kind": "every"}
+    },
+    {
+      "id": "unit-tests",
+      "checkName": "swift test",
+      "workflowName": "Unit Tests",
+      "workflowFile": ".github/workflows/unit-tests.yml",
+      "jobName": "swift test",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "macOS": true,
+      "prerequisites": ["swift-format", "swiftlint", "docs-check", "resolve"],
+      "applicability": {
+        "kind": "changed-categories",
+        "categories": [
+          "source",
+          "tests",
+          "ui-tests",
+          "package",
+          "project",
+          "build",
+          "resources",
+          "toolchain",
+          "enforcement"
+        ]
+      }
+    },
+    {
+      "id": "ui-tests",
+      "checkName": "make test-ui-dev-launch",
+      "workflowName": "UI Tests",
+      "workflowFile": ".github/workflows/ui-tests.yml",
+      "jobName": "make test-ui-dev-launch",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "macOS": true,
+      "prerequisites": ["swift-format", "swiftlint", "docs-check", "resolve"],
+      "applicability": {
+        "kind": "changed-categories",
+        "categories": [
+          "source",
+          "tests",
+          "ui-tests",
+          "package",
+          "project",
+          "build",
+          "resources",
+          "toolchain",
+          "enforcement"
+        ]
+      }
+    },
+    {
+      "id": "compatibility",
+      "checkName": "Dependency and toolchain compatibility",
+      "workflowName": "Dependency and Toolchain Compatibility",
+      "workflowFile": ".github/workflows/dependency-toolchain-compatibility.yml",
+      "jobName": "Dependency and toolchain compatibility",
+      "event": "pull_request",
+      "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
+      "macOS": true,
+      "prerequisites": ["swift-format", "swiftlint", "docs-check", "resolve"],
+      "applicability": {
+        "kind": "changed-categories",
+        "categories": [
+          "source",
+          "tests",
+          "ui-tests",
+          "package",
+          "project",
+          "build",
+          "resources",
+          "toolchain",
+          "enforcement"
+        ]
+      }
+    }
+  ],
+  "excludedAutomation": [
+    "Release",
+    "Stale",
+    "Dependabot Auto-merge",
+    "Screenshot publication",
+    "Post-merge publication",
+    "Scheduled maintenance",
+    "Manual-only validation"
+  ]
+}

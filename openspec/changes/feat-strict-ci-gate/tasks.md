@@ -1,8 +1,8 @@
 ## 1. Trusted policy and evaluator contract
 
-- [ ] 1.1 Define the base-owned validation matrix with canonical workflow/job/integration identities, pull-request trigger expectations, every-current-validation coverage, changed-file categories, an explicit macOS non-applicable allowlist, prerequisite relationships, and excluded automation; verify unknown paths, conflicting entries, and missing policy data fail closed.
-- [ ] 1.2 Implement pure gate-evaluation logic for applicability, complete changed-file manifests, exact-head matching, expected GitHub Actions provenance, repository-variable parsing, and terminal result classification; verify table-driven tests cover passed, failed, waiting, missing, skipped, cancelled, timed-out, neutral, stale, not-applicable, prerequisite-blocked, and disabled-policy states.
-- [ ] 1.3 Add evaluator fixtures for candidate workflow changes, changed-file pagination and truncation, fork pull requests, draft pull requests, edited metadata events, superseded revisions, duplicate check names, unexpected integrations, stale results, and malformed `ENABLE_MACOSX_JOBS`; verify candidate-controlled policy cannot change the expected validation set.
+- [x] 1.1 Define the base-owned validation matrix with canonical workflow/job/integration identities, pull-request trigger expectations, every-current-validation coverage, changed-file categories, an explicit macOS non-applicable allowlist, prerequisite relationships, and excluded automation; verify unknown paths, conflicting entries, and missing policy data fail closed.
+- [x] 1.2 Implement pure gate-evaluation logic for applicability, complete changed-file manifests, exact-head matching, expected GitHub Actions provenance, repository-variable parsing, and terminal result classification; verify table-driven tests cover passed, failed, waiting, missing, skipped, cancelled, timed-out, neutral, stale, not-applicable, prerequisite-blocked, and disabled-policy states.
+- [x] 1.3 Add evaluator fixtures for candidate workflow changes, changed-file pagination and truncation, fork pull requests, draft pull requests, edited metadata events, superseded revisions, duplicate check names, unexpected integrations, stale results, and malformed `ENABLE_MACOSX_JOBS`; verify candidate-controlled policy cannot change the expected validation set.
 
 ## 2. Base-owned aggregate workflow
 
