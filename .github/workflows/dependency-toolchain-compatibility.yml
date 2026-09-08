@@ -34,9 +34,27 @@ concurrency:
 permissions: {}
 
 jobs:
+  macos-policy:
+    name: resolve trusted macOS policy
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.policy.outputs.enabled }}
+    steps:
+      - id: policy
+        env:
+          ENABLE_MACOSX_JOBS: ${{ vars.ENABLE_MACOSX_JOBS }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" != "pull_request" || "$ENABLE_MACOSX_JOBS" != "false" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
   compatibility:
     name: Dependency and toolchain compatibility
-    if: ${{ github.event_name != 'pull_request' || vars.ENABLE_MACOSX_JOBS != 'false' }}
+    needs: macos-policy
+    permissions:
+      contents: read
+    if: needs.macos-policy.outputs.enabled == 'true'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
