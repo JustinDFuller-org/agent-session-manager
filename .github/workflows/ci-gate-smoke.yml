@@ -1,0 +1,43 @@
+name: CI Gate Smoke
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+
+concurrency:
+  group: ci-gate-smoke-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  ci-gate-smoke:
+    name: ci-gate-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout pull request merge revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+
+      - name: Run non-authoritative CI gate smoke test
+        env:
+          CI_GATE_POLICY_ROOT: ${{ github.workspace }}
+          CI_GATE_POLICY_SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_EVENT: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CI_GATE_TIMEOUT_MS: "180000"
+          CI_GATE_POLL_MS: "5000"
+        run: node .github/scripts/ci-gate-workflow.mjs
