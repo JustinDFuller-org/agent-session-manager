@@ -5,8 +5,9 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  classifyChangedFiles,
   assembleChangedFileManifest,
+  classifyChangedFiles,
+  createTrustedEvaluator,
   evaluateGate,
   expectedValidations,
   loadPolicy,
@@ -75,6 +76,7 @@ test("rejects missing, conflicting, and unknown policy data", () => {
   assert.match(validatePolicy({...policy, validations: [...policy.validations, policy.validations[0]]}).errors.join(" "), /Duplicate validation id/u);
   assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, checkName: "PR Description Check"} : validation)}).errors.join(" "), /Duplicate validation check name/u);
   assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, prerequisites: ["missing"]} : validation)}).errors.join(" "), /Unknown prerequisite/u);
+  assert.match(validatePolicy({...policy, validations: [policy.validations.find(validation => validation.id === "unit-tests"), ...policy.validations.filter(validation => validation.id !== "unit-tests")]}).errors.join(" "), /must precede/u);
   assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, pullRequestTypes: ["opened"]} : validation)}).errors.join(" "), /trigger types/u);
   assert.match(validatePolicy({...policy, validations: policy.validations.map(validation => validation.id === "unit-tests" ? {...validation, applicability: {...validation.applicability, categories: ["missing"]}} : validation)}).errors.join(" "), /Unknown changed category/u);
   assert.equal(validatePolicy({...policy, expectedIntegration: "candidate"}).valid, false);
@@ -105,6 +107,8 @@ test("allows only the explicit documentation allowlist to be macOS non-applicabl
   assert.equal(assessment.notApplicableReason, "all changed paths are in the trusted macOS allowlist");
   assert.equal(classifyChangedFiles(policy, ["unknown.bin"]).macOSApplicable, true);
   assert.match(classifyChangedFiles(policy, ["unknown.bin"]).errors.join(" "), /Unknown changed path/u);
+  assert.match(classifyChangedFiles(policy, ["documentation/../Sources/App.swift"]).errors.join(" "), /unsafe path/u);
+  assert.match(classifyChangedFiles(policy, ["documentation\\App.md"]).errors.join(" "), /unsafe path/u);
 });
 
 test("fails closed for incomplete, truncated, and over-ceiling changed-file manifests", () => {
@@ -115,13 +119,14 @@ test("fails closed for incomplete, truncated, and over-ceiling changed-file mani
 });
 
 test("assembles complete paginated manifests and rejects truncation boundaries", () => {
-  const pages = [["documentation/one.md", "documentation/two.md"], ["README.md"]];
+  const pages = [{files: ["documentation/one.md", "documentation/two.md"], hasNextPage: true}, {files: ["README.md"], hasNextPage: false}];
   assert.deepEqual(assembleChangedFileManifest(pages, {pageSize: 2}), {files: ["documentation/one.md", "documentation/two.md", "README.md"], complete: true, errors: []});
-  const truncated = assembleChangedFileManifest([["documentation/one.md", "documentation/two.md"]], {pageSize: 2});
+  const truncated = assembleChangedFileManifest([{files: ["documentation/one.md", "documentation/two.md"], hasNextPage: undefined}], {pageSize: 2});
   assert.equal(truncated.complete, false);
-  assert.match(truncated.errors.join(" "), /page-size boundary/u);
+  assert.match(truncated.errors.join(" "), /metadata/u);
   const advertised = assembleChangedFileManifest([{files: ["README.md"], hasNextPage: true}], {pageSize: 2});
   assert.equal(advertised.complete, false);
+  assert.equal(assembleChangedFileManifest([["README.md"]], {pageSize: 2}).complete, false);
 });
 
 test("parses exact true and false while treating missing and malformed values as enabled", () => {
@@ -146,6 +151,8 @@ test("covers fork, draft, edited, and candidate workflow-policy fixture context"
   assert.equal(loadPolicy(root).validations.length, 14);
   assert.equal(loadPolicy(temporary).validations.length, 13);
   assert.equal(expectedValidations(loadPolicy(root), contextFor([".github/workflows/unit-tests.yml"])).length, 14);
+  const trustedResult = createTrustedEvaluator(root)(completedEvidence(contextFor([".github/workflows/unit-tests.yml"])));
+  assert.equal(trustedResult.validations.length, 14);
 });
 
 test("returns success only when every applicable current-head validation has exact provenance", () => {

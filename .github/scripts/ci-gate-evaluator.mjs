@@ -73,6 +73,12 @@ export function validatePolicy(policy) {
   if (!policy.pathCategories || typeof policy.pathCategories !== "object") errors.push("pathCategories are missing.");
   if (!Array.isArray(policy.validations) || policy.validations.length === 0) errors.push("validations must be non-empty.");
   if (!Array.isArray(policy.excludedAutomation)) errors.push("excludedAutomation is missing.");
+  for (const [name, values] of Object.entries({pullRequestEvents: policy.pullRequestEvents, workflowEvents: policy.workflowEvents, excludedAutomation: policy.excludedAutomation, macOSAllowlist: policy.macOS?.nonApplicableAllowlist})) {
+    if (Array.isArray(values) && values.some(value => typeof value !== "string" || value.length === 0)) errors.push(`${name} contains an invalid value.`);
+  }
+  for (const [category, patterns] of Object.entries(policy.pathCategories ?? {})) {
+    if (!Array.isArray(patterns) || patterns.length === 0 || patterns.some(pattern => typeof pattern !== "string" || pattern.length === 0)) errors.push(`Path category ${category} has invalid patterns.`);
+  }
 
   const ids = new Set();
   const checkNames = new Set();
@@ -109,6 +115,13 @@ export function validatePolicy(policy) {
       if (!ids.has(prerequisite)) errors.push(`Unknown prerequisite ${prerequisite} for ${validation.id}.`);
     }
   }
+  const seen = new Set();
+  for (const validation of policy.validations ?? []) {
+    for (const prerequisite of validation.prerequisites ?? []) {
+      if (!seen.has(prerequisite)) errors.push(`Prerequisite ${prerequisite} must precede ${validation.id}.`);
+    }
+    seen.add(validation.id);
+  }
   const visiting = new Set();
   const visited = new Set();
   const visit = id => {
@@ -135,6 +148,11 @@ export function loadPolicy(root) {
   return policy;
 }
 
+export function createTrustedEvaluator(enforcementRoot) {
+  const policy = loadPolicy(enforcementRoot);
+  return input => evaluateGate({...input, policy});
+}
+
 const pathCategory = (policy, filename) => {
   for (const [category, patterns] of Object.entries(policy.pathCategories ?? {})) {
     if (Array.isArray(patterns) && matchesAny(filename, patterns)) return category;
@@ -149,6 +167,7 @@ export function classifyChangedFiles(policy, filenames, complete = true) {
   const files = Array.isArray(filenames) ? filenames : [];
   if (files.length === 0) errors.push("Changed-file manifest is empty.");
   if (files.length > policy.maxChangedFiles) errors.push(`Changed-file manifest exceeds the supported ceiling of ${policy.maxChangedFiles}.`);
+  if (!Array.isArray(policy.macOS?.nonApplicableAllowlist)) errors.push("macOS non-applicable allowlist is missing.");
   const categories = new Map();
   const unknownPaths = [];
   for (const filename of files) {
@@ -156,12 +175,17 @@ export function classifyChangedFiles(policy, filenames, complete = true) {
       errors.push("Changed-file manifest contains an invalid path.");
       continue;
     }
+    if (filename.startsWith("/") || filename.includes("\\") || filename.split("/").some(segment => segment.length === 0 || segment === "." || segment === "..")) {
+      errors.push(`Changed-file manifest contains an unsafe path: ${filename}.`);
+      continue;
+    }
     const category = pathCategory(policy, filename);
     if (!category) unknownPaths.push(filename);
     else categories.set(filename, category);
   }
   for (const filename of unknownPaths) errors.push(`Unknown changed path: ${filename}.`);
-  const macOSApplicable = errors.length > 0 || !files.every(filename => matchesAny(filename, policy.macOS.nonApplicableAllowlist));
+  const allowlist = Array.isArray(policy.macOS?.nonApplicableAllowlist) ? policy.macOS.nonApplicableAllowlist : [];
+  const macOSApplicable = errors.length > 0 || !files.every(filename => matchesAny(filename, allowlist));
   return {
     complete: complete && errors.length === 0,
     categories: [...new Set(categories.values())],
@@ -180,11 +204,12 @@ export function assembleChangedFileManifest(pages, {pageSize = 100, maxChangedFi
   const files = [];
   pages.forEach((page, index) => {
     const pageFiles = Array.isArray(page) ? page : page?.files;
-    const hasNextPage = Array.isArray(page) ? null : page?.hasNextPage;
+    const hasNextPage = Array.isArray(page) ? undefined : page?.hasNextPage;
     if (!Array.isArray(pageFiles)) {
       errors.push(`Changed-file page ${index + 1} is not an array.`);
       return;
     }
+    if (hasNextPage !== true && hasNextPage !== false) errors.push(`Changed-file page ${index + 1} is missing explicit pagination metadata.`);
     if (pageFiles.length > pageSize) errors.push(`Changed-file page ${index + 1} exceeds the requested page size.`);
     files.push(...pageFiles);
     if (hasNextPage === true && index === pages.length - 1) errors.push("Changed-file pagination ended before the advertised next page.");
@@ -219,7 +244,7 @@ const appliesToContext = (validation, context) => {
 };
 
 export function expectedValidations(policy, context) {
-  const macOSPolicy = parseMacOSPolicy(context.macOSVariable);
+  const macOSPolicy = parseMacOSPolicy(context?.macOSVariable);
   return policy.validations.map(validation => {
     const applicability = appliesToContext(validation, context);
     let state = applicability.applies ? "waiting" : "not-applicable";
@@ -336,15 +361,15 @@ export function evaluateGate({policy, context, checkRuns = [], workflowRuns = []
     ...(validSha(headSha) ? [] : ["Current pull-request head SHA is missing or malformed."]),
     ...(validSha(evaluationContext?.baseSha) ? [] : ["Pull-request base SHA is missing or malformed."]),
     ...(Number.isInteger(evaluationContext?.pullRequestNumber) && evaluationContext.pullRequestNumber > 0 ? [] : ["Pull-request number is missing or malformed."]),
-    ...(policy.pullRequestEvents?.includes(evaluationContext?.event) ? [] : ["Pull-request event is missing or unsupported."]),
+    ...(policy?.pullRequestEvents?.includes(evaluationContext?.event) ? [] : ["Pull-request event is missing or unsupported."]),
   ];
   const success = policyErrors.length === 0 && evaluations.every(validation => ["passed", "not-applicable", "disabled-policy"].includes(results.get(validation.id).state));
   return {
     decision: success ? "success" : "failure",
     headSha,
-    policyVersion: policy.version,
+    policyVersion: policy?.version,
     policyErrors,
-    macOSPolicy: parseMacOSPolicy(context.macOSVariable),
+    macOSPolicy: parseMacOSPolicy(evaluationContext?.macOSVariable),
     validations: evaluations.map(validation => ({
       id: validation.id,
       checkName: validation.checkName,
