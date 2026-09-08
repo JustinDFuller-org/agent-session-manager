@@ -16,7 +16,7 @@ Continuation layers may retain the shared active change and unchecked tasks whil
 
 The finalization layer must archive the exact shared change set in an archive-only pull request. Existing archived changes on the stack trunk do not count as a new change, and higher layers must preserve the change names handed off by their immediate base.
 
-The gate runs the pinned OpenSpec CLI with strict validation and archived-change validation. It evaluates the immutable candidate revision for the pull request, not scripts or workflows supplied by that candidate.
+The gate runs the pinned OpenSpec CLI with strict validation and archived-change validation. Its production workflow is base-owned on `main`, and it evaluates the immutable candidate revision for the pull request rather than scripts or workflows supplied by that candidate.
 
 ## The command sequence
 
