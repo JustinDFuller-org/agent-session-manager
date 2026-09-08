@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
 
 concurrency:
   group: lint-${{ github.ref }}
@@ -15,7 +15,7 @@ jobs:
     name: SwiftLint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install SwiftLint
         run: |

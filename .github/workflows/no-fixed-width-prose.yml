@@ -6,6 +6,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: no-fixed-width-prose-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   no-fixed-width-prose:
     name: no-fixed-width-prose
@@ -19,7 +23,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.repository.default_branch }}
           path: enforcement-source
           persist-credentials: false
 

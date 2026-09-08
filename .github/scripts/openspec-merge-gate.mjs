@@ -2,6 +2,7 @@
 
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -453,13 +454,24 @@ function finalizationFindings(candidate, stack) {
 }
 
 function runOpenSpecCommand(candidateDirectory, args) {
-  const result = spawnSync("npx", ["--yes", OPEN_SPEC_PACKAGE, ...args], {
-    cwd: candidateDirectory,
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024,
-  });
-  if (result.error) return { status: 1, output: result.error.message };
-  return { status: result.status ?? 1, output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim() };
+  const safeDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "agent-session-manager-openspec-cli-"));
+  try {
+    fs.symlinkSync(path.join(candidateDirectory, "openspec"), path.join(safeDirectory, "openspec"), "dir");
+    const result = spawnSync("npx", ["--yes", OPEN_SPEC_PACKAGE, ...args], {
+      cwd: safeDirectory,
+      env: {
+        ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !/(credential|password|private|secret|token)/iu.test(name))),
+        NPM_CONFIG_IGNORE_SCRIPTS: "true",
+        NPM_CONFIG_USERCONFIG: path.join(safeDirectory, "npmrc"),
+      },
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+    });
+    if (result.error) return {status: 1, output: result.error.message};
+    return {status: result.status ?? 1, output: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim()};
+  } finally {
+    fs.rmSync(safeDirectory, {force: true, recursive: true});
+  }
 }
 
 export function validateCandidate(candidateDirectory, environment = process.env, options = {}) {

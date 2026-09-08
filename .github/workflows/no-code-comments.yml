@@ -2,11 +2,15 @@ name: No Code Comments
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
   push:
     branches: [main]
 
 permissions: {}
+
+concurrency:
+  group: no-code-comments-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   no-code-comments:
@@ -21,7 +25,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event.repository.default_branch }}
           path: enforcement-source
           persist-credentials: false
 

@@ -2,14 +2,25 @@ name: Dependency and Toolchain Compatibility
 
 on:
   pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
     paths:
       - "Package.swift"
       - "Package.resolved"
       - "project.yml"
       - "Sources/**"
       - "Tests/**"
-      - "scripts/check-toolchain.sh"
-      - ".github/workflows/dependency-toolchain-compatibility.yml"
+      - "UITests/**"
+      - "Makefile"
+      - "scripts/**"
+      - ".swift-version"
+      - ".xcode-version"
+      - "*.xcconfig"
+      - "*.plist"
+      - "Sources/**/Resources/**"
+      - "Assets.xcassets/**"
+      - ".github/**"
+      - ".agents/**"
+      - "openspec/**"
   schedule:
     - cron: "0 9 * * 1"
   workflow_dispatch:
@@ -21,10 +32,10 @@ concurrency:
 jobs:
   compatibility:
     name: Dependency and toolchain compatibility
-    if: ${{ vars.ENABLE_MACOSX_JOBS == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || vars.ENABLE_MACOSX_JOBS != 'false' }}
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Check supported toolchain floor
         run: bash scripts/check-toolchain.sh

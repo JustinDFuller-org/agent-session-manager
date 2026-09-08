@@ -2,6 +2,27 @@ name: UI Tests
 
 on:
   pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "Sources/**"
+      - "Tests/**"
+      - "UITests/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - "project.yml"
+      - "*.xcodeproj/**"
+      - "*.xcworkspace/**"
+      - "Makefile"
+      - "scripts/**"
+      - ".swift-version"
+      - ".xcode-version"
+      - "*.xcconfig"
+      - "*.plist"
+      - "Sources/**/Resources/**"
+      - "Assets.xcassets/**"
+      - ".github/**"
+      - ".agents/**"
+      - "openspec/**"
   workflow_dispatch:
 
 concurrency:
@@ -11,11 +32,11 @@ concurrency:
 jobs:
   test:
     name: make test-ui-dev-launch
-    if: ${{ vars.ENABLE_MACOSX_JOBS == 'true' }}
+    if: ${{ github.event_name != 'pull_request' || vars.ENABLE_MACOSX_JOBS != 'false' }}
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Check supported toolchain floor
         run: bash scripts/check-toolchain.sh
@@ -28,7 +49,7 @@ jobs:
 
       - name: Upload xcresult
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ui-test-results
           path: .build/TestResults.xcresult

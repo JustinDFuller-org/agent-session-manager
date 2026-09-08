@@ -45,7 +45,7 @@ test("workflow separates protected enforcement source from immutable candidate",
   const workflow = fs.readFileSync(workflowPath, "utf8");
 
   assert.match(workflow, /path: enforcement-source/);
-  assert.match(workflow, /pull_request\.base\.sha/);
+  assert.match(workflow, /github\.event\.repository\.default_branch/);
   assert.match(workflow, /path: candidate/);
   assert.match(workflow, /pull_request\.head\.sha/);
   assert.match(workflow, /cp enforcement-source\/.github\/scripts\/fixed-width-prose\.mjs/);

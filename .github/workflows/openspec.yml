@@ -2,11 +2,15 @@ name: OpenSpec
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
   push:
     branches: [main]
 
 permissions: {}
+
+concurrency:
+  group: openspec-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   openspec-check:

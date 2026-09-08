@@ -12,10 +12,10 @@
 
 ## 3. Existing workflow integration and cost controls
 
-- [ ] 3.1 Reconcile the pull-request workflow triggers, path filters, job conditions, check names, and prerequisites with the trusted matrix; verify lightweight checks remain observable, macOS work is not initiated for explicitly non-applicable changes, and applicable missing or skipped work cannot produce a passing gate.
-- [ ] 3.2 Preserve or add workflow and gate concurrency groups that cancel superseded pull-request revisions; verify cancelled older results cannot satisfy the newer revision with workflow-structure tests and simulated check histories.
-- [ ] 3.3 Preserve `ENABLE_MACOSX_JOBS=false` as a trusted repository-level opt-out for pull-request macOS validation while retaining manual or non-pull-request workflows where appropriate; verify exact `false` produces an explicit disabled-policy diagnostic, while missing or malformed values require applicable macOS validation.
-- [ ] 3.4 Keep privileged validators base-owned and candidate execution unprivileged; verify workflow permissions, base checkout refs, action pins, trigger separation, and candidate-code execution boundaries with static workflow tests.
+- [x] 3.1 Reconcile the pull-request workflow triggers, path filters, job conditions, check names, and prerequisites with the trusted matrix; verify lightweight checks remain observable, macOS work is not initiated for explicitly non-applicable changes, and applicable missing or skipped work cannot produce a passing gate.
+- [x] 3.2 Preserve or add workflow and gate concurrency groups that cancel superseded pull-request revisions; verify cancelled older results cannot satisfy the newer revision with workflow-structure tests and simulated check histories.
+- [x] 3.3 Preserve `ENABLE_MACOSX_JOBS=false` as a trusted repository-level opt-out for pull-request macOS validation while retaining manual or non-pull-request workflows where appropriate; verify exact `false` produces an explicit disabled-policy diagnostic, while missing or malformed values require applicable macOS validation.
+- [x] 3.4 Keep privileged validators base-owned and candidate execution unprivileged; verify workflow permissions, base checkout refs, action pins, trigger separation, and candidate-code execution boundaries with static workflow tests.
 
 ## 4. Repository guidance and merge-control contract
 
