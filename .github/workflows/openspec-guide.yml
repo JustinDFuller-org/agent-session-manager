@@ -1,12 +1,14 @@
 name: OpenSpec Guide
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
 
 concurrency:
   group: openspec-guide-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+
+permissions: {}
 
 jobs:
   openspec-guide:
@@ -19,6 +21,9 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Determine OpenSpec scope
         id: openspec-scope
@@ -104,11 +109,25 @@ jobs:
             }
 
             const { execSync } = require('child_process')
+            const fs = require('fs')
+            const os = require('os')
+            const path = require('path')
             const OPENSPEC_CMD = 'npx -y @fission-ai/openspec@1.10.0'
+            const executionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-session-manager-openspec-guide-'))
+            fs.symlinkSync(path.join(process.env.GITHUB_WORKSPACE, 'openspec'), path.join(executionRoot, 'openspec'), 'dir')
+            const npmConfig = path.join(executionRoot, 'npmrc')
+            fs.writeFileSync(npmConfig, 'ignore-scripts=true\n')
+            process.on('exit', () => fs.rmSync(executionRoot, { recursive: true, force: true }))
             function runOpenspec(args) {
               let stdout
               try {
-                stdout = execSync(`${OPENSPEC_CMD} ${args}`, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
+                const environment = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/(credential|password|private|secret|token)/iu.test(name)))
+                stdout = execSync(`${OPENSPEC_CMD} ${args}`, {
+                  cwd: executionRoot,
+                  encoding: 'utf8',
+                  env: { ...environment, NPM_CONFIG_IGNORE_SCRIPTS: 'true', NPM_CONFIG_USERCONFIG: npmConfig },
+                  maxBuffer: 20 * 1024 * 1024,
+                })
               } catch (error) {
                 stdout = error.stdout
               }

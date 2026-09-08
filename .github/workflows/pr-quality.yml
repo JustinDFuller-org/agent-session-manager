@@ -8,10 +8,14 @@ concurrency:
   group: pr-quality-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   pr-description:
     name: PR Description Check
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - name: Check PR description length
         env:
@@ -25,6 +29,8 @@ jobs:
   wip-check:
     name: WIP Check
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - uses: wip/action@cef38e47be00eb456c890227cf65571274194379
         with:

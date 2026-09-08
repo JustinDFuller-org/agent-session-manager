@@ -84,7 +84,7 @@
       "workflowName": "OpenSpec Guide",
       "workflowFile": ".github/workflows/openspec-guide.yml",
       "jobName": "openspec-guide",
-      "event": "pull_request",
+      "event": "pull_request_target",
       "pullRequestTypes": ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"],
       "applicability": {"kind": "same-repository"}
     },

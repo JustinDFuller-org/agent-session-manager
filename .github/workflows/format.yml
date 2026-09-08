@@ -10,6 +10,8 @@ concurrency:
   group: format-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   swift-format:
     name: swift-format check
@@ -17,6 +19,8 @@ jobs:
     container: swift:6.1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: Check supported Swift toolchain
         run: bash scripts/check-toolchain.sh swift-only

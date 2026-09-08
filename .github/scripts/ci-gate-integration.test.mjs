@@ -6,10 +6,10 @@ import test from "node:test";
 const repositoryRoot = path.resolve(new URL("../..", import.meta.url).pathname);
 const workflow = name => fs.readFileSync(path.join(repositoryRoot, ".github/workflows", name), "utf8");
 const pullRequestTypes = "types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]";
-const macOSPaths = ["Sources/**", "Tests/**", "UITests/**", "Package.swift", "Package.resolved", "project.yml", "Makefile", "scripts/**", ".swift-version", ".xcode-version", "*.xcconfig", "*.plist", "Sources/**/Resources/**", "Assets.xcassets/**", ".github/**", ".agents/**", "openspec/**"];
+const macOSPaths = ["Sources/**", "Tests/**", "UITests/**", "Package.swift", "Package.resolved", "project.yml", "*.xcodeproj/**", "*.xcworkspace/**", "Makefile", "scripts/**", ".swift-version", ".xcode-version", "*.xcconfig", "*.plist", "Sources/**/Resources/**", "Assets.xcassets/**", ".github/**", ".agents/**", "openspec/**"];
 const pullRequestBlock = source => {
   const lines = source.split("\n");
-  const start = lines.findIndex(line => line === "  pull_request:");
+    const start = lines.findIndex(line => line === "  pull_request:" || line === "  pull_request_target:");
   if (start < 0) return [];
   const endOffset = lines.slice(start + 1).findIndex(line => /^  [a-zA-Z0-9_-]+:/u.test(line));
   return lines.slice(start, endOffset < 0 ? lines.length : start + 1 + endOffset);
@@ -42,7 +42,8 @@ test("privileged validators use immutable workflow source and pinned actions", (
   }
   assert.match(workflow("ci-gate.yml"), /pull_request_target:/u);
   assert.doesNotMatch(workflow("ci-gate.yml"), /candidate|pull_request:/u);
-  for (const name of ["openspec.yml", "no-code-comments.yml", "no-fixed-width-prose.yml"]) assert.match(workflow(name), /pull_request_target:/u, name);
+  for (const name of ["openspec.yml", "openspec-guide.yml", "no-code-comments.yml", "no-fixed-width-prose.yml"]) assert.match(workflow(name), /pull_request_target:/u, name);
+  assert.match(workflow("openspec-guide.yml"), /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/u);
 });
 
 test("all workflow action references are immutable commit pins", () => {
@@ -50,5 +51,15 @@ test("all workflow action references are immutable commit pins", () => {
   for (const name of fs.readdirSync(workflowsDirectory).filter(name => name.endsWith(".yml"))) {
     const source = workflow(name);
     for (const action of source.matchAll(/^\s+uses:\s+([^@]+)@([^\s]+)$/gmu)) assert.match(action[2], /^[0-9a-f]{40}$/u, `${name} has an unpinned ${action[1]} reference`);
+  }
+});
+
+test("candidate workflows have explicit permission floors and no checkout credentials", () => {
+  for (const name of ["pr-quality.yml", "format.yml", "lint.yml", "docs.yml", "swift-build-check.yml", "unit-tests.yml", "ui-tests.yml", "dependency-toolchain-compatibility.yml"]) {
+    const source = workflow(name);
+    assert.match(source, /^permissions: \{\}$/mu, name);
+    const checkoutCount = source.match(/uses: actions\/checkout@[0-9a-f]{40}/gu)?.length ?? 0;
+    const credentialSettingCount = source.match(/persist-credentials: false/gu)?.length ?? 0;
+    assert.equal(credentialSettingCount, checkoutCount, `${name} has checkout credentials without an explicit false setting`);
   }
 });
