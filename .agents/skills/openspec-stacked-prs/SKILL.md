@@ -36,13 +36,7 @@ gh stack --help
 
 Follow the repository's GitHub authentication instructions. Do not replace the configured authentication or credential flow to make a stack command work.
 
-Before using a history-rewriting command, determine which branches are covered
-by the repository's protection rules. This repository disables force pushing on
-`main`; stack feature branches may use `--force-with-lease` when they are not
-covered by a protected-branch or ruleset pattern and the authenticated actor
-has permission to update them. Never force-push `main` or another protected
-branch. If the applicable branch policy is uncertain, stop and resolve that
-uncertainty before syncing, pushing, or rebasing.
+Before using a history-rewriting command, determine which branches are covered by the repository's protection rules. This repository disables force pushing on `main`; stack feature branches may use `--force-with-lease` when they are not covered by a protected-branch or ruleset pattern and the authenticated actor has permission to update them. Never force-push `main` or another protected branch. If the applicable branch policy is uncertain, stop and resolve that uncertainty before syncing, pushing, or rebasing.
 
 ## Create a new stack
 
@@ -131,16 +125,9 @@ gh stack rebase --abort
 
 ## Force-with-lease boundary
 
-Rebasing a formal stack is compatible with this repository's branch policy
-when the rewritten branches are stack feature branches that are not protected
-by a matching ruleset. `gh stack rebase`, `gh stack sync`, and `gh stack push`
-may use `--force-with-lease` for those branches. This is still a force push,
-even though the lease protects against overwriting an unexpected remote tip.
+Rebasing a formal stack is compatible with this repository's branch policy when the rewritten branches are stack feature branches that are not protected by a matching ruleset. `gh stack rebase`, `gh stack sync`, and `gh stack push` may use `--force-with-lease` for those branches. This is still a force push, even though the lease protects against overwriting an unexpected remote tip.
 
-The no-force-push rule for `main` remains absolute. Do not pass `main` as a
-force-push target, and stop if a stack command would rewrite trunk or another
-protected branch. After a permitted stack update, repeat the formal metadata
-and base-chain checks below.
+The no-force-push rule for `main` remains absolute. Do not pass `main` as a force-push target, and stop if a stack command would rewrite trunk or another protected branch. After a permitted stack update, repeat the formal metadata and base-chain checks below.
 
 ## Verification checklist
 
