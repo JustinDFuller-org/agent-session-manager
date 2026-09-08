@@ -47,12 +47,12 @@ const completedEvidence = (context, overrides = {}) => {
     const runId = runIDs.get(workflowKey) ?? nextRunID++;
     runIDs.set(workflowKey, runId);
     if (!workflowRuns.some(run => run.id === runId)) {
-      workflowRuns.push({id: runId, name: validation.workflowName, path: validation.workflowFile, head_sha: headSha, event: validation.event, pull_request_number: context.pullRequestNumber, status: "completed", conclusion: "success"});
+      workflowRuns.push({id: runId, check_suite_id: runId + 10000, name: validation.workflowName, path: validation.workflowFile, head_sha: headSha, event: validation.event, pull_request_number: context.pullRequestNumber, status: "completed", conclusion: "success"});
       jobs.push({run_id: runId, name: validation.jobName, head_sha: headSha, status: "completed", conclusion: "success"});
     } else {
       jobs.push({run_id: runId, name: validation.jobName, head_sha: headSha, status: "completed", conclusion: "success"});
     }
-    checkRuns.push({name: validation.checkName, head_sha: headSha, status: "completed", conclusion: "success", app: {slug: "github-actions"}, run_id: runId});
+    checkRuns.push({name: validation.checkName, head_sha: headSha, status: "completed", conclusion: "success", app: {slug: "github-actions"}, check_suite: {id: runId + 10000}, run_id: runId});
   }
   return {policy, context, headSha, checkRuns, workflowRuns, jobs, ...overrides};
 };
@@ -170,6 +170,8 @@ test("returns success only when every applicable current-head validation has exa
   assert.match(summary, /integration=github-actions/u);
   assert.match(summary, /workflow=PR Quality/u);
   assert.match(summary, /job=PR Description Check/u);
+  const suiteOnly = evaluateGate({...completedEvidence(contextFor(["documentation/ci.md"])), checkRuns: completedEvidence(contextFor(["documentation/ci.md"])).checkRuns.map(check => ({...check, run_id: undefined}))});
+  assert.equal(suiteOnly.decision, "success");
   const wrongIntegration = evaluateGate({...completedEvidence(contextFor(["documentation/ci.md"])), checkRuns: completedEvidence(contextFor(["documentation/ci.md"])).checkRuns.map(check => check.name === "PR Description Check" ? {...check, app: {slug: "circleci"}} : check)});
   assert.match(renderDiagnosticSummary(wrongIntegration), /integration=circleci/u);
   assert.match(renderDiagnosticSummary(wrongIntegration), /check-conclusion=success/u);
@@ -212,7 +214,7 @@ test("requires exact workflow and job provenance rather than a display-name coll
   assert.equal(wrongPath.validations.find(validation => validation.id === "pr-description").state, "failed");
   const staleJob = evaluateGate({...evidence, jobs: evidence.jobs.map(job => job.run_id === target.run_id ? {...job, head_sha: "c".repeat(40)} : job)});
   assert.equal(staleJob.validations.find(validation => validation.id === "pr-description").state, "stale");
-  const unrelatedSameName = evaluateGate({...evidence, checkRuns: evidence.checkRuns.map(check => check.name === target.name ? {...check, run_id: undefined} : check)});
+  const unrelatedSameName = evaluateGate({...evidence, checkRuns: evidence.checkRuns.map(check => check.name === target.name ? {...check, run_id: undefined, check_suite: undefined} : check)});
   assert.equal(unrelatedSameName.validations.find(validation => validation.id === "pr-description").state, "failed");
   const otherPullRequest = evaluateGate({...evidence, workflowRuns: evidence.workflowRuns.map(run => run.id === target.run_id ? {...run, pull_request_number: 999} : run)});
   assert.equal(otherPullRequest.validations.find(validation => validation.id === "pr-description").state, "stale");

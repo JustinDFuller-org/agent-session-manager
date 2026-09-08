@@ -298,7 +298,6 @@ const observeValidation = (validation, input) => {
   const jobs = Array.isArray(input.jobs) ? input.jobs : [];
   const matches = currentChecks(checks, validation, input.headSha);
   const stale = staleChecks(checks, validation, input.headSha);
-  if (matches.some(check => check.run_id == null)) return {state: "failed", reason: "check run has no unambiguous workflow-run association", observed: matches};
   if (matches.length === 0) {
     return {
       state: stale.length > 0 ? "stale" : input.timedOut ? "timed-out" : "waiting",
@@ -308,10 +307,11 @@ const observeValidation = (validation, input) => {
   }
   if (matches.length > 1) return {state: "failed", reason: "duplicate check runs match the expected name and head SHA", observed: matches};
   const check = matches[0];
+  if (check.run_id == null && check.check_suite?.id == null) return {state: "failed", reason: "check run has no unambiguous workflow-run association", observed: check};
   if (normalizedIntegration(check) !== input.expectedIntegration) return {state: "failed", reason: "check run has unexpected integration provenance", observed: check};
   const candidateRuns = currentRuns(runs, validation, input.headSha, input.pullRequestNumber);
   const runMatches = check.run_id == null
-    ? candidateRuns
+    ? candidateRuns.filter(run => String(run.check_suite_id) === String(check.check_suite.id))
     : candidateRuns.filter(run => String(run.id) === String(check.run_id));
   const oldRuns = staleRuns(runs, validation, input.headSha, input.pullRequestNumber);
   if (runMatches.length !== 1) return {state: oldRuns.length > 0 ? "stale" : runMatches.length === 0 ? "missing" : "failed", reason: oldRuns.length > 0 ? "workflow run exists for an earlier head or another pull request" : runMatches.length === 0 ? "workflow run provenance is missing" : "workflow run provenance is ambiguous", observed: check};
@@ -396,6 +396,7 @@ const rawRecordSummary = record => [
   `sha=${safeSummaryValue(record.head_sha)}`,
   `integration=${safeSummaryValue(record.app?.slug)}`,
   `run=${safeSummaryValue(record.run_id)}`,
+  `suite=${safeSummaryValue(record.check_suite?.id)}`,
   `status=${safeSummaryValue(record.status)}`,
   `conclusion=${safeSummaryValue(record.conclusion)}`,
 ].join(", ");
