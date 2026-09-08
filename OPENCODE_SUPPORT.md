@@ -306,8 +306,7 @@ Each `opencode` TUI starts its own server. Agent Session Manager must ensure eac
 - Allocate a free port in Swift before launching the pane (bind a temporary socket, read the port, close it, pass `--port <port>` to OpenCode). Use `Network.NWListener` on port 0 as the idiomatic approach; no free-port allocator exists in the codebase today.
 - **TOCTOU caveat:** bind-and-release has a race window before OpenCode rebinds the port. Two mitigations:
   - **Preferred:** keep the `NWListener` socket bound until OpenCode has forked and is listening (idiomatic via `NWListener` + `accept` on a child path).
-  - **Acceptable fallback:** release the port, spawn OpenCode with `--port`, then hit `GET /global/health` with exponential backoff. If the bind fails, reallocate a fresh port and respawn.
-  The Phase 0 spike should pick one and document it.
+  - **Acceptable fallback:** release the port, spawn OpenCode with `--port`, then hit `GET /global/health` with exponential backoff. If the bind fails, reallocate a fresh port and respawn. The Phase 0 spike should pick one and document it.
 - Store the allocated port with the pane controller / `StatusProviderContext` so the status provider can connect.
 - On restore, reallocate a fresh port and relaunch OpenCode on that port; OpenCode session state is preserved via `--session <id>` or `--continue`.
 - Collision risk exists across dev/prod builds because ports are OS-wide; re-allocating a fresh port on every launch mitigates this.

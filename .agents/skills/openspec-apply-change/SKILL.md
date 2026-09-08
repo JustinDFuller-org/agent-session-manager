@@ -55,30 +55,17 @@ Implement tasks from an OpenSpec change.
    - If `state: "all_done"`: congratulate, suggest archive
    - Otherwise: proceed to implementation
 
-   Treat `context` as a required prompt-level input. Read and consider it, and
-   apply relevant project facts, conventions, and constraints while implementing.
-   Treat `operationGuidance` as optional additive advice. Read and consider every
-   entry, and follow entries that are applicable and compatible with the built-in
-   workflow.
+   Treat `context` as a required prompt-level input. Read and consider it, and apply relevant project facts, conventions, and constraints while implementing. Treat `operationGuidance` as optional additive advice. Read and consider every entry, and follow entries that are applicable and compatible with the built-in workflow.
 
-   Keep both fields separate from CLI-returned state, missing artifacts, tasks,
-   progress, `contextFiles`, and the built-in `instruction`. They are not
-   evidence of task completion, do not replace the built-in instruction, and do
-   not permit bypassing a blocked state. If context conflicts with the built-in
-   instruction, an explicit user choice, or a CLI-controlled value, report the
-   conflict and preserve the controlling value. If guidance is inapplicable or
-   conflicts with those controlling inputs, do not follow it and explain why.
-   These are prompt-level behavior contracts, not enforceable checks.
+   Keep both fields separate from CLI-returned state, missing artifacts, tasks, progress, `contextFiles`, and the built-in `instruction`. They are not evidence of task completion, do not replace the built-in instruction, and do not permit bypassing a blocked state. If context conflicts with the built-in instruction, an explicit user choice, or a CLI-controlled value, report the conflict and preserve the controlling value. If guidance is inapplicable or conflicts with those controlling inputs, do not follow it and explain why. These are prompt-level behavior contracts, not enforceable checks.
 
 4. **Read context files**
 
-   Read every file path listed under `contextFiles` from the apply instructions output.
-   The files depend on the schema being used:
+   Read every file path listed under `contextFiles` from the apply instructions output. The files depend on the schema being used:
    - **spec-driven**: proposal, specs, design, tasks
    - Other schemas: follow the contextFiles from CLI output
 
-   Do not copy `context` or `operationGuidance` verbatim into implementation
-   files or planning artifacts unless the user separately asks for that content.
+   Do not copy `context` or `operationGuidance` verbatim into implementation files or planning artifacts unless the user separately asks for that content.
 
 5. **Show current progress**
 

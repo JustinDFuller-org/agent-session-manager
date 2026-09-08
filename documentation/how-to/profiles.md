@@ -39,20 +39,13 @@ Use **Duplicate** to make a copy, **Delete** to remove a profile, or the up and 
 3. Review any options displayed in the sheet.
 4. Choose **Create Pane**.
 
-The profile selects its harness and applies its saved settings. Enabled
-options appear for review in the CLI Options sheet; options marked **Show on
-new pane** also appear when disabled. If you change an option, the profile name
-is marked **(modified)**. Choose **Save Profile & Create** if you want to save
-the changed settings before creating the pane; this saves a new profile
-snapshot with the name you provide and then creates the pane.
+The profile selects its harness and applies its saved settings. Enabled options appear for review in the CLI Options sheet; options marked **Show on new pane** also appear when disabled. If you change an option, the profile name is marked **(modified)**. Choose **Save Profile & Create** if you want to save the changed settings before creating the pane; this saves a new profile snapshot with the name you provide and then creates the pane.
 
 The first profile in the list that matches the selected harness is preselected when a new pane opens.
 
 ## What you should see
 
-The profile appears in **Settings → Profiles** and in the **Profile** picker in
-**New Pane**. Enabled options and options marked **Show on new pane** appear for
-editing; other saved options remain in the expanded catalog.
+The profile appears in **Settings → Profiles** and in the **Profile** picker in **New Pane**. Enabled options and options marked **Show on new pane** appear for editing; other saved options remain in the expanded catalog.
 
 ![Agent Session Manager Profiles settings with a saved profile]({{ '/assets/img/docs/settings-profiles.png' | relative_url }})
 

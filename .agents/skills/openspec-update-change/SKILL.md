@@ -65,10 +65,7 @@ Revise a change's existing planning artifacts and keep them coherent. Never edit
 5. **Confirm and apply, one artifact at a time**
    - Show each proposed revision and why. Write only after the user confirms.
    - If the user rejects a revision, do not write it - leave that artifact unchanged.
-   - When a substantial rewrite is needed, get that artifact's rules and template first:
-     ```bash
-     openspec instructions "<artifact-id>" --change "<name>" --json
-     ```
+   - When a substantial rewrite is needed, get that artifact's rules and template first: ```bash openspec instructions "<artifact-id>" --change "<name>" --json ```
 
 6. **Point to the next step (guidance only - NEVER act on it)**
    - Artifacts still missing -> suggest `/openspec-continue-change` to create them.

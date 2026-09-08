@@ -17,8 +17,8 @@
 
 ## 4. Existing Markdown migration
 
-- [ ] 4.1 Reflow every existing tracked Markdown-family file with a one-time behavior-preserving migration, including internal guidance, public documentation, skills, root documents, and OpenSpec artifacts, and verify the complete candidate tree produces no prose findings.
-- [ ] 4.2 Review the migration diff for preserved fenced code, tables, front matter, raw HTML, headings, list structure, links, and rendered Markdown semantics, and verify `make docs-check` and the relevant documentation checks pass.
+- [x] 4.1 Reflow every existing tracked Markdown-family file with a one-time behavior-preserving migration, including internal guidance, public documentation, skills, root documents, and OpenSpec artifacts, and verify the complete candidate tree produces no prose findings.
+- [x] 4.2 Review the migration diff for preserved fenced code, tables, front matter, raw HTML, headings, list structure, links, and rendered Markdown semantics, and verify `make docs-check` and the relevant documentation checks pass.
 
 ## 5. Integrated acceptance
 

@@ -76,19 +76,9 @@ The `worktree` fact renders as `name • branch` when both values are available,
 
 ### I8. Custom field failures preserve the last good value
 
-Custom status line fields run shell commands on their configured cadence and receive the pane context
-as JSON on standard input. Each scheduled or **Run Now** execution records a start followed by either
-`statusline.custom_field.exec_succeeded`, `statusline.custom_field.exec_failed`, or
-`statusline.custom_field.exec_stale`. Runs of the same generation coalesce, and a result from a
-replaced or removed field is discarded. Failures retain the last successful value instead of replacing
-it with `—`.
+Custom status line fields run shell commands on their configured cadence and receive the pane context as JSON on standard input. Each scheduled or **Run Now** execution records a start followed by either `statusline.custom_field.exec_succeeded`, `statusline.custom_field.exec_failed`, or `statusline.custom_field.exec_stale`. Runs of the same generation coalesce, and a result from a replaced or removed field is discarded. Failures retain the last successful value instead of replacing it with `—`.
 
-Child-process standard input is nonblocking and configured to return a bounded `stdin_write` failure
-when the command closes its input. If the command leaves input open without consuming it, the same
-absolute command deadline returns `timeout`. A custom command can therefore finish or fail without
-blocking past its timeout or sending `SIGPIPE` to Agent Session Manager. Failure telemetry includes the
-dynamic trigger, duration, child exit status when available, and bounded input-failure stage and error
-code for write failures.
+Child-process standard input is nonblocking and configured to return a bounded `stdin_write` failure when the command closes its input. If the command leaves input open without consuming it, the same absolute command deadline returns `timeout`. A custom command can therefore finish or fail without blocking past its timeout or sending `SIGPIPE` to Agent Session Manager. Failure telemetry includes the dynamic trigger, duration, child exit status when available, and bounded input-failure stage and error code for write failures.
 
 ## Onboarding
 
@@ -115,26 +105,11 @@ See [setup-wizard.md]({{ '/documentation/features/setup-wizard/' | relative_url 
 
 ## Custom Fields
 
-Custom fields run a shell command and add its plain-text or structured result to a status line.
-**SF Symbol** opens a searchable popover with curated, categorized suggestions. It searches labels,
-symbol names, and keywords, and accepts an exact SF Symbol name available on the current macOS
-version that is not in the curated suggestions. The configured name is preserved; an unavailable
-script override falls back to the configured icon, and an unavailable configured icon falls back to
-`terminal` while rendering.
-**Harnesses** opens a checklist popover that stays open while several harnesses are selected. It
-defaults to all user-facing harnesses, retains at least one selection, and dismisses with **Done**,
-or a click outside the popover. A field is filtered from both execution and rendering when its
-selected harnesses do not include the pane's harness.
+Custom fields run a shell command and add its plain-text or structured result to a status line. **SF Symbol** opens a searchable popover with curated, categorized suggestions. It searches labels, symbol names, and keywords, and accepts an exact SF Symbol name available on the current macOS version that is not in the curated suggestions. The configured name is preserved; an unavailable script override falls back to the configured icon, and an unavailable configured icon falls back to `terminal` while rendering. **Harnesses** opens a checklist popover that stays open while several harnesses are selected. It defaults to all user-facing harnesses, retains at least one selection, and dismisses with **Done**, or a click outside the popover. A field is filtered from both execution and rendering when its selected harnesses do not include the pane's harness.
 
-**Run Now** runs only the saved field from the configuration being edited. It targets matching panes
-that use that saved configuration and selected harness. New fields and unsaved edits must be saved
-before Run Now is available. A profile override can therefore intentionally display a different
-result from the global field with the same ID.
+**Run Now** runs only the saved field from the configuration being edited. It targets matching panes that use that saved configuration and selected harness. New fields and unsaved edits must be saved before Run Now is available. A profile override can therefore intentionally display a different result from the global field with the same ID.
 
-Custom field commands run through the pane-equivalent interactive zsh shell in the pane's working
-directory. They inherit the sanitized pane environment and runtime environment values configured
-for the pane or profile, in addition to the curated `AGENT_SESSION_MANAGER_*` variables. Run Now
-starts the command immediately but does not bypass a cache or TTL implemented by that command.
+Custom field commands run through the pane-equivalent interactive zsh shell in the pane's working directory. They inherit the sanitized pane environment and runtime environment values configured for the pane or profile, in addition to the curated `AGENT_SESSION_MANAGER_*` variables. Run Now starts the command immediately but does not bypass a cache or TTL implemented by that command.
 
 ## Invariant Violations
 

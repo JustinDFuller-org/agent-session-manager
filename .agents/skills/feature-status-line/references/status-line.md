@@ -87,11 +87,7 @@ The `worktree` fact renders as `name • branch` when both values are available,
 
 ## Custom Fields
 
-Engineers can extend the status line with their own fields backed by a shell command, without the
-app needing to know what those commands do. Fields created by Settings use `custom:<uuid>` IDs, and
-Agent Control updates enforce that format. They live in
-`StatusLineConfig.customFields: [CustomStatusLineField]` — both the global config and any profile's
-`statusLineConfig` override can define their own set independently.
+Engineers can extend the status line with their own fields backed by a shell command, without the app needing to know what those commands do. Fields created by Settings use `custom:<uuid>` IDs, and Agent Control updates enforce that format. They live in `StatusLineConfig.customFields: [CustomStatusLineField]` — both the global config and any profile's `statusLineConfig` override can define their own set independently.
 
 ### Config shape
 
@@ -109,31 +105,17 @@ struct CustomStatusLineField: Codable, Identifiable, Equatable {
 
 ### Icon and harness selection
 
-The settings sheet offers categorized icon suggestions that search labels, symbol names, and
-keywords. A valid exact SF Symbol name available on the current macOS version can be selected even
-when it is not in the curated list. `sfSymbol` remains the opaque persisted name; unavailable
-persisted names are not rewritten during decode. The selector validates names at entry time, while
-rendering falls back without changing configuration.
+The settings sheet offers categorized icon suggestions that search labels, symbol names, and keywords. A valid exact SF Symbol name available on the current macOS version can be selected even when it is not in the curated list. `sfSymbol` remains the opaque persisted name; unavailable persisted names are not rewritten during decode. The selector validates names at entry time, while rendering falls back without changing configuration.
 
-**Harnesses** uses a checklist popover that remains open for consecutive selections, keeps at
-least one harness selected, and is dismissed with **Done** or a click outside.
+**Harnesses** uses a checklist popover that remains open for consecutive selections, keeps at least one harness selected, and is dismissed with **Done** or a click outside.
 
 ### Execution model
 
-`StatusLineMonitor.setCustomFields(_:)` first filters fields by the pane's harness, then starts one
-repeating `Timer` per eligible field (immediate first run + `effectiveRefreshIntervalSeconds`
-cadence), diffing against the previously-scheduled set so an unchanged field's timer isn't restarted.
-`Run Now` uses the same monitor context and runner for a saved global or profile field and never
-executes an unsaved draft. `CustomFieldRunner.run(field:context:)` runs the command via
-`/bin/zsh -i -c` in the pane's working directory with the same sanitized baseline used by terminal
-panes and any runtime environment values configured for the pane or profile. It writes the JSON input
-through a bounded, SIGPIPE-safe pipe, applies one absolute per-field deadline, strips ANSI escape
-sequences from stdout, and parses the result.
+`StatusLineMonitor.setCustomFields(_:)` first filters fields by the pane's harness, then starts one repeating `Timer` per eligible field (immediate first run + `effectiveRefreshIntervalSeconds` cadence), diffing against the previously-scheduled set so an unchanged field's timer isn't restarted. `Run Now` uses the same monitor context and runner for a saved global or profile field and never executes an unsaved draft. `CustomFieldRunner.run(field:context:)` runs the command via `/bin/zsh -i -c` in the pane's working directory with the same sanitized baseline used by terminal panes and any runtime environment values configured for the pane or profile. It writes the JSON input through a bounded, SIGPIPE-safe pipe, applies one absolute per-field deadline, strips ANSI escape sequences from stdout, and parses the result.
 
 ### What the command receives
 
-**stdin** — a JSON object shaped like Claude's own `statusLine` hook payload, so a script written
-against that convention drops in unchanged, plus everything the app additionally knows:
+**stdin** — a JSON object shaped like Claude's own `statusLine` hook payload, so a script written against that convention drops in unchanged, plus everything the app additionally knows:
 
 ```jsonc
 {
@@ -151,24 +133,13 @@ against that convention drops in unchanged, plus everything the app additionally
 }
 ```
 
-Built via `CustomFieldRunner.buildContextPayload(context:)`: encodes the pane's current
-`StatusLineData`, converts it to a `[String: Any]` via `JSONSerialization`, and merges in
-`pane`/`tab`/`harness`/`working_directory`/`profile_name`. `custom_fields` is explicitly stripped so
-a field's own or a sibling's resolved value never reaches a command — no recursive/cyclic
-dependencies between custom fields.
+Built via `CustomFieldRunner.buildContextPayload(context:)`: encodes the pane's current `StatusLineData`, converts it to a `[String: Any]` via `JSONSerialization`, and merges in `pane`/`tab`/`harness`/`working_directory`/`profile_name`. `custom_fields` is explicitly stripped so a field's own or a sibling's resolved value never reaches a command — no recursive/cyclic dependencies between custom fields.
 
-**Environment** — a curated (not exhaustive) set of flat `AGENT_SESSION_MANAGER_*` vars for
-one-liners that don't want to shell out to `jq`, matching the prefix convention already used for
-Codex hook env vars: `_PANE_ID`, `_PANE_NAME`, `_TAB_ID`, `_TAB_NAME`, `_PROFILE_NAME`, `_HARNESS`,
-`_WORKING_DIRECTORY`, `_MODEL`, `_WORKTREE_NAME`, `_WORKTREE_BRANCH`, `_COST_USD`, `_LINES_ADDED`,
-`_LINES_REMOVED`, `_DURATION_MS`, `_REPO`. These are merged with the pane/profile runtime
-environment values before the command starts. Built via `CustomFieldRunner.buildEnvironment(context:)`.
+**Environment** — a curated (not exhaustive) set of flat `AGENT_SESSION_MANAGER_*` vars for one-liners that don't want to shell out to `jq`, matching the prefix convention already used for Codex hook env vars: `_PANE_ID`, `_PANE_NAME`, `_TAB_ID`, `_TAB_NAME`, `_PROFILE_NAME`, `_HARNESS`, `_WORKING_DIRECTORY`, `_MODEL`, `_WORKTREE_NAME`, `_WORKTREE_BRANCH`, `_COST_USD`, `_LINES_ADDED`, `_LINES_REMOVED`, `_DURATION_MS`, `_REPO`. These are merged with the pane/profile runtime environment values before the command starts. Built via `CustomFieldRunner.buildEnvironment(context:)`.
 
 ### Render contract: plain text is the floor, structure is opt-in
 
-`echo "hello"` just works — the whole trimmed, ANSI-stripped, first-line output (capped at 200
-characters) becomes the fact's text. A script opts into a progress bar or state-driven color by
-printing this shape as JSON instead:
+`echo "hello"` just works — the whole trimmed, ANSI-stripped, first-line output (capped at 200 characters) becomes the fact's text. A script opts into a progress bar or state-driven color by printing this shape as JSON instead:
 
 ```swift
 struct CustomFieldRenderValue: Codable, Equatable {
@@ -182,40 +153,23 @@ struct CustomFieldRenderValue: Codable, Equatable {
 }
 ```
 
-`CustomFieldRunner.parse(_:)` tries `JSONDecoder` first; if the output decodes to a value with at
-least one non-nil field, it's used as-is. Otherwise the whole trimmed output becomes `text`.
+`CustomFieldRunner.parse(_:)` tries `JSONDecoder` first; if the output decodes to a value with at least one non-nil field, it's used as-is. Otherwise the whole trimmed output becomes `text`.
 
 ### Caching is the script's job, not the app's
 
-The app runs each field's command independently on its own timer — it does not dedupe or share
-results across fields. If several fields derive from one expensive/shared source, collapse that
-into a shared TTL-gated cache file plus a fast reader script (exactly the
-`litellm-cache-refresh.sh`/`litellm-metric.sh` pattern below), not something the app does for you.
-Set an honest `timeoutSeconds` for a script with a cold-cache refresh path — the default (10s) gives
-a two-sequential-curl cold path headroom before `Process.terminate()` kills it.
+The app runs each field's command independently on its own timer — it does not dedupe or share results across fields. If several fields derive from one expensive/shared source, collapse that into a shared TTL-gated cache file plus a fast reader script (exactly the `litellm-cache-refresh.sh`/`litellm-metric.sh` pattern below), not something the app does for you. Set an honest `timeoutSeconds` for a script with a cold-cache refresh path — the default (10s) gives a two-sequential-curl cold path headroom before `Process.terminate()` kills it.
 
 ### Worked examples
 
-**Spend/budget percentage as a progress bar** — `~/.claude/scripts/litellm-metric-asm.sh pct` reads
-a TTL-gated cache (refreshed by `~/.claude/scripts/litellm-cache-refresh.sh`, called first and
-ignored on failure so a stale-but-present cache still renders) and emits
-`{"percent": 24.6, "tint": "warning"}` instead of a formatted `"24.6%"` string. `spend`/`budget`
-still print plain text (`litellm-metric.sh spend|budget` works unmodified, since plain text is
-already the floor of the contract).
+**Spend/budget percentage as a progress bar** — `~/.claude/scripts/litellm-metric-asm.sh pct` reads a TTL-gated cache (refreshed by `~/.claude/scripts/litellm-cache-refresh.sh`, called first and ignored on failure so a stale-but-present cache still renders) and emits `{"percent": 24.6, "tint": "warning"}` instead of a formatted `"24.6%"` string. `spend`/`budget` still print plain text (`litellm-metric.sh spend|budget` works unmodified, since plain text is already the floor of the contract).
 
-**A trivial one** — `kubectl config current-context` as a field's command needs no adaptation at
-all. Most git/worktree/model/cost data doesn't need a custom field, since it's already built in
-(`worktree`, `linesAdded`, `cost`, `model`, …) — custom fields exist for genuinely external things a
-command can compute that the app has no other way to know.
+**A trivial one** — `kubectl config current-context` as a field's command needs no adaptation at all. Most git/worktree/model/cost data doesn't need a custom field, since it's already built in (`worktree`, `linesAdded`, `cost`, `model`, …) — custom fields exist for genuinely external things a command can compute that the app has no other way to know.
 
 ### Invariants
 
 **I8. Every custom-field execution attempt either updates the cached value or records a failure**
 
-A failed run (nonzero exit, timeout, spawn error, empty output) never silently reverts a
-previously-good cached value to `—`. `StatusLineMonitor.applyCustomFieldResult` updates
-`cachedCustomFieldValues[field.id]` only on success; on failure it leaves the cache untouched and
-records `statusline.custom_field.exec_failed` with `retained_prior_value`.
+A failed run (nonzero exit, timeout, spawn error, empty output) never silently reverts a previously-good cached value to `—`. `StatusLineMonitor.applyCustomFieldResult` updates `cachedCustomFieldValues[field.id]` only on success; on failure it leaves the cache untouched and records `statusline.custom_field.exec_failed` with `retained_prior_value`.
 
 **Authoritative source**: `StatusLineMonitor.applyCustomFieldResult(field:result:startedAt:)`.
 

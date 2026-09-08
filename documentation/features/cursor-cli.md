@@ -26,13 +26,7 @@ Once enabled, "Cursor" appears as an option in the CLI picker when creating a ne
 
 The pane launches `agent` in the resolved checkout with any configured CLI flags appended.
 
-When Agent Control is enabled, Agent Session Manager creates a private plugin
-directory for the pane and appends Cursor's `--plugin-dir` option to the final
-`agent` command. The plugin's `mcp.json` starts an app-bundled stdio bridge,
-which inherits the app-owned loopback endpoint and runtime-only
-`AGENT_SESSION_MANAGER_MCP_TOKEN` environment variable and forwards MCP traffic
-to the local server. Project and user Cursor MCP files are not modified, and no
-credential or endpoint is written into the plugin.
+When Agent Control is enabled, Agent Session Manager creates a private plugin directory for the pane and appends Cursor's `--plugin-dir` option to the final `agent` command. The plugin's `mcp.json` starts an app-bundled stdio bridge, which inherits the app-owned loopback endpoint and runtime-only `AGENT_SESSION_MANAGER_MCP_TOKEN` environment variable and forwards MCP traffic to the local server. Project and user Cursor MCP files are not modified, and no credential or endpoint is written into the plugin.
 
 ## Configuring CLI Flags
 
@@ -70,7 +64,6 @@ The per-pane hook files use the app's shared main-actor filesystem watcher. Atom
 
 ## Session Persistence
 
-Cursor pane names, options, and resolved checkout paths are saved in `sessions.json`. On relaunch, Cursor panes are restored when their checkout still exists.
-When **Continue on Restart** is enabled, restored Cursor panes receive `--continue` unless their saved options already select `--continue` or an explicit `--resume`.
+Cursor pane names, options, and resolved checkout paths are saved in `sessions.json`. On relaunch, Cursor panes are restored when their checkout still exists. When **Continue on Restart** is enabled, restored Cursor panes receive `--continue` unless their saved options already select `--continue` or an explicit `--resume`.
 
 See [agent-harness-feature-matrix.md]({{ '/documentation/features/agent-harness-feature-matrix/' | relative_url }}) for the cross-harness audit.

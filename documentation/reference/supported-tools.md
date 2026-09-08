@@ -23,12 +23,9 @@ Every supported tool can:
 - use the shared session, branch, or worktree flow;
 - use a profile when the profile targets that tool;
 - receive tool-specific CLI options from the New Pane sheet; and
-- show app-owned information such as the worktree, branch, session duration,
-  changed lines, and pull-request status when those values are available.
+- show app-owned information such as the worktree, branch, session duration, changed lines, and pull-request status when those values are available.
 
-Tool-specific options and status information vary by tool. Use the
-tool-specific guide for setup steps and the relevant how-to guide for
-configuration.
+Tool-specific options and status information vary by tool. Use the tool-specific guide for setup steps and the relevant how-to guide for configuration.
 
 ## Related documentation
 

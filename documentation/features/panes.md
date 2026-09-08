@@ -12,36 +12,23 @@ The New Pane sheet keeps the common path visible:
 
 1. Choose a **Profile**. Profiles preconfigure the harness and saved options.
 2. Enter a session name, branch ref, or existing worktree in **Session, branch, or worktree**.
-3. Select **CLI Options** when this pane needs one-off flags, MCP servers, presets,
-   or environment values.
-4. Select **More Settings** only when changing Priority Pane, Agent Control, or
-   Scrollback History.
+3. Select **CLI Options** when this pane needs one-off flags, MCP servers, presets, or environment values.
+4. Select **More Settings** only when changing Priority Pane, Agent Control, or Scrollback History.
 5. Choose **Create Pane** or press Return.
 
-Only tools enabled in **Settings → Harnesses** appear when selecting a custom
-harness. Switching tools preserves the session field.
+Only tools enabled in **Settings → Harnesses** appear when selecting a custom harness. Switching tools preserves the session field.
 
 ### CLI options
 
-The **CLI Options** surface shows options enabled in the selected profile or
-marked **Show on new pane**. When using **Custom**, it shows the active
-catalog. Presets, custom values, multi-select MCP options, and supported
-environment variables remain editable there.
+The **CLI Options** surface shows options enabled in the selected profile or marked **Show on new pane**. When using **Custom**, it shows the active catalog. Presets, custom values, multi-select MCP options, and supported environment variables remain editable there.
 
-Use **Show all options** or **Show all environment variables** to expose the
-remaining catalog for the selected harness. Long catalogs stay within bounded
-lists that can be scrolled independently, so the **Done** action remains
-available. Enabled profile options are visible immediately; disabled options
-stored in a profile can still be enabled from the expanded catalog.
+Use **Show all options** or **Show all environment variables** to expose the remaining catalog for the selected harness. Long catalogs stay within bounded lists that can be scrolled independently, so the **Done** action remains available. Enabled profile options are visible immediately; disabled options stored in a profile can still be enabled from the expanded catalog.
 
 ### More settings
 
-**Scrollback History** — Inherit the 5,000-line global default or choose a
-pane-specific finite or memory-capped limit. The choice is saved with the pane
-and is preserved by Refresh Pane.
+**Scrollback History** — Inherit the 5,000-line global default or choose a pane-specific finite or memory-capped limit. The choice is saved with the pane and is preserved by Refresh Pane.
 
-**Agent Control** and **Priority Pane** remain available under **More Settings**
-without occupying the primary creation path.
+**Agent Control** and **Priority Pane** remain available under **More Settings** without occupying the primary creation path.
 
 ## Status line
 
@@ -57,9 +44,7 @@ Right-click anywhere on a pane to open the context menu. **Copy** and **Paste** 
 
 - **Copy** — copies the current selection to the clipboard and clears it as confirmation. The item is greyed out when nothing is selected.
 - **Paste** — sends clipboard text through SwiftTerm's bracketed-paste path, so agent TUIs receive it as a single paste event rather than line-by-line keystrokes. ⌘C and ⌘V continue to work as before.
-- **Scrollback History** — switches the pane back to the global default, applies
-  a preset or capped unlimited mode, or opens a custom limit editor. Reducing
-  the effective limit requires confirmation because it discards oldest lines.
+- **Scrollback History** — switches the pane back to the global default, applies a preset or capped unlimited mode, or opens a custom limit editor. Reducing the effective limit requires confirmation because it discards oldest lines.
 
 ## Open Shell Here
 

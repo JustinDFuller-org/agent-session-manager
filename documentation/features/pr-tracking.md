@@ -63,10 +63,7 @@ Finder and DMG launches use the app's sanitized environment, including macOS log
 
 A successful query with no PR clears the item. Failed queries retain the last known PR and cannot trigger resolution notifications; later polls recover automatically.
 
-The batched GraphQL request is passed to `gh` through standard input. If `gh` exits or closes standard
-input before consuming the request, Agent Session Manager records bounded pipe failure details and
-treats the poll as failed. A classified authentication, network, or API failure remains the primary
-outcome; otherwise the result is `stdin_write`. The closed pipe cannot terminate the app.
+The batched GraphQL request is passed to `gh` through standard input. If `gh` exits or closes standard input before consuming the request, Agent Session Manager records bounded pipe failure details and treats the poll as failed. A classified authentication, network, or API failure remains the primary outcome; otherwise the result is `stdin_write`. The closed pipe cannot terminate the app.
 
 ### Fallback behavior
 

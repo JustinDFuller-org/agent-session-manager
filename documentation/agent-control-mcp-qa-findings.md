@@ -1,8 +1,6 @@
 # Agent Control MCP QA Findings
 
-Date: 2026-07-24
-Build: `agent-session-manager.dev`
-Branch: `agentic-control`
+Date: 2026-07-24 Build: `agent-session-manager.dev` Branch: `agentic-control`
 
 ## Summary
 
