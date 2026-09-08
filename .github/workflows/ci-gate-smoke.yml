@@ -41,3 +41,7 @@ jobs:
           CI_GATE_TIMEOUT_MS: "180000"
           CI_GATE_POLL_MS: "5000"
         run: node .github/scripts/ci-gate-workflow.mjs
+
+      - name: Print CI gate summary
+        if: always()
+        run: cat "$GITHUB_STEP_SUMMARY"
