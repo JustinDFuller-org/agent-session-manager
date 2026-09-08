@@ -22,9 +22,11 @@ test("defines the base-owned pull-request gate lifecycle and stable job", () => 
 });
 
 test("checks out only immutable default-branch enforcement source", () => {
-  assert.match(workflow, /ref: \$\{\{ github\.workflow_sha \}\}/u);
-  assert.match(workflow, /CI_GATE_POLICY_SHA: \$\{\{ github\.workflow_sha \}\}/u);
-  assert.doesNotMatch(workflow, /github\.event\.repository\.default_branch|github\.sha \}\}/u);
+  assert.match(workflow, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/u);
+  assert.match(workflow, /Record default-branch enforcement revision/u);
+  assert.match(workflow, /git -C enforcement-source rev-parse HEAD/u);
+  assert.match(workflow, /CI_GATE_POLICY_SHA: \$\{\{ steps\.enforcement-source\.outputs\.sha \}\}/u);
+  assert.doesNotMatch(workflow, /github\.sha \}\}/u);
   assert.match(workflow, /persist-credentials: false/u);
   assert.match(workflow, /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/u);
   assert.match(workflow, /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/u);

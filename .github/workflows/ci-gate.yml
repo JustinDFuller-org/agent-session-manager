@@ -25,9 +25,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ github.event.repository.default_branch }}
           path: enforcement-source
           persist-credentials: false
+
+      - name: Record default-branch enforcement revision
+        id: enforcement-source
+        run: echo "sha=$(git -C enforcement-source rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -36,7 +40,7 @@ jobs:
       - name: Run base-owned CI gate
         env:
           CI_GATE_POLICY_ROOT: ${{ github.workspace }}/enforcement-source
-          CI_GATE_POLICY_SHA: ${{ github.workflow_sha }}
+          CI_GATE_POLICY_SHA: ${{ steps.enforcement-source.outputs.sha }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_EVENT: ${{ github.event.action }}
