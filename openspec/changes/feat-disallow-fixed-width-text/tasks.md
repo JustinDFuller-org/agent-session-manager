@@ -1,8 +1,8 @@
 ## 1. Prose validator and local interface
 
-- [ ] 1.1 Add the dependency-free Markdown prose validator and local command, including repository-relative file, source-channel, line, and reason diagnostics, and verify clean and violating fixtures return the expected exit status.
-- [ ] 1.2 Add regression tests for wrapped paragraphs, list items, blockquotes, pull-request bodies, blank-separated paragraphs, fenced and indented code, tables, front matter, headings, thematic breaks, raw HTML, and non-width-specific continuations; verify commit-body guidance is documented without making commit bodies blocking inputs; and verify the complete validator test suite passes.
-- [ ] 1.3 Add a local Make target that runs the same validator used by CI and verify it scans every tracked Markdown-family file in the candidate tree.
+- [x] 1.1 Add the dependency-free Markdown prose validator and local command, including repository-relative file, source-channel, line, and reason diagnostics, and verify clean and violating fixtures return the expected exit status.
+- [x] 1.2 Add regression tests for wrapped paragraphs, list items, blockquotes, pull-request bodies, blank-separated paragraphs, fenced and indented code, tables, front matter, headings, thematic breaks, raw HTML, and non-width-specific continuations; verify commit-body guidance is documented without making commit bodies blocking inputs; and verify the complete validator test suite passes.
+- [x] 1.3 Add a local Make target that runs the same validator used by CI and verify it scans every tracked Markdown-family file in the candidate tree.
 
 ## 2. Base-owned CI enforcement
 

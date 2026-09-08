@@ -287,6 +287,9 @@ lint:
 no-code-comments:
 	node .github/scripts/no-code-comments.mjs --root "$(CURDIR)"
 
+no-fixed-width-prose:
+	node .github/scripts/fixed-width-prose.mjs --root "$(CURDIR)"
+
 setup-hooks:
 	git config core.hooksPath "$$(dirname $$(git rev-parse --git-common-dir))/.githooks"
 
