@@ -47,6 +47,10 @@ Do not add explanatory comments to tracked non-Markdown code or configuration fi
 
 Markdown files, pull-request prose, and commit messages may contain prose. Keep executable shebangs and the first-line SwiftPM tools-version directive in `Package.swift`. Run `make no-code-comments` before review.
 
+## Fixed-Width Prose
+
+The canonical fixed-width prose policy is [the `fixed-width-prose` skill](.agents/skills/fixed-width-prose/SKILL.md); load it before writing or reviewing Markdown, pull-request descriptions, commit bodies, agent guidance, or repository documentation. It defines the one-line logical-prose rule, structural exceptions, local validator, CI hard block, commit-body guidance, and no-force-push rule.
+
 ## No One-Off Methods
 
 Do not introduce or retain a named Swift function with fewer than two explicit call sites. This applies to instance, static, free, and local functions. Inline behavior at its sole caller and delete dead functions. Count production and test call sites separately. A production function may count direct test calls only in the rare case where it isolates substantial logic that is meaningfully tested apart from its caller. Exempt required indirect entry points such as protocol witnesses, overrides, delegate callbacks, Codable methods, SwiftUI representable requirements, and test-runner entry points. Do not satisfy this rule with ceremonial calls or another one-off wrapper.
@@ -222,6 +226,7 @@ Skills are stored in `.agents/skills/`. Load them when working on relevant featu
 - `opentelemetry-swift-documentation` — OpenTelemetry Swift official doc index; **load before implementing any OpenTelemetry feature**, tracing, metrics, logging, instrumentation, exporters, or context propagation — do not guess at behavior.
 - `agents-documentation` — AGENTS.md and Agent Skills official doc index; **load before implementing any AGENTS.md or Agent Skills feature**, SKILL.md format, frontmatter fields, skill creation, client integration, skills-ref validation, or the agentskills.io spec — do not guess at behavior.
 - `diataxis-documentation` — classify, write, review, and reorganize public and internal documentation using the Diátaxis framework.
+- `fixed-width-prose` — prevent fixed-width prose in Markdown files and pull-request descriptions, while providing strong commit-body guidance.
 - `instrument-runtime-telemetry` — mandatory telemetry checklist; **load before implementing any runtime behavior feature, fix, or refactor** so span context, failure coverage, bounded output, tests, and catalogs stay complete.
 - `agent-data-access` — read-only incident diagnosis workflow for current prod/dev sessions, per-pane traces, invariants, global spans, and separately reported legacy files.
 - `dictionary` — glossary of project domain terms (Tab, Pane, Worktree, Profile, Status line, Chip, CLI options, Tracing, Terminal Purity, …); load when you need a definition

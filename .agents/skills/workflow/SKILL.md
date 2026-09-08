@@ -3,6 +3,10 @@ name: workflow
 description: "Development workflow for this repo: plan → test → implement → human review → repeat. Load when starting any feature, bug fix, or refactor."
 ---
 
+## Fixed-width prose policy
+
+Use the canonical [fixed-width-prose skill](../fixed-width-prose/SKILL.md) for prose-formatting guidance and load it before authoring or reviewing Markdown, pull-request descriptions, commit bodies, agent guidance, or repository documentation.
+
 ## Workflow
 
 **1. Plan** — Always present a plan before writing code, whether or not plan mode is active. Use knowledge of the codebase from AGENTS.md. Explor relevant details further. Reference specific files and functions. End with a clear list of changes.
