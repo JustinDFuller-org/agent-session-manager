@@ -12,10 +12,7 @@ metadata:
 
 Sync delta specs from a change to main specs.
 
-When the change is delivered across dependent pull requests, use the canonical
-[stacked-PR skill](../openspec-stacked-prs/SKILL.md) for `gh stack` operations
-and keep each top-level OpenSpec task group with all of its subtasks in one
-implementation PR.
+When the change is delivered across dependent pull requests, use the canonical [stacked-PR skill](../openspec-stacked-prs/SKILL.md) for `gh stack` operations and keep each top-level OpenSpec task group with all of its subtasks in one implementation PR.
 
 This is an **agent-driven** operation - you will read delta specs and directly edit main specs to apply the changes. This allows intelligent merging (e.g., adding a scenario without copying the entire requirement).
 

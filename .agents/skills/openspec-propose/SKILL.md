@@ -14,10 +14,7 @@ Propose a new change - create the change and generate all artifacts in one step.
 
 **Planning boundary**: This workflow creates planning artifacts only. The user request that selected or triggered this workflow authorizes planning only, even if it asks to build or fix something. Do not edit project code. After the planning artifacts are complete, stop. Do not start implementation in the same response, even if the initial request asks for it. Wait for a new user request after the artifacts are presented; then start the apply workflow.
 
-When the proposed change will span dependent pull requests, use the canonical
-[stacked-PR skill](../openspec-stacked-prs/SKILL.md) for `gh stack` operations.
-Each implementation PR must contain one top-level OpenSpec task group and all
-of that group's subtasks.
+When the proposed change will span dependent pull requests, use the canonical [stacked-PR skill](../openspec-stacked-prs/SKILL.md) for `gh stack` operations. Each implementation PR must contain one top-level OpenSpec task group and all of that group's subtasks.
 
 I'll create a change with the artifacts your schema defines. With the default spec-driven schema that is:
 - proposal.md (what & why)

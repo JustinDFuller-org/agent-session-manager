@@ -183,14 +183,9 @@ The app uses a **macOS-native, system-integrated** design with no custom color p
 
 For the optional OpenSpec `opsx` workflow, see [`openspec/README.md`](openspec/README.md).
 
-When an OpenSpec change spans dependent pull requests, follow the canonical
-[`openspec-stacked-prs` skill](.agents/skills/openspec-stacked-prs/SKILL.md) for
-`gh stack` creation, linking, import, and verification. Each implementation
-pull request owns one top-level OpenSpec task group and all of its subtasks;
-never split subtasks such as `2.1` through `2.5` into separate stack PRs.
+When an OpenSpec change spans dependent pull requests, follow the canonical [`openspec-stacked-prs` skill](.agents/skills/openspec-stacked-prs/SKILL.md) for `gh stack` creation, linking, import, and verification. Each implementation pull request owns one top-level OpenSpec task group and all of its subtasks; never split subtasks such as `2.1` through `2.5` into separate stack PRs.
 
-Load `.agents/skills/diataxis-documentation` before creating, editing,
-moving, or reviewing documentation.
+Load `.agents/skills/diataxis-documentation` before creating, editing, moving, or reviewing documentation.
 
 Public documentation has four types, each serving one dominant need:
 
