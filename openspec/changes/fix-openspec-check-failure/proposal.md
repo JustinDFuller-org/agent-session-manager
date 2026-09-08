@@ -7,6 +7,7 @@ The fix is needed on the default branch because pull-request checks intentionall
 ## What Changes
 
 - Make the enforcement regression test resolve its validator and workflow fixtures relative to the test module instead of the process working directory.
+- Add a delta requirement to the OpenSpec merge-gate capability covering working-directory-independent base-owned regression tests.
 - Preserve the existing base-branch-owned workflow, immutable candidate checkout, stack validation, and validator semantics.
 - Verify the test from both the repository root and a workflow-shaped workspace containing only `enforcement-source/`.
 
@@ -20,12 +21,12 @@ Deliberately out of scope:
 
 ### New Capabilities
 
-None. This is a test and CI tooling correction.
+None.
 
 ### Modified Capabilities
 
-None. The existing merge-gate requirements and externally observable enforcement behavior do not change.
+- `openspec-merge-gate`: Require the base-owned validator regression test to pass when invoked from the workflow workspace root with enforcement files checked out under `enforcement-source/`.
 
 ## Impact
 
-The affected file is `.github/scripts/openspec-merge-gate.test.mjs`. No public API, application runtime code, dependency, or production data is affected. The correction must reach the default branch before the affected pull-request checks are rerun.
+The affected files are `.github/scripts/openspec-merge-gate.test.mjs` and the change delta under `specs/openspec-merge-gate/`. No public API, application runtime code, dependency, or production data is affected. The correction must reach the default branch before the affected pull-request checks are rerun.
