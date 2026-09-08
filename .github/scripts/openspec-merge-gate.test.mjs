@@ -352,8 +352,8 @@ test("rejects incomplete archived tasks at the finalization layer", () => {
 });
 
 test("keeps strict CLI validation and base-owned enforcement in the workflow", () => {
-  const validator = fs.readFileSync(".github/scripts/openspec-merge-gate.mjs", "utf8");
-  const workflow = fs.readFileSync(".github/workflows/openspec.yml", "utf8");
+  const validator = fs.readFileSync(new URL("./openspec-merge-gate.mjs", import.meta.url), "utf8");
+  const workflow = fs.readFileSync(new URL("../workflows/openspec.yml", import.meta.url), "utf8");
   assert.match(validator, /\["validate", "--archived", "--no-interactive"\]/);
   assert.match(validator, /\["validate", "--all", "--strict", "--no-interactive"\]/);
   assert.match(workflow, /pull_request_target:\n\s+types:/);
