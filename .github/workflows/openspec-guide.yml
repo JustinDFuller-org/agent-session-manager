@@ -1,8 +1,10 @@
 name: OpenSpec Guide
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+
+permissions: {}
 
 concurrency:
   group: openspec-guide-${{ github.event.pull_request.number }}
