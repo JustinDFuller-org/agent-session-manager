@@ -84,110 +84,58 @@ Tasks must describe work that can be completed and verified before archiving. Ve
 
 ## Strict CI gate reference
 
-The base-owned `ci-gate` workflow is the authoritative pull-request merge result. It reads the policy and evaluator from the default branch, reads the complete changed-file manifest and GitHub Actions evidence through the API, and evaluates the exact pull-request head SHA. It does not check out or execute candidate workflow files, scripts, package manifests, tests, or build commands.
+The `ci-gate` job in `.github/workflows/ci-gate.yml` is the single native pull-request orchestration result. The workflow runs on opened, edited, synchronized, reopened, ready-for-review, and converted-to-draft events whose stack trunk is `main`; GitHub evaluates stacked pull requests against that trunk. The caller invokes each required validation as a local reusable workflow and its final gate depends on every caller with `if: always()`.
 
-The policy matrix is the source of truth for applicability and provenance:
+| Caller job | Reusable workflow | Native validation | MacOS | Prerequisites |
+|---|---|---|---|---|
+| `pr_quality` | `.github/workflows/pr-quality.yml` | PR description | no | none |
+| `openspec` | `.github/workflows/openspec.yml` | OpenSpec check | no | none |
+| `no_code_comments` | `.github/workflows/no-code-comments.yml` | no-code-comments | no | none |
+| `no_fixed_width_prose` | `.github/workflows/no-fixed-width-prose.yml` | fixed-width prose | no | none |
+| `swift_format` | `.github/workflows/format.yml` | swift-format | no | none |
+| `swiftlint` | `.github/workflows/lint.yml` | SwiftLint | no | none |
+| `docs` | `.github/workflows/docs.yml` | documentation | no | none |
+| `resolve` | `.github/workflows/swift-build-check.yml` | package resolution | no | none |
+| `unit_tests` | `.github/workflows/unit-tests.yml` | `swift test` | yes | preflight and all lightweight callers |
+| `ui_tests` | `.github/workflows/ui-tests.yml` | `make test-ui-dev-launch` | yes | preflight and all lightweight callers |
+| `compatibility` | `.github/workflows/dependency-toolchain-compatibility.yml` | dependency and toolchain compatibility | yes | preflight and all lightweight callers |
 
-| Policy ID | Check | Applicability | Workflow file | Event | Job | Prerequisites | macOS |
-|---|---|---|---|---|---|---|---|
-| `pr-description` | `PR Description Check` | `every` | `.github/workflows/pr-quality.yml` | `pull_request` | `PR Quality` / `PR Description Check` | `none` | `not used` |
-| `wip-check` | `WIP Check` | `every` | `.github/workflows/pr-quality.yml` | `pull_request` | `PR Quality` / `WIP Check` | `none` | `not used` |
-| `openspec-guide` | `openspec-guide` | `same-repository` | `.github/workflows/openspec-guide.yml` | `pull_request_target` | `OpenSpec Guide` / `openspec-guide` | `none` | `not used` |
-| `openspec-check` | `openspec-check` | `every` | `.github/workflows/openspec.yml` | `pull_request_target` | `OpenSpec` / `openspec-check` | `none` | `not used` |
-| `openspec-label` | `openspec-label` | `same-repository` | `.github/workflows/openspec.yml` | `pull_request_target` | `OpenSpec` / `openspec-label` | `none` | `not used` |
-| `no-code-comments` | `no-code-comments` | `every` | `.github/workflows/no-code-comments.yml` | `pull_request_target` | `No Code Comments` / `no-code-comments` | `none` | `not used` |
-| `no-fixed-width-prose` | `no-fixed-width-prose` | `every` | `.github/workflows/no-fixed-width-prose.yml` | `pull_request_target` | `Fixed-width Prose` / `no-fixed-width-prose` | `none` | `not used` |
-| `swift-format` | `swift-format check` | `every` | `.github/workflows/format.yml` | `pull_request` | `Format` / `swift-format check` | `none` | `not used` |
-| `swiftlint` | `SwiftLint` | `every` | `.github/workflows/lint.yml` | `pull_request` | `Lint` / `SwiftLint` | `none` | `not used` |
-| `docs-check` | `Jekyll build and link check` | `every` | `.github/workflows/docs.yml` | `pull_request` | `Documentation` / `Jekyll build and link check` | `none` | `not used` |
-| `resolve` | `swift package resolve` | `every` | `.github/workflows/swift-build-check.yml` | `pull_request` | `Swift Build Check` / `swift package resolve` | `none` | `not used` |
-| `unit-tests` | `swift test` | `changed-categories: source, tests, ui-tests, package, project, build, resources, toolchain, enforcement; macOS variable enabled` | `.github/workflows/unit-tests.yml` | `pull_request` | `Unit Tests` / `swift test` | `swift-format`, `swiftlint`, `docs-check`, `resolve` | `true` |
-| `ui-tests` | `make test-ui-dev-launch` | `changed-categories: source, tests, ui-tests, package, project, build, resources, toolchain, enforcement; macOS variable enabled` | `.github/workflows/ui-tests.yml` | `pull_request` | `UI Tests` / `make test-ui-dev-launch` | `swift-format`, `swiftlint`, `docs-check`, `resolve` | `true` |
-| `compatibility` | `Dependency and toolchain compatibility` | `changed-categories: source, tests, ui-tests, package, project, build, resources, toolchain, enforcement; macOS variable enabled` | `.github/workflows/dependency-toolchain-compatibility.yml` | `pull_request` | `Dependency and Toolchain Compatibility` / `Dependency and toolchain compatibility` | `swift-format`, `swiftlint`, `docs-check`, `resolve` | `true` |
+Every required validation workflow has a `workflow_call` entry point. Push, schedule, and manual entry points remain on the workflows where they are useful outside pull-request accounting. Required workflow files are not path-filtered; the caller runs for every gateable revision.
 
-Every matrix row expects the pull-request types `opened`, `edited`, `synchronize`, `reopened`, `ready_for_review`, and `converted_to_draft`.
+### MacOS preflight
 
-For `changed-categories`, the trusted categories are `source`, `tests`, `ui-tests`, `package`, `project`, `build`, `resources`, `toolchain`, and `enforcement`; the policy also defines `documentation` for the explicit macOS allowlist. The exact patterns are defined in `.github/ci-gate-policy.json`; new or unknown paths are not silently treated as documentation.
+The `macos_preflight` job checks out the exact pull-request head with credentials disabled and compares the stack base SHA, falling back to the immediate pull-request base SHA, to that head with Git. It emits exactly one `macos_mode`: `required`, `disabled-policy`, or `not-applicable`.
 
-| Category | Exact patterns |
+| Input | Result |
 |---|---|
-| `documentation` | `documentation/**`, `README.md`, `USER_FACING_DOCS.md`, `AGENTS.md`, `CLAUDE.md`, `AGENTIC_CONTROL.md`, `OPENCODE_SUPPORT.md`, `PROGRESS.md` |
-| `resources` | `Sources/**/Resources/**`, `Assets.xcassets/**` |
-| `source` | `Sources/**` |
-| `tests` | `Tests/**` |
-| `ui-tests` | `UITests/**` |
-| `package` | `Package.swift`, `Package.resolved` |
-| `project` | `project.yml`, `*.xcodeproj/**`, `*.xcworkspace/**` |
-| `build` | `Makefile`, `scripts/**`, `*.xcconfig`, `*.plist` |
-| `toolchain` | `.swift-version`, `.xcode-version` |
-| `enforcement` | `.github/**`, `.agents/**`, `openspec/**` |
+| Every changed path is in the documentation-only allowlist | `not-applicable` |
+| Any relevant classified path and `ENABLE_MACOSX_JOBS` is exactly `false` | `disabled-policy` |
+| Any source, test, package, project, build, resource, toolchain, or enforcement path | `required` |
+| Unknown path, invalid revision, incomplete diff, missing variable, or malformed variable | fail closed; required validation is never reduced |
 
-| macOS non-applicable allowlist | Exact patterns |
-|---|---|
-| `documentation-only` | `documentation/**`, `README.md`, `USER_FACING_DOCS.md`, `AGENTS.md`, `CLAUDE.md`, `AGENTIC_CONTROL.md`, `OPENCODE_SUPPORT.md`, `PROGRESS.md` |
+The documentation-only allowlist is `documentation/**`, `README.md`, `USER_FACING_DOCS.md`, `AGENTS.md`, `CLAUDE.md`, `AGENTIC_CONTROL.md`, `OPENCODE_SUPPORT.md`, and `PROGRESS.md`. The preflight classifier and tests in `.github/scripts/macos-preflight.mjs` and `.github/scripts/macos-preflight.test.mjs` are the source for the exact Git matching behavior.
 
-The macOS non-applicable allowlist is explicit and currently limited to the patterns in the `documentation-only` row; these paths do not affect application, package, build, test, resource, toolchain, or enforcement behavior. Unknown paths, conflicting policy entries, missing policy data, malformed changed-file data, an incomplete or truncated pagination response, and a manifest at the supported API ceiling fail closed.
+### Native dependency and gate behavior
 
-The gate reports `passed`, `failed`, `waiting`, `skipped`, `cancelled`, `timed-out`, `not-applicable`, `prerequisite-blocked`, and `disabled-policy` as distinct states. Only `passed` satisfies an applicable validation. The prerequisite relationships are declarative across the repository's separate workflows, so they do not create cross-workflow `needs` dependencies; when a prerequisite fails, the gate records that prerequisite as failed and the dependent macOS validation as blocked. Missing, stale, duplicate, ambiguous, unexpected-integration, and wrong-head results do not satisfy the gate.
+MacOS callers require the preflight and every lightweight caller to succeed, and run only when `macos_mode=required`. A failed lightweight caller short-circuits expensive macOS work; the final gate remains failed and reports the prerequisite. `disabled-policy` and `not-applicable` intentionally skip all three macOS callers and are reported as policy decisions, never as test passes.
 
-`ENABLE_MACOSX_JOBS` is read from trusted repository configuration by `ci-gate`. The exact value `false` disables applicable pull-request macOS validation and is reported as `disabled-policy`; exact `true`, missing, malformed, or unavailable values require applicable pull-request macOS validation. Candidate workflow files, labels, inputs, and changed content cannot change this decision. Manual, scheduled, release, and other non-pull-request macOS workflows remain independently available.
+The final `ci-gate` job accepts successful lightweight callers and successful macOS callers when required. It accepts skipped macOS callers only for the two explicit preflight modes. It fails for a failed, cancelled, or unexpectedly skipped preflight or required caller, and its summary reports the preflight mode, reason, and every native job result. Concurrency cancels superseded pull-request revisions so an older result cannot satisfy a newer head.
 
-The `ci-gate` summary and check output identify the evaluated head SHA, base-owned policy source and version, applicability reason, expected workflow/job/event/integration, observed evidence, terminal state, changed-file or API completeness error, and final decision. Reviewers should use that output to distinguish a validation failure from waiting, cancellation, a deliberate macOS opt-out, a blocked prerequisite, or an infrastructure/input failure.
+The caller and every reusable workflow use empty default permissions, explicit job-level least privilege, full commit-SHA action pins, and disabled checkout credentials. The gate performs no API polling, check-run discovery, candidate-policy loading, or cross-run correlation.
 
-The enforcement surface includes `.github/ci-gate-policy.json`, `.github/scripts/`, `.github/workflows/`, `.github/CODEOWNERS`, and `openspec/`. These paths remain covered by the human default in `.github/CODEOWNERS`; no agent-editable exception grants ownership of the gate contract or privileged validators. Action references in the enforcement surface must remain full commit SHA pins.
+OpenSpec guide comments and the `openspec` label are maintained by the separate best-effort `.github/workflows/openspec-guide.yml` workflow. They are not caller jobs and are not dependencies of `ci-gate`. The title-based WIP action was removed; native draft pull-request state remains the merge control for drafts.
 
-## Current OpenSpec enforcement before the gate migration
+### GitHub ruleset and stack migration
 
-Until the repository owner completes and verifies the external ruleset transition, `openspec-check` remains the current required merge check. It runs on every pull request through the base-owned `pull_request_target` workflow and on pushes to the default branch. Its validation is strict for ordinary pull requests, drafts, and every layer of a formal stack. After the owner registers `ci-gate` and removes the old contexts, `ci-gate` becomes the authoritative required merge check described above:
+The formal migration is bottom-to-top: revised proposal #353, one replacement implementation pull request replacing #354, #356, and #357, guidance #358, QA #359, and archive #361. Use `gh stack modify` to drop the obsolete implementation branches and insert the replacement, then `gh stack submit`. Close replaced pull requests only after `gh stack view --json` shows the five-layer formal stack and every pull request targets its immediate parent branch.
 
-| Invariant | Required result |
-|---|---|
-| An OpenSpec change is present in the candidate tree | pass |
-| Required artifacts and matching main specifications exist | pass |
-| Artifacts pass `openspec validate --all --strict` | pass |
-| Archived-change validation passes | pass |
-| Continuation layers preserve the shared active change set | pass |
-| The current top or standalone layer archives the shared change set | pass |
-| The current top or standalone layer has no active change and all tasks checked | pass |
+Before changing the live ruleset, record its complete JSON and confirm a real `ci-gate` check is available on `main`. With explicit owner approval, replace the individual required status contexts with exactly `ci-gate` from the `GitHub Actions` integration. Preserve active enforcement, strict required-status behavior, code-owner approval, thread resolution, squash-only merging, non-fast-forward protection, and the existing human-only bypass. Re-read the complete ruleset after the update.
 
-Missing or malformed changes fail the check on every layer. Active or incomplete changes fail only when a current top or standalone layer attempts finalization; the guide comment and `openspec` label are informational, while the `openspec-check` job is the merge gate.
+If `ci-gate` is unavailable, restore the complete recorded ruleset payload and verify every field again. The bot-authenticated agent must not change authentication, force-update `main`, or bypass the ruleset. Feature-branch rewrites are permitted only with `--force-with-lease` after branch protection coverage is checked.
 
-## GitHub merge controls and ownership
+Latest-push approval and stale-review dismissal are not part of this migration. They can conflict with atomic stacked merges; enable either only after the owner documents and verifies a stack-compatible merge procedure with fresh approvals and no force-push of protected branches.
 
-The `main` branch ruleset is external repository configuration. The target migration replaces the individual pull-request job contexts with the stable `ci-gate` check from the GitHub Actions integration, uses strict required-status enforcement, blocks force pushes and other non-fast-forward updates, and preserves code-owner review and thread resolution. Only the human account `JustinDFuller` may use the configured ruleset bypass. `JustinDFuller-Agents` must not have administrator, maintain, or ruleset-bypass permission. The ruleset is configured and verified manually; CI does not change repository administration settings.
-
-| Control | Target contract |
-|---|---|
-| Required status | `ci-gate` from the `GitHub Actions` integration |
-| Enforcement | `strict` required-status enforcement on `main` |
-| Preserved controls | code-owner review, thread resolution, force-push protection, and other recorded branch protections |
-| Bypass | `JustinDFuller` only; `JustinDFuller-Agents` has no administrator, maintain, or ruleset-bypass permission |
-| Rollback | restore the complete recorded ruleset shape, re-read it, and verify every restored field |
-| API target and ref | `target: branch`; `conditions.ref_name.include: ["~DEFAULT_BRANCH"]` or the exact recorded `refs/heads/main` condition |
-| API enforcement and status | `enforcement: active`; `required_status_checks`; `strict_required_status_checks_policy: true`; `context: ci-gate` |
-| API integration and protection | `integration_id: <GitHub Actions app id>`; `non_fast_forward` |
-
-### Manual ruleset transition
-
-The repository owner performs the transition only after the base-owned `ci-gate` workflow is available on `main` and a disposable pull request has produced the expected check. First record the current ruleset with `gh api repos/JustinDFuller/agent-session-manager/rulesets` and `gh api repos/JustinDFuller/agent-session-manager/rulesets/<ruleset-id>`, including required contexts, enforcement, bypass actors, code-owner review, thread resolution, and force-push restrictions. In the GitHub ruleset UI or an owner-approved API update, retain the target branch, strict required-status enforcement, code-owner review, thread resolution, force-push protection, and the human-only bypass, then replace the old individual validation contexts with `ci-gate` from the GitHub Actions integration. Re-read the ruleset and verify the resulting shape before merging a test pull request. If `ci-gate` is unavailable, restore the complete recorded prior ruleset shape, including contexts, enforcement, bypass actors, review settings, and force-push restrictions, then re-read it and verify every restored field; do not use a force push or a workflow mutation to bypass the ruleset.
-
-For an API update, use the recorded ruleset as the full payload rather than constructing a partial replacement. The target contract is `target: branch`, `conditions.ref_name.include: ["~DEFAULT_BRANCH"]` (or the exact recorded `refs/heads/main` condition), `enforcement: active`, a `required_status_checks` rule whose `parameters.strict_required_status_checks_policy` is `true`, whose `parameters.required_status_checks` contains exactly `{ "context": "ci-gate", "integration_id": <GitHub Actions app id> }`, and a `non_fast_forward` rule. Obtain the numeric integration ID from a recent `ci-gate` check run's GitHub Actions app identity, compare it before the write, and verify the post-write ruleset has the expected target, ref condition, enforcement, bypass actors, required status entry, strictness, non-fast-forward rule, code-owner review, and thread-resolution settings. The API requires repository administration write permission, so the operation remains an explicit owner action and must not be placed in CI.
-
-The ruleset migration is not complete while it exists only in this document or in a pull request. Until the owner performs and verifies the external change, the repository must not claim live `ci-gate` enforcement.
-
-### Stacked merge review controls
-
-Latest-push approval and stale-review dismissal are separate external policy changes. They can conflict with atomic stacked merges because merging a lower layer changes the merge base and can invalidate approvals or make the latest approved commit no longer the effective stack head. Do not enable either setting as part of the `ci-gate` migration. Before changing them, the repository owner must document and verify a stack-compatible merge procedure that preserves the immediate-parent bases, uses the formal `gh stack` workflow, never force-pushes a protected branch, and identifies how fresh approvals are obtained after each base change. Record owner approval and the disposable-stack evidence before changing the live ruleset.
-
-This workflow change does not alter the existing `.github/CODEOWNERS` boundary.
-
-The existing `.github/CODEOWNERS` policy remains in force:
-
-- `JustinDFuller` owns the repository by default.
-- Selected implementation paths remain intentionally agent-editable.
-- The enforcement surface, including `.github/workflows/`, `.github/scripts/`, `.github/CODEOWNERS`, and `openspec/`, remains covered by the human default because no exception grants those paths to the agent.
-
-The ruleset and CODEOWNERS policy are complementary: CODEOWNERS controls human review of enforcement changes, while the ruleset controls the required status, non-fast-forward protection, and its only authorized bypass.
+Until the owner completes and verifies the external ruleset update, documentation and QA must not claim live `ci-gate` enforcement. The existing `.github/CODEOWNERS` boundary remains in force and continues to require human review for the enforcement surface.
 
 ## The OpenSpec guide comment
 
