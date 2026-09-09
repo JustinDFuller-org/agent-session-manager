@@ -20,10 +20,10 @@
 
 - [x] 4.1 Rewrite internal CI/OpenSpec guidance and QA evidence for the native DAG, disabled macOS policy, short-circuit behavior, reviewer diagnostics, and manual rollback, and verify prose and guidance tests pass.
 - [x] 4.2 Restructure the formal stack to revised proposal #353, one replacement implementation layer, guidance #358, QA #359, and archive #361 with `gh stack modify` and `gh stack submit`, and verify formal metadata plus every immediate PR base.
-- [ ] 4.3 After a real `ci-gate` result exists and with explicit owner approval, capture and update the live ruleset so only GitHub Actions `ci-gate` is required while review, thread, squash, and history protections remain unchanged; verify the complete ruleset readback or document the external blocker.
+- [x] 4.3 After a real `ci-gate` result exists and with explicit owner approval, capture and update the live ruleset so only GitHub Actions `ci-gate` is required while review, thread, squash, and history protections remain unchanged; verify the complete ruleset readback or document the external blocker.
 
 ## 5. Validation and evidence
 
 - [x] 5.1 Run the preflight and workflow-contract suites plus all applicable repository checks, and record passed, skipped, blocked, and infrastructure-failed results without claiming skipped macOS validation passed.
 - [x] 5.2 Run `make xcodeproj && make test-ui-dev`, screenshots, and `git diff --check` under the approved isolated environment, or record the exact infrastructure blocker and keep it separate from code failures.
-- [ ] 5.3 Verify retained stack-layer GitHub runs, repository variable state, current head results, and the final live ruleset state, and record exact evidence before considering the change complete.
+- [x] 5.3 Verify retained stack-layer GitHub runs, repository variable state, current head results, and the final live ruleset state, and record exact evidence before considering the change complete.
