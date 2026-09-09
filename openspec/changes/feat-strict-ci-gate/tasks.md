@@ -19,7 +19,7 @@
 ## 4. Guidance, stack, and ruleset migration
 
 - [x] 4.1 Rewrite internal CI/OpenSpec guidance and QA evidence for the native DAG, disabled macOS policy, short-circuit behavior, reviewer diagnostics, and manual rollback, and verify prose and guidance tests pass.
-- [ ] 4.2 Restructure the formal stack to revised proposal #353, one replacement implementation layer, guidance #358, QA #359, and archive #361 with `gh stack modify` and `gh stack submit`, and verify formal metadata plus every immediate PR base.
+- [x] 4.2 Restructure the formal stack to revised proposal #353, one replacement implementation layer, guidance #358, QA #359, and archive #361 with `gh stack modify` and `gh stack submit`, and verify formal metadata plus every immediate PR base.
 - [ ] 4.3 After a real `ci-gate` result exists and with explicit owner approval, capture and update the live ruleset so only GitHub Actions `ci-gate` is required while review, thread, squash, and history protections remain unchanged; verify the complete ruleset readback or document the external blocker.
 
 ## 5. Validation and evidence
