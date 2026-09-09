@@ -25,5 +25,5 @@
 ## 5. Validation and evidence
 
 - [x] 5.1 Run the preflight and workflow-contract suites plus all applicable repository checks, and record passed, skipped, blocked, and infrastructure-failed results without claiming skipped macOS validation passed.
-- [ ] 5.2 Run `make xcodeproj && make test-ui-dev`, screenshots, and `git diff --check` under the approved isolated environment, or record the exact infrastructure blocker and keep it separate from code failures.
+- [x] 5.2 Run `make xcodeproj && make test-ui-dev`, screenshots, and `git diff --check` under the approved isolated environment, or record the exact infrastructure blocker and keep it separate from code failures.
 - [ ] 5.3 Verify retained stack-layer GitHub runs, repository variable state, current head results, and the final live ruleset state, and record exact evidence before considering the change complete.
