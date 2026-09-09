@@ -16,4 +16,6 @@ Formal stack submission created stack #365 with PRs #353, #364, #358, #359, and 
 
 The native `ci-gate` jobs for PRs #364, #358, #359, and #361 were not started because GitHub reported failed recent account payments or an exceeded spending limit; this is an infrastructure failure separate from the passing validations and intentional macOS skips.
 
+The newest top-stack run #34304453504 could not start preflight or validation jobs for the same GitHub billing condition; all resulting job failures are infrastructure failures, not code conclusions.
+
 The live `main` ruleset readback remains `active` with strict required status checks for `openspec-guide`, `openspec-label`, `PR Description Check`, `WIP Check`, `swift test`, `no-code-comments`, `openspec-check`, and `no-fixed-width-prose`, all GitHub Actions integration `15368`; it also retains one approving review, code-owner review, resolved threads, squash-only merges, deletion protection, and non-fast-forward protection. Replacing those contexts with `ci-gate` is not recorded as complete because explicit owner approval for that external ruleset mutation was not supplied.
