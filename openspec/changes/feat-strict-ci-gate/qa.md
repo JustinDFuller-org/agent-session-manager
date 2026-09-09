@@ -1,0 +1,23 @@
+# QA evidence
+
+This file records the native caller, reusable-workflow, preflight, and gate validation for `feat-strict-ci-gate`.
+
+## Local validation
+
+The preflight and workflow-contract suites passed 18 tests with 0 failures, and the complete `.github/scripts/*test.mjs` suite passed 71 tests with 0 failures. `openspec validate --all --strict`, `make no-code-comments`, `make no-fixed-width-prose`, `make lint`, `swiftlint lint --strict --config .swiftlint.yml`, `make docs-check`, Ruby YAML parsing for every workflow, and `git diff --check` passed. Swift validation passed 1,126 XCTest cases and 123 Swift Testing cases with 0 failures. `actionlint` and `yamllint` were unavailable and skipped.
+
+`make xcodeproj` passed. The approved `make test-ui-dev` command and `make screenshots` both reached Xcode but failed before UI tests or screenshot capture while validating the existing `SwiftTermBuildInfoPlugin` (`xcodebuild` Error 65); these are recorded as infrastructure/build-plugin failures, not passing UI or screenshot results.
+
+## Read-only GitHub verification
+
+The current repository variable readback is `ENABLE_MACOSX_JOBS=false`, so relevant macOS validation must be reported as `disabled-policy` and documentation-only changes as `not-applicable`; neither is a test pass. The final evidence identifies each retained stack layer, its current head, the native `ci-gate` result, and the complete ruleset readback; no new Actions run is required for the external ruleset verification.
+
+Formal stack submission created stack #365 with PRs #353, #364, #358, #359, and #361; their immediate bases are `main`, `feat-consistent-action-runs`, `feat-strict-ci-gate-native`, and `feat-strict-ci-gate-guidance`, respectively, and superseded PRs #354, #356, and #357 were closed after verification. Earlier submitted-head GitHub results show passing lightweight validation and preflight on PRs #364, #358, and #359, with Unit Tests, UI Tests, and Dependency and Toolchain Compatibility intentionally skipped under `disabled-policy`; PR #353 lightweight checks passed, while the earlier #361 result stopped at 13/15 tasks before the external ruleset transition.
+
+The native `ci-gate` jobs for PRs #364, #358, #359, and #361 were not started because GitHub reported failed recent account payments or an exceeded spending limit; this is an infrastructure failure separate from the passing validations and intentional macOS skips.
+
+The newest top-stack run #34304453504 could not start preflight or validation jobs for the same GitHub billing condition; all resulting job failures are infrastructure failures, not code conclusions.
+
+After the QA evidence update, submitted-head runs #34346278151 for PR #359 and #34346303319 for PR #361 again failed within seconds across every runnable job before execution, with macOS jobs skipped under `disabled-policy`; this remains an infrastructure failure consistent with the repository's exhausted Actions minutes, not a code result.
+
+The live `main` ruleset readback on 2026-09-09 is `active` with strict required status checks containing exactly `ci-gate` from GitHub Actions integration `15368`; it retains one approving review, code-owner review, resolved threads, squash-only merges, deletion protection, and non-fast-forward protection. The owner completed this external mutation through the admin account. No further hosted run can be started because the repository has exhausted its GitHub Actions hours; the existing hosted results and this ruleset readback are the recorded evidence.
