@@ -1,134 +1,108 @@
 ## Purpose
 
-The strict CI gate gives pull requests one trusted, reviewable merge result while preserving deliberate cost controls for expensive macOS validation and preventing candidate-controlled workflow conditions from silently converting missing validation into success.
+Provides a single native GitHub Actions merge result for every pull request while making macOS cost controls explicit and preserving strict validation for applicable changes.
 
 ## ADDED Requirements
 
 ### Requirement: Pull requests have one authoritative CI gate
 
-The repository SHALL publish a stable `ci-gate` result for every pull request event covered by the repository's merge policy, including draft pull requests, opened and updated pull requests, reopened pull requests, edited pull-request metadata, and pull requests from forks. The result SHALL identify the head SHA it evaluated.
+The repository SHALL run one pull-request orchestration workflow for every gateable pull request revision whose stack trunk is `main`, and that workflow SHALL publish a final `ci-gate` job result for the current head revision. The workflow SHALL react to opened, edited, synchronized, reopened, ready-for-review, and converted-to-draft pull-request events.
 
-#### Scenario: Pull request reaches a gateable revision
+#### Scenario: A pull request revision is gateable
 
-- **WHEN** a pull request is opened, updated, reopened, changes draft state, or has its gate-relevant metadata edited
-- **THEN** the repository publishes a `ci-gate` result for that pull request's current head revision
+- **WHEN** a pull request targeting the stack trunk is opened, updated, reopened, changes draft state, or has metadata edited
+- **THEN** the orchestration workflow runs its preflight, applicable validations, and final `ci-gate` job for that revision
 
-#### Scenario: Pull request head advances while validation is running
+#### Scenario: A newer revision replaces an older run
 
-- **WHEN** a newer head revision replaces the revision being evaluated
-- **THEN** the older evaluation is cancelled or rendered obsolete and cannot satisfy the gate for the newer revision
+- **WHEN** a newer pull-request revision is pushed while the previous orchestration is running
+- **THEN** the previous run is cancelled by the pull-request concurrency group and cannot provide the final result for the newer revision
 
-### Requirement: Applicability is determined by trusted policy
+### Requirement: Validation workflows are reusable and retain non-PR entry points
 
-The `ci-gate` result SHALL evaluate a base-owned validation matrix containing every pull-request validation, its canonical workflow and job identity, its trigger expectations, its changed-file applicability categories, and its prerequisite relationships. The matrix SHALL distinguish validations that apply to every pull request from validations that apply only to selected changed-file categories. Candidate-controlled workflow conditions, path filters, labels, inputs, and generated status names SHALL NOT determine whether a required validation applies.
+Each required validation SHALL be implemented by a local reusable workflow with a `workflow_call` entry point. Existing push, schedule, and manual entry points that are not pull-request merge accounting SHALL remain available where applicable. The caller SHALL invoke each validation as a separate job.
 
-The policy SHALL classify the following categories at minimum:
+#### Scenario: Caller invokes a lightweight validation
 
-- Pull-request metadata and enforcement validations that apply to every gateable revision, subject to an explicitly documented same-repository or fork limitation.
-- Lightweight Ubuntu source, format, lint, package, documentation, and OpenSpec validations that apply according to the repository's pull-request policy.
-- macOS unit, UI, and dependency/toolchain compatibility validations for source, test, package, project, build, app-resource, toolchain, or enforcement changes.
-- Release, scheduled, manual-only, Dependabot, screenshot-publication, and post-merge automation that is excluded from pull-request merge accounting.
+- **WHEN** the pull-request caller starts
+- **THEN** it invokes the corresponding local reusable workflow as a job with the repository's least-privilege permissions
 
-The policy SHALL use an explicit allowlist for non-applicable macOS-only changes. A path that is not classified, a manifest that is incomplete, or a policy entry that cannot be resolved SHALL make the related validation applicable or make the gate fail closed; it SHALL NOT silently make validation not applicable.
+#### Scenario: A non-PR validation is requested
 
-#### Scenario: Candidate changes a workflow condition
+- **WHEN** a preserved push, scheduled, or manual trigger fires
+- **THEN** its reusable workflow runs without requiring the pull-request caller
 
-- **WHEN** a pull request changes a workflow condition that would suppress an applicable validation
-- **THEN** the `ci-gate` result still evaluates applicability using the default-branch policy and the trusted changed-file set
+### Requirement: MacOS applicability is selected by a tested Git preflight
 
-#### Scenario: Candidate changes only explicitly non-applicable content
+The repository SHALL compare the trusted stack-base revision with the pull-request head revision and emit exactly one macOS mode: `required`, `disabled-policy`, or `not-applicable`. Documentation-only changes SHALL select `not-applicable`; relevant classified changes SHALL select `required`; exact repository variable value `ENABLE_MACOSX_JOBS=false` SHALL select `disabled-policy`. Unknown paths, invalid revisions, incomplete diffs, missing variables, and malformed variable values SHALL fail closed to `required` or fail the preflight job.
 
-- **WHEN** the complete trusted changed-file set contains only paths in a validation's documented non-applicable allowlist
-- **THEN** that validation is reported as not applicable and does not block the pull request
+#### Scenario: Documentation-only change
 
-#### Scenario: Changed-file classification is incomplete
+- **WHEN** every changed path is in the documented documentation-only allowlist
+- **THEN** the preflight emits `macos_mode=not-applicable`
 
-- **WHEN** the changed-file API response is truncated, exceeds the supported manifest ceiling, cannot be fully paginated, or contains a path the policy cannot classify
-- **THEN** the gate fails closed and identifies the incomplete or unknown policy input
+#### Scenario: Relevant source change with enabled policy
 
-### Requirement: Applicable validation identity is exact
+- **WHEN** a changed path is source, test, package, project, build, resource, toolchain, or enforcement content and the repository variable is not exactly `false`
+- **THEN** the preflight emits `macos_mode=required`
 
-When a validation is applicable and macOS validation is enabled, `ci-gate` SHALL require a successful result for the current pull request head SHA from the expected GitHub Actions integration, workflow, and job identity in the trusted validation matrix. Results from an earlier revision, another pull request, an unexpected check source, a non-GitHub Actions integration, or an unrelated check with the same display name SHALL NOT satisfy the requirement. Missing or ambiguous identity mappings SHALL fail closed.
+#### Scenario: Exact disabled policy
 
-#### Scenario: Applicable validation succeeds on the current revision
+- **WHEN** the relevant changed-file set is non-documentation content and `ENABLE_MACOSX_JOBS` is exactly `false`
+- **THEN** the preflight emits `macos_mode=disabled-policy`
 
-- **WHEN** every applicable validation reports success for the current pull request head revision with the expected provenance
-- **THEN** `ci-gate` reports success
+#### Scenario: Input cannot be trusted
 
-#### Scenario: Applicable validation is missing or unsuccessful
+- **WHEN** a revision is invalid, the diff cannot be completed, a path is unknown, or the repository variable is missing or malformed
+- **THEN** the preflight fails closed and does not emit a passing or not-applicable decision
 
-- **WHEN** an applicable validation is missing, queued beyond the gate timeout, skipped, cancelled, timed out, neutral, or unsuccessful
-- **THEN** `ci-gate` reports failure and identifies the validation that prevented success
+### Requirement: Prerequisites short-circuit expensive validation
 
-#### Scenario: Same-name result has unexpected provenance
+The macOS caller jobs SHALL depend on the preflight and every lightweight validation. A macOS caller SHALL run only when preflight emits `required` and all lightweight prerequisites succeed. A failed prerequisite SHALL leave the final `ci-gate` unsuccessful and SHALL NOT be treated as macOS success or non-applicability.
 
-- **WHEN** a check with the expected display name is attached to the head SHA by an unexpected integration or workflow identity
-- **THEN** the result does not satisfy the validation and `ci-gate` reports a provenance failure
+#### Scenario: Lightweight validation fails
 
-### Requirement: Disabled macOS validation is an explicit opt-out
+- **WHEN** a lightweight caller fails for the current revision
+- **THEN** applicable macOS callers are skipped and `ci-gate` identifies the prerequisite failure
 
-When the trusted repository variable `ENABLE_MACOSX_JOBS` is exactly `false`, the repository SHALL NOT require or initiate pull-request macOS validation, and `ci-gate` SHALL report the disabled policy as an explicit non-error decision. Any missing, malformed, or unavailable value SHALL be treated as macOS validation enabled. The value SHALL be read from trusted repository configuration rather than pull-request content.
+#### Scenario: All prerequisites pass
 
-#### Scenario: Relevant pull request while macOS validation is disabled
+- **WHEN** preflight emits `required` and every lightweight caller succeeds
+- **THEN** each applicable macOS caller starts for the current revision
 
-- **WHEN** the changed-file policy would otherwise require macOS validation and `ENABLE_MACOSX_JOBS` is exactly `false`
-- **THEN** no macOS result is required or initiated for merge, `ci-gate` reports that macOS validation was disabled by repository policy, and the pull request may pass only if all other applicable validations succeed
+### Requirement: The final gate aggregates native job results
 
-#### Scenario: Variable is missing or malformed
+The final `ci-gate` job SHALL depend on the preflight, every lightweight caller, and every macOS caller and SHALL execute with an unconditional `always()` condition. It SHALL pass only when every lightweight caller succeeds and every macOS caller succeeds when required. It SHALL accept skipped macOS callers only when preflight explicitly emitted `disabled-policy` or `not-applicable`; all other failed, cancelled, skipped, or unexpectedly absent required jobs SHALL fail the gate.
 
-- **WHEN** `ENABLE_MACOSX_JOBS` is absent or has a value other than the exact supported boolean values
-- **THEN** the gate treats macOS validation as enabled and requires the applicable macOS result
+#### Scenario: All required callers succeed
 
-#### Scenario: Candidate attempts to enable or disable macOS validation
+- **WHEN** preflight and every applicable caller succeed
+- **THEN** `ci-gate` succeeds
 
-- **WHEN** a pull request changes workflow YAML, scripts, labels, inputs, or other candidate-controlled content related to `ENABLE_MACOSX_JOBS`
-- **THEN** the candidate content does not change the value used by `ci-gate`
+#### Scenario: MacOS is intentionally skipped
 
-### Requirement: Expensive validation can short-circuit without passing
+- **WHEN** preflight emits `disabled-policy` or `not-applicable` and all lightweight callers succeed
+- **THEN** macOS callers may be skipped and `ci-gate` succeeds while its summary identifies the explicit policy reason
 
-The repository SHALL avoid starting applicable macOS validation after a decisive required prerequisite has failed, while preserving a failing `ci-gate` result until the prerequisite is repaired and the applicable validation succeeds or the trusted macOS opt-out is active. Short-circuiting SHALL be represented as a failed or blocked validation state, not as success or not applicable.
+#### Scenario: Required caller is unsuccessful
 
-#### Scenario: Cheap prerequisite fails before macOS validation starts
+- **WHEN** any required caller fails, is cancelled, or is skipped unexpectedly
+- **THEN** `ci-gate` fails and identifies that caller and its native job result
 
-- **WHEN** an applicable lightweight validation fails before macOS validation begins
-- **THEN** the macOS work is not started for that revision and `ci-gate` remains unsuccessful with the prerequisite failure identified
+### Requirement: Best-effort automation is not merge accounting
 
-#### Scenario: Superseded run is cancelled
+OpenSpec guide comments and label application SHALL remain separate best-effort automation and SHALL NOT be dependencies of `ci-gate`. The repository SHALL NOT use a title-based WIP action as a required validation.
 
-- **WHEN** a newer pull request revision supersedes an in-progress validation run
-- **THEN** the older run is cancelled or ignored and cannot satisfy `ci-gate` for the newer revision
+#### Scenario: Best-effort automation is unavailable
 
-### Requirement: Gate diagnostics distinguish policy from validation
+- **WHEN** the guide comment or label automation is skipped or unavailable
+- **THEN** the required caller graph and `ci-gate` remain defined without treating that automation as a merge validation
 
-The `ci-gate` result SHALL identify each matrix entry as passed, failed, waiting, cancelled, skipped, timed out, not applicable, disabled by trusted macOS policy, or blocked by a prerequisite. A disabled macOS validation SHALL NOT be represented as a successful test result. The summary SHALL identify the evaluated head SHA, policy revision or source, and any incomplete input.
+### Requirement: Required workflow security boundaries remain explicit
 
-#### Scenario: Reviewer inspects a passing gate with macOS disabled
+The orchestration and reusable validation workflows SHALL use empty default permissions, grant only job-level permissions required by the validation, pin third-party actions to full commit SHAs, disable checkout credentials, and avoid candidate code in privileged best-effort jobs. The required gate SHALL execute only native job-result logic and SHALL not poll GitHub APIs or load a candidate-controlled policy.
 
-- **WHEN** `ci-gate` succeeds while `ENABLE_MACOSX_JOBS` is exactly `false`
-- **THEN** the check summary shows that macOS validation was intentionally disabled and lists the remaining applicable validations that passed
+#### Scenario: Workflow contract is inspected
 
-#### Scenario: Reviewer inspects a blocked gate
-
-- **WHEN** `ci-gate` fails or waits for validation
-- **THEN** the check summary names the missing or unsuccessful validation, its observed state and provenance, and the current head revision being evaluated
-
-### Requirement: Merge controls enforce the trusted gate
-
-The protected default branch SHALL require the `ci-gate` result from the expected GitHub Actions integration, use strict required-status enforcement, preserve code-owner review and thread-resolution requirements, and reject a merge without a successful `ci-gate` result for the current revision. Individual conditional validation jobs SHALL NOT be the sole merge requirement.
-
-The gate migration SHALL preserve the repository's existing review settings unless a separately approved, stack-compatible migration enables stale-review dismissal or latest-push approval. Any such future review-policy change SHALL require a verified merge procedure that does not rely on force-pushing and shall be documented before activation.
-
-#### Scenario: Required gate has not passed
-
-- **WHEN** a pull request lacks a successful `ci-gate` result for its current revision
-- **THEN** the protected default branch rejects the merge
-
-#### Scenario: New push follows approval
-
-- **WHEN** a new commit is pushed after a human approval
-- **THEN** the gate is reevaluated for the new revision, and the repository's configured review policy determines whether the prior approval remains sufficient
-
-#### Scenario: Latest-push approval is proposed for activation
-
-- **WHEN** the repository considers enabling latest-push approval while using stacked or atomic merges
-- **THEN** activation is withheld until the merge procedure is demonstrated to preserve a valid latest-revision approval without force-pushing or silently weakening the protection
+- **WHEN** the repository workflow contract tests inspect the caller and reusable workflows
+- **THEN** they verify the caller dependencies, `always()` gate, skip policy, empty defaults, least privilege, action pins, and separation of best-effort jobs

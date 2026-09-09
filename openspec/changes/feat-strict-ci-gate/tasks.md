@@ -1,30 +1,29 @@
-## 1. Trusted policy and evaluator contract
+## 1. Contract and preflight
 
-- [ ] 1.1 Define the base-owned validation matrix with canonical workflow/job/integration identities, pull-request trigger expectations, every-current-validation coverage, changed-file categories, an explicit macOS non-applicable allowlist, prerequisite relationships, and excluded automation; verify unknown paths, conflicting entries, and missing policy data fail closed.
-- [ ] 1.2 Implement pure gate-evaluation logic for applicability, complete changed-file manifests, exact-head matching, expected GitHub Actions provenance, repository-variable parsing, and terminal result classification; verify table-driven tests cover passed, failed, waiting, missing, skipped, cancelled, timed-out, neutral, stale, not-applicable, prerequisite-blocked, and disabled-policy states.
-- [ ] 1.3 Add evaluator fixtures for candidate workflow changes, changed-file pagination and truncation, fork pull requests, draft pull requests, edited metadata events, superseded revisions, duplicate check names, unexpected integrations, stale results, and malformed `ENABLE_MACOSX_JOBS`; verify candidate-controlled policy cannot change the expected validation set.
+- [x] 1.1 Rewrite the proposal, specification, design, tasks, and QA evidence for the native reusable-workflow DAG and verify `openspec validate --all --strict` accepts coherent artifacts.
+- [x] 1.2 Implement the tested Git preflight that selects `required`, `disabled-policy`, or `not-applicable` from the stack-base-to-head diff and trusted repository variable, and verify documentation-only, source, build, enforcement, unknown path, exact false, true, missing, malformed, stack-base, and invalid-revision cases.
 
-## 2. Base-owned aggregate workflow
+## 2. Reusable validation workflows
 
-- [ ] 2.1 Add the base-owned `pull_request_target` workflow for `ci-gate` with `opened`, `reopened`, `synchronize`, `ready_for_review`, `converted_to_draft`, and `edited` events, read-only permissions, immutable default-branch enforcement source, bounded timeout, and concurrency cancellation; verify workflow inspection shows no candidate checkout or candidate-code execution.
-- [ ] 2.2 Implement the GitHub API adapter that reads the current pull-request head and base SHAs, the complete paginated changed-file list, trusted repository variable state, workflow runs, check runs, and jobs; verify it enforces the changed-file ceiling and ignores earlier revisions, other pull requests, unexpected sources, and unrelated display-name collisions.
-- [ ] 2.3 Publish the stable `ci-gate` job result and diagnostic summary for every evaluated state; verify the summary includes head SHA, policy source/version, applicability reasons, expected and observed provenance, validation state, incomplete-input failures, and macOS-disabled policy without presenting disabled coverage as a test pass.
+- [x] 2.1 Add `workflow_call` entry points to PR description, OpenSpec validation, no-code-comments, fixed-width prose, formatting, lint, documentation, package resolution, unit-test, UI-test, and compatibility workflows, preserve applicable non-PR triggers, and verify every required validation is callable locally.
+- [x] 2.2 Remove the title-based WIP action, keep OpenSpec guide comments and label application in separate best-effort automation, and verify neither is a required caller dependency.
+- [x] 2.3 Preserve empty default permissions, job-level least privilege, full-SHA action pins, disabled checkout credentials, and PR-scoped concurrency, and verify the security contract test passes.
 
-## 3. Existing workflow integration and cost controls
+## 3. Native caller and gate
 
-- [ ] 3.1 Reconcile the pull-request workflow triggers, path filters, job conditions, check names, and prerequisites with the trusted matrix; verify lightweight checks remain observable, macOS work is not initiated for explicitly non-applicable changes, and applicable missing or skipped work cannot produce a passing gate.
-- [ ] 3.2 Preserve or add workflow and gate concurrency groups that cancel superseded pull-request revisions; verify cancelled older results cannot satisfy the newer revision with workflow-structure tests and simulated check histories.
-- [ ] 3.3 Preserve `ENABLE_MACOSX_JOBS=false` as a trusted repository-level opt-out for pull-request macOS validation while retaining manual or non-pull-request workflows where appropriate; verify exact `false` produces an explicit disabled-policy diagnostic, while missing or malformed values require applicable macOS validation.
-- [ ] 3.4 Keep privileged validators base-owned and candidate execution unprivileged; verify workflow permissions, base checkout refs, action pins, trigger separation, and candidate-code execution boundaries with static workflow tests.
+- [x] 3.1 Replace the API-polling `ci-gate` workflow with one ordinary `pull_request` caller filtered to the `main` stack trunk, invoke every reusable validation as a caller job, and verify the caller has no legacy direct validation triggers.
+- [x] 3.2 Connect every macOS caller to preflight and all lightweight callers, condition them on `macos_mode=required` and successful prerequisites, and verify prerequisite failures short-circuit macOS work without passing the gate.
+- [x] 3.3 Add the final `ci-gate` job with `if: always()`, all caller dependencies, explicit intentional-skip handling, and a summary of preflight mode and native job results, and verify failed, cancelled, skipped, disabled-policy, and not-applicable states.
+- [x] 3.4 Delete the policy JSON, API adapter, evaluator, polling workflow code, integration tests, and obsolete guidance tests, and verify no removed identifier or cross-run polling remains.
 
-## 4. Repository guidance and merge-control contract
+## 4. Guidance, stack, and ruleset migration
 
-- [ ] 4.1 Document the strict CI gate, complete applicability matrix, changed-file failure modes, disabled macOS behavior, short-circuit semantics, reviewer diagnostics, and enforcement-file ownership in the repository's internal CI/OpenSpec guidance; verify the documentation matches the workflow and policy tests.
-- [ ] 4.2 Document the external `main` ruleset transition from individual job contexts to the `ci-gate` context, including the expected GitHub Actions integration, strict status enforcement, code-owner review, and thread resolution; verify the documented API/UI procedure matches the intended ruleset shape and explicitly identifies manual steps.
-- [ ] 4.3 Record the incompatibility risk between latest-push or stale-review requirements and atomic stacked merges; verify the guidance preserves the no-force-push rule and requires a separately verified, owner-approved merge procedure before either review setting changes.
+- [x] 4.1 Rewrite internal CI/OpenSpec guidance and QA evidence for the native DAG, disabled macOS policy, short-circuit behavior, reviewer diagnostics, and manual rollback, and verify prose and guidance tests pass.
+- [ ] 4.2 Restructure the formal stack to revised proposal #353, one replacement implementation layer, guidance #358, QA #359, and archive #361 with `gh stack modify` and `gh stack submit`, and verify formal metadata plus every immediate PR base.
+- [ ] 4.3 After a real `ci-gate` result exists and with explicit owner approval, capture and update the live ruleset so only GitHub Actions `ci-gate` is required while review, thread, squash, and history protections remain unchanged; verify the complete ruleset readback or document the external blocker.
 
 ## 5. Validation and evidence
 
-- [ ] 5.1 Run the gate evaluator regression suite and workflow-structure/security tests; verify all policy-state, exact-provenance, pagination, event, and security-boundary scenarios pass.
-- [ ] 5.2 Run `openspec validate --all --strict`, `make no-fixed-width-prose`, workflow/YAML validation, and the repository's applicable lint and documentation checks; record exact results and distinguish passed, skipped, blocked, and infrastructure-failed checks.
-- [ ] 5.3 Perform read-only verification in a disposable pull request or equivalent fixture-driven harness for registered workflow identities, current check conclusions, fork/draft/edited event behavior, the repository variable, and the target ruleset contract; verify the evidence does not claim live production enforcement until the external ruleset migration is manually completed.
+- [x] 5.1 Run the preflight and workflow-contract suites plus all applicable repository checks, and record passed, skipped, blocked, and infrastructure-failed results without claiming skipped macOS validation passed.
+- [ ] 5.2 Run `make xcodeproj && make test-ui-dev`, screenshots, and `git diff --check` under the approved isolated environment, or record the exact infrastructure blocker and keep it separate from code failures.
+- [ ] 5.3 Verify retained stack-layer GitHub runs, repository variable state, current head results, and the final live ruleset state, and record exact evidence before considering the change complete.
