@@ -18,4 +18,6 @@ The native `ci-gate` jobs for PRs #364, #358, #359, and #361 were not started be
 
 The newest top-stack run #34304453504 could not start preflight or validation jobs for the same GitHub billing condition; all resulting job failures are infrastructure failures, not code conclusions.
 
+After the QA evidence update, submitted-head runs #34346278151 for PR #359 and #34346303319 for PR #361 again failed within seconds across every runnable job before execution, with macOS jobs skipped under `disabled-policy`; this remains an infrastructure failure consistent with the repository's exhausted Actions minutes, not a code result.
+
 The live `main` ruleset readback remains `active` with strict required status checks for `openspec-guide`, `openspec-label`, `PR Description Check`, `WIP Check`, `swift test`, `no-code-comments`, `openspec-check`, and `no-fixed-width-prose`, all GitHub Actions integration `15368`; it also retains one approving review, code-owner review, resolved threads, squash-only merges, deletion protection, and non-fast-forward protection. Owner approval to replace those contexts with `ci-gate` was supplied on 2026-09-09, but the bot-authenticated ruleset update was rejected with HTTP 403 `Resource not accessible by integration`; the owner must perform the approved admin-account mutation before this task can be marked complete.
