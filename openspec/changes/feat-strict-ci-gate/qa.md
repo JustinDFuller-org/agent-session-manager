@@ -6,7 +6,7 @@ This file records the native caller, reusable-workflow, preflight, and gate vali
 
 The preflight and workflow-contract suites passed 18 tests with 0 failures, and the complete `.github/scripts/*test.mjs` suite passed 71 tests with 0 failures. `openspec validate --all --strict`, `make no-code-comments`, `make no-fixed-width-prose`, `make lint`, `swiftlint lint --strict --config .swiftlint.yml`, `make docs-check`, Ruby YAML parsing for every workflow, and `git diff --check` passed. Swift validation passed 1,126 XCTest cases and 123 Swift Testing cases with 0 failures. `actionlint` and `yamllint` were unavailable and skipped.
 
-`make xcodeproj` passed. The approved `make test-ui-dev` command reached Xcode but failed before UI tests while validating the existing `SwiftTermBuildInfoPlugin` (`xcodebuild` Error 65); this is recorded as an infrastructure/build-plugin failure, not a passing UI result. Screenshots remain pending the same isolated UI build path.
+`make xcodeproj` passed. The approved `make test-ui-dev` command and `make screenshots` both reached Xcode but failed before UI tests or screenshot capture while validating the existing `SwiftTermBuildInfoPlugin` (`xcodebuild` Error 65); these are recorded as infrastructure/build-plugin failures, not passing UI or screenshot results.
 
 ## Read-only GitHub verification
 
