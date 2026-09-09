@@ -36,14 +36,11 @@ function cleanCandidate(root) {
   track(root);
 }
 
-test("workflow defines strict base-owned pull-request and main push coverage", () => {
+test("workflow defines reusable validation and main push coverage", () => {
   const workflow = fs.readFileSync(workflowPath, "utf8");
 
   assert.match(workflow, /^name: No Code Comments$/m);
-  assert.match(workflow, /pull_request_target:/);
-  for (const event of ["opened", "synchronize", "reopened", "ready_for_review", "converted_to_draft"]) {
-    assert.match(workflow, new RegExp(`\\b${event}\\b`));
-  }
+  assert.match(workflow, /workflow_call:/);
   assert.match(workflow, /push:\n    branches: \[main\]/);
   assert.match(workflow, /permissions: \{\}/);
   assert.match(workflow, /no-code-comments:\n    name: no-code-comments/);
@@ -67,6 +64,9 @@ test("workflow separates protected enforcement source from immutable candidate",
 test("clean candidate passes the same scanner used by CI", () => {
   const root = fixture();
   cleanCandidate(root);
+  write(root, ".github/workflows/removed.yml", "name: removed\n");
+  track(root);
+  fs.unlinkSync(path.join(root, ".github/workflows/removed.yml"));
   assert.deepEqual(scanRepository(root), []);
 });
 

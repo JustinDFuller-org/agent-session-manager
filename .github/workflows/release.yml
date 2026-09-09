@@ -5,6 +5,8 @@ on:
     tags:
       - 'v*'
 
+permissions: {}
+
 concurrency:
   group: pages-deploy
   cancel-in-progress: false
@@ -13,6 +15,8 @@ jobs:
   build:
     if: ${{ vars.ENABLE_MACOSX_JOBS == 'true' }}
     runs-on: macos-15
+    permissions:
+      contents: read
     environment: release
     steps:
       - name: Checkout

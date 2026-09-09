@@ -9,6 +9,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  openspec-label:
+    name: openspec-label
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Apply openspec label
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          retries: 3
+          script: |
+            const { owner, repo } = context.repo
+            const pull_number = context.payload.pull_request.number
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+            })
+
+            const touchesOpenspec = files.some(f => f.filename.startsWith('openspec/'))
+            if (!touchesOpenspec) return
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pull_number,
+              labels: ['openspec'],
+            })
+
   openspec-guide:
     name: openspec-guide
     if: github.event.pull_request.head.repo.full_name == github.repository

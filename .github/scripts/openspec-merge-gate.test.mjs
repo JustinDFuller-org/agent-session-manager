@@ -356,7 +356,8 @@ test("keeps strict CLI validation and base-owned enforcement in the workflow", (
   const workflow = fs.readFileSync(new URL("../workflows/openspec.yml", import.meta.url), "utf8");
   assert.match(validator, /\["validate", "--archived", "--no-interactive"\]/);
   assert.match(validator, /\["validate", "--all", "--strict", "--no-interactive"\]/);
-  assert.match(workflow, /pull_request_target:\n\s+types:/);
+  assert.match(workflow, /workflow_call:/);
+  assert.doesNotMatch(workflow, /pull_request_target:\n/);
   assert.match(workflow, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
   assert.match(workflow, /node --test enforcement-source\/\.github\/scripts\/openspec-merge-gate\.test\.mjs/);
   assert.match(workflow, /github\.event\.pull_request\.head\.sha/);

@@ -1,12 +1,15 @@
 name: OpenSpec
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_call:
   push:
     branches: [main]
 
 permissions: {}
+
+concurrency:
+  group: openspec-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   openspec-check:
@@ -29,19 +32,19 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Test base-owned validator
+      - name: Test validator
         run: node --test enforcement-source/.github/scripts/openspec-merge-gate.test.mjs
 
       - name: Checkout immutable pull request candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          repository: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: candidate
           persist-credentials: false
 
       - name: Checkout immutable stack trunk snapshot
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' || github.event_name == 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ github.repository }}
@@ -50,7 +53,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout immutable immediate-base snapshot
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' || github.event_name == 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ github.repository }}
@@ -59,9 +62,9 @@ jobs:
           persist-credentials: false
 
       - name: Validate pull request OpenSpec state
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request_target' || github.event_name == 'pull_request'
         env:
-          EVENT_NAME: pull_request_target
+          EVENT_NAME: ${{ github.event_name }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
           STACK_PRESENT: ${{ github.event.pull_request.stack != null && 'true' || 'false' }}
@@ -84,35 +87,3 @@ jobs:
           set -euo pipefail
           cp enforcement-source/.github/scripts/openspec-merge-gate.mjs "$RUNNER_TEMP/openspec-merge-gate.mjs"
           node "$RUNNER_TEMP/openspec-merge-gate.mjs" --candidate "$GITHUB_WORKSPACE/candidate"
-
-  openspec-label:
-    name: openspec-label
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Apply openspec label
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
-        with:
-          retries: 3
-          script: |
-            const { owner, repo } = context.repo
-            const pull_number = context.payload.pull_request.number
-
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner,
-              repo,
-              pull_number,
-            })
-
-            const touchesOpenspec = files.some(f => f.filename.startsWith('openspec/'))
-            if (!touchesOpenspec) return
-
-            await github.rest.issues.addLabels({
-              owner,
-              repo,
-              issue_number: pull_number,
-              labels: ['openspec'],
-            })

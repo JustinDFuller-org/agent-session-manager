@@ -5,10 +5,15 @@ on:
     - cron: "0 9 * * *"
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   stale:
     name: Mark stale issues and PRs
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/stale@v11.0.0
         with:

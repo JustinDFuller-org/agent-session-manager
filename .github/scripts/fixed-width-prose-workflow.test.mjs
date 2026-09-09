@@ -27,14 +27,11 @@ function track(root) {
   execFileSync("git", ["-C", root, "add", "."]);
 }
 
-test("workflow defines the stable fail-closed pull-request check", () => {
+test("workflow defines the stable reusable fail-closed check", () => {
   const workflow = fs.readFileSync(workflowPath, "utf8");
 
   assert.match(workflow, /^name: Fixed-width Prose$/m);
-  assert.match(workflow, /pull_request_target:/);
-  for (const event of ["opened", "edited", "synchronize", "reopened", "ready_for_review", "converted_to_draft"]) {
-    assert.match(workflow, new RegExp(`\\b${event}\\b`));
-  }
+  assert.match(workflow, /workflow_call:/);
   assert.match(workflow, /permissions: \{\}/);
   assert.match(workflow, /no-fixed-width-prose:\n    name: no-fixed-width-prose/);
   assert.doesNotMatch(workflow, /if:.*draft/i);

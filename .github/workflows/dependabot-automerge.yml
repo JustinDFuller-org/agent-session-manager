@@ -3,6 +3,8 @@ name: Dependabot Auto-merge
 on:
   pull_request:
 
+permissions: {}
+
 jobs:
   auto-merge:
     name: Auto-merge Dependabot PRs
