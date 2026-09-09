@@ -344,6 +344,7 @@ export function scanRepository(root) {
   const findings = [];
   for (const relativePath of trackedFiles(root)) {
     const absolutePath = path.join(root, relativePath);
+    if (!fs.existsSync(absolutePath)) continue;
     if (!fs.lstatSync(absolutePath).isFile()) continue;
     const buffer = fs.readFileSync(absolutePath);
     if (isBinary(buffer)) continue;

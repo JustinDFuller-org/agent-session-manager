@@ -1,15 +1,7 @@
 name: Dependency and Toolchain Compatibility
 
 on:
-  pull_request:
-    paths:
-      - "Package.swift"
-      - "Package.resolved"
-      - "project.yml"
-      - "Sources/**"
-      - "Tests/**"
-      - "scripts/check-toolchain.sh"
-      - ".github/workflows/dependency-toolchain-compatibility.yml"
+  workflow_call:
   schedule:
     - cron: "0 9 * * 1"
   workflow_dispatch:
@@ -18,13 +10,18 @@ concurrency:
   group: dependency-toolchain-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   compatibility:
     name: Dependency and toolchain compatibility
-    if: ${{ vars.ENABLE_MACOSX_JOBS == 'true' }}
+    permissions:
+      contents: read
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: Check supported toolchain floor
         run: bash scripts/check-toolchain.sh

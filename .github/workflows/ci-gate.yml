@@ -1,0 +1,191 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  macos_preflight:
+    name: macOS preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      macos_mode: ${{ steps.preflight.outputs.macos_mode }}
+      macos_reason: ${{ steps.preflight.outputs.macos_reason }}
+    steps:
+      - name: Checkout pull-request head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: refs/pull/${{ github.event.pull_request.number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve macOS applicability
+        id: preflight
+        env:
+          STACK_BASE_SHA: ${{ github.event.pull_request.stack.base.sha || '' }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ENABLE_MACOSX_JOBS: ${{ vars.ENABLE_MACOSX_JOBS }}
+        run: |
+          set -euo pipefail
+          node .github/scripts/macos-preflight.mjs \
+            --stack-base "$STACK_BASE_SHA" \
+            --pull-request-base "$PULL_REQUEST_BASE_SHA" \
+            --head "$PULL_REQUEST_HEAD_SHA"
+
+  pr_quality:
+    name: PR Quality
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/pr-quality.yml
+
+  openspec:
+    name: OpenSpec validation
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/openspec.yml
+
+  no_code_comments:
+    name: No Code Comments
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/no-code-comments.yml
+
+  no_fixed_width_prose:
+    name: Fixed-width Prose
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/no-fixed-width-prose.yml
+
+  swift_format:
+    name: Format
+    permissions:
+      contents: read
+    uses: ./.github/workflows/format.yml
+
+  swiftlint:
+    name: Lint
+    permissions:
+      contents: read
+    uses: ./.github/workflows/lint.yml
+
+  docs:
+    name: Documentation
+    permissions:
+      contents: read
+    uses: ./.github/workflows/docs.yml
+
+  resolve:
+    name: Swift Build Check
+    permissions:
+      contents: read
+    uses: ./.github/workflows/swift-build-check.yml
+
+  unit_tests:
+    name: Unit Tests
+    permissions:
+      contents: read
+    needs: [macos_preflight, pr_quality, openspec, no_code_comments, no_fixed_width_prose, swift_format, swiftlint, docs, resolve]
+    if: ${{ always() && needs.macos_preflight.outputs.macos_mode == 'required' && needs.pr_quality.result == 'success' && needs.openspec.result == 'success' && needs.no_code_comments.result == 'success' && needs.no_fixed_width_prose.result == 'success' && needs.swift_format.result == 'success' && needs.swiftlint.result == 'success' && needs.docs.result == 'success' && needs.resolve.result == 'success' }}
+    uses: ./.github/workflows/unit-tests.yml
+
+  ui_tests:
+    name: UI Tests
+    permissions:
+      contents: read
+    needs: [macos_preflight, pr_quality, openspec, no_code_comments, no_fixed_width_prose, swift_format, swiftlint, docs, resolve]
+    if: ${{ always() && needs.macos_preflight.outputs.macos_mode == 'required' && needs.pr_quality.result == 'success' && needs.openspec.result == 'success' && needs.no_code_comments.result == 'success' && needs.no_fixed_width_prose.result == 'success' && needs.swift_format.result == 'success' && needs.swiftlint.result == 'success' && needs.docs.result == 'success' && needs.resolve.result == 'success' }}
+    uses: ./.github/workflows/ui-tests.yml
+
+  compatibility:
+    name: Dependency and Toolchain Compatibility
+    permissions:
+      contents: read
+    needs: [macos_preflight, pr_quality, openspec, no_code_comments, no_fixed_width_prose, swift_format, swiftlint, docs, resolve]
+    if: ${{ always() && needs.macos_preflight.outputs.macos_mode == 'required' && needs.pr_quality.result == 'success' && needs.openspec.result == 'success' && needs.no_code_comments.result == 'success' && needs.no_fixed_width_prose.result == 'success' && needs.swift_format.result == 'success' && needs.swiftlint.result == 'success' && needs.docs.result == 'success' && needs.resolve.result == 'success' }}
+    uses: ./.github/workflows/dependency-toolchain-compatibility.yml
+
+  ci_gate:
+    name: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ always() }}
+    needs: [macos_preflight, pr_quality, openspec, no_code_comments, no_fixed_width_prose, swift_format, swiftlint, docs, resolve, unit_tests, ui_tests, compatibility]
+    steps:
+      - name: Aggregate native validation results
+        env:
+          MACOS_MODE: ${{ needs.macos_preflight.outputs.macos_mode }}
+          MACOS_REASON: ${{ needs.macos_preflight.outputs.macos_reason }}
+          MACOS_PREFLIGHT: ${{ needs.macos_preflight.result }}
+          PR_QUALITY: ${{ needs.pr_quality.result }}
+          OPENSPEC: ${{ needs.openspec.result }}
+          NO_CODE_COMMENTS: ${{ needs.no_code_comments.result }}
+          NO_FIXED_WIDTH_PROSE: ${{ needs.no_fixed_width_prose.result }}
+          SWIFT_FORMAT: ${{ needs.swift_format.result }}
+          SWIFTLINT: ${{ needs.swiftlint.result }}
+          DOCS: ${{ needs.docs.result }}
+          RESOLVE: ${{ needs.resolve.result }}
+          UNIT_TESTS: ${{ needs.unit_tests.result }}
+          UI_TESTS: ${{ needs.ui_tests.result }}
+          COMPATIBILITY: ${{ needs.compatibility.result }}
+        run: |
+          set -u
+          failures=()
+          required_jobs=(MACOS_PREFLIGHT PR_QUALITY OPENSPEC NO_CODE_COMMENTS NO_FIXED_WIDTH_PROSE SWIFT_FORMAT SWIFTLINT DOCS RESOLVE)
+          for job in "${required_jobs[@]}"; do
+            result="${!job}"
+            if [[ "$result" != "success" ]]; then
+              failures+=("$job=$result")
+            fi
+          done
+
+          macos_jobs=(UNIT_TESTS UI_TESTS COMPATIBILITY)
+          if [[ "$MACOS_MODE" != "required" && "$MACOS_MODE" != "disabled-policy" && "$MACOS_MODE" != "not-applicable" ]]; then
+            failures+=("MACOS_MODE=$MACOS_MODE (unknown preflight mode)")
+          elif [[ "$MACOS_MODE" == "required" ]]; then
+            for job in "${macos_jobs[@]}"; do
+              result="${!job}"
+              if [[ "$result" != "success" ]]; then
+                failures+=("$job=$result")
+              fi
+            done
+          else
+            for job in "${macos_jobs[@]}"; do
+              result="${!job}"
+              if [[ "$result" != "skipped" ]]; then
+                failures+=("$job=$result (expected skipped for $MACOS_MODE)")
+              fi
+            done
+          fi
+
+          {
+            echo "## CI gate"
+            echo
+            echo "- macOS mode: \`$MACOS_MODE\`"
+            echo "- macOS reason: $MACOS_REASON"
+            echo "- native job results:"
+            for job in "${required_jobs[@]}" "${macos_jobs[@]}"; do
+              echo "  - \`$job\`: ${!job}"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if (( ${#failures[@]} > 0 )); then
+            printf 'ci-gate failed: %s\n' "${failures[*]}"
+            exit 1
+          fi
+
+          echo "ci-gate passed with macOS mode $MACOS_MODE"

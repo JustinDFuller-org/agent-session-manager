@@ -3,6 +3,8 @@ name: Dependabot Auto-merge
 on:
   pull_request:
 
+permissions: {}
+
 jobs:
   auto-merge:
     name: Auto-merge Dependabot PRs
@@ -11,7 +13,7 @@ jobs:
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v3
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 

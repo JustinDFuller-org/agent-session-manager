@@ -1,26 +1,31 @@
 name: Unit Tests
 
 on:
-  pull_request:
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
   group: unit-tests-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   test:
     name: swift test
-    if: ${{ vars.ENABLE_MACOSX_JOBS == 'true' }}
+    permissions:
+      contents: read
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: Check supported toolchain floor
         run: bash scripts/check-toolchain.sh
 
       - name: Cache Swift packages
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .build/checkouts
           key: swift-packages-${{ hashFiles('Package.resolved') }}

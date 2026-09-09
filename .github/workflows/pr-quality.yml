@@ -1,13 +1,20 @@
 name: PR Quality
 
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
+  workflow_call:
+
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
 
 jobs:
   pr-description:
     name: PR Description Check
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - name: Check PR description length
         env:
@@ -17,13 +24,3 @@ jobs:
             echo "PR description must be at least 50 characters long."
             exit 1
           fi
-
-  wip-check:
-    name: WIP Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: wip/action@v1
-        with:
-          associated_pull_request_number: ${{ github.event.pull_request.number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
