@@ -44,11 +44,11 @@ Use the [canonical stacked-PR skill](../.agents/skills/openspec-stacked-prs/SKIL
 2. Import the remote stack with `gh stack checkout <top-pr>`.
 3. Verify formal metadata with `gh stack view --json` and verify every PR's immediate-parent base with `gh pr view`.
 
-`gh pr create --base` establishes a branch dependency but does not prove formal stack membership. One implementation PR contains one complete top-level task group and all of its subtasks. `gh stack sync`, `gh stack push`, and `gh stack rebase` may use `--force-with-lease` for eligible stack feature branches; never force-update `main` or another protected branch. See GitHub's [stacked pull request overview](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs), [quickstart](https://docs.github.com/en/pull-requests/get-started/stacked-prs-quickstart), and [CLI reference](https://docs.github.com/en/pull-requests/reference/stacked-prs-cli-commands).
+`gh pr create --base` establishes a branch dependency but does not prove formal stack membership. One implementation PR contains one complete top-level task group and all of its subtasks. `gh stack sync`, `gh stack push`, and `gh stack rebase` may use `--force-with-lease` only for a stack feature branch after verifying the current remote head, immediate-parent base, branch ownership, and branch protection; `--force-with-lease` is still a force-push operation. Never force-update `main` or another protected branch. See GitHub's [stacked pull request overview](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs), [quickstart](https://docs.github.com/en/pull-requests/get-started/stacked-prs-quickstart), and [CLI reference](https://docs.github.com/en/pull-requests/reference/stacked-prs-cli-commands).
 
 The archive pull request is always the current top layer. Lower layers must carry the exact active change set from their immediate base, may leave tasks unchecked, and must not archive or introduce a competing change. The top layer must complete the tasks, archive the shared changes, synchronize the matching main specifications, and contain no implementation, QA, or unrelated files in its direct diff.
 
-Four pull requests are the intended decomposition: the OpenSpec proposal, implementation, QA, and archive. Keeping QA separate from the archive layer preserves the archive-only final diff. This is guidance rather than a CI minimum; standalone and shorter stacks are supported. A standalone pull request is treated as a one-layer stack and must perform the final archive step itself.
+The intended decomposition is the OpenSpec proposal, one or more implementation layers, a QA layer, and an archive layer. Each implementation layer owns one complete top-level task group with all of its subtasks, and keeping QA separate from the archive layer preserves the archive-only final diff. This is guidance rather than a CI minimum; standalone and shorter stacks are supported. A standalone pull request is treated as a one-layer stack and must perform the final archive step itself.
 
 When lower pull requests merge, GitHub reduces the remaining stack's position and size. The pull request that is then `position == size` remains the archive owner. The stack trunk may temporarily contain the active change during this collapse; the immediate base preserves the shared identity and permits the active-to-archived handoff. Do not use the original stack length or pull request number to choose the archive owner.
 
@@ -82,39 +82,64 @@ A change is archived only after review feedback on the change has been resolved,
 
 Tasks must describe work that can be completed and verified before archiving. Verifying, archiving, marking the pull request ready, and merging are the workflow itself, not tasks. Work that can only happen after merge belongs under a `## Follow-ups after merge` heading in `proposal.md`, with a tracking issue when it needs an owner.
 
-## What CI enforces
+## Strict CI gate reference
 
-`openspec-check` runs on every pull request through the base-owned `pull_request_target` workflow and on pushes to the default branch. Its validation is strict for ordinary pull requests, drafts, and every layer of a formal stack:
+The `ci-gate` job in `.github/workflows/ci-gate.yml` is the single native pull-request orchestration result. The workflow runs on opened, edited, synchronized, reopened, ready-for-review, and converted-to-draft events whose stack trunk is `main`; GitHub evaluates stacked pull requests against that trunk. The caller invokes each required validation as a local reusable workflow and its final gate depends on every caller with `if: always()`.
 
-| Invariant | Required result |
+| Caller job | Reusable workflow | Native validation | MacOS | Prerequisites |
+|---|---|---|---|---|
+| `pr_quality` | `.github/workflows/pr-quality.yml` | PR description | no | none |
+| `openspec` | `.github/workflows/openspec.yml` | OpenSpec check | no | none |
+| `no_code_comments` | `.github/workflows/no-code-comments.yml` | no-code-comments | no | none |
+| `no_fixed_width_prose` | `.github/workflows/no-fixed-width-prose.yml` | fixed-width prose | no | none |
+| `swift_format` | `.github/workflows/format.yml` | swift-format | no | none |
+| `swiftlint` | `.github/workflows/lint.yml` | SwiftLint | no | none |
+| `docs` | `.github/workflows/docs.yml` | documentation | no | none |
+| `resolve` | `.github/workflows/swift-build-check.yml` | package resolution | no | none |
+| `unit_tests` | `.github/workflows/unit-tests.yml` | `swift test` | yes | preflight and all lightweight callers |
+| `ui_tests` | `.github/workflows/ui-tests.yml` | `make test-ui-dev-launch` | yes | preflight and all lightweight callers |
+| `compatibility` | `.github/workflows/dependency-toolchain-compatibility.yml` | dependency and toolchain compatibility | yes | preflight and all lightweight callers |
+
+Every required validation workflow has a `workflow_call` entry point. Push, schedule, and manual entry points remain on the workflows where they are useful outside pull-request accounting. Required workflow files are not path-filtered; the caller runs for every gateable revision.
+
+### MacOS preflight
+
+The `macos_preflight` job checks out the exact pull-request head with credentials disabled and compares the stack base SHA, falling back to the immediate pull-request base SHA, to that head with Git. It emits exactly one `macos_mode`: `required`, `disabled-policy`, or `not-applicable`.
+
+| Input | Result |
 |---|---|
-| An OpenSpec change is present in the candidate tree | pass |
-| Required artifacts and matching main specifications exist | pass |
-| Artifacts pass `openspec validate --all --strict` | pass |
-| Archived-change validation passes | pass |
-| Continuation layers preserve the shared active change set | pass |
-| The current top or standalone layer archives the shared change set | pass |
-| The current top or standalone layer has no active change and all tasks checked | pass |
+| Every changed path is in the documentation-only allowlist | `not-applicable` |
+| Any relevant classified path and `ENABLE_MACOSX_JOBS` is exactly `false` | `disabled-policy` |
+| Any source, test, package, project, build, resource, toolchain, or enforcement path | `required` |
+| Unknown path, invalid revision, incomplete diff, missing variable, or malformed variable | fail closed; required validation is never reduced |
 
-Missing or malformed changes fail the check on every layer. Active or incomplete changes fail only when a current top or standalone layer attempts finalization; the guide comment and `openspec` label are informational, while the `openspec-check` job is the merge gate.
+The documentation-only allowlist is `documentation/**`, `README.md`, `USER_FACING_DOCS.md`, `AGENTS.md`, `CLAUDE.md`, `AGENTIC_CONTROL.md`, `OPENCODE_SUPPORT.md`, and `PROGRESS.md`. The preflight classifier and tests in `.github/scripts/macos-preflight.mjs` and `.github/scripts/macos-preflight.test.mjs` are the source for the exact Git matching behavior.
 
-## GitHub merge controls and ownership
+### Native dependency and gate behavior
 
-The `main` branch ruleset is external repository configuration. It must require the stable `openspec-check` status, block force pushes and other non-fast-forward updates, and preserve the repository's existing review, code-owner, latest-push approval, and thread-resolution requirements. Only the human account `JustinDFuller` may use the configured ruleset bypass. `JustinDFuller-Agents` must not have administrator, maintain, or ruleset-bypass permission. The ruleset is configured and verified manually; CI does not change repository administration settings.
+MacOS callers require the preflight and every lightweight caller to succeed, and run only when `macos_mode=required`. A failed lightweight caller short-circuits expensive macOS work; the final gate remains failed and reports the prerequisite. `disabled-policy` and `not-applicable` intentionally skip all three macOS callers and are reported as policy decisions, never as test passes.
 
-This workflow change does not alter the existing `.github/CODEOWNERS` boundary.
+The final `ci-gate` job accepts successful lightweight callers and successful macOS callers when required. It accepts skipped macOS callers only for the two explicit preflight modes. It fails for a failed, cancelled, or unexpectedly skipped preflight or required caller, and its summary reports the preflight mode, reason, and every native job result. Concurrency cancels superseded pull-request revisions so an older result cannot satisfy a newer head.
 
-The existing `.github/CODEOWNERS` policy remains in force:
+The caller and every reusable workflow use empty default permissions, explicit job-level least privilege, full commit-SHA action pins, and disabled checkout credentials. The gate performs no API polling, check-run discovery, candidate-policy loading, or cross-run correlation.
 
-- `JustinDFuller` owns the repository by default.
-- Selected implementation paths remain intentionally agent-editable.
-- The enforcement surface, including `.github/workflows/`, `.github/scripts/`, `.github/CODEOWNERS`, and `openspec/`, remains covered by the human default because no exception grants those paths to the agent.
+OpenSpec guide comments and the `openspec` label are maintained by the separate best-effort `.github/workflows/openspec-guide.yml` workflow. They are not caller jobs and are not dependencies of `ci-gate`. The title-based WIP action was removed; native draft pull-request state remains the merge control for drafts.
 
-The ruleset and CODEOWNERS policy are complementary: CODEOWNERS controls human review of enforcement changes, while the ruleset controls the required status, non-fast-forward protection, and its only authorized bypass.
+### GitHub ruleset and stack migration
+
+The formal migration is bottom-to-top: revised proposal #353, one replacement implementation pull request replacing #354, #356, and #357, guidance #358, QA #359, and archive #361. Use `gh stack modify` to drop the obsolete implementation branches and insert the replacement, then `gh stack submit`. Close replaced pull requests only after `gh stack view --json` shows the five-layer formal stack and every pull request targets its immediate parent branch.
+
+Before changing the live ruleset, record its complete JSON and confirm a real `ci-gate` check is available on `main`. With explicit owner approval, replace the individual required status contexts with exactly `ci-gate` from the `GitHub Actions` integration. Preserve active enforcement, strict required-status behavior, code-owner approval, thread resolution, squash-only merging, non-fast-forward protection, and the existing human-only bypass. Re-read the complete ruleset after the update.
+
+If `ci-gate` is unavailable, restore the complete recorded ruleset payload and verify every field again. The bot-authenticated agent must not change authentication, force-update `main`, or bypass the ruleset. Feature-branch rewrites are permitted only with `--force-with-lease` after branch protection coverage is checked.
+
+Latest-push approval and stale-review dismissal are not part of this migration. They can conflict with atomic stacked merges; enable either only after the owner documents and verifies a stack-compatible merge procedure with fresh approvals and no force-push of protected branches.
+
+Until the owner completes and verifies the external ruleset update, documentation and QA must not claim live `ci-gate` enforcement. The existing `.github/CODEOWNERS` boundary remains in force and continues to require human review for the enforcement surface.
 
 ## The OpenSpec guide comment
 
-The `.github/workflows/openspec-guide.yml` workflow maintains a sticky pull request comment reporting OpenSpec status. It is purely informational and is not itself a required status check.
+The base-owned `.github/workflows/openspec-guide.yml` workflow maintains a sticky pull request comment reporting OpenSpec status for same-repository pull requests. It checks out the exact candidate head with credentials disabled, exposes only the candidate `openspec/` directory to the pinned CLI from an isolated temporary root, disables npm install scripts, and removes credential-like environment variables before validation. It is purely informational and is not itself a required status check. Fork pull requests are reported as not applicable because the current job intentionally excludes them.
 
 ## The `openspec` label
 
