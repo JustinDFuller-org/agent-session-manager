@@ -1,29 +1,13 @@
 # QA evidence
 
-The QA layer records local deterministic validation and read-only GitHub verification for `feat-strict-ci-gate`.
+This file records the native caller, reusable-workflow, preflight, and gate validation for `feat-strict-ci-gate`.
 
 ## Local validation
 
-`node --test .github/scripts/*test.mjs` passed 86 tests with 0 failures, including evaluator policy states, exact provenance, pagination and truncation, event fixtures, workflow security structure, candidate isolation, and guidance consistency.
+The preflight and workflow-contract suites passed 18 tests with 0 failures, and the complete `.github/scripts/*test.mjs` suite passed 71 tests with 0 failures. `openspec validate --all --strict`, `make no-code-comments`, `make no-fixed-width-prose`, `make lint`, `swiftlint lint --strict --config .swiftlint.yml`, `make docs-check`, Ruby YAML parsing for every workflow, and `git diff --check` passed. Swift validation passed 1,126 XCTest cases and 123 Swift Testing cases with 0 failures. `actionlint` and `yamllint` were unavailable and skipped.
 
-`openspec validate --all --strict` passed 6 items with 0 failures; the output contained only informational long-requirement notices.
-
-`make no-code-comments`, `make no-fixed-width-prose`, `make lint`, and `make docs-check` all passed. The documentation check rendered 27 public pages and passed its internal link checks.
-
-The Ruby YAML parser loaded every `.github/workflows/*.yml` file successfully, and `git diff --check` passed.
-
-`actionlint` and `yamllint` were not available in the validation environment and were skipped. UI execution was not run locally because this QA layer does not alter the approved isolated `make test-ui-dev` invocation; the live pull-request macOS jobs were independently observed as skipped under the trusted repository policy below.
+`make xcodeproj` passed. The approved `make test-ui-dev` command reached Xcode but failed before UI tests while validating the existing `SwiftTermBuildInfoPlugin` (`xcodebuild` Error 65); this is recorded as an infrastructure/build-plugin failure, not a passing UI result. Screenshots remain pending the same isolated UI build path.
 
 ## Read-only GitHub verification
 
-PR #357 (`feat-strict-ci-gate-integration`) was verified at head `3f31f2af92d314ab3267343ced24717d546ced78`, and PR #358 (`feat-strict-ci-gate-guidance`) was verified at head `f2f436dc259585de5b1302a99c2e83b860269121` after the checkout-permission correction was rebased into the guidance layer.
-
-The refreshed PR #358 checks showed success for PR Description Check, WIP Check, no-code-comments, no-fixed-width-prose, Documentation, SwiftLint, and the trusted macOS policy-resolution jobs. The `swift test`, UI, and dependency/toolchain macOS jobs were skipped because the trusted repository variable `ENABLE_MACOSX_JOBS` was read as exactly `false`; this is an explicit disabled-policy state, not a test pass. The OpenSpec check was observed before formal stack metadata was linked and was not treated as final evidence until that link was completed.
-
-The repository variable lookup was read-only and returned `ENABLE_MACOSX_JOBS=false`. The current main ruleset was also read-only inspected: it still requires the pre-migration individual contexts and does not contain `ci-gate`. The default-branch workflow listing likewise does not yet contain `ci-gate`, because the workflow is not live until its implementation layer reaches `main`.
-
-The temporary non-authoritative smoke workflow was run for real by GitHub Actions on PR #359. Runs [34292172929](https://github.com/JustinDFuller/agent-session-manager/actions/runs/34292172929), [34292236386](https://github.com/JustinDFuller/agent-session-manager/actions/runs/34292236386), and [34292289359](https://github.com/JustinDFuller/agent-session-manager/actions/runs/34292289359) exposed diagnostics and summary-file plumbing issues; the fixes were pushed in subsequent commits. Run [34292342480](https://github.com/JustinDFuller/agent-session-manager/actions/runs/34292342480) then demonstrated live GitHub check collection, but exposed GitHub's pull-request-files array response shape. The corrected implementation was exercised again by [34292862369](https://github.com/JustinDFuller/agent-session-manager/actions/runs/34292862369), which completed the evaluator against head `4acc6ab4f1dd676e82a7673234c707b14354dc6e`, matched all available checks with exact provenance, classified the three macOS checks as `disabled-policy`, and failed only because `openspec-guide` was unavailable before its base-owned workflow reaches `main`. These are real GitHub execution results, not fabricated workflow data; the final failure is retained as evidence of the current stacked-branch limitation rather than hidden by changing the production policy.
-
-The current ruleset therefore remains a manual owner-owned transition and this QA evidence makes no claim of live production `ci-gate` enforcement. The documented transition requires recording the complete existing ruleset, registering the GitHub Actions `ci-gate` context with strict status enforcement, preserving code-owner review, thread resolution, non-fast-forward protection, and human-only bypass, then re-reading and verifying the complete result. No repository administration settings were changed by QA.
-
-The disposable verification used the real stacked pull requests and repository API state; no fabricated sessions, workflow results, candidate policy, or production application state were created.
+The current repository variable readback is `ENABLE_MACOSX_JOBS=false`, so relevant macOS validation must be reported as `disabled-policy` and documentation-only changes as `not-applicable`; neither is a test pass. The final evidence will identify each retained stack layer, its current head, the native `ci-gate` result, and the complete ruleset readback. It will not claim live production enforcement until the external ruleset migration is complete.
