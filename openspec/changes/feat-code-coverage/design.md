@@ -1,49 +1,50 @@
 ## Context
 
-The existing `unit-tests.yml` workflow already runs `swift test --enable-code-coverage` on `macos-15`, but it is triggered only by pull requests and manual dispatch and stops before exporting or uploading coverage. SwiftPM produces coverage JSON and LLVM profile data that include package dependencies, while GitHub Code Quality accepts Cobertura XML through `actions/upload-code-coverage@v1`. The existing `ENABLE_MACOSX_JOBS` variable must remain the policy gate for macOS work.
+The existing `.github/workflows/unit-tests.yml` runs `swift test --enable-code-coverage` on macOS 15, but it does not export or expose a readable coverage report. SwiftPM and LLVM output can include package dependencies, so the report must be filtered to repository sources. The repository wants ordinary CI output and a downloadable artifact rather than GitHub's separately billed native Code Quality coverage service. The existing `ENABLE_MACOSX_JOBS` policy gate remains authoritative.
 
 ## Goals / Non-Goals
 
-**Goals:**
+Goals:
 
 - Reuse the existing unit-test execution so coverage does not require a second macOS test run.
-- Publish source-filtered coverage for both `main` baselines and pull-request comparisons.
-- Keep conversion deterministic, dependency-free, locally testable, and explicit about malformed input.
-- Preserve fork safety and distinguish disabled macOS policy from successful coverage.
+- Produce a source-filtered coverage summary and LCOV artifact for main pushes, pull requests, and manual runs.
+- Validate the report deterministically and reject dependency or build paths.
+- Preserve fork safety, read-only permissions, and honest reporting when macOS jobs are disabled.
 
-**Non-Goals:**
+Non-goals:
 
 - Adding UI-test or screenshot coverage.
-- Adding a third-party coverage service or package dependency.
-- Enforcing a coverage threshold or modifying branch protection.
+- GitHub Code Quality or a hosted coverage service.
+- Coverage thresholds or branch-protection changes.
+- New package dependencies or application runtime changes.
 
 ## Decisions
 
 ### Extend the existing unit-test workflow
 
-The coverage pipeline will be added to `.github/workflows/unit-tests.yml` instead of creating a second workflow that repeats the approximately one-minute unit-test run. The workflow will retain `workflow_dispatch` for diagnostics, add `push` on `main` for the baseline, and continue to gate the job on `ENABLE_MACOSX_JOBS == 'true'`. Coverage upload will be limited to pull-request and `main` push events.
+Add reporting to `.github/workflows/unit-tests.yml` rather than running a second macOS test job. Retain manual dispatch, add pushes to `main`, and preserve the `vars.ENABLE_MACOSX_JOBS == 'true'` gate. The LCOV file is uploaded only after tests and report validation succeed.
 
 ### Measure the pull-request head commit
 
-Checkout will explicitly use `${{ github.event.pull_request.head.sha || github.sha }}` so source paths and line numbers in the report correspond to the reviewed commit rather than the synthetic pull-request merge commit. This follows GitHub Code Quality's coverage guidance and keeps baseline uploads on the pushed commit SHA.
+Checkout `ref: ${{ github.event.pull_request.head.sha || github.sha }}`. Pull requests therefore measure the submitted head commit, while pushes and manual runs measure the workflow SHA.
 
-### Export with LLVM and convert with a standard-library utility
+### Export filtered LCOV directly with LLVM
 
-After `swift test --enable-code-coverage`, the workflow will locate the generated test executable and run `llvm-cov export --format=lcov` with the repository source directories as filters. A new Python standard-library utility will parse LCOV records, allow only `Sources/AgentSessionManager` and `Sources/AgentSessionManagerMCPBridgeCore`, normalize paths to the checkout, and emit Cobertura XML with per-file line counts and aggregate line-rate metadata. It will reject malformed records, missing source files, paths outside the allowlist, and empty reports.
+After `swift test --enable-code-coverage`, locate the test executable from SwiftPM's build output instead of hardcoding a toolchain-specific path. Run `llvm-cov export --format=lcov --instr-profile=...` against the test executable and the repository source roots `Sources/AgentSessionManager` and `Sources/AgentSessionManagerMCPBridgeCore`. Validate that the report is nonempty and every `SF:` path is within those roots; reject `.build/checkouts` and other build paths. Run `llvm-cov report` to print the line-coverage summary. Store the validated report at a stable path such as `.build/coverage/unit-test-coverage.info`.
 
-This avoids a third-party converter dependency. Directly consuming SwiftPM's JSON would retain LLVM-specific segment details that are unnecessary for GitHub's line-oriented Cobertura input, while replacing the existing SwiftPM test path with Xcode result-bundle coverage would add an unrelated UI/build-system migration.
+Direct LCOV keeps the output readable and avoids a converter or third-party service. Replacing the existing SwiftPM test path with Xcode result-bundle coverage would add an unrelated UI/build-system migration.
 
-### Validate before upload and fail on upload errors
+### Use a standard Actions artifact
 
-The converter test suite will cover valid records, uncovered lines, multiple files, path filtering, XML escaping, malformed input, and empty output. The workflow will validate the generated XML before upload. The upload action will use the repository's required Code Quality permission and its default failure behavior so missing or rejected coverage remains visible.
+Upload the LCOV file with `actions/upload-artifact@v7` under a stable name such as `unit-test-coverage`. This is an ordinary workflow artifact and does not require a Code Quality permission, a hosted service, or repository write access. The workflow permissions remain limited to `contents: read`.
 
 ### Protect fork pull requests
 
-The upload step will use the same-repository condition recommended by GitHub: uploads are allowed for non-PR events or pull requests whose head repository equals the current repository. Fork pull requests may run tests but will not attempt a Code Quality write. The workflow will use only read permissions plus `code-quality: write` and pull-request read access needed by the upload action.
+The standard artifact is compatible with fork pull requests without repository write access. Pull requests still use the existing read-only workflow permissions, and a disabled macOS job remains skipped rather than being described as a successful coverage measurement.
 
 ## Risks / Trade-offs
 
-- [Risk] LLVM coverage output paths or test-binary locations vary between Swift toolchains → [Mitigation] derive paths from SwiftPM's reported build output, use explicit source-root filters, and test the workflow's structural assumptions locally.
-- [Risk] The standard-library converter becomes a maintenance point → [Mitigation] keep its input/output contract small, add fixture-based tests, validate the final XML, and avoid supporting formats beyond the LCOV records emitted by this workflow.
-- [Risk] macOS CI policy or GitHub Code Quality availability prevents an upload → [Mitigation] preserve the existing policy gate, expose skipped/failed states honestly, and document Code Quality enablement as a repository prerequisite.
-- [Risk] Dependency source paths accidentally inflate reported coverage → [Mitigation] enforce the two repository source-root allowlists in both conversion logic and tests.
+- Toolchain-specific executable and profile paths require deriving locations from SwiftPM output and validating them locally and in hosted CI.
+- An incorrect source filter could hide coverage, so the validator rejects every `SF:` path outside the two allowed repository source roots.
+- When macOS jobs are disabled, coverage remains skipped and is not reported as a successful measurement.
+- Standard artifacts are downloadable rather than an inline PR coverage comparison, which is an accepted trade-off for avoiding the separately billed native service.
