@@ -1,8 +1,14 @@
 name: Unit Tests
 
 on:
+  push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: unit-tests-${{ github.ref }}
@@ -15,6 +21,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Check supported toolchain floor
         run: bash scripts/check-toolchain.sh
@@ -27,3 +35,26 @@ jobs:
 
       - name: Run unit tests
         run: swift test --triple "$(uname -m)-apple-macosx14.0" --enable-code-coverage
+
+      - name: Locate coverage inputs
+        run: |
+          echo "TEST_BIN=$(find "$(swift build --show-bin-path)" -type f -path '*.xctest/Contents/MacOS/*' -perm -111 | head -n 1)" >> "$GITHUB_ENV"
+          echo "PROFILE=$(find .build -type f -name '*.profdata' | head -n 1)" >> "$GITHUB_ENV"
+
+      - name: Export filtered LCOV report
+        run: |
+          test -n "$TEST_BIN"
+          test -n "$PROFILE"
+          mkdir -p .build/coverage
+          xcrun llvm-cov export --format=lcov --instr-profile="$PROFILE" "$TEST_BIN" > .build/coverage/raw.info
+          node .github/scripts/coverage-report.mjs --input .build/coverage/raw.info --output .build/coverage/unit-test-coverage.info --root "$GITHUB_WORKSPACE"
+
+      - name: Print LLVM line coverage summary
+        run: xcrun llvm-cov report --instr-profile="$PROFILE" "$TEST_BIN" Sources/AgentSessionManager Sources/AgentSessionManagerMCPBridgeCore
+
+      - name: Upload unit-test coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-coverage
+          path: .build/coverage/unit-test-coverage.info
+          if-no-files-found: error
